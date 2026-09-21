@@ -1,0 +1,6 @@
+# Workspace layout — docs/package/36-Technical-Architecture-Audit.md §8.
+# apps/ = deployables · modules/ = one module per package (hexagonal) · packages/ = shared kit.
+packages:
+  - "apps/*"
+  - "modules/*"
+  - "packages/*"
