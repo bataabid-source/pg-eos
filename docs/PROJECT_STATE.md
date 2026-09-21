@@ -6,12 +6,12 @@ Maintained by pg-scribe only, in the same commit as the task it records.
 | field | value |
 |---|---|
 | Phase | 0 — Foundation |
-| Current task | **BOOTSTRAP-001** (PROJECT-SETUP-GUIDE §4) → then **0.4** monorepo skeleton (`docs/package/38-WBS.md`) |
+| Current task | **0.4** — monorepo skeleton (`docs/package/38-WBS.md`) — next session; BOOTSTRAP-001 DONE |
 | Golden slice (2.9) | not built · `.golden-slice-accepted` absent · `scripts/new-slice.sh` is a no-op |
 | Deployment tier | Tier 0 (`docs/package/42-Oracle-Cloud-Deployment.md`) |
 | Schema | `database/schema/01 · 13 · 13B · 019` — the ONLY permitted schema · `apply.sh --recreate` **not yet run on this machine** |
 | Session model | sonnet (opus only for the 2.9 session, an ADR, a security review, or a second failure) |
-| Setup check | `bash scripts/check-setup.sh` — all files present; tool WARNs are listed under Blockers |
+| Setup check | `bash scripts/check-setup.sh` → FILES READY (2026-09-21); BOOTSTRAP-001 §9 checks all green; `apply.sh --recreate` NOT RUN · `pnpm lint` NOT RUN (tools absent) |
 
 ## Lanes
 
@@ -24,18 +24,20 @@ Maintained by pg-scribe only, in the same commit as the task it records.
 
 | task | commit |
 |---|---|
-| SETUP-000 — package v4 + schema + kit + backlog + decision log imported (no agent session) | `<hash — the first commit on main>` |
+| BOOTSTRAP-001 — kit verified/completed (BOOTSTRAP-v5 §9), first hash recorded, apply.sh NOT RUN | `<hash of the BOOTSTRAP-001 commit — written by pg-scribe in the 0.4 commit>` |
+| SETUP-000 — package v4 + schema + kit + backlog + decision log imported (no agent session) | `bab005a` |
 
 ## Blockers
 
-- **Environment (GM machine), not a code blocker:** `pnpm`, Docker Desktop and `psql` 16 were absent at the last `/resume` pre-check. BOOTSTRAP-001 can run without them (it writes files only) but must record `apply.sh --recreate` as NOT RUN; task 0.4 needs pnpm; §3 of PROJECT-SETUP-GUIDE needs Docker + psql. Install → rerun `scripts/check-setup.sh`.
+- **Environment (GM machine), not a code blocker:** `pnpm`, Docker Desktop and `psql` 16 absent at BOOTSTRAP-001 (2026-09-21): `apply.sh --recreate` and the lint-boundary test recorded NOT RUN; task 0.4 needs pnpm; §3 of PROJECT-SETUP-GUIDE needs Docker + psql. Install → rerun `scripts/check-setup.sh` → §3.
+- **Git in the Claude-connected folder cannot delete its lock files** (`.git/*.lock` → `stale-*.lock-*`); delete those by hand in Explorer/Git Bash. Commits from Git Bash are unaffected.
 - A REAL BLOCKER is only: the acceptance test cannot be run · a money/permission/legal decision is absent from EXECUTION-MASTER-v4 Part 1 · a schema object is missing and G-01 does not allow adding it. Everything else: state one default, record it in CHANGELOG, proceed.
 
 ## Next 3 tasks
 
-1. **BOOTSTRAP-001** — complete the kit (not re-derive it): verify 15 briefs ≤ 120 lines, `.gitignore`, first commit hash into this table, `apply.sh --recreate` result recorded (or NOT RUN + reason).
-2. **0.4** — monorepo skeleton (lane B, pg-backend) — unblocks 0.9 and 0.13/0.14. Needs pnpm.
-3. **0.9** — after 0.4 (lane B) — then 0.10 · 0.11 · 0.12 in parallel; **0.6** CI (Master) needs 0.4 **and** 0.5 (lane A).
+1. **0.4** — monorepo skeleton (lane B, 🔧 SYSADMIN / pg-backend) — unblocks 0.9 and 0.13/0.14. Needs pnpm; its acceptance (`pnpm build` green · cross-module import fails lint) covers the BOOTSTRAP-v4 §9 lint-boundary item deferred here.
+2. **0.9** — after 0.4 (lane B) — then 0.10 · 0.11 · 0.12 in parallel.
+3. **0.6** — CI, the seven named gates (Master) — needs 0.4 **and** 0.5 (lane A).
 
 ## Notes
 
