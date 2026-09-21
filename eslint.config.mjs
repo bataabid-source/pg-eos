@@ -70,6 +70,12 @@ export default tseslint.config(
       '**/build/**',
       '**/.turbo/**',
       '**/coverage/**',
+      // Each `.claude/worktrees/<id>` is a separate git worktree of this same repo (a concurrent
+      // Claude Code session on its own branch). Left unignored, its nested tsconfig.json/eslint
+      // config make typescript-eslint's project discovery ambiguous ("multiple candidate
+      // TSConfigRootDirs") for every file in THIS checkout too — not just the worktree's own
+      // files. Each worktree lints itself independently when its own session runs `pnpm lint`.
+      '.claude/worktrees/**',
       'docs/**',
       'database/**',
       'infra/**',
