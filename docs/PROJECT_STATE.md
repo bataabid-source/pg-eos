@@ -22,9 +22,9 @@ None claimed. Live table: `tasks/LANE_LOCKS.md` — Phase 0 and the golden slice
 
 | task | commit |
 |---|---|
-| 0.4 — monorepo skeleton: pnpm workspace · Turborepo · TS strict · ESLint boundaries (3 layers) | `<hash of the 0.4 commit — written by pg-scribe in the 0.9 commit>` |
+| SCR-I18N-01 — Amharic (`am`) added as a sixth field-app language across the governing package (G-01 · D-001); `42c72ba` corrected | `<this commit — written by pg-scribe in the next commit>` |
+| 0.4 — monorepo skeleton: pnpm workspace · Turborepo · TS strict · ESLint boundaries (3 layers) | `05674b5` |
 | BOOTSTRAP-001 — kit verified/completed (BOOTSTRAP-v5 §9), first hash recorded, apply.sh NOT RUN | `aca1b16` |
-| SETUP-000 — package v4 + schema + kit + backlog + decision log imported (no agent session) | `bab005a` |
 
 ## Blockers
 

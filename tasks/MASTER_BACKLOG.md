@@ -119,7 +119,7 @@ Type: 🧑 human decision/data · 🤖 AI-buildable slice · 🔧 infra · ✅ v
 | 3.19 | Weekly capacity report to iMile | 🤖 | 3.16 | **3** | GM | Auto-generated | TODO |
 | 3.20 | Scenarios S3, S4, S15, S16 pass | ✅ | 3.18 | **M** | DEL_MGR | Playwright green | TODO |
 | 3.21 | Driver app lab test (doc 34 protocol) — must beat iMile by ≥ 2 taps | ✅ | 3.10 | **M** | DEL_MGR | Median from 3 drivers recorded | TODO |
-| 3.22 | Driver training (60 min, 5 languages) + super-user sign-off | 🧑 | 3.21 | **A** | DEL_MGR | Sign-off recorded | WAITING_GM |
+| 3.22 | Driver training (60 min, 6 languages) + super-user sign-off | 🧑 | 3.21 | **A** | DEL_MGR | Sign-off recorded | WAITING_GM |
 
 **Phase gate:** 3.2 data gate (Lane A) · full station day from PG-EOS · zero audit problem > 24 h · 3.21 target met.
 

@@ -4,6 +4,51 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## SCR-I18N-01 — Amharic (`am`) added as a sixth field-app language, in the governing package (2026-09-21)
+
+- **Rule change, not a correction.** `42c72ba` added `am` to `CLAUDE.md`, the five `.claude/agents/`
+  files and `docs/DECISION_LOG.md` — all of them **downstream** of the package — while every governing
+  source still read `ar, en, hi, ur, bn`. The language list originates in the **doc 40 closing note**,
+  rank **1** on the R-01 ladder; under R-01 the higher document governs and the lower one is the one
+  that gets corrected, so a sixth language cannot be introduced by editing the files that cite it.
+  The GM confirmed the directive is real, so it was raised as **SCR-I18N-01** under
+  EXECUTION-MASTER-v4 §1.11 (G-01), recorded as **D-001**, and applied top-down.
+  Full request and reasoning: `docs/notes/SCR-I18N-01-amharic.md`.
+- **Seven findings from `42c72ba`, all closed.** (1) the citation did not support the change — doc 40
+  said five; (2) `docs/DECISION_LOG.md:106` sits under `## Seed — EXECUTION-MASTER-v4 PART 1 (verbatim)`
+  and was edited while its source `EXECUTION-MASTER-v4.md:168` was not, desynchronising a section whose
+  contract is that it is verbatim; (3) the row then read "5 languages" beside a six-item list;
+  (4) ten package locations were left at five; (5) no WBS ID and none of the `Model:` / `Delegated:` /
+  `Review:` trailers; (6) it changed the frozen `CLAUDE.md` and `.claude/*` outside a single-lane Master
+  task — this commit is that task; (7) `DEC-002` was a prose block with a prefix the log does not use,
+  numbered after a `DEC-001` that never existed — replaced by the conforming row **D-001**.
+- **16 lines across 12 files.** Governing: doc 40:714 (rank 1) · EXEC-v4:168 and :585 (rank 3) ·
+  doc 38:131, task 3.22 (rank 5) · BOOTSTRAP-v4:211 (rank 8). Reference: 19:506 · 28:62,204 ·
+  30:37,323 · D-03:720,873 · D-06:675 · D-15:890. Derived: `DECISION_LOG.md:106` resynced to its
+  EXEC-v4 source · `tasks/MASTER_BACKLOG.md:122` (mirror of doc 38). The admin console is untouched
+  and stays **ar / en** — the directive concerns the workforce, not back-office users.
+- **Three things deliberately left alone.** `AUDIT-REPORT-v4.md:215` is the closed record of finding
+  OPS-46 (four languages → five) and is history, not a live statement — rewriting it would falsify the
+  audit trail. **Doc 29 carries no language statement at all**; its "§6" citation supports the *admin*
+  `ar / en` half, and inventing a six-language line there would have repeated the fault being fixed.
+  Doc 40 §A5 has no list either, so docs 28 and 15 were re-pointed at the closing note, where the list
+  actually lives.
+- **Filesystem freeze respected.** Docs 19, 30, 38 and 40 carried a read-only attribute; it was cleared
+  for the edit and restored — 10 read-only package files before, 10 after. The attribute covers only
+  10 of 57 package files and does not track the R-01 ladder (rank-3 EXEC-v4 is writable, rank-5 doc 38
+  is not), so it reads as a copy artifact rather than a control; flagged, not "fixed".
+- **No code impact.** `packages/` holds only `.gitkeep`; `packages/i18n` does not exist and no `.ts`,
+  `.tsx` or `.json` file referenced `am` before this change or does now. The rule lands ahead of the
+  implementation, which is the right order.
+- **Open items carried into `docs/notes/SCR-I18N-01-amharic.md` §5** — Amharic is **LTR in Ge'ez script**,
+  so the `packages/i18n` direction map must group it with `en`/`hi`/`bn` and `pg-frontend`'s
+  "RTL is the default" needs it in the LTR exception list; Ge'ez font coverage on the industrial PDA is
+  unverified against doc 30 §W6 and is worth settling before WBS 2.16; `D-15` decision **D-2** stays
+  ⏳ GM; and Amharic translation sourcing has no named owner.
+- Also filled the placeholder hash for 0.4 in `docs/PROJECT_STATE.md` (`05674b5`), which the file had
+  left pending for the next commit to write.
+- Model: opus (Master direct — single-lane governance task; frozen paths) · Delegated: none · Review: PASS(7 findings fixed) · tokens: ≈ 140k.
+
 ## 0.4 — monorepo initialised: pnpm workspace · Turborepo · TypeScript strict · ESLint boundaries (2026-09-21)
 
 - **Acceptance (doc 38 row 0.4): `pnpm build` green · cross-module import fails lint — both green**, and

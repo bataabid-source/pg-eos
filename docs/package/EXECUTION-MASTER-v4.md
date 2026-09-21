@@ -165,7 +165,7 @@ Every open item that blocks a WBS task is closed here. Values are defaults in `p
 | Document series (`platform.counters`) | Receipts **`RCT`** only (`RCP` / `RC` removed) · government fees **`GOV`** · invoices **`INV`** | §1.6 |
 | Break-glass credentials | Physical safe at head office; GM + CFO know location | Doc 26 |
 | Data residency | Tier 0 holds seed/test data only; **legal opinion required before real client data on Tier 0/2** — WBS 7.9 | §6.2 item 4 · WBS 7.9 |
-| Language switcher | **ar / en** in admin; 5 languages in field apps | Doc 40 closing note (i18n ar, en, hi, ur, bn) · doc 29 §6 |
+| Language switcher | **ar / en** in admin; 6 languages in field apps | Doc 40 closing note (i18n ar, en, hi, ur, bn, am) · doc 29 §6 · D-001 |
 | Owners' view | **KPIs and margins; no payroll, no per-employee data** | Doc 29 §6 |
 
 **Nothing remains open that blocks any WBS task. The two items outside the mandate — naming the deputy and sending the iMile letter — are GM signatures, not decisions.**
@@ -582,7 +582,7 @@ AGENT CONSTRAINTS — violating any of these is a defect, not a style choice:
 - No `db.*` call outside withContext(). No `any`, `@ts-ignore`, `eslint-disable`.
 - Never weaken or skip a test to make it pass — fix the underlying code.
 - No `if`/`switch` for state transitions — use an XState machine.
-- No embedded UI string in any language — use the i18n package (ar, en, hi, ur, bn).
+- No embedded UI string in any language — use the i18n package (ar, en, hi, ur, bn, am).
 - No magic numbers — use named constants or platform.thresholds.
 - No `console.log` — use the pino logger. No `Math.random()` or `new Date()` inside domain/ —
   inject a generator and a clock port so domain logic is deterministic and testable.

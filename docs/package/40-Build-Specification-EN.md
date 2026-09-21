@@ -711,4 +711,4 @@ Migrations produced during the build live in `database/migrations`, numbered by 
 
 ---
 
-*End of specification. Identifiers, code, commits and technical docs in English; user-facing text via i18n (ar, en, hi, ur, bn).*
+*End of specification. Identifiers, code, commits and technical docs in English; user-facing text via i18n (ar, en, hi, ur, bn, am).*
