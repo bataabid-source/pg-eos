@@ -24,6 +24,8 @@
   },
   "devDependencies": {
     "@seriousme/openapi-schema-validator": "^2.10.0",
+    "@types/node": "^24.13.6",
+    "fast-check": "^4.10.2",
     "typescript": ">=5.7.0 <6.1.0",
     "vitest": "^4.1.11"
   }
