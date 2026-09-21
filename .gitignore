@@ -50,3 +50,6 @@ Thumbs.db
 # .claude/                — agents, commands, briefs, hooks and settings are the kit and are
 #   versioned with the code. Only .claude/settings.local.json is personal:
 .claude/settings.local.json
+
+# ── acceptance fixtures written by scripts/check-boundaries.sh (never committed) ──
+__check_*.ts

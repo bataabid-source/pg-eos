@@ -1,0 +1,29 @@
+{
+  "name": "pg-eos",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Premium Group — Enterprise Operating System. Modular monolith, hexagonal per module.",
+  "packageManager": "pnpm@9.15.9",
+  "engines": {
+    "node": ">=20"
+  },
+  "type": "module",
+  "scripts": {
+    "build": "turbo run build",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "lint": "eslint .",
+    "lint:boundaries": "bash scripts/check-boundaries.sh",
+    "guards:run": "bash scripts/guards-run.sh",
+    "check:setup": "bash scripts/check-setup.sh"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.11.0",
+    "eslint-import-resolver-typescript": "^4.4.5",
+    "eslint-plugin-boundaries": "^7.2.0",
+    "turbo": "^2",
+    "typescript": ">=5.7.0 <6.1.0",
+    "typescript-eslint": "^8"
+  }
+}
