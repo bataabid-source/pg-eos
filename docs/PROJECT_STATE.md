@@ -6,7 +6,7 @@ Maintained by pg-scribe only, in the same commit as the task it records.
 | field | value |
 |---|---|
 | Phase | 0 — Foundation |
-| Current task | **0.14** — `packages/domain-kit` (lane C) — 0.13 DONE, 0.9 BLOCKED on psql |
+| Current task | None READY — 0.14 DONE; 0.9 BLOCKED on psql; 0.6 awaits 0.5 WAITING_GM |
 | Golden slice (2.9) | not built · `.golden-slice-accepted` absent · `scripts/new-slice.sh` is a no-op |
 | Deployment tier | Tier 0 (`docs/package/42-Oracle-Cloud-Deployment.md`) |
 | Schema | `database/schema/01 · 13 · 13B · 019` — the ONLY permitted schema · `apply.sh --recreate` **not yet run on this machine** |
@@ -22,6 +22,7 @@ None claimed. Live table: `tasks/LANE_LOCKS.md` — Phase 0 and the golden slice
 
 | task | commit |
 |---|---|
+| 0.14 — `packages/domain-kit`: Money, Quantity, Clock, IdGenerator | `<pending>` |
 | 0.13 — `packages/contracts`: Zod → OpenAPI; ContractRegistry · Problem · Idempotency-Key · drift test | `50055f8` |
 | SCR-I18N-01 — Amharic (`am`) language added (G-01 · D-001) | `8d62747` |
 | 0.4 — pnpm · Turborepo · TS strict · ESLint boundaries | `05674b5` |
@@ -44,13 +45,13 @@ None claimed. Live table: `tasks/LANE_LOCKS.md` — Phase 0 and the golden slice
 
 ## Next 3 tasks
 
-1. **0.14** — `packages/domain-kit` (Money, Quantity, Clock, IdGenerator), lane C, unblocked by 0.4.
-   **Does not need a database** — runnable today.
-2. **0.9** — `platform`: entities, settings, counters, `next_doc_no`, `platform.outbox`, `audit_log`
+1. **0.9** — `platform`: entities, settings, counters, `next_doc_no`, `platform.outbox`, `audit_log`
    partitioned + `audit_hash_chain` (lane B, 🤖). **BLOCKED**: its acceptance needs a live database
    and `apply.sh` calls `psql` on the host (line 64) — install psql 16 first. Unblocks 0.10–0.12.
-3. **0.6** — CI, the seven named gates (Master) — needs 0.4 **and** 0.5 (lane A, WAITING_GM). Gate ①
+2. **0.6** — CI, the seven named gates (Master) — needs 0.4 **and** 0.5 (lane A, WAITING_GM). Gate ①
    must call `scripts/check-boundaries.sh`; nothing does yet.
+3. No task is READY after 0.14 DONE and 0.9 BLOCKED. All others block on either WAITING_GM lane A
+   (0.2, 0.3, 0.5, 0.7, 0.8) or on 0.9 (0.10–0.12, 0.15, Phase 1+).
 
 ## Notes
 

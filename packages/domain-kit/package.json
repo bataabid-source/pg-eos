@@ -1,0 +1,27 @@
+{
+  "name": "@pg-eos/domain-kit",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.test.json",
+    "lint": "eslint .",
+    "test": "vitest run"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/node": "^24.13.6",
+    "fast-check": "^4.10.2",
+    "typescript": ">=5.7.0 <6.1.0",
+    "vitest": "^4.1.11"
+  }
+}

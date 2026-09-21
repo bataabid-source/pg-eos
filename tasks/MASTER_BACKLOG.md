@@ -34,7 +34,7 @@ Type: 🧑 human decision/data · 🤖 AI-buildable slice · 🔧 infra · ✅ v
 | 0.11 | `packages/db`: Drizzle + `withContext()` + lint rule | 🤖 | 0.9 | **B** | SYSADMIN | `db.` outside `withContext()` fails build | TODO |
 | 0.12 | `packages/events`: outbox relay + subscriber registry | 🤖 | 0.9 | **B** | SYSADMIN | Event written in same tx as state; relay at-least-once; subscriber idempotent | TODO |
 | 0.13 | `packages/contracts`: Zod → OpenAPI generation | 🤖 | 0.4 | **C** | SYSADMIN | OpenAPI spec generated; contract test harness runs | DONE @ 50055f8 |
-| 0.14 | `packages/domain-kit`: Money, Quantity, Clock, IdGenerator | 🤖 | 0.4 | **C** | SYSADMIN | Domain tests deterministic across 1,000 runs | READY |
+| 0.14 | `packages/domain-kit`: Money, Quantity, Clock, IdGenerator | 🤖 | 0.4 | **C** | SYSADMIN | Domain tests deterministic across 1,000 runs | DONE @ <pending> |
 | 0.15 | Document engine: templates, bindings, Chromium PDF, bilingual RTL | 🤖 | 0.9 | **M** | SYSADMIN | Arabic/English PDF renders correctly; entity header auto-applied | TODO |
 | 0.16 | Column sensitivity classification: `identity.column_classification` + deploy guard, **and classify every column of 01/13/13B/019 (G6 owner: SYSADMIN, doc 22 D02)** | 🤖 | 0.9 | **M** | SYSADMIN | Unclassified column fails deploy **and** G6 returns 0 on the applied schema; every later migration classifies its own columns (review point 4) | TODO |
 | 0.17 | M01 Identity: OTP login, sessions (revocable), roles, permissions, `user_entities`, **structure editor (roles, permission matrix, domain owners, approval chains, delegations, SoD rules)** | 🤖 | 0.11 | **M** | SYSADMIN | Every role logs in and sees only its scope; SoD-violating role assignment rejected; structure editable without deploy | TODO |
