@@ -1,0 +1,15 @@
+stateDiagram-v2
+  [*] --> sellable
+  sellable --> reserved : حجز من المبيعات بمدة ≤ 30 يوماً
+  sellable --> allocated : تخصيص تعاقدي مباشر باعتماد CFO
+  sellable --> blocked : تعطيل أو صيانة أو عازل 7%
+  reserved --> allocated : تحويل الحجز · convert_reservation
+  reserved --> sellable : انتهاء المدة أو إلغاء
+  allocated --> occupied : وصول بضاعة العميل
+  allocated --> idle : متعاقد ولا بضاعة · فرصة بيع متقاطع
+  idle --> occupied : وصول بضاعة لاحقاً
+  occupied --> overflow : المشغول يتجاوز المتعاقد · ST-12 و N-11
+  overflow --> allocated : زيادة التعاقد بعد 3 أشهر تجاوز
+  occupied --> allocated : صرف البضاعة والعقد ساري
+  allocated --> sellable : انتهاء العقد أو إنهاؤه
+  blocked --> sellable : انتهاء مدة التعطيل

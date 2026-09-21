@@ -1,0 +1,6 @@
+flowchart LR
+  a["فاتورة معتمدة بخطأ أو تسوية"] --> b["CFO يطلب · credit_notes draft · invoice_id و reason إلزاميان"]
+  b --> c["GM يعتمد · لا اعتماد آلي إطلاقاً"]
+  c --> d["status = approved · رقم من سلسلة CN"]
+  d --> e["status = applied · تخفيض رصيد الفاتورة"]
+  e --> f["قيد عكسي: مدين 4xxx إيراد · دائن 1200 ذمم عملاء"]

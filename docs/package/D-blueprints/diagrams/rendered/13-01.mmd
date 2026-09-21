@@ -1,0 +1,50 @@
+flowchart TB
+  t1["space_blocks · الطاقة والنوع والوحدة"]
+  t2["space_blocks_out_of_service · المعطَّل والعازل 7%"]
+  t3["space_allocations · المتعاقد"]
+  t4["space_reservations · المحجوز بمدة"]
+  t5["occupancy_snapshots · المشغول يومياً 00:30"]
+  t6["locations و stock_balance · اللحظي بالموقع"]
+
+  v1["wms.space_dashboard · قائم"]
+  v2["wms.warehouse_capacity · قائم"]
+  v3["wms.space_by_type · جديد"]
+  v4["wms.client_space_overview · جديد"]
+  v5["wms.space_trend_30d · جديد"]
+  v6["wms.reservations_aging · جديد"]
+  f1["space_availability · دالة قائمة"]
+
+  d1["لوحة المدير العام"]
+  d2["لوحة المبيعات"]
+  d3["لوحة العميل في النافذة"]
+
+  t1 --> v1
+  t2 --> v1
+  t3 --> v1
+  t4 --> v1
+  t5 --> v1
+  t1 --> v3
+  t2 --> v3
+  t3 --> v3
+  t4 --> v3
+  t5 --> v3
+  t3 --> v4
+  t4 --> v4
+  t5 --> v4
+  t5 --> v5
+  t4 --> v6
+  t1 --> v2
+  t6 --> v2
+  t1 --> f1
+
+  v1 --> d1
+  v3 --> d1
+  v4 --> d1
+  v5 --> d1
+  v6 --> d1
+  v1 --> d2
+  v3 --> d2
+  v6 --> d2
+  f1 --> d2
+  v4 --> d3
+  v5 --> d3

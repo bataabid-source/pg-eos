@@ -1,0 +1,71 @@
+# PG-EOS · local development database — Tier 0 shape, nothing else.
+#
+#   docker compose -f infra/docker/docker-compose.yml up -d postgres
+#   PGHOST=localhost PGPORT=5432 PGUSER=postgres PGDATABASE=pgeos database/schema/apply.sh --recreate
+#
+# Expected (PROJECT-SETUP-GUIDE §3): zero errors · 175 tables · 3,330 locations · G1–G13 = 0 ·
+# G7 = 0 · G-SEED = 0 · G6 non-blocking until WBS 0.16. If this is not green, stop — nothing else
+# should start.
+#
+# This file holds the database only. Application services, the queue worker and the reverse proxy
+# are added by their own WBS tasks; a service that is not in doc 42 does not belong here.
+
+name: pg-eos
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: pg-eos-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: pgeos
+      POSTGRES_USER: postgres
+      # Local development only. The container is bound to the loopback interface below and is
+      # never reachable from the network, so no password is set for local connections.
+      # Tier 0 (doc 42) uses scram-sha-256 with a secret from the host — never this setting.
+      POSTGRES_HOST_AUTH_METHOD: trust
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+      TZ: Asia/Kuwait
+    command:
+      - postgres
+      - -c
+      - listen_addresses=*
+      - -c
+      - max_connections=200
+      - -c
+      - shared_buffers=256MB
+    ports:
+      # loopback only — the local database is not published to the network
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - pgeos-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d pgeos"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  # Optional. Started only on request:
+  #   docker compose -f infra/docker/docker-compose.yml --profile tools up -d pgadmin
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: pg-eos-pgadmin
+    profiles: ["tools"]
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: dev@localhost
+      # Set PGADMIN_PASSWORD in your shell before starting this profile; it is never committed.
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:?set PGADMIN_PASSWORD in your shell first}
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+    ports:
+      - "127.0.0.1:5050:80"
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  pgeos-data:
+  pgadmin-data:

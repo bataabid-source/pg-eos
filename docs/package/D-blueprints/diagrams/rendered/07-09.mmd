@@ -1,0 +1,10 @@
+stateDiagram-v2
+  [*] --> open
+  open --> decided: بتّ صاحب الدور أو نائبه
+  open --> expired: انقضاء due_at بلا بتّ
+  open --> auto_resolved: زوال سبب البند
+  open --> cancelled: إلغاء إداري بسبب
+  decided --> [*]
+  expired --> [*]
+  auto_resolved --> [*]
+  cancelled --> [*]

@@ -1,0 +1,20 @@
+sequenceDiagram
+  participant OP as WH_OP
+  participant SUP as WH_SUP
+  participant SYS as النظام
+  participant DM as DEL_MGR
+  participant DS as DEL_SUP
+  participant DR as DRIVER
+
+  SYS->>OP: أمر عمل load · خدمة OF-09
+  OP->>OP: مسح الشحنة ثم المركبة · عداد حي
+  OP->>SYS: إقفال التحميل · يُرفض إن نقص شيء
+  SYS->>SUP: الأمر loaded · مانيفست الحمولة
+  SUP->>SYS: dispatched · توقيع خروج البضاعة
+  SYS->>SYS: إنشاء tms.delivery_tasks بحالة created
+  SYS->>DM: مهمة جاهزة للتوزيع
+  DM->>DR: إسناد سائق ومركبة ومسار · assigned
+  Note over DM,DR: INV-C4-1 · وثيقة منتهية ⇒ لا إسناد
+  DS->>DR: مسح التحميل · تسليم الأقفاص
+  DR->>SYS: أول مسح ⇒ out_for_delivery
+  Note over DR,SYS: هنا تنتقل العهدة · مسح خارج العهدة مرفوض

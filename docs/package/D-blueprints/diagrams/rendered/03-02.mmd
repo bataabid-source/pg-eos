@@ -1,0 +1,34 @@
+flowchart TB
+  wh["WH1 · ميناء عبدالله · PST · 1,423.404 م²"]
+  zs["11 منطقة"]
+  st["4 مناطق تخزين · P · G · M · T"]
+  opz["6 مناطق تشغيل · RCV · QRT · STG · SHP · RTN · DMG"]
+  xz["منطقة إنشائية · X"]
+
+  bp["P-A 288 · P-A1 12"]
+  bg["G-B 906 · G-C 45"]
+  bm["M-B 906 · M-C 45"]
+  bt["T-B 906 · T-C 45"]
+
+  loc["3,153 موقع تخزين"]
+  ops["30 موقع تشغيل"]
+  xx["147 موقع إنشائي محجوب · بادئة X-"]
+  tot["3,330 كوداً · 3,301.641 م³ · 3,830.895 م² · 2,439,750 كجم"]
+
+  wh --> zs
+  zs --> st
+  zs --> opz
+  zs --> xz
+  st --> bp
+  st --> bg
+  st --> bm
+  st --> bt
+  bp --> loc
+  bg --> loc
+  bm --> loc
+  bt --> loc
+  opz --> ops
+  xz --> xx
+  loc --> tot
+  ops --> tot
+  xx --> tot

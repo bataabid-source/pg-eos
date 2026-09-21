@@ -1,0 +1,47 @@
+flowchart LR
+  gm[المدير العام GM]
+  cfo[المدير المالي CFO]
+  pro[مندوب العلاقات PRO]
+  hsup[مشرف السكن HOUSING_SUP]
+  dmgr[مدير القسم الطالب]
+
+  p1[الهيكل والصلاحيات والإنابة]
+  p2[الاستقدام 17 مرحلة]
+  p3[ملف الموظف والوثائق]
+  p4[الجزاءات والتظلّم]
+  p5[السكن والإسناد والصيانة]
+  p6[المشتريات والعهد]
+  p7[المعاملات الحكومية]
+  p8[محرّك الاعتمادات]
+
+  d1[نموذج طلب قوى عاملة وخطاب التعيين]
+  d2[قرار الجزاء ومحضر التحقيق]
+  d3[تسليم وإخلاء سكن]
+  d4[أمر شراء ومحضر استلام]
+  d5[سند صرف GOV والوثيقة الحكومية]
+
+  t1[(identity roles user_roles sod_rules delegations)]
+  t2[(hr recruitment_cases stages stage_log costs)]
+  t3[(hr employees employee_documents teams org_units)]
+  t4[(hr penalty_schedule disciplinary_cases)]
+  t5[(housing properties units rooms beds bed_assignments)]
+  t6[(admin purchase_requests orders assets petty_cash)]
+  t7[(admin gov_transactions correspondence)]
+  t8[(admin approval_requests approval_steps)]
+
+  gm --> p1 --> t1
+  gm --> p2
+  dmgr --> p2 --> d1
+  pro --> p2
+  p2 --> t2
+  pro --> p3 --> t3
+  dmgr --> p4 --> d2
+  p4 --> t4
+  hsup --> p5 --> d3
+  p5 --> t5
+  dmgr --> p6 --> d4
+  cfo --> p6 --> t6
+  pro --> p7 --> d5
+  p7 --> t7
+  cfo --> p8 --> t8
+  gm --> p8

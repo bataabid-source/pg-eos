@@ -1,0 +1,31 @@
+flowchart TB
+  c1["القنوات الأربع — نافذة · API · iMile · داخلي"]
+  s1["أمر صرف draft"]
+  s2["فحص الشروط العشرة — checks_pending"]
+  s3["مرفوض ائتمانياً — credit_rejected"]
+  s4["معتمد approved — قائمة التقاط"]
+  s5["مخصَّص allocated — FEFO أو FIFO"]
+  s6["ملتقط picked"]
+  s7["مدقَّق checked — المدقّق ليس الملتقط"]
+  s8["معبّأ packed"]
+  s9["محمَّل loaded — مانيفست الحمولة"]
+  s10["مُرسَل dispatched — تُنشأ مهمة التوصيل"]
+  t1["مهمة created ثم assigned — مانيفست السائق"]
+  t2["خرجت out_for_delivery عند أول مسح"]
+  t3["سُلِّمت delivered — POD و COD"]
+  t4["فشلت failed — عهدة السائق"]
+  t5["مرتجعة returned — إعادة تخزين"]
+  b1["billable_events pending ثم priced"]
+  b2["فاتورة draft ثم approved ثم sent"]
+  b3["الأحداث invoiced — إقفال الدورة"]
+
+  c1 --> s1 --> s2
+  s2 -->|"فشل الشرط 2"| s3
+  s2 -->|"نجاح"| s4 --> s5 --> s6 --> s7 --> s8 --> s9 --> s10
+  s10 --> t1 --> t2
+  t2 --> t3
+  t2 --> t4 --> t5
+  s7 --> b1
+  t3 --> b1
+  t5 --> b1
+  b1 --> b2 --> b3

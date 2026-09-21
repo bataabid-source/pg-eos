@@ -1,0 +1,24 @@
+sequenceDiagram
+  participant cl as نظام العميل GULF
+  participant wh as المستودع PST
+  participant tms as التوصيل PDL
+  participant dr as السائق
+  participant rc as المستلم
+  participant fi as المالية
+
+  cl->>wh: POST api v1 orders بمفتاح تفرّد client_ref
+  wh->>wh: checks_pending ثم approved ثم allocated بـ FEFO
+  wh->>wh: picking ثم picked ثم checked — المدقّق ليس الملتقط
+  wh->>fi: OF-01 و OF-02 و OF-06 و OF-07 بحالة pending
+  wh->>wh: packed ثم loaded بمانيفست الحمولة
+  wh->>tms: dispatched — تُنشأ مهمة توصيل created
+  tms->>dr: assigned بمانيفست السائق بعد حاجز الوثائق
+  dr->>dr: أول مسح تحميل ينقلها out_for_delivery
+  dr->>rc: اتصال بقالب T1 من الخادم — سجل في contact_log
+  rc->>dr: تحصيل نقدي COD بمبلغ من النظام
+  dr->>tms: POD بختم الخادم وموقع وتوقيع واسم المستلم
+  tms->>wh: المهمة delivered — أمر الصرف يصير delivered
+  tms->>fi: DL-01 و DL-10 بحالة pending
+  dr->>fi: توريد النقد بمسح إيصال المحاسب
+  fi->>fi: مطابقة COD ليلاً ثم تسعير الأحداث priced
+  fi->>cl: فاتورتان PST و PDL مع ورقة التفصيل

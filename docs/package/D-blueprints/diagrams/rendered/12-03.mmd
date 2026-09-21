@@ -1,0 +1,12 @@
+stateDiagram-v2
+  [*] --> draft
+  draft --> released : WH_SUP يُفرج · توليد المهام
+  draft --> cancelled : WH_SUP بسبب
+  released --> in_progress : أول مهمة تنتقل إلى in_progress
+  in_progress --> on_hold : WH_SUP · استثناء أو نقص معدّة
+  on_hold --> in_progress : WH_SUP · رفع التعليق
+  in_progress --> completed : كل المهام done
+  released --> cancelled : WH_SUP بسبب
+  on_hold --> cancelled : WH_MGR بسبب
+  completed --> [*]
+  cancelled --> [*]

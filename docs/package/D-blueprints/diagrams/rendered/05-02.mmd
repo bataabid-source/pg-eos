@@ -1,0 +1,21 @@
+flowchart LR
+  caller["متصل — عميل داخلي أو خارجي"]
+  q[("cc.queues — طابور لكل عميل")]
+  agentq[("cc.agent_queues — تخصيص الوكيل")]
+  ag["CC_AGENT الوكيل"]
+  cl[("cc.calls — wait_sec و talk_sec مولَّدان")]
+  tkt[("cc.tickets")]
+  ev[("cc.ticket_events")]
+  ops[("tms.delivery_tasks — الحالة الحيّة للشحنة")]
+  ccmgr["CC_MGR مدير الكول سنتر"]
+  bev[("billing.billable_events — CC-01…CC-15")]
+
+  caller --> q
+  q --> agentq --> ag
+  ag --> cl
+  cl --> tkt
+  tkt --> ev
+  tkt -->|"related_table + related_id"| ops
+  tkt -->|"تصعيد عند ٨٠٪ من مهلة SLA"| ccmgr
+  cl --> bev
+  tkt --> bev

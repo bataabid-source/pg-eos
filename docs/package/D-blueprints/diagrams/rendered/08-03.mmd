@@ -1,0 +1,89 @@
+%% platform · المستندات والتكامل والتدقيق
+erDiagram
+    platform_documents ||--o{ platform_documents : "documents_superseded_by_fkey"
+    platform_document_templates ||--o{ platform_documents : "documents_template_id_fkey"
+    platform_document_templates ||--o{ platform_document_bindings : "document_bindings_template_id_fkey"
+    identity_roles ||--o{ platform_integration_config : "integration_config_owner_role_fkey"
+    platform_integration_config ||--o{ platform_integration_queue : "integration_queue_code_fkey"
+    platform_integration_config ||--o{ platform_integration_runs : "integration_runs_code_fkey"
+
+    platform_documents {
+        uuid id PK
+        uuid entity_id FK,UK "→ platform.entities"
+        uuid template_id FK "→ platform.document_templates"
+        uuid superseded_by FK "→ platform.documents"
+        ts generated_at
+        text status "issued · superseded · void"
+        ts signed_at
+        date retain_until
+    }
+    platform_document_templates {
+        uuid id PK
+        text code UK
+        text name_ar
+        text name_en
+        uuid entity_id FK "→ platform.entities"
+        text body_html
+        bool is_bilingual
+        bool is_active
+    }
+    platform_document_bindings {
+        uuid id PK
+        uuid template_id FK,UK "→ platform.document_templates"
+        text source_table UK
+        text trigger_state UK
+        bool auto_generate
+    }
+    platform_integration_config {
+        uuid id PK
+        text code UK
+        text name_ar
+        text direction
+        text transport
+        text schedule
+        bool is_active
+        text owner_role FK "→ identity.roles"
+    }
+    platform_integration_queue {
+        uuid id PK
+        text integration
+        jsonb payload
+        text error
+        int attempts
+        text status "pending · processing · done · failed"
+        ts resolved_at
+        text integration_code FK "→ platform.integration_config"
+    }
+    platform_integration_runs {
+        uuid id PK
+        text integration
+        ts started_at
+        ts finished_at
+        text status "running · success · failed · partial"
+        int records_in
+        int records_out
+        text integration_code FK "→ platform.integration_config"
+    }
+    platform_outbox {
+        int id PK
+        text aggregate_type
+        uuid aggregate_id
+        text event_type
+        jsonb payload
+        uuid correlation_id
+        ts published_at
+        uuid entity_id FK "→ platform.entities"
+    }
+    platform_audit_log {
+        int id PK
+        ts occurred_at PK
+        uuid user_id
+        text actor_type
+        uuid on_behalf_of
+        uuid entity_id
+        text schema_name
+        text doc_no
+    }
+    identity_roles {
+        uuid id PK "خارجي · identity.roles"
+    }

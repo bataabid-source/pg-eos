@@ -1,0 +1,9 @@
+stateDiagram-v2
+  [*] --> requested : طلب المعاملة · stage_owner إلزامي
+  requested --> submitted : التقديم للجهة · government_ref
+  submitted --> in_progress : متابعة · رسوم بسند GOV
+  in_progress --> completed : استلام الوثيقة ورفعها
+  in_progress --> rejected : رفض الجهة
+  submitted --> rejected : رفض الجهة
+  completed --> [*]
+  rejected --> [*]

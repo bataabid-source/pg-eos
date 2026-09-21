@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<!-- v4 · 21/09/2026 · التصحيحات: PLT-06 (كود الموقع بصيغة 19 §4 السباعية) · PLT-39 (حارس تحميل three.js) · PLT-40 (المناطق التشغيلية الـ30 والمواقع الإنشائية الـ147 · الإجمالي 3,330) -->
+<!-- الهندسة والثوابت (S) لم تتغيّر — مطابقة لـ019.sql و40 §C3 (PLT.md §4 بند 30) -->
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>مخزن PST — WH1 · نموذج ثلاثي الأبعاد</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+  --navy:#14284B; --copper:#B5673E;
+  --bg:#eef2f8; --panel:#ffffff; --text:#14284B; --muted:#6B7280;
+  --line:#dde4ee; --shadow:0 3px 18px rgba(20,40,75,.12);
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0b111c; --panel:#151d2b; --text:#e8edf6; --muted:#93a1b5; --line:#242f40;
+  --shadow:0 3px 18px rgba(0,0,0,.5);}}
+:root[data-theme="dark"]{--bg:#0b111c;--panel:#151d2b;--text:#e8edf6;--muted:#93a1b5;--line:#242f40;--shadow:0 3px 18px rgba(0,0,0,.5)}
+*,*::before,*::after{box-sizing:inherit}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--text);font-family:'Cairo',-apple-system,'Segoe UI',Arial,sans-serif;overflow:hidden}
+body.nogl{overflow:auto}
+#app{position:relative;height:100%;width:100%}
+canvas{display:block;width:100%;height:100%;touch-action:none}
+.panel{position:absolute;background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);font-size:13px}
+#hud{top:calc(12px + env(safe-area-inset-top,0px));inset-inline-start:12px;padding:13px 15px;min-width:230px}
+#hud h1{margin:0;font-size:15px;font-weight:700}
+#hud .sub{color:var(--muted);font-size:11px;margin:2px 0 10px}
+.stat{display:flex;justify-content:space-between;gap:16px;padding:4px 0;border-top:1px solid var(--line)}
+.stat:first-of-type{border-top:0}
+.stat b{font-variant-numeric:tabular-nums;font-weight:600}
+.stat.tot b{color:var(--copper)}
+#layers{top:calc(12px + env(safe-area-inset-top,0px));inset-inline-end:12px;padding:11px 13px;width:210px}
+#layers h2{margin:0 0 7px;font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.4px}
+.lay{display:flex;align-items:center;gap:8px;padding:5px 0;cursor:pointer;user-select:none;font-size:12px}
+.lay input{accent-color:var(--navy);width:15px;height:15px;margin:0;cursor:pointer}
+.dot{width:11px;height:11px;border-radius:3px;flex:none}
+.lay small{color:var(--muted);margin-inline-start:auto;font-variant-numeric:tabular-nums;font-size:11px}
+.sep{border-top:1px solid var(--line);margin-top:7px;padding-top:8px}
+#info{bottom:calc(12px + env(safe-area-inset-bottom,0px));inset-inline-start:12px;padding:13px 15px;min-width:230px;display:none}
+#info .code{font-size:23px;font-weight:700;letter-spacing:.6px;direction:ltr;text-align:left}
+#info .bar{height:4px;border-radius:2px;margin:9px 0 10px}
+#info .row{display:flex;justify-content:space-between;gap:16px;padding:3px 0;font-size:12px}
+#info .row span{color:var(--muted)}
+#tools{bottom:calc(12px + env(safe-area-inset-bottom,0px));inset-inline-end:12px;padding:11px 13px;width:250px}
+#search{width:100%;padding:8px 11px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--text);font-family:inherit;font-size:13px;direction:ltr;text-align:left}
+#searchhint{color:var(--muted);font-size:10px;margin-top:5px;direction:ltr;text-align:left}
+.viewbtns{display:flex;gap:6px;margin-top:9px}
+.viewbtns button{flex:1;padding:7px 0;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--text);font-family:inherit;font-size:11px;font-weight:600;cursor:pointer}
+.viewbtns button:hover{background:var(--navy);color:#fff;border-color:var(--navy)}
+#legend{position:absolute;bottom:calc(12px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);
+  background:var(--panel);border:1px solid var(--line);border-radius:20px;box-shadow:var(--shadow);
+  padding:7px 16px;display:flex;gap:14px;font-size:11px;align-items:center;white-space:nowrap}
+#legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-inline-end:5px;vertical-align:-1px}
+#note{position:absolute;top:calc(12px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);
+  background:rgba(22,163,74,.13);color:#16a34a;border:1px solid rgba(22,163,74,.32);
+  padding:6px 15px;border-radius:20px;font-size:11px;font-weight:600;white-space:nowrap}
+#hint{position:absolute;top:calc(48px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);
+  color:var(--muted);font-size:10.5px;white-space:nowrap;pointer-events:none}
+
+/* ── v4 · PLT-39 — واجهة الفشل عند تعذّر تحميل three.js ── */
+#glfail{display:none;padding:16px}
+body.nogl #glfail{display:block}
+body.nogl #hint,body.nogl #note,body.nogl #legend,body.nogl canvas{display:none}
+body.nogl #app{height:auto;min-height:100%;padding-bottom:30px}
+body.nogl .panel{position:static;margin:0 0 12px;width:auto;max-width:640px}
+body.nogl #hud,body.nogl #layers,body.nogl #tools,body.nogl #info{inset:auto}
+.err{background:rgba(220,38,38,.10);border:1px solid rgba(220,38,38,.35);color:#b91c1c;
+  border-radius:14px;padding:14px 16px;max-width:640px;margin:0 0 14px;font-size:13px;line-height:1.85}
+.err b{display:block;font-size:14px;margin-bottom:5px}
+.err ul{margin:8px 0 0;padding-inline-start:20px}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .err{color:#fca5a5}}
+#fbtbl{max-width:640px;border-collapse:collapse;width:100%;font-size:12.5px;background:var(--panel);
+  border:1px solid var(--line);border-radius:14px;overflow:hidden}
+#fbtbl th,#fbtbl td{padding:8px 11px;border-bottom:1px solid var(--line);text-align:right}
+#fbtbl th{color:var(--muted);font-size:11px;font-weight:700}
+#fbtbl td b{font-variant-numeric:tabular-nums}
+#fbtbl tr:last-child td{border-bottom:0;font-weight:700}
+
+@media (max-width:980px){body:not(.nogl) #layers,body:not(.nogl) #tools,body:not(.nogl) #legend{display:none}
+  body:not(.nogl) #hud{min-width:0;font-size:11.5px;padding:10px 12px}
+  #note{font-size:10px;white-space:normal;max-width:88vw;text-align:center}#hint{display:none}}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="note">✅ التوزيع مستخرج من مخطط SG-2024-06-0133 — 3,153 تخزين + 147 إنشائي + 30 تشغيلي = 3,330</div>
+  <div id="hint">اسحب للدوران · عجلة للتقريب · Shift+سحب للتحريك · انقر موقعاً</div>
+
+  <div id="glfail">
+    <div class="err">
+      <b>⚠️ تعذّر تحميل مكتبة العرض ثلاثي الأبعاد (three.js)</b>
+      النموذج المجسَّم لا يظهر لأن المكتبة تُحمَّل من الإنترنت ولا يوجد اتصال الآن.
+      <ul>
+        <li><b>افتح الصفحة مرة واحدة مع اتصال</b> ليُخزَّن الملف في ذاكرة المتصفح، ثم تعمل بعدها بلا إنترنت.</li>
+        <li>أو ضع نسخة <code>three.min.js</code> (الإصدار r128) بجوار هذا الملف وعدّل مصدر السكربت إليها.</li>
+      </ul>
+      <b style="margin-top:10px">كل الأرقام والجداول أدناه صحيحة وتعمل بلا المكتبة</b>
+      — بما فيها البحث بكود الموقع السباعي.
+    </div>
+    <table id="fbtbl">
+      <tr><th>القسم</th><th>الكود</th><th>المواقع</th></tr>
+      <tbody id="fbbody"></tbody>
+    </table>
+  </div>
+
+  <div class="panel" id="hud">
+    <h1>مخزن PST — WH1</h1>
+    <div class="sub">ميناء عبدالله · 41.62 × 34.20 × 9.50 م</div>
+    <div class="stat"><span>مواقع التخزين</span><b id="s-loc">—</b></div>
+    <div class="stat"><span>مناطق تشغيلية</span><b id="s-ops">—</b></div>
+    <div class="stat"><span>إنشائي محجوب</span><b id="s-str">—</b></div>
+    <div class="stat tot"><span>إجمالي الأكواد واللافتات</span><b id="s-all">—</b></div>
+    <div class="stat"><span>الحيّز</span><b id="s-vol">—</b></div>
+    <div class="stat"><span>الحمل المصمَّم</span><b id="s-wt">—</b></div>
+    <div class="stat"><span>صفوف · ممرات</span><b>17 · 9</b></div>
+  </div>
+
+  <div class="panel" id="layers">
+    <h2>الأقسام</h2>
+    <label class="lay"><input type="checkbox" data-sec="P" checked><span class="dot" style="background:#2563eb"></span>P منصات<small id="n-P">0</small></label>
+    <label class="lay"><input type="checkbox" data-sec="G" checked><span class="dot" style="background:#16a34a"></span>G أرضي<small id="n-G">0</small></label>
+    <label class="lay"><input type="checkbox" data-sec="M" checked><span class="dot" style="background:#ea580c"></span>M ميزانين ١<small id="n-M">0</small></label>
+    <label class="lay"><input type="checkbox" data-sec="T" checked><span class="dot" style="background:#dc2626"></span>T ميزانين ٢<small id="n-T">0</small></label>
+    <div class="sep"></div>
+    <label class="lay"><input type="checkbox" id="ck-ops" checked><span class="dot" style="background:#0d9488"></span>مناطق تشغيلية<small id="n-OPS">0</small></label>
+    <label class="lay"><input type="checkbox" id="ck-str" checked><span class="dot" style="background:#334155"></span>إنشائي محجوب X-<small id="n-STR">0</small></label>
+    <div class="sep"></div>
+    <label class="lay"><input type="checkbox" id="ck-struct" checked><span class="dot" style="background:#3f4a5c"></span>البضاعة<small></small></label>
+    <label class="lay"><input type="checkbox" id="ck-deck" checked><span class="dot" style="background:#94a3b8"></span>ألواح الميزانين<small>2</small></label>
+    <label class="lay"><input type="checkbox" id="ck-rack" checked><span class="dot" style="background:#f0851f"></span>هيكل الرفوف<small></small></label>
+    <label class="lay"><input type="checkbox" id="ck-bldg" checked><span class="dot" style="background:#7d8ba1"></span>المبنى والأبواب<small></small></label>
+  </div>
+
+  <div class="panel" id="info">
+    <div class="code" id="i-code">—</div>
+    <div class="bar" id="i-bar"></div>
+    <div class="row"><span>القسم</span><b id="i-sec">—</b></div>
+    <div class="row"><span>الممر · الموضع · المستوى</span><b id="i-adr">—</b></div>
+    <div class="row"><span>الأبعاد</span><b id="i-dim">—</b></div>
+    <div class="row"><span>الحيّز</span><b id="i-vol">—</b></div>
+    <div class="row"><span>الحد الأقصى</span><b id="i-wt">—</b></div>
+  </div>
+
+  <div class="panel" id="tools">
+    <button id="sysbtn" style="width:100%;padding:8px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--text);font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;margin-bottom:9px">عرض النظام — المواقع الملوّنة</button>
+    <input id="search" placeholder="ابحث بالكود… G1-08-2" autocomplete="off">
+    <div id="searchhint">P3-14-5 · G1-08-2 · M4-22-1 · RCV-1 · X-B1-01-1</div>
+    <div class="viewbtns">
+      <button data-v="iso">منظور</button>
+      <button data-v="top">مسقط</button>
+      <button data-v="side">جانبي</button>
+      <button data-v="pal">المنصات</button>
+      <button id="rot" title="تدوير 90°">⟳</button>
+    </div>
+  </div>
+
+  <div id="legend">
+    <span><i style="background:#2563eb"></i>منصات 1000 كجم</span>
+    <span><i style="background:#16a34a"></i>أرضي</span>
+    <span><i style="background:#ea580c"></i>ميزانين ١</span>
+    <span><i style="background:#dc2626"></i>ميزانين ٢</span>
+    <span><i style="background:#0d9488"></i>مناطق تشغيلية</span>
+    <span><i style="background:#334155"></i>إنشائي — ممنوع التخزين</span>
+  </div>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+'use strict';
+/* مخزن PST — WH1 · مبني على مخطط SG-2024-06-0133 */
+/* ⚠️ كتلة الثوابت S مطابقة لـ019.sql و40 §C3 — لا تُعدَّل (PLT.md §4 بند 30) */
+const S={
+  L:41.62,W:34.20,H:9.50,
+  d:0.90, cell:1.35, Bw:2.70, Cw:1.35, Aw:2.70, A1w:1.35,
+  hS:0.80, hP:1.45,
+  fl:{G:0,M:2.752,T:5.512},
+  A:{pick:1.40,reach:5.40,flue:0.10,wall:1.50,stage:4.926},
+  pat:[1,2,2,2,1,2,2,2,1],
+  row:[['C',1],['B',6],['C',1],['B',5],['C',1]],
+  pal:{A:12,A1:1}, max:{p:1000,s:750}
+};
+const CL={P:0x2f6fe0,G:0x1ea34e,M:0xf0741f,T:0xe33030,
+  ops:0x0d9488, str:0x334155,
+  up:0xE8701A, beam:0x1f4fa8, mesh:0x9fa9b5, deck:0x8d97a5,
+  slab:0xbfc7d1, wall:0xa9b3c0, roof:0x8d98a8, rail:0xE8B71A,
+  guard:0xF2C230, pallet:0xA9793F, carton:0xC79A63, carton2:0xB98A55,
+  door:0x42506b, shutter:0x6b7891, stair:0x6a7891 };
+
+/* ── هندسة الصفوف ───────────────────────────────── */
+const X0=-S.L/2+S.A.wall;
+let z=-S.W/2+0.30;
+const palZ=[z+S.d/2];            // منصات ملاصق للجدار
+z+=S.d+S.A.reach;
+palZ.push(z+S.d/2);              // منصات داخلي
+z+=S.d+S.A.flue;                 // ملاصق للأرفف — بلا ممر
+const rowZ=[];
+S.pat.forEach(function(g,gi){
+  for(let k=0;k<g;k++){ rowZ.push(z+S.d/2); z+=S.d+(k<g-1?S.A.flue:0); }
+  if(gi<S.pat.length-1) z+=S.A.pick;
+});
+const rowLen=S.row.reduce(function(a,s){return a+(s[0]==='B'?S.Bw:S.Cw)*s[1];},0);
+const XE=X0+rowLen;
+
+const LOC=[],UP=[],BM=[],DK=[],GD=[],PAL=[],BRC=[],GRD=[];
+function cell(sec,row,pos,x,zz,base,w,h,nl,kg){
+  for(let l=1;l<=nl;l++) LOC.push({code:'',
+    sec:sec,row:row,pos:pos,lv:l,x:x,y:base+(l-1)*h+h/2,z:zz,
+    sx:w*.93,sy:h*.80,sz:S.d*.92,vol:+(h*w*S.d).toFixed(5),kg:kg,
+    dim:Math.round(h*1e3)+' × '+Math.round(w*1e3)+' × 900 مم'});
+}
+function frame(x,zz,h){
+  UP.push({x:x,z:zz-S.d/2+0.05,h:h}); UP.push({x:x,z:zz+S.d/2-0.05,h:h});
+  for(let y=0.9;y<h-0.4;y+=1.35) BRC.push({x:x,z:zz,y:y});
+}
+/* صف أرفف */
+function shelfRow(sec,row,zz,base,first){
+  let x=X0,pos=0,bi=0,ci=0;
+  if(sec==='G'){ frame(x,zz,S.H-1.3); GRD.push({x:x-0.1,z:zz}); }
+  S.row.forEach(function(sg){
+    const kind=sg[0],n=sg[1],w=(kind==='B'?S.Bw:S.Cw);
+    for(let i=0;i<n;i++){
+      let store=true;
+      if(kind==='B'){bi++; if(!first&&bi===7)store=false;} else {ci++; if(ci!==2)store=false;}
+      if(store){ const cs=(kind==='B')?2:1;
+        for(let c=0;c<cs;c++){ pos++; cell(sec,row,pos,x+(c+0.5)*(w/cs),zz,base,w/cs,S.hS,3,S.max.s); }
+      }
+      for(let lv=0;lv<3;lv++){
+        const y=base+lv*S.hS;
+        BM.push({x:x+w/2,z:zz-S.d/2+0.04,y:y,w:w});
+        BM.push({x:x+w/2,z:zz+S.d/2-0.04,y:y,w:w});
+        DK.push({x:x+w/2,z:zz,y:y+0.03,w:w-0.08});
+        if(store && ((lv+i+row)%3)!==0){
+          const nb=1+((i+lv+row)%2);
+          for(let q=0;q<nb;q++) GD.push({x:x+(q+0.5)*(w/nb),z:zz,y:y+0.30,w:(w/nb)*0.72,h:0.52,t:(i+lv+q)%2});
+        }
+      }
+      x+=w;
+      if(sec==='G') frame(x,zz,S.H-1.3);
+    }
+  });
+  if(sec==='G') GRD.push({x:x+0.1,z:zz});
+}
+/* صف منصات */
+function palRow(row,zz){
+  let x=X0,pos=0;
+  frame(x,zz,8.0); GRD.push({x:x-0.1,z:zz});
+  for(let b=0;b<S.pal.A;b++){
+    for(let c=0;c<2;c++){ pos++; cell('P',row,pos,x+(c+0.5)*S.cell,zz,0,S.cell,S.hP,6,S.max.p); }
+    for(let lv=0;lv<6;lv++){ const y=lv*S.hP;
+      BM.push({x:x+S.Aw/2,z:zz-S.d/2+0.04,y:y,w:S.Aw});
+      BM.push({x:x+S.Aw/2,z:zz+S.d/2-0.04,y:y,w:S.Aw});
+      for(let c=0;c<2;c++) if(((lv+b+c)%3)!==0)
+        PAL.push({x:x+(c+0.5)*S.cell,z:zz,y:y+0.09,h:0.95+((b+lv+c)%3)*0.1});
+    }
+    x+=S.Aw; frame(x,zz,8.0);
+  }
+  for(let b=0;b<S.pal.A1;b++){
+    pos++; cell('P',row,pos,x+S.A1w/2,zz,0,S.A1w,S.hP,6,S.max.p);
+    for(let lv=0;lv<6;lv++){ const y=lv*S.hP;
+      BM.push({x:x+S.A1w/2,z:zz-S.d/2+0.04,y:y,w:S.A1w});
+      BM.push({x:x+S.A1w/2,z:zz+S.d/2-0.04,y:y,w:S.A1w});
+      if(((lv+b)%3)!==0) PAL.push({x:x+S.A1w/2,z:zz,y:y+0.09,h:1.0});
+    }
+    x+=S.A1w; frame(x,zz,8.0);
+  }
+  GRD.push({x:x+0.1,z:zz});
+}
+['G','M','T'].forEach(function(sec){ rowZ.forEach(function(rz,i){ shelfRow(sec,i+1,rz,S.fl[sec]+0.18,i===0); }); });
+palRow(1,palZ[0]); palRow(2,palZ[1]);
+
+/* ── v4 · PLT-06 — ترقيم الأكواد بصيغة وثيقة 19 §4 السباعية ──────────────
+   قاعدة التوليد (مطابقة لـwms.generate_locations في 19 §4):
+       section || aisle_no || '-' || lpad(position_no, 2, '0') || '-' || level_no
+   • الممر: مجموعات S.pat التسع ← الممرات 1..9 · والممر 1 من جهة المنصات (R-06)
+   • الموضع: يتسلسل على طول الممر عبر صفّيه · والموضع 01 عند الباب (x الأكبر · R-06)
+   • الهندسة لم تتغيّر — التغيير في التسمية فقط. */
+const aisleOfRow={};
+(function(){ let r=0; S.pat.forEach(function(g,gi){ for(let k=0;k<g;k++){ r++; aisleOfRow[r]=gi+1; } }); })();
+const AISLES=S.pat.length;                       // 9
+const maxPos={};
+LOC.forEach(function(o){ const k=o.sec+'|'+o.row; if(!(k in maxPos)||o.pos>maxPos[k]) maxPos[k]=o.pos; });
+const rowOffset={};
+['P','G','M','T'].forEach(function(sec){
+  const acc={};
+  Object.keys(maxPos).filter(function(k){return k.indexOf(sec+'|')===0;})
+    .map(function(k){return +k.split('|')[1];}).sort(function(a,b){return a-b;})
+    .forEach(function(row){
+      const a=(sec==='P')?1:aisleOfRow[row];      // صفّا المنصات يكتنفان ممر الريتش الوحيد → P1
+      acc[a]=acc[a]||0;
+      rowOffset[sec+'|'+row]=acc[a];
+      acc[a]+=maxPos[sec+'|'+row];
+    });
+});
+LOC.forEach(function(o){
+  const k=o.sec+'|'+o.row;
+  o.aisle=(o.sec==='P')?1:aisleOfRow[o.row];
+  o.posNo=rowOffset[k]+(maxPos[k]-o.pos+1);       // 01 عند الباب
+  o.code=o.sec+o.aisle+'-'+String(o.posNo).padStart(2,'0')+'-'+o.lv;
+  o.kind='store';
+});
+
+/* ── v4 · PLT-40 — المناطق التشغيلية الثلاثون (19 §2-4) ──────────────────
+   الأكواد حرفياً من 19 §2-4. المواضع الأرضية تقريبية داخل شريط التجهيز
+   (019 §7: «الأبعاد غير محددة في المخطط — تُقاس وتُعلَّم ميدانياً»). */
+const OPS=[];
+(function(){
+  const groups=[['RCV',6,'الاستلام'],['QRT',4,'الحجر'],['STG',8,'التجهيز'],
+                ['SHP',6,'الشحن'],['RTN',4,'المرتجعات'],['DMG',2,'التالف']];
+  const cx=S.L/2-S.A.wall-S.A.stage/2, z0=-S.W/2+1.6, pitch=2.10;
+  let n=0;
+  groups.forEach(function(g){
+    for(let i=1;i<=g[1];i++){
+      const col=n%2, rowi=Math.floor(n/2);
+      OPS.push({code:g[0]+'-'+i, kind:'ops', sec:'OPS', name:g[2],
+        x:cx+(col?1.15:-1.15), z:z0+rowi*pitch, y:0.06,
+        sx:2.00, sy:0.10, sz:1.90});
+      n++;
+    }
+  });
+})();
+
+/* ── v4 · PLT-40 — المواقع الإنشائية المحجوبة (147 · بادئة X-) ───────────
+   العدد والتفكيك من 019.sql §6: B1 9 · C1 27 · E 13 — كلٌّ على 3 مستويات
+   (9+27+13)×3 = 147. بادئة X- وحجب التخزين من 19 §2-4.
+   صيغة الكود منصوصة في 19 §2-0: `X-<blk><bay 2d>-<tier>` (مثل X-B101-1)،
+      وهي نفسها التي يولّدها 019-Warehouse-WH1-Setup.sql §6 (VERIFY-v4). */
+const STR=[];
+(function(){
+  const tierY=[0.18,S.fl.M+0.18,S.fl.T+0.18];
+  const zFront=rowZ[0]-0.95, zBack=rowZ[rowZ.length-1]+0.95;
+  const blocks=[
+    {blk:'B1',n:9 ,at:function(i,n){ return {x:XE+0.55, z:rowZ[Math.min(rowZ.length-1,Math.round(i*(rowZ.length-1)/(n-1)))]}; }},
+    {blk:'C1',n:27,at:function(i,n){ return {x:X0+0.4+i*((rowLen-0.8)/(n-1)), z:zFront}; }},
+    {blk:'E' ,n:13,at:function(i,n){ return {x:X0+0.6+i*((rowLen-1.2)/(n-1)), z:zBack}; }}
+  ];
+  blocks.forEach(function(b){
+    for(let i=0;i<b.n;i++){
+      const p=b.at(i,b.n);
+      for(let t=1;t<=3;t++){
+        STR.push({code:'X-'+b.blk+String(i+1).padStart(2,'0')+'-'+t, kind:'str', sec:'STR',
+          name:'إطار إنشائي · درج · ممر — ممنوع التخزين',
+          x:p.x, y:tierY[t-1], z:p.z, sx:0.42, sy:0.42, sz:0.42});
+      }
+    }
+  });
+})();
+
+/* ── v4 — لوحة الأرقام تُملأ قبل أي اعتماد على three.js (PLT-39) ───────── */
+const COUNT={P:0,G:0,M:0,T:0};
+let VOL=0,WT=0;
+LOC.forEach(function(o){COUNT[o.sec]++;VOL+=o.vol;WT+=o.kg;});
+const TOTAL=LOC.length+OPS.length+STR.length;
+function $(id){return document.getElementById(id);}
+function setTxt(id,v){var e=$(id); if(e) e.textContent=v;}
+setTxt('s-loc',LOC.length.toLocaleString('en'));
+setTxt('s-ops',OPS.length.toLocaleString('en'));
+setTxt('s-str',STR.length.toLocaleString('en'));
+setTxt('s-all',TOTAL.toLocaleString('en'));
+setTxt('s-vol',VOL.toFixed(3)+' م³');
+setTxt('s-wt',(WT/1000).toFixed(3)+' طن');
+['P','G','M','T'].forEach(function(s){setTxt('n-'+s,COUNT[s].toLocaleString('en'));});
+setTxt('n-OPS',OPS.length.toLocaleString('en'));
+setTxt('n-STR',STR.length.toLocaleString('en'));
+(function(){
+  var b=$('fbbody'); if(!b) return;
+  var rows=[['قسم المنصات','P',COUNT.P],['الميزانين — الأرضي','G',COUNT.G],
+            ['الميزانين — الأول','M',COUNT.M],['الميزانين — الثاني','T',COUNT.T],
+            ['مناطق تشغيلية','RCV·QRT·STG·SHP·RTN·DMG',OPS.length],
+            ['إنشائي محجوب','X-',STR.length],
+            ['الإجمالي','',TOTAL]];
+  b.innerHTML=rows.map(function(r){
+    return '<tr><td>'+r[0]+'</td><td style="direction:ltr;text-align:left">'+r[1]+
+           '</td><td><b>'+r[2].toLocaleString('en')+'</b></td></tr>';
+  }).join('');
+})();
+
+/* ── فهرس البحث — يشمل الأكواد السباعية والتشغيلية والإنشائية ─────────── */
+const INDEX={};
+LOC.forEach(function(o,i){INDEX[o.code]={obj:o,i:i};});
+OPS.forEach(function(o){INDEX[o.code]={obj:o,i:-1};});
+STR.forEach(function(o){INDEX[o.code]={obj:o,i:-1};});
+const NM={P:'قسم المنصات',G:'ميزانين — أرضي',M:'ميزانين — أول',T:'ميزانين — ثاني',
+          OPS:'منطقة تشغيلية',STR:'إنشائي — ممنوع التخزين'};
+function showInfo(o){
+  setTxt('i-code',o.code);
+  var bar=$('i-bar'); if(bar) bar.style.background='#'+(CL[o.sec]||CL.str).toString(16).padStart(6,'0');
+  setTxt('i-sec',NM[o.sec]||'—');
+  setTxt('i-adr',o.kind==='store'?(o.aisle+' · '+o.posNo+' · '+o.lv):(o.name||'—'));
+  setTxt('i-dim',o.kind==='store'?o.dim:'يُقاس ميدانياً');
+  setTxt('i-vol',o.kind==='store'?(o.vol.toFixed(5)+' م³'):'—');
+  setTxt('i-wt',o.kind==='store'?(o.kg.toLocaleString('en')+' كجم'):'٠ — محجوب');
+  var p=$('info'); if(p) p.style.display='block';
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   v4 · PLT-39 — حارس تحميل three.js
+   بلا المكتبة: رسالة عربية واضحة داخل الصفحة + لوحة الأرقام والجدول
+   والبحث تبقى عاملة. لا صفحة بيضاء ولا "—".
+   ══════════════════════════════════════════════════════════════════════ */
+if(typeof THREE==='undefined'){
+  document.body.classList.add('nogl');
+  var sIn=$('search'), sBtn=$('sysbtn');
+  if(sBtn) sBtn.style.display='none';
+  document.querySelectorAll('.viewbtns').forEach(function(e){e.style.display='none';});
+  document.querySelectorAll('#layers input').forEach(function(e){e.disabled=true;});
+  if(sIn) sIn.addEventListener('keydown',function(e){
+    if(e.key!=='Enter')return;
+    var hit=INDEX[e.target.value.trim().toUpperCase()];
+    if(!hit){ e.target.style.borderColor='#dc2626';
+      setTimeout(function(){e.target.style.borderColor='';},900); return; }
+    showInfo(hit.obj);
+  });
+  return;
+}
+
+/* ── المشهد ─────────────────────────────────────── */
+const app=$('app');
+const sc=new THREE.Scene();
+const cam=new THREE.PerspectiveCamera(45,1,0.3,400);
+const rn=new THREE.WebGLRenderer({antialias:true,alpha:true});
+rn.setPixelRatio(Math.min(devicePixelRatio,2)); app.appendChild(rn.domElement);
+sc.add(new THREE.HemisphereLight(0xf2f6ff,0x53607a,0.85));
+const L1=new THREE.DirectionalLight(0xfff6e8,0.75); L1.position.set(24,40,16); sc.add(L1);
+const L2=new THREE.DirectionalLight(0xcfe0f7,0.35); L2.position.set(-26,22,-18); sc.add(L2);
+const L3=new THREE.DirectionalLight(0xffffff,0.2);  L3.position.set(0,10,34); sc.add(L3);
+
+const G=new THREE.Group(),gRack=new THREE.Group(),gDeck=new THREE.Group(),gBldg=new THREE.Group(),
+      gGoods=new THREE.Group(),gSys=new THREE.Group(),gOps=new THREE.Group(),gStr=new THREE.Group();
+sc.add(G); G.add(gRack,gDeck,gBldg,gGoods,gSys,gOps,gStr);
+let ORI=2; function orient(){ G.rotation.y=ORI*Math.PI/2; }
+
+const M=function(c,o){return new THREE.MeshLambertMaterial(Object.assign({color:c},o||{}));};
+function inst(arr,geo,mat,fn){
+  const m=new THREE.InstancedMesh(geo,mat,arr.length),d=new THREE.Object3D();
+  arr.forEach(function(o,i){fn(d,o,i);d.updateMatrix();m.setMatrixAt(i,d.matrix);});
+  m.instanceMatrix.needsUpdate=true; return m;
+}
+
+/* المبنى */
+const slab=new THREE.Mesh(new THREE.BoxGeometry(S.L+1.2,0.30,S.W+1.2),M(CL.slab)); slab.position.y=-0.15; gBldg.add(slab);
+// خطوط ممرات صفراء
+rowZ.forEach(function(rz,i){
+  if(i%2===0) return;
+  [rz+S.d/2+S.A.pick/2].forEach(function(cz){
+    const l=new THREE.Mesh(new THREE.PlaneGeometry(rowLen,0.09),new THREE.MeshBasicMaterial({color:CL.rail}));
+    l.rotation.x=-Math.PI/2; l.position.set(X0+rowLen/2,0.012,cz); gBldg.add(l);
+  });
+});
+[palZ[0]+S.d/2+S.A.reach/2].forEach(function(cz){
+  [-1.3,1.3].forEach(function(o){
+    const l=new THREE.Mesh(new THREE.PlaneGeometry(rowLen,0.11),new THREE.MeshBasicMaterial({color:CL.rail}));
+    l.rotation.x=-Math.PI/2; l.position.set(X0+rowLen/2,0.012,cz+o); gBldg.add(l);
+  });
+});
+// منطقة التجهيز
+const stg=new THREE.Mesh(new THREE.PlaneGeometry(S.A.stage,S.W-1.6),new THREE.MeshBasicMaterial({color:0x7f8ca0,transparent:true,opacity:.28}));
+stg.rotation.x=-Math.PI/2; stg.position.set(S.L/2-S.A.wall-S.A.stage/2,0.014,0); gBldg.add(stg);
+// جدران
+const wmat=M(CL.wall,{transparent:true,opacity:0.34,side:THREE.DoubleSide});
+function wal(w,h,d,x,y,zz){const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),wmat);m.position.set(x,y,zz);gBldg.add(m);}
+wal(S.L+1.2,S.H,0.22,0,S.H/2,-S.W/2-0.6); wal(S.L+1.2,S.H,0.22,0,S.H/2,S.W/2+0.6);
+wal(0.22,S.H,S.W+1.2,-S.L/2-0.6,S.H/2,0);
+// جدار البوابات — بفتحتين
+[[-S.W/2-0.6,-12.5],[-12.5,-2.0],[-2.0,9.5],[9.5,S.W/2+0.6]].forEach(function(seg){
+  const w=seg[1]-seg[0]; if(w<=0.1) return;
+  wal(0.22,S.H,w,S.L/2+0.6,S.H/2,(seg[0]+seg[1])/2);
+});
+// بوابتان رئيسيتان — شتر معدني
+[[-7.2],[3.7]].forEach(function(p){
+  const g=new THREE.Group();
+  for(let i=0;i<11;i++){
+    const sl=new THREE.Mesh(new THREE.BoxGeometry(0.14,0.42,5.0),M(CL.shutter));
+    sl.position.set(0,0.28+i*0.46,0); g.add(sl);
+  }
+  const fr=new THREE.Mesh(new THREE.BoxGeometry(0.2,5.5,5.4),M(CL.door,{transparent:true,opacity:0.9}));
+  fr.position.y=2.75; g.add(fr);
+  g.position.set(S.L/2+0.6,0,p[0]); gBldg.add(g);
+});
+// سقف
+const roof=new THREE.Mesh(new THREE.BoxGeometry(S.L+1.2,0.18,S.W+1.2),M(CL.roof,{transparent:true,opacity:0.16}));
+roof.position.y=S.H; gBldg.add(roof);
+for(let i=0;i<9;i++){
+  const t=new THREE.Mesh(new THREE.BoxGeometry(0.16,0.5,S.W+1.2),M(CL.roof,{transparent:true,opacity:0.3}));
+  t.position.set(-S.L/2+2.5+i*4.6,S.H-0.35,0); gBldg.add(t);
+}
+
+/* الرفوف */
+gRack.add(inst(UP,new THREE.BoxGeometry(0.10,1,0.10),M(CL.up),function(d,o){d.position.set(o.x,o.h/2,o.z);d.scale.set(1,o.h,1);}));
+gRack.add(inst(BRC,new THREE.BoxGeometry(0.05,0.05,0.9),M(CL.up),function(d,o){
+  d.position.set(o.x,o.y,o.z); d.rotation.set(0.62,0,0);}));
+gRack.add(inst(BM,new THREE.BoxGeometry(1,0.10,0.05),M(CL.beam),function(d,o){d.position.set(o.x,o.y+0.05,o.z);d.scale.set(o.w,1,1);}));
+gRack.add(inst(DK,new THREE.BoxGeometry(1,0.02,0.86),M(CL.mesh,{transparent:true,opacity:0.55}),function(d,o){
+  d.position.set(o.x,o.y,o.z);d.scale.set(o.w,1,1);}));
+// حواجز الأعمدة
+gRack.add(inst(GRD,new THREE.BoxGeometry(0.16,0.42,0.86),M(CL.guard),function(d,o){d.position.set(o.x,0.21,o.z);}));
+
+/* البضاعة */
+gGoods.add(inst(GD,new THREE.BoxGeometry(1,1,0.74),M(CL.carton),function(d,o){
+  d.position.set(o.x,o.y,o.z);d.scale.set(o.w,o.h,1);}));
+gGoods.add(inst(PAL,new THREE.BoxGeometry(1.15,0.14,0.98),M(CL.pallet),function(d,o){d.position.set(o.x,o.y,o.z);}));
+gGoods.add(inst(PAL,new THREE.BoxGeometry(1.08,1,0.92),M(CL.carton2,{transparent:true,opacity:0.95}),function(d,o){
+  d.position.set(o.x,o.y+0.07+o.h/2,o.z);d.scale.set(1,o.h,1);}));
+
+/* v4 · PLT-40 — طبقة المناطق التشغيلية (30) */
+gOps.add(inst(OPS,new THREE.BoxGeometry(1,1,1),M(CL.ops,{transparent:true,opacity:0.62}),
+  function(d,o){d.position.set(o.x,o.y,o.z);d.scale.set(o.sx,o.sy,o.sz);}));
+/* v4 · PLT-40 — طبقة المواقع الإنشائية المحجوبة (147) */
+gStr.add(inst(STR,new THREE.BoxGeometry(1,1,1),M(CL.str,{transparent:true,opacity:0.85}),
+  function(d,o){d.position.set(o.x,o.y,o.z);d.scale.set(o.sx,o.sy,o.sz);}));
+
+/* الميزانين */
+[S.fl.M,S.fl.T].forEach(function(y){
+  const len=rowLen+0.6,z0=rowZ[0]-1.0,z1=rowZ[rowZ.length-1]+1.0;
+  const dk=new THREE.Mesh(new THREE.BoxGeometry(len,0.12,z1-z0),M(CL.deck,{transparent:true,opacity:0.5}));
+  dk.position.set(X0+len/2-0.3,y,(z0+z1)/2); gDeck.add(dk);
+  [z0,z1].forEach(function(rz){
+    [0.55,1.05].forEach(function(hh){
+      const r=new THREE.Mesh(new THREE.BoxGeometry(len,0.05,0.05),M(CL.rail));
+      r.position.set(dk.position.x,y+hh,rz); gDeck.add(r);
+    });
+    for(let i=0;i<=12;i++){
+      const p=new THREE.Mesh(new THREE.BoxGeometry(0.06,1.1,0.06),M(CL.rail));
+      p.position.set(X0-0.3+i*(len/12),y+0.55,rz); gDeck.add(p);
+    }
+  });
+});
+// خمسة أدراج بدرابزين
+[[X0+6,rowZ[1]],[X0+16,rowZ[4]],[X0+27,rowZ[7]],[X0+11,rowZ[10]],[X0+22,rowZ[13]]].forEach(function(p){
+  [0,S.fl.M].forEach(function(b){
+    for(let i=0;i<13;i++){
+      const st=new THREE.Mesh(new THREE.BoxGeometry(0.21,0.10,0.84),M(CL.stair));
+      st.position.set(p[0]-1.35+i*0.21,b+0.24+i*0.21,p[1]); gDeck.add(st);
+    }
+    const hr=new THREE.Mesh(new THREE.BoxGeometry(3.1,0.05,0.05),M(CL.rail));
+    hr.position.set(p[0]-0.1,b+1.85,p[1]+0.42); hr.rotation.z=0.72; gDeck.add(hr);
+  });
+});
+
+/* طبقة النظام — المواقع الملونة */
+const dum=new THREE.Object3D(),col=new THREE.Color();
+const sys=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),
+  new THREE.MeshLambertMaterial({transparent:true,opacity:0.55}),LOC.length);
+LOC.forEach(function(o,i){dum.position.set(o.x,o.y,o.z);dum.scale.set(o.sx,o.sy,o.sz);dum.updateMatrix();
+  sys.setMatrixAt(i,dum.matrix);col.setHex(CL[o.sec]);sys.setColorAt(i,col);});
+sys.instanceMatrix.needsUpdate=true; if(sys.instanceColor)sys.instanceColor.needsUpdate=true;
+gSys.add(sys); gSys.visible=false;
+
+/* تحكم */
+const vis={P:1,G:1,M:1,T:1};
+function apply(){LOC.forEach(function(o,i){const on=vis[o.sec];
+  dum.position.set(o.x,o.y,o.z);dum.scale.set(on?o.sx:1e-4,on?o.sy:1e-4,on?o.sz:1e-4);
+  dum.updateMatrix();sys.setMatrixAt(i,dum.matrix);});sys.instanceMatrix.needsUpdate=true;}
+document.querySelectorAll('[data-sec]').forEach(function(cb){cb.addEventListener('change',function(){vis[cb.dataset.sec]=cb.checked?1:0;apply();});});
+function bind(id,o){var e=$(id); if(e) e.addEventListener('change',function(ev){o.visible=ev.target.checked;});}
+bind('ck-deck',gDeck); bind('ck-rack',gRack); bind('ck-bldg',gBldg);
+bind('ck-ops',gOps);   bind('ck-str',gStr);
+var cs=$('ck-struct'); if(cs){cs.checked=false;
+  cs.parentNode.childNodes[2].nodeValue=' البضاعة';
+  cs.addEventListener('change',function(e){gGoods.visible=e.target.checked;}); cs.checked=true;}
+
+let th=-0.72,ph=0.95,di=54,tg=new THREE.Vector3(0,3.0,0),drag=null,lx=0,ly=0;
+function place(){cam.position.set(tg.x+di*Math.sin(ph)*Math.cos(th),tg.y+di*Math.cos(ph),tg.z+di*Math.sin(ph)*Math.sin(th));cam.lookAt(tg);}
+const cv=rn.domElement;
+cv.addEventListener('pointerdown',function(e){drag=e.shiftKey?'p':'o';lx=e.clientX;ly=e.clientY;cv.setPointerCapture(e.pointerId);});
+cv.addEventListener('pointermove',function(e){if(!drag)return;
+  const dx=e.clientX-lx,dy=e.clientY-ly;lx=e.clientX;ly=e.clientY;
+  if(drag==='o'){th-=dx*0.006;ph=Math.max(0.05,Math.min(1.54,ph-dy*0.006));}
+  else{const s=di*0.0016;tg.x-=dx*s*Math.sin(th+Math.PI/2);tg.z+=dx*s*Math.cos(th+Math.PI/2);tg.y=Math.max(0,tg.y+dy*s);}
+  place();});
+['pointerup','pointercancel','pointerleave'].forEach(function(ev){cv.addEventListener(ev,function(){drag=null;});});
+cv.addEventListener('wheel',function(e){e.preventDefault();di=Math.max(5,Math.min(150,di*(1+Math.sign(e.deltaY)*0.09)));place();},{passive:false});
+let pin=0;
+cv.addEventListener('touchmove',function(e){if(e.touches.length!==2)return;
+  const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
+  if(pin){di=Math.max(5,Math.min(150,di*(pin/d)));place();}pin=d;},{passive:true});
+cv.addEventListener('touchend',function(){pin=0;});
+document.querySelectorAll('[data-v]').forEach(function(b){b.addEventListener('click',function(){
+  const v=b.dataset.v;
+  if(v==='iso'){th=-0.72;ph=0.95;di=54;tg.set(0,3,0);}
+  if(v==='top'){th=-Math.PI/2;ph=0.05;di=50;tg.set(0,0,0);}
+  if(v==='side'){th=-Math.PI/2;ph=1.51;di=52;tg.set(0,4,0);}
+  if(v==='pal'){th=-0.35;ph=1.10;di=18;tg.set(-4,3.5,palZ[0]+3);}
+  place();});});
+var rb=$('rot'); if(rb) rb.addEventListener('click',function(){ORI=(ORI+1)%4;orient();});
+var sb=$('sysbtn'); if(sb) sb.addEventListener('click',function(){
+  gSys.visible=!gSys.visible; gGoods.visible=!gSys.visible; sb.style.background=gSys.visible?'#14284B':''; sb.style.color=gSys.visible?'#fff':''; });
+
+/* اختيار */
+const ray=new THREE.Raycaster(),ptr=new THREE.Vector2();
+let sel=-1,selC=new THREE.Color();
+cv.addEventListener('click',function(e){ if(!gSys.visible) return;
+  const r=cv.getBoundingClientRect();
+  ptr.x=((e.clientX-r.left)/r.width)*2-1;ptr.y=-((e.clientY-r.top)/r.height)*2+1;
+  ray.setFromCamera(ptr,cam); const h=ray.intersectObject(sys);
+  if(h.length)pick(h[0].instanceId);else clr();});
+function pick(i){if(sel>=0&&sys.instanceColor)sys.setColorAt(sel,selC);
+  sel=i;const o=LOC[i];
+  if(sys.instanceColor){sys.getColorAt(i,selC);col.setHex(0xB5673E);sys.setColorAt(i,col);sys.instanceColor.needsUpdate=true;}
+  showInfo(o);}
+function clr(){if(sel>=0&&sys.instanceColor){sys.setColorAt(sel,selC);sys.instanceColor.needsUpdate=true;}
+  sel=-1;$('info').style.display='none';}
+$('search').addEventListener('keydown',function(e){
+  if(e.key!=='Enter')return;const q=e.target.value.trim().toUpperCase();
+  const hit=INDEX[q];
+  if(!hit){e.target.style.borderColor='#dc2626';setTimeout(function(){e.target.style.borderColor='';},900);return;}
+  const o=hit.obj;
+  if(hit.i>=0){ gSys.visible=true; gGoods.visible=false; pick(hit.i); }
+  else { showInfo(o); }
+  tg.set(o.x,o.y,o.z);di=12;place();});
+
+function rz(){const w=app.clientWidth,h=app.clientHeight;rn.setSize(w,h,false);cam.aspect=w/h;cam.updateProjectionMatrix();}
+addEventListener('resize',rz);rz();place();orient();
+(function loop(){requestAnimationFrame(loop);rn.render(sc,cam);})();
+})();
+</script>
+</body>
+</html>

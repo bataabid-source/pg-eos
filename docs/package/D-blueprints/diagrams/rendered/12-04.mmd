@@ -1,0 +1,15 @@
+stateDiagram-v2
+  [*] --> queued
+  queued --> assigned : إسناد آلي أو من المشرف
+  queued --> accepted : سحب ذاتي من الطابور على PDA
+  assigned --> accepted : العامل يقبل
+  assigned --> rejected : العامل يرفض بسبب من قائمة
+  accepted --> in_progress : أول مسح
+  in_progress --> paused : توقف بسبب مسجَّل
+  paused --> in_progress : استئناف
+  in_progress --> done : إقفال بكمية منجزة
+  rejected --> reassigned : WH_SUP يعيد الإسناد
+  paused --> reassigned : WH_SUP بسبب
+  assigned --> reassigned : WH_SUP بسبب
+  reassigned --> [*]
+  done --> [*]

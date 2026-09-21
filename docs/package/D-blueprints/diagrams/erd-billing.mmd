@@ -1,0 +1,142 @@
+%% billing · الجداول والعلاقات
+erDiagram
+    sales_accounts ||--o{ billing_billable_events : "billable_events_client_id_fkey"
+    sales_contracts ||--o{ billing_billable_events : "billable_events_contract_id_fkey"
+    catalog_services ||--o{ billing_billable_events : "billable_events_service_id_fkey"
+    sales_accounts ||--o{ billing_cost_allocations : "cost_allocations_client_id_fkey"
+    sales_contracts ||--o{ billing_cost_allocations : "cost_allocations_contract_id_fkey"
+    sales_accounts ||--o{ billing_credit_notes : "credit_notes_client_id_fkey"
+    billing_invoices ||--o{ billing_credit_notes : "credit_notes_invoice_id_fkey"
+    billing_gl_accounts ||--o{ billing_gl_accounts : "gl_accounts_parent_id_fkey"
+    billing_invoices ||--o{ billing_invoice_lines : "invoice_lines_invoice_id_fkey"
+    catalog_services ||--o{ billing_invoice_lines : "invoice_lines_service_id_fkey"
+    sales_accounts ||--o{ billing_invoices : "invoices_client_id_fkey"
+    sales_contracts ||--o{ billing_invoices : "invoices_contract_id_fkey"
+    billing_journal_entries ||--o{ billing_journal_entries : "journal_entries_reversed_by_fkey"
+    billing_gl_accounts ||--o{ billing_journal_lines : "journal_lines_account_id_fkey"
+    sales_accounts ||--o{ billing_journal_lines : "journal_lines_client_id_fkey"
+    sales_contracts ||--o{ billing_journal_lines : "journal_lines_contract_id_fkey"
+    billing_journal_entries ||--o{ billing_journal_lines : "journal_lines_entry_id_fkey"
+    sales_accounts ||--o{ billing_profitability : "profitability_client_id_fkey"
+    sales_contracts ||--o{ billing_profitability : "profitability_contract_id_fkey"
+    billing_invoices ||--o{ billing_receipt_allocations : "receipt_allocations_invoice_id_fkey"
+    billing_receipts ||--o{ billing_receipt_allocations : "receipt_allocations_receipt_id_fkey"
+    sales_accounts ||--o{ billing_receipts : "receipts_client_id_fkey"
+
+    billing_billable_events {
+        uuid id PK
+        uuid entity_id FK "→ platform.entities"
+        uuid client_id FK "→ sales.accounts"
+        uuid contract_id FK "→ sales.contracts"
+        uuid service_id FK "→ catalog.services"
+        num qty
+        text status "pending · priced · invoiced · excluded · disputed"
+        uuid counterparty_entity_id FK "→ platform.entities"
+    }
+    billing_cost_allocations {
+        uuid id PK
+        uuid entity_id FK "→ platform.entities"
+        date period
+        text cost_type
+        uuid client_id FK "→ sales.accounts"
+        uuid contract_id FK "→ sales.contracts"
+        num amount
+        ts computed_at
+    }
+    billing_credit_notes {
+        uuid id PK
+        uuid entity_id FK,UK "→ platform.entities"
+        uuid client_id FK "→ sales.accounts"
+        uuid invoice_id FK "→ billing.invoices"
+        date issue_date
+        num amount
+        text status "draft · approved · applied"
+        ts approved_at
+    }
+    billing_gl_accounts {
+        uuid id PK
+        uuid entity_id FK,UK "→ platform.entities"
+        text code UK
+        text name_ar
+        text name_en
+        text account_type
+        uuid parent_id FK "→ billing.gl_accounts"
+        bool is_postable
+    }
+    billing_invoice_lines {
+        uuid id PK
+        uuid invoice_id FK,UK "→ billing.invoices"
+        int line_no UK
+        uuid service_id FK "→ catalog.services"
+        num qty
+        num unit_price
+        num discount_pct
+        num line_total
+    }
+    billing_invoices {
+        uuid id PK
+        uuid entity_id FK,UK "→ platform.entities"
+        uuid client_id FK "→ sales.accounts"
+        uuid contract_id FK "→ sales.contracts"
+        text status "draft · review · approved · sent · …"
+        num subtotal
+        num discount_amt
+        uuid counterparty_entity_id FK "→ platform.entities"
+    }
+    billing_journal_entries {
+        uuid id PK
+        uuid entity_id FK,UK "→ platform.entities"
+        text doc_no UK
+        date entry_date
+        text description
+        bool is_intercompany
+        ts posted_at
+        uuid reversed_by FK "→ billing.journal_entries"
+    }
+    billing_journal_lines {
+        uuid id PK
+        uuid entry_id FK "→ billing.journal_entries"
+        uuid account_id FK "→ billing.gl_accounts"
+        num debit
+        num credit
+        uuid client_id FK "→ sales.accounts"
+        uuid contract_id FK "→ sales.contracts"
+        text cost_center
+    }
+    billing_profitability {
+        uuid id PK
+        uuid entity_id FK,UK "→ platform.entities"
+        uuid client_id FK,UK "→ sales.accounts"
+        uuid contract_id FK,UK "→ sales.contracts"
+        num cost_labour
+        num cost_fuel
+        num cost_space
+        num cost_vehicle
+    }
+    billing_receipt_allocations {
+        uuid id PK
+        uuid receipt_id FK "→ billing.receipts"
+        uuid invoice_id FK "→ billing.invoices"
+        num amount
+        ts allocated_at
+        uuid allocated_by
+    }
+    billing_receipts {
+        uuid id PK
+        uuid entity_id FK,UK "→ platform.entities"
+        uuid client_id FK "→ sales.accounts"
+        date received_at
+        date cheque_date
+        num amount
+        num allocated_amount
+        ts reconciled_at
+    }
+    sales_accounts {
+        uuid id PK "خارجي · sales.accounts"
+    }
+    sales_contracts {
+        uuid id PK "خارجي · sales.contracts"
+    }
+    catalog_services {
+        uuid id PK "خارجي · catalog.services"
+    }

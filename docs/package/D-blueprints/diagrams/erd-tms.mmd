@@ -1,0 +1,182 @@
+%% tms · الجداول والعلاقات
+erDiagram
+    hr_disciplinary_cases ||--o{ tms_accidents : "accidents_disciplinary_case_id_fkey"
+    hr_employees ||--o{ tms_accidents : "accidents_driver_employee_id_fkey"
+    tms_maintenance_orders ||--o{ tms_accidents : "accidents_repair_order_id_fkey"
+    tms_vehicles ||--o{ tms_accidents : "accidents_vehicle_id_fkey"
+    hr_employees ||--o{ tms_contact_log : "contact_log_driver_employee_id_fkey"
+    tms_delivery_tasks ||--o{ tms_contact_log : "contact_log_task_id_fkey"
+    tms_delivery_tasks ||--o{ tms_delivery_exceptions : "delivery_exceptions_task_id_fkey"
+    sales_accounts ||--o{ tms_delivery_tasks : "delivery_tasks_client_id_fkey"
+    sales_contracts ||--o{ tms_delivery_tasks : "delivery_tasks_contract_id_fkey"
+    partners_partners ||--o{ tms_delivery_tasks : "delivery_tasks_executed_by_partner_id_fkey"
+    wms_outbound_orders ||--o{ tms_delivery_tasks : "delivery_tasks_outbound_order_id_fkey"
+    tms_vehicles ||--o{ tms_delivery_tasks : "delivery_tasks_vehicle_id_fkey"
+    tms_failure_reasons ||--o{ tms_failure_reasons : "failure_reasons_parent_code_fkey"
+    admin_assets ||--o{ tms_fuel_ledger : "fuel_ledger_card_asset_id_fkey"
+    hr_employees ||--o{ tms_fuel_ledger : "fuel_ledger_driver_employee_id_fkey"
+    tms_vehicles ||--o{ tms_fuel_ledger : "fuel_ledger_vehicle_id_fkey"
+    tms_maintenance_plans ||--o{ tms_maintenance_orders : "maintenance_orders_plan_id_fkey"
+    admin_purchase_orders ||--o{ tms_maintenance_orders : "maintenance_orders_purchase_order_id_fkey"
+    tms_vehicles ||--o{ tms_maintenance_orders : "maintenance_orders_vehicle_id_fkey"
+    partners_partners ||--o{ tms_maintenance_orders : "maintenance_orders_workshop_partner_id_fkey"
+    tms_delivery_tasks ||--o{ tms_payment_attempts : "payment_attempts_task_id_fkey"
+    tms_delivery_tasks ||--o{ tms_proof_of_delivery : "proof_of_delivery_task_id_fkey"
+    tms_vehicles ||--o{ tms_routes : "routes_vehicle_id_fkey"
+    tms_vehicles ||--o{ tms_vehicle_documents : "vehicle_documents_vehicle_id_fkey"
+    sales_accounts ||--o{ tms_vehicles : "vehicles_assigned_client_id_fkey"
+
+    tms_accidents {
+        uuid id PK
+        uuid entity_id FK,UK "→ platform.entities"
+        uuid vehicle_id FK "→ tms.vehicles"
+        uuid driver_employee_id FK "→ hr.employees"
+        text claim_status
+        num claim_amount
+        uuid disciplinary_case_id FK "→ hr.disciplinary_cases"
+        uuid repair_order_id FK "→ tms.maintenance_orders"
+    }
+    tms_contact_log {
+        uuid id PK
+        uuid task_id FK "→ tms.delivery_tasks"
+        uuid driver_employee_id FK "→ hr.employees"
+        text channel
+        ts attempted_at
+        ts delivered_at
+        ts read_at
+        num cost
+    }
+    tms_delivery_exceptions {
+        uuid id PK
+        uuid task_id FK "→ tms.delivery_tasks"
+        ts raised_at
+        text exception_type "waiting_time · failed_attempt · damage · shortage · …"
+        text description
+        array evidence_urls
+        ts resolved_at
+        bool is_billable
+    }
+    tms_delivery_tasks {
+        uuid id PK
+        uuid entity_id FK,UK "→ platform.entities"
+        uuid client_id FK "→ sales.accounts"
+        uuid contract_id FK "→ sales.contracts"
+        uuid outbound_order_id FK "→ wms.outbound_orders"
+        text status "created · assigned · out_for_delivery · delivered · …"
+        uuid vehicle_id FK "→ tms.vehicles"
+        uuid executed_by_partner_id FK "→ partners.partners"
+    }
+    tms_failure_reasons {
+        text code PK
+        text parent_code FK "→ tms.failure_reasons"
+        text name_ar
+        text name_en
+        bool requires_photo
+        int requires_contact_attempts
+        bool requires_note
+        bool is_billable
+    }
+    tms_fuel_ledger {
+        uuid id PK
+        uuid entity_id FK "→ platform.entities"
+        uuid card_asset_id FK,UK "→ admin.assets"
+        uuid vehicle_id FK "→ tms.vehicles"
+        uuid driver_employee_id FK "→ hr.employees"
+        num amount UK
+        num odometer_km
+        num km_since_last
+    }
+    tms_maintenance_orders {
+        uuid id PK
+        uuid entity_id FK,UK "→ platform.entities"
+        uuid vehicle_id FK "→ tms.vehicles"
+        uuid plan_id FK "→ tms.maintenance_plans"
+        num odometer_km
+        uuid workshop_partner_id FK "→ partners.partners"
+        uuid purchase_order_id FK "→ admin.purchase_orders"
+        text status "planned · in_progress · in_workshop · awaiting_parts · …"
+    }
+    tms_maintenance_plans {
+        uuid id PK
+        text vehicle_type
+        text task
+        int interval_km
+        int interval_days
+        int alert_before_km
+        int alert_before_days
+        num estimated_cost
+    }
+    tms_payment_attempts {
+        uuid id PK
+        uuid task_id FK "→ tms.delivery_tasks"
+        text method
+        num amount_due
+        num amount_paid
+        ts link_expires_at
+        text gateway_status
+        ts confirmed_at
+    }
+    tms_proof_of_delivery {
+        uuid id PK
+        uuid task_id FK "→ tms.delivery_tasks"
+        ts delivered_at
+        text receiver_name
+        text receiver_id_no
+        text relation
+        date retain_until
+        ts original_occurred_at
+    }
+    tms_routes {
+        uuid id PK
+        uuid entity_id FK,UK "→ platform.entities"
+        date route_date
+        uuid vehicle_id FK "→ tms.vehicles"
+        num planned_km
+        num actual_km
+        ts started_at
+        text status "planned · active · closed · cancelled"
+    }
+    tms_vehicle_documents {
+        uuid id PK
+        uuid vehicle_id FK "→ tms.vehicles"
+        text doc_type
+        text doc_no
+        date issue_date
+        date expiry_date
+        text file_url
+        int alert_days_before
+    }
+    tms_vehicles {
+        uuid id PK
+        uuid entity_id FK "→ platform.entities"
+        num capacity_kg
+        num capacity_cbm
+        bool is_refrigerated
+        text status "registered · active · maintenance · idle · out_of_service · disposed"
+        uuid assigned_client_id FK "→ sales.accounts"
+        num odometer_km
+    }
+    hr_disciplinary_cases {
+        uuid id PK "خارجي · hr.disciplinary_cases"
+    }
+    hr_employees {
+        uuid id PK "خارجي · hr.employees"
+    }
+    sales_accounts {
+        uuid id PK "خارجي · sales.accounts"
+    }
+    sales_contracts {
+        uuid id PK "خارجي · sales.contracts"
+    }
+    partners_partners {
+        uuid id PK "خارجي · partners.partners"
+    }
+    wms_outbound_orders {
+        uuid id PK "خارجي · wms.outbound_orders"
+    }
+    admin_assets {
+        uuid id PK "خارجي · admin.assets"
+    }
+    admin_purchase_orders {
+        uuid id PK "خارجي · admin.purchase_orders"
+    }

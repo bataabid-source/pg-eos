@@ -1,0 +1,147 @@
+%% sales · الجداول والعلاقات
+erDiagram
+    sales_accounts ||--o{ sales_account_ownership_history : "account_ownership_history_account_id_fkey"
+    hr_employees ||--o{ sales_account_ownership_history : "account_ownership_history_employee_id_fkey"
+    catalog_segments ||--o{ sales_accounts : "accounts_segment_id_fkey"
+    sales_accounts ||--o{ sales_activities : "activities_account_id_fkey"
+    sales_opportunities ||--o{ sales_activities : "activities_opportunity_id_fkey"
+    sales_accounts ||--o{ sales_contacts : "contacts_account_id_fkey"
+    sales_contracts ||--o{ sales_contract_sla : "contract_sla_contract_id_fkey"
+    sales_accounts ||--o{ sales_contracts : "contracts_account_id_fkey"
+    catalog_price_lists ||--o{ sales_contracts : "contracts_price_list_id_fkey"
+    sales_quotes ||--o{ sales_contracts : "contracts_quote_id_fkey"
+    sales_accounts ||--o{ sales_leads : "leads_converted_account_id_fkey"
+    sales_accounts ||--o{ sales_opportunities : "opportunities_account_id_fkey"
+    catalog_price_exceptions ||--o{ sales_quote_lines : "quote_lines_exception_id_fkey"
+    sales_quotes ||--o{ sales_quote_lines : "quote_lines_quote_id_fkey"
+    catalog_services ||--o{ sales_quote_lines : "quote_lines_service_id_fkey"
+    sales_accounts ||--o{ sales_quotes : "quotes_account_id_fkey"
+    sales_opportunities ||--o{ sales_quotes : "quotes_opportunity_id_fkey"
+    sales_contracts ||--o{ sales_sla_results : "sla_results_contract_id_fkey"
+    sales_contract_sla ||--o{ sales_sla_results : "sla_results_sla_id_fkey"
+
+    sales_account_ownership_history {
+        uuid id PK
+        uuid entity_id FK "→ platform.entities"
+        uuid account_id FK "→ sales.accounts"
+        uuid owner_user_id FK "→ identity.users"
+        uuid employee_id FK "→ hr.employees"
+        date valid_from
+        date valid_to
+        num commission_share_pct
+    }
+    sales_accounts {
+        uuid id PK
+        text code UK
+        text name_ar
+        text name_en
+        uuid segment_id FK "→ catalog.segments"
+        uuid owner_user_id FK "→ identity.users"
+        ts hold_set_at
+        text status "active · suspended · closed"
+    }
+    sales_activities {
+        uuid id PK
+        uuid account_id FK "→ sales.accounts"
+        uuid opportunity_id FK "→ sales.opportunities"
+        text activity_type
+        ts due_at
+        ts completed_at
+        text outcome
+        uuid owner_user_id FK "→ identity.users"
+    }
+    sales_contacts {
+        uuid id PK
+        uuid account_id FK "→ sales.accounts"
+        text name
+        text title
+        text email
+        text phone
+        text whatsapp
+        bool is_primary
+    }
+    sales_contract_sla {
+        uuid id PK
+        uuid contract_id FK "→ sales.contracts"
+        text metric
+        num target_value
+        text direction
+        text penalty_type
+        num penalty_value
+        num bonus_value
+    }
+    sales_contracts {
+        uuid id PK
+        uuid entity_id FK,UK "→ platform.entities"
+        uuid account_id FK "→ sales.accounts"
+        uuid quote_id FK "→ sales.quotes"
+        text status "draft · signed · active · suspended · expired · renewed · terminated"
+        date start_date
+        date end_date
+        uuid price_list_id FK "→ catalog.price_lists"
+    }
+    sales_leads {
+        uuid id PK
+        text doc_no
+        text source
+        text company_name
+        text contact_name
+        text status "new · contacted · qualified · converted · lost"
+        uuid owner_user_id FK "→ identity.users"
+        uuid converted_account_id FK "→ sales.accounts"
+    }
+    sales_opportunities {
+        uuid id PK
+        uuid account_id FK "→ sales.accounts"
+        uuid entity_id FK "→ platform.entities"
+        text stage "qualification · needs_analysis · proposal · negotiation · won · lost"
+        num expected_value
+        num expected_margin_pct
+        date expected_close
+        uuid owner_user_id FK "→ identity.users"
+    }
+    sales_quote_lines {
+        uuid id PK
+        uuid quote_id FK "→ sales.quotes"
+        uuid service_id FK "→ catalog.services"
+        num qty
+        num unit_price
+        num min_price_at_quote
+        uuid exception_id FK "→ catalog.price_exceptions"
+        num line_total
+    }
+    sales_quotes {
+        uuid id PK
+        uuid entity_id FK,UK "→ platform.entities"
+        uuid account_id FK "→ sales.accounts"
+        uuid opportunity_id FK "→ sales.opportunities"
+        text status "draft · commercial_review · finance_review · approved · …"
+        num subtotal
+        num discount_amt
+        num total
+    }
+    sales_sla_results {
+        uuid id PK
+        uuid contract_id FK "→ sales.contracts"
+        uuid sla_id FK,UK "→ sales.contract_sla"
+        date period UK
+        num actual_value
+        bool met
+        num penalty_amt
+        ts computed_at
+    }
+    hr_employees {
+        uuid id PK "خارجي · hr.employees"
+    }
+    catalog_segments {
+        uuid id PK "خارجي · catalog.segments"
+    }
+    catalog_price_lists {
+        uuid id PK "خارجي · catalog.price_lists"
+    }
+    catalog_price_exceptions {
+        uuid id PK "خارجي · catalog.price_exceptions"
+    }
+    catalog_services {
+        uuid id PK "خارجي · catalog.services"
+    }

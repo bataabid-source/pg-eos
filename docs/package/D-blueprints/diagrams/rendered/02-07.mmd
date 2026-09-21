@@ -1,0 +1,15 @@
+flowchart LR
+  s["فاتورة sent"] --> rem["تذكيرات -3 · 0 · +7 · +15 · +30"]
+  rem --> pay{"سداد؟"}
+  pay -->|"نعم"| rc["PRO يسجّل سند RCT · receipts"]
+  rc --> al["receipt_allocations ضد فواتير محددة"]
+  al --> st{"balance = 0؟"}
+  st -->|"لا"| pp["partially_paid"]
+  st -->|"نعم"| pd["paid"]
+  al --> bank["CFO يطابق كشف البنك · I-08"]
+  bank --> ok["reconciled_by · reconciled_at"]
+  bank --> unm["غير مطابق → ACCOUNTANT"]
+  pay -->|"لا"| ov["overdue"]
+  ov --> hold["credit_hold = true آلياً · على مستوى المجموعة"]
+  hold --> blk["رفض أوامر الصرف ومهام التوصيل وطوابير CC"]
+  hold --> rel["رفع الحجز · GM أو CFO · سبب ومدة · بشري دائماً"]

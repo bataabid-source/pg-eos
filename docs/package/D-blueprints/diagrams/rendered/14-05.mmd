@@ -1,0 +1,16 @@
+flowchart LR
+  auto["اليوم 3 من الشهر · توليد آلي من التحصيل"] --> acc["صفوف accrued"]
+  acc --> pub["نشر كشف المندوب · نافذة 48 ساعة"]
+  pub --> disp{"اعتراض؟"}
+  disp -->|"نعم"| d1["disputed مع سبب إلزامي"]
+  d1 --> mgr["SALES_MGR يبتّ"]
+  disp -->|"لا"| mgr
+  mgr --> ur["under_review"]
+  ur --> cfo["CFO يعتمد · SoD مع SALES_MGR"]
+  cfo --> ap["approved"]
+  ap --> exp["ACCOUNTANT يصدّر · payroll_period"]
+  exp --> paid["paid"]
+  exp --> gap["فجوة 7: لا جدول رواتب — التصدير خارجي اليوم"]
+  cn["إشعار دائن معتمد من GM"] --> cb["clawed_back أو صفّ سالب"]
+  ap --> cb
+  paid --> cb

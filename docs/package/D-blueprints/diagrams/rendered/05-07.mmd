@@ -1,0 +1,13 @@
+stateDiagram-v2
+  [*] --> expected
+  expected --> arrived
+  arrived --> sorted
+  sorted --> staged
+  staged --> assigned
+  assigned --> ofd
+  ofd --> delivered
+  ofd --> failed
+  failed --> assigned
+  failed --> returned
+  delivered --> [*]
+  returned --> [*]

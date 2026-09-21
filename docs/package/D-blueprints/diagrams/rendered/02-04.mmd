@@ -1,0 +1,18 @@
+flowchart TB
+  q["سطر عرض · unit_price"] --> g{"unit_price ≥ min_price_at_quote؟"}
+  g -->|"نعم"| ok["السطر يُحفظ"]
+  g -->|"لا"| r["رفض بالقيمة في الرسالة"]
+  r --> e1["طلب استثناء سعري"]
+  e1 --> e2["SALES_MGR"]
+  e2 --> e3["CFO"]
+  e3 --> e4["GM يعتمد · سبب ومدة وتاريخ مراجعة"]
+  e4 --> e5["price_exceptions · exception_id على السطر"]
+  e5 --> ok
+  ok --> m{"estimated_margin_pct"}
+  m -->|"أقل من 10"| gm["اعتماد GM إلزامي"]
+  m -->|"10 إلى 15"| w["تحذير بارز"]
+  m -->|"15 فأكثر"| pass["ضمن الحد"]
+  gm --> ctr["العقد · price_list_id إلزامي"]
+  w --> ctr
+  pass --> ctr
+  ctr --> src["price_source = exception أو contract"]

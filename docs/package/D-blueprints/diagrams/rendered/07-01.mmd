@@ -1,0 +1,24 @@
+flowchart LR
+  ev["واقعة تشغيلية<br/>platform.outbox"]
+  ar["قاعدة الأتمتة<br/>automation_rules · A0-A3"]
+  th["العتبة العددية<br/>thresholds · 44 مفتاحاً"]
+  ff["علم الميزة<br/>feature_flags"]
+  auto["تنفيذ آلي<br/>ويُعلَّم بمن نفّذه: engine"]
+  dec["بند قرار<br/>platform.decisions"]
+  alr["قاعدة تنبيه<br/>alert_rules · 22"]
+  inbox["صندوق القرارات<br/>بالدور assigned_role"]
+  log["platform.alert_log<br/>إقرار · تصعيد · إقفال"]
+  act["أثر في القاعدة<br/>حالة جديدة أو مستند"]
+  aud["سجل التدقيق<br/>audit_log بسلسلة تجزئة"]
+  rep["24 تقريراً"]
+  ev --> ar
+  th --> ar
+  ff --> ar
+  ar -->|"استوفى auto_condition"| auto
+  ar -->|"استوفى exception_condition"| dec
+  ev --> alr --> log
+  dec --> inbox --> act
+  auto --> act
+  act --> aud
+  aud --> rep
+  log --> rep

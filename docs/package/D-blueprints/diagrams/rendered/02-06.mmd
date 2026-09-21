@@ -1,0 +1,15 @@
+flowchart TB
+  agg["تجميع أحداث priced لكل عميل × كيان"] --> d["invoices.status = draft · doc_no فارغ"]
+  d --> sla["إضافة sla_penalty_amt من sla_results"]
+  sla --> rv["CFO يراجع · status = review"]
+  rv --> gate{"total ≤ 500 د.ك؟"}
+  gate -->|"نعم"| auto["اعتماد آلي"]
+  gate -->|"لا"| box["بند في صندوق قرارات CFO"]
+  box --> cfo["CFO يعتمد أو يرجع"]
+  auto --> ap["status = approved"]
+  cfo --> ap
+  ap --> num["next_doc_no · سلسلة INV · ذرّي"]
+  num --> frz["frozen_snapshot + PDF + ورقة تفصيل"]
+  frz --> snt["status = sent"]
+  snt --> je["قيد: مدين 1200 ذمم عملاء · دائن 4xxx إيراد"]
+  snt --> evt["الأحداث status = invoiced"]

@@ -1,0 +1,134 @@
+%% platform · الكيانات والحوكمة والمرجعيات
+erDiagram
+    platform_entities ||--o{ platform_entities : "entities_parent_id_fkey"
+    platform_entities ||--o{ platform_settings : "settings_entity_id_fkey"
+    platform_entities ||--o{ platform_counters : "counters_entity_id_fkey"
+    identity_roles ||--o{ platform_domain_owners : "domain_owners_approver_role_fkey"
+    identity_roles ||--o{ platform_domain_owners : "domain_owners_owner_role_fkey"
+    platform_domain_owners ||--o{ platform_domain_quality_monthly : "domain_quality_monthly_domain_code_fkey"
+    platform_entities ||--o{ platform_decisions : "decisions_entity_id_fkey"
+    identity_roles ||--o{ platform_approval_chains : "approval_chains_approver_role_fkey"
+
+    platform_entities {
+        uuid id PK
+        text code UK
+        text name_ar
+        text name_en
+        text legal_name_ar
+        date fiscal_year_end
+        uuid parent_id FK "→ platform.entities"
+        bool is_active
+    }
+    platform_settings {
+        uuid id PK
+        uuid entity_id FK,UK "→ platform.entities"
+        text key UK
+        jsonb value
+        text data_type
+        text description
+        ts updated_at
+        uuid updated_by
+    }
+    platform_thresholds {
+        text key PK
+        num value
+        text unit
+        text description_ar
+        uuid changed_by
+        ts changed_at
+    }
+    platform_counters {
+        uuid id PK
+        uuid entity_id FK,UK "→ platform.entities"
+        text doc_type UK
+        text period UK
+        text prefix
+        int padding
+        int current_val
+    }
+    platform_feature_flags {
+        text key PK
+        bool enabled
+        int rollout_pct
+        array enabled_for_roles
+        bool kill_switch
+        uuid changed_by
+        ts changed_at
+    }
+    platform_domain_owners {
+        text domain_code PK
+        text owner_role FK "→ identity.roles"
+        text approver_role FK "→ identity.roles"
+        num gate_target_pct
+        uuid changed_by
+        ts changed_at
+    }
+    platform_domain_quality_monthly {
+        text domain_code PK,FK "→ platform.domain_owners"
+        date month PK
+        num score_pct
+        ts measured_at
+    }
+    platform_decisions {
+        uuid id PK
+        uuid entity_id FK "→ platform.entities"
+        text kind
+        text title_ar
+        text status "open · decided · expired · cancelled · auto_resolved"
+        text decision
+        ts decided_at
+        ts due_at
+    }
+    platform_approval_chains {
+        uuid id PK
+        text request_type UK
+        int step_no UK
+        text approver_role FK "→ identity.roles"
+        num min_amount
+        num max_amount
+        num auto_approve_below
+        bool is_active
+    }
+    platform_automation_rules {
+        uuid id PK
+        text code UK
+        text process
+        text level "A0 · A1 · A2 · A3"
+        text auto_condition
+        text exception_condition
+        array escalate_to_roles
+        bool is_active
+    }
+    platform_alert_rules {
+        uuid id PK
+        text code UK
+        text name_ar
+        text source_query
+        array target_roles
+        array channels
+        bool is_active
+        ts muted_until
+    }
+    platform_alert_log {
+        int id PK
+        text rule_code
+        text entity_ref
+        ts fired_at
+        array recipients
+        ts acknowledged_at
+        ts escalated_at
+        ts resolved_at
+    }
+    platform_notifications {
+        uuid id PK
+        uuid user_id
+        uuid entity_id
+        text channel
+        text severity
+        ts sent_at
+        ts read_at
+        text delivery_status "sent · delivered · bounced · failed · (أو فارغ)"
+    }
+    identity_roles {
+        uuid id PK "خارجي · identity.roles"
+    }

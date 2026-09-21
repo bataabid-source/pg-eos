@@ -1,0 +1,11 @@
+stateDiagram-v2
+  [*] --> pending
+  pending --> approved: المعتمِد ضمن شريحته
+  pending --> rejected: رفض بسبب إلزامي
+  pending --> delegated: تحويل لنائب بإنابة سارية
+  pending --> expired: انقضاء المهلة · تصعيد N-17
+  delegated --> approved
+  delegated --> rejected
+  expired --> approved: بعد التصعيد للمستوى الأعلى
+  approved --> [*]
+  rejected --> [*]

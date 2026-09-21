@@ -1,0 +1,13 @@
+flowchart LR
+  ox["platform.outbox<br/>tms.task.delivered · wms.outbound.checked"]
+  filt["مُصفّي الأحداث المصدَّرة — مقترح<br/>ما يراه العميل فقط"]
+  subs["اشتراكات webhooks — مقترح<br/>نقطة الاستقبال لكل عميل"]
+  push["الدفع الموقَّع<br/>إعادة محاولة بسياسة I-12"]
+  shop["متجر العميل<br/>حالة الطلب ورقم التتبّع"]
+  wa["Twilio — I-05 · T5<br/>رابط التتبّع للمشتري"]
+  q["platform.integration_queue<br/>الدفع الفاشل بعد استنفاد المحاولات"]
+  n22["تنبيه N-22<br/>بلا تشغيل ناجح 24 ساعة"]
+
+  ox --> filt --> subs --> push --> shop
+  ox --> wa
+  push -->|فشل نهائي| q --> n22

@@ -1,0 +1,14 @@
+stateDiagram-v2
+  [*] --> draft : تجميع آلي للأحداث
+  draft --> review : CFO
+  draft --> void : CFO
+  review --> approved : آلي عند total ≤ 500 · CFO فوقها
+  review --> void : CFO
+  approved --> sent : CFO
+  sent --> partially_paid : PRO يسجّل قبضاً جزئياً
+  sent --> paid : PRO
+  sent --> overdue : النظام
+  partially_paid --> paid : PRO
+  partially_paid --> overdue : النظام
+  paid --> [*]
+  void --> [*]

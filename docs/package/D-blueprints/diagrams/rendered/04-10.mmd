@@ -1,0 +1,8 @@
+stateDiagram-v2
+  [*] --> planned
+  planned --> active
+  active --> closed
+  planned --> cancelled
+  active --> cancelled
+  closed --> [*]
+  cancelled --> [*]

@@ -1,0 +1,5 @@
+stateDiagram-v2
+  [*] --> draft : CFO يطلب · invoice_id و reason إلزاميان
+  draft --> approved : GM حصراً · لا اعتماد آلي إطلاقاً
+  approved --> applied : تخفيض رصيد الفاتورة وقيد عكسي
+  applied --> [*]

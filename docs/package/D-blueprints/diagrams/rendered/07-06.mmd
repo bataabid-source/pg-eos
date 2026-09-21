@@ -1,0 +1,10 @@
+flowchart TB
+  usr["المستخدم · identity.users<br/>لا كلمة مرور على الخادم"]
+  auth["المصادقة<br/>OTP بريد للداخليين · PIN للجهاز المشترك · تسجيل جهاز للسائق"]
+  ses["الجلسة · sessions<br/>6 ساعات داخلي · 1 ساعة + تجديد 30 يوماً ميداني"]
+  rol["الدور · user_roles · 26 دوراً<br/>يُبطَل فتُبطَل الجلسة فوراً"]
+  sod["فصل المهام · sod_rules<br/>4 أزواج · الإنابة لا تتجاوزه"]
+  scp["نطاق البيانات<br/>all · entity · org_unit · subordinates · assigned · account · client · self"]
+  rls["RLS على كل جدول<br/>الحارس G7 = صفر"]
+  col["تصنيف العمود · column_classification<br/>secret لا يصل المتصفح أبداً"]
+  usr --> auth --> ses --> rol --> sod --> scp --> rls --> col

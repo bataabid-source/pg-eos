@@ -1,0 +1,30 @@
+flowchart LR
+  subgraph INB["وارد"]
+    i01["I-01 بوابة iMile · وكيل"]
+    i03["I-03 أولى · وقود · CSV"]
+    i04["I-04 البصمة · REST"]
+    i08["I-08 البنك · CSV أو MT940"]
+    i09["I-09 واجهة العملاء · REST"]
+  end
+  core["PG-EOS<br/>integration_config · queue · runs"]
+  subgraph OUTB["صادر"]
+    i02["I-02 قرارات التدقيق · وكيل"]
+    i05["I-05 واتساب · Twilio"]
+    i06["I-06 SMS · Twilio"]
+    i07["I-07 البريد · SMTP"]
+    i10["I-10 التصدير المحاسبي"]
+  end
+  i11["I-11 تطبيق السائق · وارد وصادر"]
+  mq["الطابور اليدوي<br/>تنبيه N-19"]
+  i01 --> core
+  i03 --> core
+  i04 --> core
+  i08 --> core
+  i09 --> core
+  core --> i02
+  core --> i05
+  core --> i06
+  core --> i07
+  core --> i10
+  i11 <--> core
+  core --> mq

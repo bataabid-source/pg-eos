@@ -1,0 +1,19 @@
+flowchart LR
+  ord["أمر العميل<br/>outbound_orders أو delivery_tasks"]
+  exec["تنفيذ ميداني<br/>PDA أو تطبيق السائق"]
+  close["إقفال العملية<br/>انتقال حالة"]
+  ob["platform.outbox<br/>في نفس المعاملة"]
+  be["billable_events<br/>تسعير آلي A3"]
+  pr["أسبقية السعر<br/>استثناء ← عقد ← شريحة ← قائمة"]
+  drf["مسودة فاتورة<br/>billing.invoices"]
+  apv["اعتماد<br/>آلي ≤ 500 · CFO فوقها"]
+  snd["إرسال · بريد أو واتساب"]
+  rcp["إيصال قبض RCT<br/>billing.receipts"]
+  bank["مطابقة بنكية<br/>CFO · I-08"]
+  je["قيد محاسبي<br/>journal_entries"]
+  prof["الربحية الشهرية<br/>billing.profitability"]
+  lost["الإيراد الضائع<br/>R-14"]
+  ord --> exec --> close --> ob --> be
+  pr --> be
+  be --> drf --> apv --> snd --> rcp --> bank --> je --> prof
+  be -.->|"حدث بلا بند عقدي"| lost

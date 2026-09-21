@@ -1,0 +1,96 @@
+%% imile · السائقون والثقة والاستقلالية
+erDiagram
+    imile_driver_ids ||--o{ imile_driver_id_assignments : "driver_id_assignments_driver_id_ref_fkey"
+    hr_employees ||--o{ imile_driver_id_assignments : "driver_id_assignments_employee_id_fkey"
+    platform_documents ||--o{ imile_driver_id_assignments : "driver_id_assignments_handover_doc_id_fkey"
+    imile_coverage_areas ||--o{ imile_driver_zone_exclusions : "driver_zone_exclusions_zone_code_fkey"
+
+    imile_driver_ids {
+        uuid id PK
+        text imile_code UK
+        date allocated_at
+        text status "available · assigned · suspended"
+        date suspended_at
+        text suspension_reason
+        text suspension_category "administrative · performance · conduct · permanent_ban · (أو فارغ)"
+        date returned_at
+    }
+    imile_driver_id_assignments {
+        uuid id PK
+        uuid driver_id_ref FK "→ imile.driver_ids"
+        uuid employee_id FK "→ hr.employees"
+        ts assigned_from
+        ts assigned_to
+        uuid assigned_by
+        uuid approved_by
+        uuid handover_doc_id FK "→ platform.documents"
+    }
+    imile_driver_trust {
+        uuid id PK
+        text driver_code UK
+        ts computed_at UK
+        int window_days
+        num p1
+        int p1_denominator
+        num driver_trust
+        bool is_cold_start
+    }
+    imile_driver_zone_exclusions {
+        uuid id PK
+        text driver_code
+        text zone_code FK "→ imile.coverage_areas"
+        text reason
+        date valid_from
+        date valid_to
+        uuid created_by
+        ts created_at
+    }
+    imile_dtl_problems {
+        uuid id PK
+        ts raised_at
+        jsonb gate_result
+        text engine_decision "accept · reject · human · reclassify · (أو فارغ)"
+        text auditor_decision "accept · reject · human · reclassify · (أو فارغ)"
+        ts decided_at
+        text actual_outcome
+        ts synced_to_imile_at
+    }
+    imile_dtl_rule_autonomy {
+        uuid id PK
+        text problem_type UK
+        text decision_kind UK "accept · reclassify"
+        int level "0 · 1"
+        date measured_on
+        ts promoted_at
+        ts demoted_at
+        bool is_active
+    }
+    imile_dispatch_autonomy {
+        uuid id PK
+        int level "0 · 1"
+        num unchanged_acceptance_pct
+        date measured_on
+        ts promoted_at
+        num first_attempt_pct
+        ts demoted_at
+        bool is_active
+    }
+    imile_agent_health {
+        uuid id PK
+        ts reported_at
+        text agent_id
+        bool session_valid
+        ts last_pull_at
+        int pending_pushes
+        text engine_version
+        text error_message
+    }
+    hr_employees {
+        uuid id PK "خارجي · hr.employees"
+    }
+    platform_documents {
+        uuid id PK "خارجي · platform.documents"
+    }
+    imile_coverage_areas {
+        uuid id PK "خارجي · imile.coverage_areas"
+    }

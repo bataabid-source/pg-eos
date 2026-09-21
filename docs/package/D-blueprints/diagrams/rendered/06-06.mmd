@@ -1,0 +1,25 @@
+flowchart TB
+  req[طلب شراء — cost_center إلزامي]
+  bud{{"فحص الميزانية — admin.budget_lines.available"}}
+  lvl{{"شريحة الاعتماد بالمبلغ"}}
+  auto["أقل من أو يساوي 100 — اعتماد آلي"]
+  mgr["أكثر من 100 وحتى 500 — مدير القسم الطالب"]
+  fin["أكثر من 500 وحتى 2000 — المدير المالي"]
+  gmx["أكثر من 2000 — المدير العام"]
+  q3{{"فوق 500 — ثلاثة عروض إلزامية"}}
+  award["ترسية + selection_reason إلزامي"]
+  po[أمر شراء PO — يحجز committed_amount]
+  rcv[استلام وفحص]
+  match{{"مطابقة ثلاثية — أمر واستلام وفاتورة"}}
+  freeze["تجميد الدفع — three_way_matched = false"]
+  pay["اعتماد الدفع — القيد no_pay_before_match يسمح"]
+  asset[تسجيل الأصول وتسليمها عهداً]
+
+  req --> bud --> lvl
+  lvl --> auto --> q3
+  lvl --> mgr --> q3
+  lvl --> fin --> q3
+  lvl --> gmx --> q3
+  q3 --> award --> po --> rcv --> match
+  match -- فرق --> freeze --> rcv
+  match -- مطابق --> pay --> asset

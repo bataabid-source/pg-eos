@@ -1,0 +1,24 @@
+flowchart LR
+  dec["platform.decisions<br/>status open"]
+  alr["platform.alert_log<br/>غير مُقرّ"]
+  wot["wms.work_order_tasks<br/>خمس حالات مفتوحة"]
+  dlt["tms.delivery_tasks<br/>أربع حالات مفتوحة"]
+  tkt["cc.tickets<br/>خمس حالات مفتوحة"]
+  rec["hr.recruitment_cases<br/>بلا outcome"]
+  gov["admin.gov_transactions<br/>ثلاث مراحل"]
+  apr["purchase_requests<br/>approval_steps"]
+  oth["space_reservations<br/>disciplinary_cases"]
+  vw["platform.my_work<br/>عرض موحّد · 16 عموداً"]
+  rls["ترشيح: الكيان ثم الدور ثم المالك"]
+  grp["تجميع: process_group<br/>قائمة مغلقة من 14"]
+  card["البطاقة: عنوان · مرجع · موعد · شارة SLA · زر واحد"]
+  dec --> vw
+  alr --> vw
+  wot --> vw
+  dlt --> vw
+  tkt --> vw
+  rec --> vw
+  gov --> vw
+  apr --> vw
+  oth --> vw
+  vw --> rls --> grp --> card

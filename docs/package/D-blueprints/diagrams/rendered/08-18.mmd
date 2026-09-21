@@ -1,0 +1,136 @@
+%% housing · الجداول والعلاقات
+erDiagram
+    housing_rooms ||--o{ housing_assets : "assets_room_id_fkey"
+    housing_units ||--o{ housing_assets : "assets_unit_id_fkey"
+    housing_beds ||--o{ housing_bed_assignments : "bed_assignments_bed_id_fkey"
+    hr_employees ||--o{ housing_bed_assignments : "bed_assignments_employee_id_fkey"
+    platform_documents ||--o{ housing_bed_assignments : "bed_assignments_handover_doc_id_fkey"
+    housing_beds ||--o{ housing_bed_reservations : "bed_reservations_bed_id_fkey"
+    hr_recruitment_cases ||--o{ housing_bed_reservations : "bed_reservations_recruitment_case_id_fkey"
+    housing_rooms ||--o{ housing_beds : "beds_room_id_fkey"
+    housing_units ||--o{ housing_inspections : "inspections_unit_id_fkey"
+    housing_assets ||--o{ housing_maintenance_requests : "maintenance_requests_housing_asset_id_fkey"
+    housing_properties ||--o{ housing_maintenance_requests : "maintenance_requests_property_id_fkey"
+    admin_purchase_orders ||--o{ housing_maintenance_requests : "maintenance_requests_purchase_order_id_fkey"
+    housing_rooms ||--o{ housing_maintenance_requests : "maintenance_requests_room_id_fkey"
+    housing_units ||--o{ housing_maintenance_requests : "maintenance_requests_unit_id_fkey"
+    partners_partners ||--o{ housing_maintenance_requests : "maintenance_requests_vendor_id_fkey"
+    housing_units ||--o{ housing_rooms : "rooms_unit_id_fkey"
+    housing_properties ||--o{ housing_units : "units_property_id_fkey"
+    housing_properties ||--o{ housing_utility_bills : "utility_bills_property_id_fkey"
+    admin_purchase_orders ||--o{ housing_utility_bills : "utility_bills_purchase_order_id_fkey"
+    housing_units ||--o{ housing_utility_bills : "utility_bills_unit_id_fkey"
+
+    housing_assets {
+        uuid id PK
+        uuid unit_id FK "→ housing.units"
+        uuid room_id FK "→ housing.rooms"
+        date purchase_date
+        num purchase_value
+        date last_service_date
+        date next_service_date
+        text status "working · faulty · replaced"
+    }
+    housing_bed_assignments {
+        uuid id PK
+        uuid bed_id FK "→ housing.beds"
+        uuid employee_id FK "→ hr.employees"
+        date assigned_from
+        date assigned_to
+        uuid assigned_by
+        uuid handover_doc_id FK "→ platform.documents"
+        ts original_occurred_at
+    }
+    housing_bed_reservations {
+        uuid id PK
+        uuid bed_id FK "→ housing.beds"
+        uuid recruitment_case_id FK "→ hr.recruitment_cases"
+        text reserved_for
+        date reserved_from
+        date expires_at
+        uuid reserved_by
+        text status "active · converted · expired · cancelled"
+    }
+    housing_beds {
+        uuid id PK
+        uuid room_id FK,UK "→ housing.rooms"
+        text code UK
+        text bed_type
+        text status "available · occupied · reserved · maintenance · blocked"
+        text block_reason
+    }
+    housing_inspections {
+        uuid id PK
+        uuid entity_id FK,UK "→ platform.entities"
+        text doc_no UK
+        uuid unit_id FK "→ housing.units"
+        ts inspected_at
+        int cleanliness_score
+        int safety_score
+        date follow_up_date
+    }
+    housing_maintenance_requests {
+        uuid id PK
+        uuid entity_id FK,UK "→ platform.entities"
+        uuid property_id FK "→ housing.properties"
+        uuid unit_id FK "→ housing.units"
+        uuid room_id FK "→ housing.rooms"
+        uuid housing_asset_id FK "→ housing.assets"
+        uuid vendor_id FK "→ partners.partners"
+        uuid purchase_order_id FK "→ admin.purchase_orders"
+    }
+    housing_properties {
+        uuid id PK
+        uuid entity_id FK "→ platform.entities"
+        text code UK
+        text name
+        date lease_start
+        date lease_end
+        num deposit_amount
+        text status
+    }
+    housing_rooms {
+        uuid id PK
+        uuid unit_id FK,UK "→ housing.units"
+        text code UK
+        text room_type
+        num area_sqm
+        int bed_capacity
+        bool has_ac
+        text status "active · inactive"
+    }
+    housing_units {
+        uuid id PK
+        uuid property_id FK,UK "→ housing.properties"
+        text code UK
+        text floor
+        text unit_no
+        text unit_type
+        num monthly_rent
+        text status "active · inactive"
+    }
+    housing_utility_bills {
+        uuid id PK
+        uuid entity_id FK "→ platform.entities"
+        uuid property_id FK "→ housing.properties"
+        uuid unit_id FK "→ housing.units"
+        date period_from
+        date period_to
+        num amount
+        uuid purchase_order_id FK "→ admin.purchase_orders"
+    }
+    hr_employees {
+        uuid id PK "خارجي · hr.employees"
+    }
+    platform_documents {
+        uuid id PK "خارجي · platform.documents"
+    }
+    hr_recruitment_cases {
+        uuid id PK "خارجي · hr.recruitment_cases"
+    }
+    admin_purchase_orders {
+        uuid id PK "خارجي · admin.purchase_orders"
+    }
+    partners_partners {
+        uuid id PK "خارجي · partners.partners"
+    }

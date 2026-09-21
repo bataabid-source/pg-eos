@@ -1,0 +1,9 @@
+stateDiagram-v2
+  direction LR
+  [*] --> issued
+  issued --> received
+  issued --> cancelled
+  received --> matched
+  matched --> paid
+  paid --> [*]
+  cancelled --> [*]

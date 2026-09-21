@@ -1,0 +1,122 @@
+%% wms · البنية والمساحات
+erDiagram
+    partners_partners ||--o{ wms_warehouses : "warehouses_partner_id_fkey"
+    wms_warehouses ||--o{ wms_zones : "zones_warehouse_id_fkey"
+    sales_accounts ||--o{ wms_locations : "locations_assigned_client_id_fkey"
+    wms_space_blocks ||--o{ wms_locations : "locations_space_block_id_fkey"
+    wms_warehouses ||--o{ wms_locations : "locations_warehouse_id_fkey"
+    wms_zones ||--o{ wms_locations : "locations_zone_id_fkey"
+    wms_warehouses ||--o{ wms_space_blocks : "space_blocks_warehouse_id_fkey"
+    wms_zones ||--o{ wms_space_blocks : "space_blocks_zone_id_fkey"
+    wms_space_blocks ||--o{ wms_space_blocks_out_of_service : "space_blocks_out_of_service_block_id_fkey"
+    wms_space_blocks ||--o{ wms_space_allocations : "space_allocations_block_id_fkey"
+    sales_accounts ||--o{ wms_space_allocations : "space_allocations_client_id_fkey"
+    sales_contracts ||--o{ wms_space_allocations : "space_allocations_contract_id_fkey"
+    catalog_services ||--o{ wms_space_allocations : "space_allocations_service_id_fkey"
+    wms_space_blocks ||--o{ wms_space_reservations : "space_reservations_block_id_fkey"
+    sales_accounts ||--o{ wms_space_reservations : "space_reservations_client_id_fkey"
+    wms_space_allocations ||--o{ wms_space_reservations : "space_reservations_converted_allocation_id_fkey"
+    sales_opportunities ||--o{ wms_space_reservations : "space_reservations_opportunity_id_fkey"
+    sales_quotes ||--o{ wms_space_reservations : "space_reservations_quote_id_fkey"
+    sales_accounts ||--o{ wms_occupancy_snapshots : "occupancy_snapshots_client_id_fkey"
+    wms_space_blocks ||--o{ wms_occupancy_snapshots : "occupancy_snapshots_space_block_id_fkey"
+    wms_warehouses ||--o{ wms_occupancy_snapshots : "occupancy_snapshots_warehouse_id_fkey"
+
+    wms_warehouses {
+        uuid id PK
+        uuid entity_id FK "→ platform.entities"
+        text code UK
+        text name_ar
+        num total_sqm
+        bool is_active
+        bool is_partner
+        uuid partner_id FK "→ partners.partners"
+    }
+    wms_zones {
+        uuid id PK
+        uuid warehouse_id FK,UK "→ wms.warehouses"
+        text code UK
+        text name_ar
+        text zone_type "storage · receiving · quarantine · staging · …"
+        num temp_min
+        num temp_max
+        bool is_secure
+    }
+    wms_locations {
+        uuid id PK
+        uuid warehouse_id FK,UK "→ wms.warehouses"
+        uuid zone_id FK "→ wms.zones"
+        text level
+        num capacity_pallets
+        uuid assigned_client_id FK "→ sales.accounts"
+        uuid space_block_id FK "→ wms.space_blocks"
+        int global_level
+    }
+    wms_space_blocks {
+        uuid id PK
+        uuid entity_id FK,UK "→ platform.entities"
+        uuid warehouse_id FK,UK "→ wms.warehouses"
+        uuid zone_id FK "→ wms.zones"
+        num capacity_pallets
+        num capacity_sqm
+        num capacity_cbm
+        text status "active · inactive"
+    }
+    wms_space_blocks_out_of_service {
+        uuid id PK
+        uuid block_id FK "→ wms.space_blocks"
+        num qty_pallets
+        num qty_sqm
+        text reason "maintenance · damage · aisle · operational_buffer · safety"
+        date from_date
+        date to_date
+        uuid created_by
+    }
+    wms_space_allocations {
+        uuid id PK
+        uuid entity_id FK "→ platform.entities"
+        uuid contract_id FK "→ sales.contracts"
+        uuid client_id FK "→ sales.accounts"
+        uuid block_id FK "→ wms.space_blocks"
+        num qty
+        uuid service_id FK "→ catalog.services"
+        text status "active · expiring · expired · terminated"
+    }
+    wms_space_reservations {
+        uuid id PK
+        uuid entity_id FK "→ platform.entities"
+        uuid block_id FK "→ wms.space_blocks"
+        uuid client_id FK "→ sales.accounts"
+        uuid quote_id FK "→ sales.quotes"
+        uuid opportunity_id FK "→ sales.opportunities"
+        text status "active · converted · expired · cancelled"
+        uuid converted_allocation_id FK "→ wms.space_allocations"
+    }
+    wms_occupancy_snapshots {
+        uuid id PK
+        date snapshot_date UK
+        uuid entity_id FK,UK "→ platform.entities"
+        uuid client_id FK,UK "→ sales.accounts"
+        uuid warehouse_id FK,UK "→ wms.warehouses"
+        num sqm_occupied
+        num cbm_occupied
+        uuid space_block_id FK,UK "→ wms.space_blocks"
+    }
+    partners_partners {
+        uuid id PK "خارجي · partners.partners"
+    }
+    sales_accounts {
+        uuid id PK "خارجي · sales.accounts"
+    }
+    sales_contracts {
+        uuid id PK "خارجي · sales.contracts"
+    }
+    catalog_services {
+        uuid id PK "خارجي · catalog.services"
+    }
+    sales_opportunities {
+        uuid id PK "خارجي · sales.opportunities"
+    }
+    sales_quotes {
+        uuid id PK "خارجي · sales.quotes"
+    }

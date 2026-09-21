@@ -1,0 +1,8 @@
+stateDiagram-v2
+  [*] --> draft
+  draft --> active
+  active --> expired
+  active --> terminated
+  expired --> active
+  expired --> [*]
+  terminated --> [*]

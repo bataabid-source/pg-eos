@@ -1,0 +1,24 @@
+flowchart TB
+  s1["1 manpower_request — مدير القسم · اعتماد GM"]
+  s2["2 sourcing_route — PRO"]
+  s3["3 work_permit — PRO · SLA 7"]
+  s4["4 visa_issue — PRO"]
+  s5["5 agency_contract — PRO · اعتماد GM"]
+  s6["6 candidate_shortlist — مدير القسم · اعتماد GM"]
+  s7["7 medical_origin — PRO"]
+  s8["8 visa_stamp_ticket — PRO"]
+  s9["9 arrival — GM حتى شغل HR_MGR"]
+  s10["10 medical_local — PRO"]
+  s11["11 biometrics_security — PRO"]
+  s12["12 residency_issue — PRO"]
+  s13["13 civil_id — PRO"]
+  s14["14 driving_licence — PRO للسائقين"]
+  s15["15 onboarding_setup — مدير القسم · HOUSING_SUP"]
+  s16["16 probation_start — مدير القسم"]
+  s17["17 probation_review — مدير القسم · اعتماد GM"]
+  esc{{"due_at أقل من now — تصعيد اليوم 11 إلى GM"}}
+
+  s1 --> s2 --> s3 --> s4 --> s5 --> s6 --> s7 --> s8 --> s9
+  s9 --> s10 --> s11 --> s12 --> s13 --> s14 --> s15 --> s16 --> s17
+  s3 -.-> esc
+  s12 -.-> esc

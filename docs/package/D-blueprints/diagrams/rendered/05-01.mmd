@@ -1,0 +1,40 @@
+flowchart LR
+  portal["بوابة iMile — نظام العميل"]
+  agent["وكيل المحطة — Node + Playwright بجلسة واحدة"]
+  pda["PDA في المحطة — مسح الفرز والجرد"]
+  delmgr["DEL_MGR مدير التوصيل"]
+  auditor["مدقّق التدقيق الحي"]
+  drv["DRIVER السائق"]
+
+  ship[("imile.shipments")]
+  cov[("imile.coverage_areas + driver_zone_exclusions")]
+  plan[("imile.sorting_plans + plan_assignments")]
+  scan[("imile.scan_log")]
+  dtl[("imile.dtl_problems")]
+  auto[("imile.dtl_rule_autonomy + dispatch_autonomy")]
+  trust[("imile.driver_trust")]
+  inv[("imile.daily_inventory + discrepancies")]
+  ids[("imile.driver_ids + assignments")]
+  health[("imile.agent_health")]
+  task[("tms.delivery_tasks")]
+  comm[("hr.commission_daily")]
+
+  portal -->|"سحب كل ١٠ دقائق — I-01"| agent
+  agent --> ship
+  agent --> health
+  ship --> plan
+  cov --> plan
+  delmgr --> plan
+  plan --> pda
+  pda --> scan
+  scan --> ship
+  ship --> task
+  drv --> dtl
+  dtl --> auditor
+  auto --> dtl
+  trust --> dtl
+  auditor -->|"دفع القرار كل ٦٠ ثانية — I-02"| agent
+  agent --> portal
+  pda --> inv
+  ids --> comm
+  ship --> comm

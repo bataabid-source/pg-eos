@@ -1,0 +1,25 @@
+flowchart TB
+  inc[رصد الواقعة]
+  g35{{"بوابة م.35 — التوقيع خلال 15 يوماً من الثبوت"}}
+  pick[اختيار البند من 77 بنداً]
+  deg["حساب الدرجة: عدد المرات خلال 12 شهراً مرفوعاً إلى min_degree"]
+  auth{{"مشغّل السلطة — الدرجة ضمن سقف الموقّع"}}
+  route["routed_to = أقرب مخوَّل صاعد · status = pending_authority"]
+  a37{{"م.37 — خمسة إجراءات كاملة"}}
+  sign["signed_at + signed_by + signer_role"]
+  refuse["امتناع عن التوقيع → شاهدان برقمين مختلفين"]
+  griev["مهلة تظلّم 7 أيام — يبتّها مستوى أعلى"]
+  upheld[مؤيَّد]
+  cancel[ملغى — يُشطب ولا يُحتسب في العدّاد]
+  cap{{"سقف م.38 — خصم 5 أيام شهرياً"}}
+  carry[carried_forward_amount للشهر التالي]
+  reg[سجل الجزاءات م.40 والحصيلة الشهرية]
+
+  inc --> g35 --> pick --> deg --> auth
+  auth -- ضمن السقف --> a37
+  auth -- خارج السقف --> route --> a37
+  a37 --> sign --> refuse --> griev
+  griev --> upheld --> cap
+  griev --> cancel
+  cap -- ضمن السقف --> reg
+  cap -- تجاوز --> carry --> reg

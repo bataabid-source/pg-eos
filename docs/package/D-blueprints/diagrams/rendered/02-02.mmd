@@ -1,0 +1,18 @@
+flowchart TB
+  pgh["PGH — القابضة · entity_kind = holding · لا تفوتر عميلاً خارجياً"]
+  pgh -->|"توزيع شهري · cost_allocations · أساس نسبة الإيراد"| pcc["PCC · operating"]
+  pgh --> pst["PST · operating"]
+  pgh --> pdl["PDL · operating"]
+  pgh --> por["POR · operating"]
+  pcc -->|"سعر تحويلي · is_intercompany = true"| pst
+  pdl -->|"إعادة فوترة التوصيل · بينية"| pst
+  pst -->|"فاتورة عميل بسعر العقد"| cl["العميل"]
+  pdl --> cl
+  pcc --> cl
+  por --> cl
+  pst --> grp["تجميع المجموعة"]
+  pcc --> grp
+  pdl --> grp
+  por --> grp
+  pgh --> grp
+  grp --> elim["حذف 4900 · 5900 · 1210 · 2110 وكل صف is_intercompany = true"]

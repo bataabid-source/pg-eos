@@ -1,0 +1,29 @@
+flowchart TB
+  src1["أمر إدخال · wms.inbound_orders"]
+  src2["أمر صرف · wms.outbound_orders"]
+  src3["طلب خدمة VAS من نافذة العميل"]
+  src4["أمر جرد · wms.inventory_counts"]
+  wave["موجة تجهيز · تجميع أوامر اليوم بالمنطقة والأولوية"]
+  wo["أمر عمل · wms.work_orders · status released"]
+  q["طابور المستودع · مرتّب بالأولوية ثم SLA ثم FIFO"]
+  tsk["مهمة مسنَدة لعامل · wms.work_order_tasks"]
+  pda["PDA · الشاشة الرئيسية تعرض طابور العامل"]
+  exec["التنفيذ بالمسح · موقع ثم صنف ثم كمية"]
+  evt["سجل زمني · wms.work_order_events"]
+  done["المهمة done · qty_done و completed_at"]
+  agg["اكتمال كل مهام الأمر ⇒ work_order completed"]
+  bill["billing.billable_events · بالكمية المنجزة"]
+  stm["wms.stock_movements · الحركة المقابلة"]
+  ord["انتقال حالة الأمر الأصل · picked ثم checked ثم packed ثم loaded"]
+  dsp["WH_SUP · dispatched"]
+  dtl["tms.delivery_tasks · created"]
+  drv["DEL_MGR · إسناد لسائق ومركبة ومسار · assigned"]
+
+  src1 --> wo
+  src2 --> wave --> wo
+  src3 --> wo
+  src4 --> wo
+  wo --> q --> tsk --> pda --> exec --> evt --> done --> agg
+  exec --> stm
+  agg --> bill
+  agg --> ord --> dsp --> dtl --> drv

@@ -1,0 +1,10 @@
+stateDiagram-v2
+  direction LR
+  [*] --> active
+  active --> on_leave
+  on_leave --> active
+  active --> suspended
+  suspended --> active
+  suspended --> terminated
+  active --> terminated
+  terminated --> [*]

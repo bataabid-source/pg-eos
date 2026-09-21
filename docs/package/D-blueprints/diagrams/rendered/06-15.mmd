@@ -1,0 +1,11 @@
+stateDiagram-v2
+  direction LR
+  [*] --> open
+  open --> assigned
+  assigned --> in_progress
+  in_progress --> resolved
+  resolved --> done
+  done --> closed
+  open --> rejected
+  open --> cancelled
+  closed --> [*]

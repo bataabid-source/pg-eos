@@ -1,0 +1,8 @@
+stateDiagram-v2
+  [*] --> issued : إرسال للمورّد
+  issued --> received : الاستلام والفحص
+  issued --> cancelled : إلغاء
+  received --> matched : مطابقة ثلاثية · three_way_matched = true
+  matched --> paid : الدفع مسموح فقط بعد المطابقة
+  paid --> [*]
+  cancelled --> [*]

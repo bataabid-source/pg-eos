@@ -1,0 +1,11 @@
+stateDiagram-v2
+  direction LR
+  [*] --> draft
+  draft --> pending_approval
+  draft --> cancelled
+  pending_approval --> approved
+  pending_approval --> rejected
+  approved --> ordered
+  ordered --> [*]
+  rejected --> [*]
+  cancelled --> [*]

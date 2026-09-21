@@ -1,0 +1,20 @@
+flowchart LR
+  prop[(housing.properties — عقار بعقد إيجار)]
+  unit[(housing.units — وحدة بعدّادَي كهرباء وماء)]
+  room[(housing.rooms — غرفة بطاقة سريرية)]
+  bed[(housing.beds — السرير · status للخارج عن الخدمة فقط)]
+  asg[(housing.bed_assignments — الإسناد الزمني · مصدر حقيقة الإشغال)]
+  view[[housing.capacity_overview — الطاقة والإشغال وتكلفة السرير]]
+  ded["خصم 23 د.ك بالتناسب اليومي · إعفاء GM بسبب مسجَّل"]
+  cost["تكلفة السرير المشغول = إيجار + كهرباء وماء + صيانة + إهلاك ÷ الأسرّة المشغولة"]
+  prof[(billing.profitability — تكلفة العمالة المباشرة للعميل)]
+  mism["status_mismatch أكبر من صفر = انحراف يحتاج تسوية"]
+
+  prop --> unit --> room --> bed
+  bed --> asg
+  asg --> view
+  bed --> view
+  asg --> ded
+  view --> cost --> prof
+  ded --> prof
+  view --> mism

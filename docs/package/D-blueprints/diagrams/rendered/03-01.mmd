@@ -1,0 +1,48 @@
+flowchart LR
+  cl["العميل · نافذة العميل"]
+  op["WH_OP · PDA"]
+  sup["WH_SUP · مشرف الوردية"]
+  mgr["WH_MGR · مدير المستودع"]
+  sal["SALES_MGR · المبيعات"]
+
+  inb["الاستلام · ASN"]
+  out["الصرف"]
+  cnt["الجرد"]
+  spc["المساحة كمنتج"]
+
+  d1["GRN · تقرير تباين"]
+  d2["قائمة التقاط · إذن صرف · مانيفست"]
+  d3["تقرير الجرد"]
+  d4["لوحة المساحات · تقرير الإشغال"]
+
+  t1["wms.inbound_orders · order_lines"]
+  t2["wms.outbound_orders · order_lines"]
+  t3["wms.inventory_counts · count_lines"]
+  t4["wms.space_allocations · space_reservations"]
+  led["wms.stock_movements ← دفتر غير قابل للتعديل"]
+  bal["wms.stock_balance ← مشتق"]
+  snap["wms.occupancy_snapshots"]
+  bil["billing.billable_events ← ST · HD · OF"]
+
+  cl --> inb
+  cl --> out
+  op --> inb
+  op --> out
+  op --> cnt
+  sup --> out
+  sup --> cnt
+  mgr --> inb
+  mgr --> cnt
+  sal --> spc
+  mgr --> spc
+
+  inb --> d1 --> t1 --> led
+  out --> d2 --> t2 --> led
+  cnt --> d3 --> t3 --> led
+  spc --> d4 --> t4
+  led --> bal
+  bal --> snap
+  snap --> bil
+  t1 --> bil
+  t2 --> bil
+  t4 --> bil

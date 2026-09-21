@@ -1,0 +1,16 @@
+stateDiagram-v2
+  [*] --> accrued
+  accrued --> under_review : نشر الكشف · SALES_MGR يراجع
+  accrued --> disputed : اعتراض المندوب خلال 48 ساعة
+  accrued --> rejected : خطأ في التوليد
+  under_review --> approved : CFO يعتمد
+  under_review --> disputed : المراجعة تكشف خلافاً
+  under_review --> rejected : لا يستحق
+  disputed --> under_review : بعد البتّ
+  disputed --> rejected : الاعتراض مرفوض والصفّ خاطئ
+  approved --> paid : payroll_period · التصدير للرواتب
+  approved --> clawed_back : إشعار دائن أو إلغاء قبل الصرف
+  paid --> clawed_back : استرداد بعد الصرف
+  rejected --> [*]
+  clawed_back --> [*]
+  paid --> [*]

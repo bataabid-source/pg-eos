@@ -1,0 +1,160 @@
+erDiagram
+    platform_entities ||--o{ platform_entities : "entities_parent_id_fkey"
+    sales_accounts ||--o{ sales_contracts : "contracts_account_id_fkey"
+    platform_entities ||--o{ sales_contracts : "contracts_entity_id_fkey"
+    platform_entities ||--o{ catalog_services : "services_entity_id_fkey"
+    sales_accounts ||--o{ billing_billable_events : "billable_events_client_id_fkey"
+    sales_contracts ||--o{ billing_billable_events : "billable_events_contract_id_fkey"
+    platform_entities ||--o{ billing_billable_events : "billable_events_counterparty_entity_id_fkey"
+    platform_entities ||--o{ billing_billable_events : "billable_events_entity_id_fkey"
+    catalog_services ||--o{ billing_billable_events : "billable_events_service_id_fkey"
+    billing_invoices ||--o{ billing_invoice_lines : "invoice_lines_invoice_id_fkey"
+    catalog_services ||--o{ billing_invoice_lines : "invoice_lines_service_id_fkey"
+    sales_accounts ||--o{ billing_invoices : "invoices_client_id_fkey"
+    sales_contracts ||--o{ billing_invoices : "invoices_contract_id_fkey"
+    platform_entities ||--o{ billing_invoices : "invoices_counterparty_entity_id_fkey"
+    platform_entities ||--o{ billing_invoices : "invoices_entity_id_fkey"
+    sales_accounts ||--o{ billing_receipts : "receipts_client_id_fkey"
+    platform_entities ||--o{ billing_receipts : "receipts_entity_id_fkey"
+    billing_invoices ||--o{ billing_receipt_allocations : "receipt_allocations_invoice_id_fkey"
+    billing_receipts ||--o{ billing_receipt_allocations : "receipt_allocations_receipt_id_fkey"
+    sales_accounts ||--o{ billing_credit_notes : "credit_notes_client_id_fkey"
+    platform_entities ||--o{ billing_credit_notes : "credit_notes_entity_id_fkey"
+    billing_invoices ||--o{ billing_credit_notes : "credit_notes_invoice_id_fkey"
+    billing_billable_events ||--o{ partners_payable_events : "payable_events_billable_event_id_fkey"
+    sales_accounts ||--o{ partners_payable_events : "payable_events_client_id_fkey"
+    platform_entities ||--o{ partners_payable_events : "payable_events_entity_id_fkey"
+    catalog_services ||--o{ partners_payable_events : "payable_events_service_id_fkey"
+    wms_outbound_orders ||--o{ billing_billable_events : "source_table+source_id"
+    wms_inbound_orders ||--o{ billing_billable_events : "source_table+source_id"
+    wms_space_allocations ||--o{ billing_billable_events : "source_table+source_id"
+    tms_delivery_tasks ||--o{ billing_billable_events : "source_table+source_id"
+    imile_shipments ||--o{ billing_billable_events : "source_table+source_id"
+    cc_tickets ||--o{ billing_billable_events : "source_table+source_id"
+
+    platform_entities {
+        uuid id PK
+        text code UK
+        text name_ar
+        text name_en
+        text legal_name_ar
+        date fiscal_year_end
+        uuid parent_id FK "→ platform.entities"
+        bool is_active
+    }
+    sales_accounts {
+        uuid id PK
+        text code UK
+        text name_ar
+        text name_en
+        uuid segment_id FK "→ catalog.segments"
+        uuid owner_user_id FK "→ identity.users"
+        ts hold_set_at
+        text status "active · suspended · closed"
+    }
+    sales_contracts {
+        uuid id PK
+        uuid entity_id FK,UK "→ platform.entities"
+        uuid account_id FK "→ sales.accounts"
+        uuid quote_id FK "→ sales.quotes"
+        text status "draft · signed · active · suspended · expired · renewed · terminated"
+        date start_date
+        date end_date
+        uuid price_list_id FK "→ catalog.price_lists"
+    }
+    catalog_services {
+        uuid id PK
+        text code UK
+        uuid category_id FK "→ catalog.service_categories"
+        text name_ar
+        uuid entity_id FK "→ platform.entities"
+        num min_price
+        num standard_cost
+        bool is_active
+    }
+    billing_billable_events {
+        uuid id PK
+        uuid entity_id FK "→ platform.entities"
+        uuid client_id FK "→ sales.accounts"
+        uuid contract_id FK "→ sales.contracts"
+        uuid service_id FK "→ catalog.services"
+        num qty
+        text status "pending · priced · invoiced · excluded · disputed"
+        uuid counterparty_entity_id FK "→ platform.entities"
+    }
+    billing_invoice_lines {
+        uuid id PK
+        uuid invoice_id FK,UK "→ billing.invoices"
+        int line_no UK
+        uuid service_id FK "→ catalog.services"
+        num qty
+        num unit_price
+        num discount_pct
+        num line_total
+    }
+    billing_invoices {
+        uuid id PK
+        uuid entity_id FK,UK "→ platform.entities"
+        uuid client_id FK "→ sales.accounts"
+        uuid contract_id FK "→ sales.contracts"
+        text status "draft · review · approved · sent · …"
+        num subtotal
+        num discount_amt
+        uuid counterparty_entity_id FK "→ platform.entities"
+    }
+    billing_receipts {
+        uuid id PK
+        uuid entity_id FK,UK "→ platform.entities"
+        uuid client_id FK "→ sales.accounts"
+        date received_at
+        date cheque_date
+        num amount
+        num allocated_amount
+        ts reconciled_at
+    }
+    billing_receipt_allocations {
+        uuid id PK
+        uuid receipt_id FK "→ billing.receipts"
+        uuid invoice_id FK "→ billing.invoices"
+        num amount
+        ts allocated_at
+        uuid allocated_by
+    }
+    billing_credit_notes {
+        uuid id PK
+        uuid entity_id FK,UK "→ platform.entities"
+        uuid client_id FK "→ sales.accounts"
+        uuid invoice_id FK "→ billing.invoices"
+        date issue_date
+        num amount
+        text status "draft · approved · applied"
+        ts approved_at
+    }
+    partners_payable_events {
+        uuid id PK
+        uuid entity_id FK "→ platform.entities"
+        uuid partner_id FK "→ partners.partners"
+        uuid contract_id FK "→ partners.partner_contracts"
+        uuid client_id FK "→ sales.accounts"
+        uuid service_id FK "→ catalog.services"
+        uuid billable_event_id FK "→ billing.billable_events"
+        text status "pending · priced · invoiced · excluded · disputed"
+    }
+    wms_outbound_orders {
+        uuid id PK "خارجي · wms.outbound_orders"
+    }
+    wms_inbound_orders {
+        uuid id PK "خارجي · wms.inbound_orders"
+    }
+    wms_space_allocations {
+        uuid id PK "خارجي · wms.space_allocations"
+    }
+    tms_delivery_tasks {
+        uuid id PK "خارجي · tms.delivery_tasks"
+    }
+    imile_shipments {
+        uuid id PK "خارجي · imile.shipments"
+    }
+    cc_tickets {
+        uuid id PK "خارجي · cc.tickets"
+    }

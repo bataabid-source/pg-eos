@@ -1,0 +1,16 @@
+stateDiagram-v2
+  direction LR
+  [*] --> draft
+  draft --> pending_authority
+  draft --> signed
+  pending_authority --> signed
+  signed --> issued
+  issued --> grievance_filed
+  issued --> applied
+  grievance_filed --> upheld
+  grievance_filed --> cancelled
+  upheld --> applied
+  applied --> carried_forward
+  carried_forward --> applied
+  cancelled --> [*]
+  applied --> [*]

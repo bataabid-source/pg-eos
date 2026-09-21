@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<!-- v4 · 21/09/2026 · التصحيحات: PLT-41 (توزيع عبر MDM/متجر داخلي — لا «مصادر غير معروفة» · Premium WH يُعرض كـPWA بتعليمات تثبيت من المتصفح) · PLT-43 (حذف شارة «≤ ٤٠ ميجا» غير المُثبتة) · PLT-42 (نطاق apps.premiumgrp.co يبقى ويُضاف إلى 42 §5.1) -->
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>تطبيقات بريميوم جروب — التنزيل</title>
+<!-- v4 · حارس الخط: إن تعذّر التحميل تُزال الورقة وتعمل الصفحة بخط النظام -->
+<link id="fontcss" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet" onerror="this.remove()">
+<style>
+:root{
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  --navy:#14284B; --copper:#B5673E; --grey:#6B7280;
+  --bg:#F3F6FA; --card:#ffffff; --text:#14284B; --muted:#6B7280;
+  --line:#DFE5EE; --shadow:0 2px 16px rgba(20,40,75,.09);
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0d1420; --card:#161e2c; --text:#e8eef7; --muted:#94a3b8; --line:#26303f;
+  --shadow:0 2px 16px rgba(0,0,0,.45);}}
+:root[data-theme="dark"]{--bg:#0d1420;--card:#161e2c;--text:#e8eef7;--muted:#94a3b8;--line:#26303f;--shadow:0 2px 16px rgba(0,0,0,.45)}
+*,*::before,*::after{box-sizing:inherit}
+body{margin:0;background:var(--bg);color:var(--text);
+  font-family:'Cairo','Noto Kufi Arabic','Segoe UI',-apple-system,Tahoma,Arial,sans-serif;line-height:1.7}
+.wrap{max-width:1180px;margin:0 auto;padding:28px 18px 60px}
+
+/* ترويسة */
+header{display:flex;align-items:center;gap:16px;padding:22px 24px;background:var(--card);
+  border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);margin-bottom:10px}
+.logo{width:54px;height:54px;flex:none;border-radius:12px;position:relative;overflow:hidden;
+  background:linear-gradient(135deg,var(--navy) 0%,#1d3a68 100%)}
+.logo::after{content:'';position:absolute;inset:0;
+  background:repeating-linear-gradient(115deg,transparent 0 7px,rgba(181,103,62,.85) 7px 11px)}
+header h1{margin:0;font-size:20px;font-weight:800;letter-spacing:-.2px}
+header .sub{color:var(--muted);font-size:12.5px;margin-top:1px}
+.badge{margin-inline-start:auto;background:rgba(181,103,62,.12);color:var(--copper);
+  border:1px solid rgba(181,103,62,.28);padding:6px 14px;border-radius:20px;
+  font-size:11.5px;font-weight:700;white-space:nowrap}
+
+.note{background:var(--card);border:1px solid var(--line);border-radius:14px;
+  padding:12px 18px;margin-bottom:22px;font-size:12.5px;color:var(--muted);box-shadow:var(--shadow)}
+.note b{color:var(--text)}
+
+/* الشبكة */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:18px}
+.app{background:var(--card);border:1px solid var(--line);border-radius:18px;
+  box-shadow:var(--shadow);overflow:hidden;display:flex;flex-direction:column}
+.app .top{padding:20px 22px 16px;display:flex;gap:14px;align-items:flex-start;
+  border-bottom:1px solid var(--line)}
+.ic{width:50px;height:50px;flex:none;border-radius:13px;display:grid;place-items:center;
+  font-size:24px;color:#fff}
+.app h2{margin:0;font-size:16.5px;font-weight:700}
+.app .who{color:var(--muted);font-size:12px;margin-top:2px}
+.app .desc{color:var(--muted);font-size:12.5px;padding:14px 22px 0;flex:1}
+.meta{display:flex;flex-wrap:wrap;gap:6px;padding:12px 22px 0}
+.chip{background:var(--bg);border:1px solid var(--line);border-radius:7px;
+  padding:3px 9px;font-size:10.5px;color:var(--muted);font-weight:600}
+.chip.pwa{background:rgba(13,148,136,.13);border-color:rgba(13,148,136,.32);color:#0d9488}
+
+.plats{padding:16px 22px 22px;display:flex;flex-direction:column;gap:14px}
+.plat{display:flex;gap:14px;align-items:center;background:var(--bg);
+  border:1px solid var(--line);border-radius:14px;padding:12px}
+.qr{width:96px;height:96px;flex:none;background:#fff;border-radius:9px;padding:6px;
+  display:grid;place-items:center;color:#14284B;font-size:11px;font-weight:700}
+.qr img,.qr canvas{width:100%;height:100%;display:block}
+.pinfo{flex:1;min-width:0}
+.pname{font-size:13px;font-weight:700;display:flex;align-items:center;gap:6px}
+.purl{font-size:10px;color:var(--muted);direction:ltr;text-align:left;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin:3px 0 9px}
+.btns{display:flex;gap:6px}
+.btn{flex:1;padding:7px 0;border:1px solid var(--line);border-radius:9px;background:var(--card);
+  color:var(--text);font-family:inherit;font-size:11.5px;font-weight:700;cursor:pointer;
+  text-align:center;text-decoration:none;transition:.15s}
+.btn:hover{background:var(--navy);color:#fff;border-color:var(--navy)}
+.btn.primary{background:var(--navy);color:#fff;border-color:var(--navy)}
+.btn.primary:hover{background:var(--copper);border-color:var(--copper)}
+.btn.ok{background:#16a34a;color:#fff;border-color:#16a34a}
+.steps{background:var(--card);border:1px dashed var(--line);border-radius:12px;
+  padding:10px 14px;margin:0 22px 18px;font-size:11.5px;color:var(--muted);line-height:1.9}
+.steps b{color:var(--text)}
+.steps ol{margin:6px 0 0;padding-inline-start:18px}
+
+footer{margin-top:30px;padding:18px 22px;background:var(--card);border:1px solid var(--line);
+  border-radius:14px;box-shadow:var(--shadow);font-size:11.5px;color:var(--muted)}
+footer b{color:var(--text)}
+footer ul{margin:8px 0 0;padding-inline-start:18px}
+footer li{margin-bottom:3px}
+@media print{body{background:#fff}.btn{display:none}.app{break-inside:avoid;page-break-inside:avoid}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="logo"></div>
+    <div>
+      <h1>تطبيقات بريميوم جروب</h1>
+      <div class="sub">PREMIUM GROUP · مركز تنزيل التطبيقات التشغيلية</div>
+    </div>
+    <div class="badge">PG-EOS</div>
+  </header>
+
+  <div class="note">
+    <b>امسح رمز QR بكاميرا جوالك</b> — أو اضغط الزر في بطاقة التطبيق.
+    <b>التوزيع عبر إدارة الأجهزة المؤسسية (MDM) أو متجر Google Play الداخلي للمؤسسة</b> —
+    ولا تُفعَّل خاصية «التثبيت من مصادر غير معروفة» على أي جهاز.
+    التطبيقات للموظفين المسجّلين فقط — الدخول برقم الموظف ورمز يصل على جوالك.
+  </div>
+
+  <div class="grid" id="grid"></div>
+
+  <footer>
+    <b>ملاحظات التثبيت</b>
+    <ul>
+      <li>جهاز واحد لكل سائق — الجهاز الجديد يحتاج اعتماد المشرف.</li>
+      <li>تطبيق المستودع <b>تطبيق ويب مثبَّت (PWA)</b> يعمل على أجهزة PDA الصناعية — لا ملف تثبيت.</li>
+      <li><b>لا تفعّل «تثبيت من مصادر غير معروفة»</b> — التوزيع عبر MDM أو المتجر الداخلي حصراً.</li>
+      <li>عند مشكلة في التثبيت راجع مالك النظام أو المستخدم الخارق لقسمك.</li>
+      <li>لا تشارك بيانات دخولك — كل عملية مسجّلة باسمك.</li>
+    </ul>
+  </footer>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+(function(){
+'use strict';
+
+/* ══════════════════════════════════════════════════════════════
+   ⚙️ عدّل الروابط هنا فقط — يُعاد توليد رموز QR تلقائياً
+   الأسماء الأربعة مطابقة لـ40 Part D (D1–D4 · C10).
+   النطاقات: apps.premiumgrp.co و pda.premiumgrp.co يُضافان إلى 42 §5.1.
+   ══════════════════════════════════════════════════════════════ */
+const APPS = [
+  {
+    key:'driver', name:'Premium Driver', ar:'تطبيق السائق',
+    who:'السائقون · PDL · POR', icon:'🚚', color:'#2f6fe0',
+    desc:'مهام اليوم · المسح · إثبات التسليم · التحصيل النقدي · فحص المركبة · ' +
+         'الحضور · <b>أرباحك اليومية</b> · وثائقك · الجزاءات والتظلّم.',
+    chips:['دون اتصال ٧ أيام','٥ لغات','جهاز شخصي مسجَّل'],
+    platforms:[
+      {os:'Android', icon:'🤖', url:'https://apps.premiumgrp.co/d/driver-android', cta:'تثبيت عبر MDM'},
+      {os:'iOS',     icon:'🍎', url:'https://apps.premiumgrp.co/d/driver-ios',     cta:'تثبيت عبر MDM'}
+    ]
+  },
+  {
+    key:'wh', name:'Premium WH', ar:'تطبيق المستودع',
+    who:'عمال المستودع · PST', icon:'📦', color:'#1ea34e',
+    pwa:true,
+    desc:'استلام · تخزين · التقاط · تدقيق · تحميل · جرد · تحويل · مرتجعات · ' +
+         '<b>استعلام فوري</b> عن أي موقع أو صنف أو شحنة.',
+    chips:['PWA — بلا ملف تثبيت','PDA أندرويد','ماسح ليزري','دون اتصال ٧٢ ساعة'],
+    steps:['افتح الرابط في متصفح Chrome على جهاز الـPDA.',
+           'سجّل الدخول برقم الموظف والرمز لمرة واحدة.',
+           'من قائمة المتصفح (⋮) اختر <b>«تثبيت التطبيق»</b> أو <b>«إضافة إلى الشاشة الرئيسية»</b>.',
+           'يظهر التطبيق على شاشة الجهاز ويعمل بعدها دون اتصال حتى ٧٢ ساعة.'],
+    platforms:[
+      {os:'PDA Android — فتح وتثبيت', icon:'📟', url:'https://pda.premiumgrp.co', cta:'افتح على الـPDA'}
+    ]
+  },
+  {
+    key:'decisions', name:'Premium Decisions', ar:'صندوق القرارات',
+    who:'المدراء والمشرفون', icon:'⚡', color:'#B5673E',
+    desc:'قراراتك التي تنتظر · البتّ <b>من الإشعار مباشرة</b> · مؤشراتك الست · ' +
+         'بحث وتتبّع أي شحنة أو فاتورة أو موقع.',
+    chips:['إشعارات فورية','عربي وإنجليزي','≤ ٢٥ ميجا'],
+    platforms:[
+      {os:'Android', icon:'🤖', url:'https://apps.premiumgrp.co/d/dec-android', cta:'تثبيت عبر MDM'},
+      {os:'iOS',     icon:'🍎', url:'https://apps.premiumgrp.co/d/dec-ios',     cta:'تثبيت عبر MDM'}
+    ]
+  },
+  {
+    key:'portal', name:'Premium Client Portal', ar:'نافذة العميل',
+    who:'عملاؤنا', icon:'🏢', color:'#6B7280',
+    desc:'مخزونه وحركاته · إنشاء أوامر استلام وصرف · تتبّع الشحنات وإثبات التسليم · ' +
+         'الفواتير وكشف الحساب · فتح شكوى.',
+    chips:['متصفّح','بلا تثبيت','عزل كامل للبيانات'],
+    platforms:[
+      {os:'الويب', icon:'🌐', url:'https://portal.premiumgrp.co', cta:'افتح النافذة'}
+    ]
+  }
+];
+
+/* ══════════════════════════════════════════════════════════════ */
+const grid = document.getElementById('grid');
+
+APPS.forEach(function(app){
+  const card = document.createElement('div');
+  card.className = 'app';
+
+  const plats = app.platforms.map(function(p){
+    return '<div class="plat">' +
+             '<div class="qr" data-url="'+p.url+'"></div>' +
+             '<div class="pinfo">' +
+               '<div class="pname">'+p.icon+' '+p.os+'</div>' +
+               '<div class="purl" title="'+p.url+'">'+p.url+'</div>' +
+               '<div class="btns">' +
+                 '<a class="btn primary" href="'+p.url+'">'+(p.cta||'فتح')+'</a>' +
+                 '<button class="btn copy" data-url="'+p.url+'">نسخ الرابط</button>' +
+               '</div>' +
+             '</div>' +
+           '</div>';
+  }).join('');
+
+  const chips = app.chips.map(function(c,i){
+    return '<span class="chip'+(app.pwa&&i===0?' pwa':'')+'">'+c+'</span>';
+  }).join('');
+
+  const steps = app.steps
+    ? '<div class="steps"><b>طريقة التثبيت (PWA — لا يوجد ملف APK):</b><ol>' +
+      app.steps.map(function(s){return '<li>'+s+'</li>';}).join('') + '</ol></div>'
+    : '';
+
+  card.innerHTML =
+    '<div class="top">' +
+      '<div class="ic" style="background:'+app.color+'">'+app.icon+'</div>' +
+      '<div><h2>'+app.ar+'</h2><div class="who">'+app.name+' · '+app.who+'</div></div>' +
+    '</div>' +
+    '<div class="desc">'+app.desc+'</div>' +
+    '<div class="meta">'+chips+'</div>' +
+    '<div class="plats">'+plats+'</div>' +
+    steps;
+
+  grid.appendChild(card);
+});
+
+/* توليد رموز QR — بحارس ونص بديل عند تعذّر تحميل المكتبة */
+document.querySelectorAll('.qr').forEach(function(el){
+  try{
+    new QRCode(el,{ text:el.dataset.url, width:180, height:180,
+      colorDark:'#14284B', colorLight:'#ffffff',
+      correctLevel: QRCode.CorrectLevel.M });
+  }catch(e){
+    el.textContent='انسخ الرابط';
+  }
+});
+
+/* نسخ الرابط */
+document.addEventListener('click', function(e){
+  const b = e.target.closest('.copy');
+  if(!b) return;
+  const done = function(){
+    const t=b.textContent; b.textContent='✓ نُسخ'; b.classList.add('ok');
+    setTimeout(function(){ b.textContent=t; b.classList.remove('ok'); },1400);
+  };
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(b.dataset.url).then(done).catch(fallback);
+  } else { fallback(); }
+  function fallback(){
+    const ta=document.createElement('textarea');
+    ta.value=b.dataset.url; ta.style.position='fixed'; ta.style.opacity='0';
+    document.body.appendChild(ta); ta.select();
+    try{ document.execCommand('copy'); done(); }catch(err){}
+    document.body.removeChild(ta);
+  }
+});
+})();
+</script>
+</body>
+</html>

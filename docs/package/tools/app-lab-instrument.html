@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<!-- v4 · 21/09/2026 · التصحيحات: PLT-37 (الجلسات = الست في 34 §3 بأهدافها الموثّقة فقط) · PLT-38 (تبويب المعايير 1–19 من 32 قابل للتعبئة) · PLT-39 (يعمل بلا إنترنت — خط Cairo بحارس) -->
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>أداة قياس التطبيقات — بريميوم جروب</title>
+<!-- v4 · حارس الخط: إن تعذّر التحميل (بلا إنترنت) تُزال الورقة وتعمل الصفحة بخط النظام -->
+<link id="fontcss" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet" onerror="this.remove()">
+<style>
+:root{
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+  --navy:#14284B; --copper:#B5673E;
+  --bg:#F3F6FA; --card:#fff; --text:#14284B; --muted:#6B7280; --line:#DFE5EE;
+  --shadow:0 2px 14px rgba(20,40,75,.09);
+  --ok:#16a34a; --warn:#ea580c; --bad:#dc2626;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0d1420;--card:#161e2c;--text:#e8eef7;--muted:#94a3b8;--line:#26303f;--shadow:0 2px 14px rgba(0,0,0,.45)}}
+:root[data-theme="dark"]{--bg:#0d1420;--card:#161e2c;--text:#e8eef7;--muted:#94a3b8;--line:#26303f}
+*,*::before,*::after{box-sizing:inherit}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--text);
+  font-family:'Cairo','Noto Kufi Arabic','Segoe UI',-apple-system,Tahoma,Arial,sans-serif;
+  -webkit-user-select:none;user-select:none;overscroll-behavior:none}
+.wrap{max-width:620px;margin:0 auto;padding:14px 14px 28px;min-height:100%}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);
+  padding:16px;margin-bottom:12px}
+h1{font-size:17px;margin:0 0 2px;font-weight:800}
+.sub{color:var(--muted);font-size:11.5px;margin-bottom:12px}
+label{display:block;font-size:12px;font-weight:700;margin:10px 0 5px}
+select,input[type=text]{width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;
+  background:var(--bg);color:var(--text);font-family:inherit;font-size:14px}
+.btn{display:block;width:100%;padding:13px;border:0;border-radius:12px;background:var(--navy);color:#fff;
+  font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;margin-top:12px}
+.btn.g{background:var(--ok)} .btn.r{background:var(--bad)} .btn.o{background:#64748b}
+.btn:active{transform:scale(.985)}
+
+/* التبويبات — v4 · PLT-38 */
+.tabs{display:flex;gap:8px;margin-bottom:12px}
+.tab{flex:1;padding:11px 0;border:1px solid var(--line);border-radius:12px;background:var(--card);
+  color:var(--muted);font-family:inherit;font-size:13px;font-weight:700;cursor:pointer}
+.tab.on{background:var(--navy);color:#fff;border-color:var(--navy)}
+
+/* شاشة القياس */
+#live{display:none}
+.timer{font-size:46px;font-weight:800;text-align:center;font-variant-numeric:tabular-nums;letter-spacing:-1px}
+.tapn{font-size:62px;font-weight:800;text-align:center;color:var(--copper);
+  font-variant-numeric:tabular-nums;line-height:1}
+.tapl{text-align:center;color:var(--muted);font-size:12px;margin-top:-4px}
+#tap{height:190px;border-radius:20px;background:var(--copper);color:#fff;border:0;width:100%;
+  font-family:inherit;font-size:30px;font-weight:800;cursor:pointer;margin:14px 0;
+  box-shadow:0 6px 0 #8f4f2d;transition:.06s}
+#tap:active{transform:translateY(5px);box-shadow:0 1px 0 #8f4f2d}
+.flags{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.flag{padding:11px 6px;border:1px solid var(--line);border-radius:11px;background:var(--bg);
+  color:var(--text);font-family:inherit;font-size:12px;font-weight:700;cursor:pointer}
+.flag.on{background:var(--warn);color:#fff;border-color:var(--warn)}
+.flag b{display:block;font-size:16px;font-variant-numeric:tabular-nums}
+.row{display:flex;gap:8px}.row>*{flex:1}
+
+/* النتيجة */
+.res{display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid var(--line);font-size:13px}
+.res:first-of-type{border:0}
+.res b{font-variant-numeric:tabular-nums;font-weight:700}
+.verdict{padding:12px;border-radius:12px;text-align:center;font-weight:700;font-size:13px;margin-top:10px}
+.v-ok{background:rgba(22,163,74,.13);color:var(--ok)}
+.v-warn{background:rgba(234,88,12,.13);color:var(--warn)}
+.v-bad{background:rgba(220,38,38,.13);color:var(--bad)}
+.v-na{background:rgba(107,114,128,.14);color:var(--muted)}
+
+table{width:100%;border-collapse:collapse;font-size:11.5px;margin-top:8px}
+th,td{padding:7px 5px;border-bottom:1px solid var(--line);text-align:right;vertical-align:top}
+th{color:var(--muted);font-size:10.5px;font-weight:700}
+td b{font-variant-numeric:tabular-nums}
+.pill{display:inline-block;padding:2px 7px;border-radius:6px;font-size:10px;font-weight:700}
+.p-imile{background:rgba(100,116,139,.18);color:#64748b}
+.p-us{background:rgba(20,40,75,.13);color:var(--navy)}
+@media (prefers-color-scheme:dark){.p-us{background:rgba(232,238,247,.14);color:#e8eef7}}
+textarea{width:100%;min-height:70px;padding:10px;border:1px solid var(--line);border-radius:10px;
+  background:var(--bg);color:var(--text);font-family:inherit;font-size:13px;resize:vertical;
+  -webkit-user-select:text;user-select:text}
+.hint{font-size:11px;color:var(--muted);margin-top:6px;line-height:1.6}
+.grp{font-size:12px;font-weight:800;margin:14px 0 2px;color:var(--copper)}
+.grp span{color:var(--muted);font-weight:600;font-size:10.5px}
+.cr{border-bottom:1px solid var(--line);padding:9px 0}
+.cr .t{font-size:12.5px;font-weight:700}
+.cr .g{font-size:11px;color:var(--muted);margin:2px 0 6px}
+.cr .auto{display:inline-block;background:rgba(20,40,75,.10);color:var(--navy);border-radius:6px;
+  padding:1px 7px;font-size:10px;font-weight:700;margin-inline-start:6px}
+@media (prefers-color-scheme:dark){.cr .auto{background:rgba(232,238,247,.14);color:#e8eef7}}
+.cr select,.cr input{padding:8px;font-size:13px}
+.cr .row2{display:flex;gap:6px}.cr .row2>*{flex:1}
+.warnbox{background:rgba(234,88,12,.12);color:var(--warn);border:1px solid rgba(234,88,12,.3);
+  border-radius:10px;padding:9px 12px;font-size:11.5px;line-height:1.7;margin-top:8px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="tabs">
+  <button class="tab on" id="tb-lab">قياس الجلسات</button>
+  <button class="tab" id="tb-cri">المعايير ١–١٩</button>
+</div>
+
+<div id="pane-lab">
+
+<!-- الإعداد -->
+<div class="card" id="setup">
+  <h1>أداة قياس التطبيقات</h1>
+  <div class="sub">بريميوم جروب · معمل الرصد — وثيقة 34 §3 · الجلسات الست</div>
+
+  <label>التطبيق</label>
+  <select id="app">
+    <option value="iMile Rider">iMile Rider — تطبيق السائق</option>
+    <option value="iMile PDA">iMile WH — تطبيق المستودع</option>
+    <option value="iMile 7mile">iMile 7mile — تطبيق المدراء</option>
+    <option value="Premium Driver">Premium Driver — تطبيقنا</option>
+    <option value="Premium WH">Premium WH — تطبيقنا</option>
+  </select>
+
+  <label>الجلسة (وثيقة 34 §3)</label>
+  <select id="task"></select>
+  <div class="hint" id="tgt">—</div>
+
+  <div class="row">
+    <div><label>الموظف</label><input id="subject" type="text" placeholder="الاسم أو الرقم"></div>
+    <div><label>الراصد</label><input id="observer" type="text" placeholder="اسمك"></div>
+  </div>
+
+  <button class="btn" id="start">ابدأ الجلسة</button>
+  <div class="hint">
+    اشرح للموظف: <b>«نقيس التطبيق لا أداءك»</b> · شغّل تسجيل الشاشة على جهازه ·
+    اضغط زر النقرة مع <b>كل لمسة</b> يلمسها.
+  </div>
+</div>
+
+<!-- القياس -->
+<div id="live">
+  <div class="card">
+    <div class="sub" id="ctx">—</div>
+    <div class="timer" id="clock">00:00.0</div>
+    <div class="tapn" id="taps">0</div>
+    <div class="tapl">نقرة</div>
+    <button id="tap">نقرة</button>
+    <div class="flags">
+      <button class="flag" data-f="err">⛔ ظهر خطأ<b id="f-err">0</b></button>
+      <button class="flag" data-f="type">⌨️ كتابة يدوية<b id="f-type">0</b></button>
+      <button class="flag" data-f="wait">⏳ انتظار تحميل<b id="f-wait">0</b></button>
+      <button class="flag" data-f="hes">🤔 تردّد<b id="f-hes">0</b></button>
+      <button class="flag" data-f="help">🙋 سأل المشرف<b id="f-help">0</b></button>
+      <button class="flag" data-f="out">📵 خرج من التطبيق<b id="f-out">0</b></button>
+    </div>
+    <div class="row">
+      <button class="btn r" id="stop">أنهِ المهمة</button>
+      <button class="btn o" id="cancel">إلغاء</button>
+    </div>
+  </div>
+</div>
+
+<!-- النتيجة -->
+<div class="card" id="result" style="display:none">
+  <h1>نتيجة الجلسة</h1>
+  <div class="sub" id="rctx">—</div>
+  <div class="res"><span>النقرات</span><b id="r-taps">—</b></div>
+  <div class="res"><span>الزمن</span><b id="r-time">—</b></div>
+  <div class="res"><span>ثانية لكل نقرة</span><b id="r-rate">—</b></div>
+  <div class="res"><span>أخطاء · كتابة · انتظار</span><b id="r-flags">—</b></div>
+  <div class="res"><span>تردّد · سؤال · خروج</span><b id="r-flags2">—</b></div>
+  <div class="verdict" id="verdict">—</div>
+  <label>ما أكثر شيء أزعجه؟ · وماذا فعل خارج التطبيق؟</label>
+  <textarea id="note" placeholder="اكتب ملاحظتك النوعية — أثمن من الأرقام"></textarea>
+  <button class="btn g" id="save">حفظ الجلسة</button>
+</div>
+
+<!-- السجل -->
+<div class="card" id="log">
+  <h1>الجلسات المحفوظة <span id="cnt" style="color:var(--muted);font-weight:400">(0)</span></h1>
+  <div id="tbl"></div>
+  <div class="row" style="margin-top:4px">
+    <button class="btn o" id="export">نسخ التقرير</button>
+    <button class="btn r" id="clear">مسح الكل</button>
+  </div>
+  <div class="hint">
+    الهدف الموثّق في التسليم الناجح (S1): <b>≤ ٦ نقرات و ≤ ٤٥ ثانية</b> (40 §D3 · 32 المعياران ١ و٢)
+    — <b>وفي كل حال ≤ نقرات iMile − ٢، أيهما أشد</b> (34 §8).
+    كرّر كل جلسة <b>٣ مرات</b> مع ٣ أشخاص — والوسيط هو الرقم المعتمد.
+  </div>
+</div>
+
+</div><!-- /pane-lab -->
+
+<!-- ═══ تبويب المعايير — v4 · PLT-38 ═══ -->
+<div id="pane-cri" style="display:none">
+  <div class="card">
+    <h1>إطار المقارنة — تسعة عشر معياراً</h1>
+    <div class="sub">وثيقة 32 الجزء الثاني · الأوزان ٤٠٪ + ٢٥٪ + ٢٥٪ + ١٠٪</div>
+    <label>التطبيق المقيَّم</label>
+    <select id="cri-app">
+      <option value="iMile Rider">iMile Rider — تطبيق السائق</option>
+      <option value="iMile PDA">iMile WH — تطبيق المستودع</option>
+      <option value="iMile 7mile">iMile 7mile — تطبيق المدراء</option>
+      <option value="Premium Driver">Premium Driver — تطبيقنا</option>
+      <option value="Premium WH">Premium WH — تطبيقنا</option>
+    </select>
+    <div class="warnbox">
+      المعايير <b>١ · ٢ · ٣</b> تُملأ آلياً من وسيط الجلسات المحفوظة (S1 · S2).
+      المعايير <b>٤–١٩</b> تُملأ يدوياً من اللقطات السبع والتسجيلات الثلاثة (32 الجزء الأول).
+    </div>
+    <div id="cri-list"></div>
+    <div class="row" style="margin-top:10px">
+      <button class="btn o" id="cri-export">نسخ جدول المعايير</button>
+      <button class="btn r" id="cri-clear">مسح تعبئة هذا التطبيق</button>
+    </div>
+  </div>
+</div>
+
+</div>
+
+<script>
+(function(){
+'use strict';
+
+/* ══════════════════════════════════════════════════════════════════════
+   v4 · PLT-37 — الجلسات الست من وثيقة 34 §3 حرفياً.
+   `taps` و `sec` = الهدف الرقمي **الموثّق** فقط؛ null = لا هدف موثّق
+   (يُقاس ولا يُقارَن). لا أهداف مخترعة.
+   ══════════════════════════════════════════════════════════════════════ */
+var TASKS = [
+  {id:'S1', name:'تسليم ناجح',                app:'Rider', rec:20,
+   taps:6,    sec:45,   src:'40 §D3 · 32 المعياران ١ و٢'},
+  {id:'S2', name:'تسجيل فشل توصيل',            app:'Rider', rec:30,
+   taps:5,    sec:null, src:'32 المعيار ٣ (الزمن: بلا هدف موثّق)'},
+  {id:'S3', name:'تحصيل COD',                  app:'Rider', rec:30,
+   taps:null, sec:null, src:'بلا هدف موثّق — قياس أساسي'},
+  {id:'S4', name:'بدء اليوم واستلام الحمولة',   app:'Rider', rec:60,
+   taps:null, sec:null, src:'32 المعيار ٥: ≤ ٣ خطوات قبل المهمة الأولى — تُحصى يدوياً'},
+  {id:'S5', name:'استلام في المستودع',          app:'PDA',   rec:60,
+   taps:null, sec:null, src:'الهدف الموثّق: استجابة المسح ≤ ١.٠ ث (25 §7 · 40 §D4)'},
+  {id:'S6', name:'التقاط طلب',                 app:'PDA',   rec:60,
+   taps:null, sec:null, src:'الهدف الموثّق: استجابة المسح ≤ ١.٠ ث (25 §7 · 40 §D4)'}
+];
+
+/* ══════════════════════════════════════════════════════════════════════
+   v4 · PLT-38 — المعايير التسعة عشر من وثيقة 32 الجزء الثاني (حرفياً)
+   ══════════════════════════════════════════════════════════════════════ */
+var CRITERIA = [
+  {g:'كفاءة التنفيذ — الوزن ٤٠٪', n:1,  t:'نقرات التسليم الناجح',
+   goal:'≤ ٦ · وفي كل حال ≤ نقرات iMile − ٢ (أيهما أشد)', kind:'num', unit:'نقرة', auto:'S1.taps'},
+  {n:2,  t:'زمن التسليم في التطبيق', goal:'≤ ٤٥ ثانية', kind:'num', unit:'ثانية', auto:'S1.sec'},
+  {n:3,  t:'نقرات تسجيل الفشل', goal:'≤ ٥', kind:'num', unit:'نقرة', auto:'S2.taps'},
+  {n:4,  t:'حقول تُكتب يدوياً', goal:'≤ ١ (اسم المستلم)', kind:'num', unit:'حقل'},
+  {n:5,  t:'خطوات قبل بدء المسار', goal:'≤ ٣ من فتح التطبيق للمهمة الأولى', kind:'num', unit:'خطوة'},
+
+  {g:'منع الخطأ — الوزن ٢٥٪', n:6,  t:'مسح الباركود إلزامي قبل التسليم', goal:'نعم — يمنع التسليم لغير صاحبه', kind:'yn'},
+  {n:7,  t:'أسباب الفشل قائمة مغلقة', goal:'نعم — لا كتابة حرة', kind:'yn'},
+  {n:8,  t:'إثبات التسليم إلزامي (توقيع أو صورة)', goal:'نعم', kind:'yn'},
+  {n:9,  t:'فحص المسافة عن العنوان', goal:'نعم — تحذير > ٣٠٠ م + سبب', kind:'yn'},
+  {n:10, t:'منع إقفال اليوم بفرق COD', goal:'نعم — حاجز صلب', kind:'yn'},
+
+  {g:'قيمة السائق نفسه — الوزن ٢٥٪', n:11, t:'الأرباح اليومية شفافة', goal:'نعم — بالتفصيل والخصومات', kind:'yn'},
+  {n:12, t:'الحضور والبصمة', goal:'نعم', kind:'yn'},
+  {n:13, t:'وثائقه وتنبيهات انتهائها', goal:'نعم', kind:'yn'},
+  {n:14, t:'جزاءاته وزر التظلّم', goal:'نعم', kind:'yn'},
+  {n:15, t:'فحص المركبة والعداد', goal:'نعم', kind:'yn'},
+
+  {g:'المتانة — الوزن ١٠٪', n:16, t:'يعمل دون اتصال كاملاً', goal:'نعم — ٧ أيام محلياً (40 §D3)', kind:'yn'},
+  {n:17, t:'عدد اللغات', goal:'٥', kind:'num', unit:'لغة'},
+  {n:18, t:'استهلاك بيانات يومي', goal:'≤ ٥٠ ميجا', kind:'num', unit:'ميجا'},
+  {n:19, t:'وضوح رسالة الخطأ', goal:'تقول ما يفعله الآن', kind:'yn'}
+];
+
+var $ = function(id){ return document.getElementById(id); };
+var KEY  = 'pg_app_lab_v1';
+var KEYC = 'pg_app_lab_criteria_v1';
+var sessions = [];
+var criteria = {};
+var S = null, timer = null;
+
+/* التخزين — try/catch حول كل قراءة وكتابة (تعمل في وضع التصفّح الخاص) */
+function load(){
+  try{ var r = localStorage.getItem(KEY); sessions = r ? JSON.parse(r) : []; }
+  catch(e){ sessions = []; }
+  try{ var c = localStorage.getItem(KEYC); criteria = c ? JSON.parse(c) : {}; }
+  catch(e){ criteria = {}; }
+}
+function persist(){
+  try{ localStorage.setItem(KEY, JSON.stringify(sessions)); }catch(e){}
+}
+function persistC(){
+  try{ localStorage.setItem(KEYC, JSON.stringify(criteria)); }catch(e){}
+}
+
+/* التبويبات */
+function tab(which){
+  var lab = which === 'lab';
+  $('pane-lab').style.display = lab ? 'block' : 'none';
+  $('pane-cri').style.display = lab ? 'none'  : 'block';
+  $('tb-lab').classList.toggle('on', lab);
+  $('tb-cri').classList.toggle('on', !lab);
+  if(!lab) renderCriteria();
+}
+$('tb-lab').addEventListener('click', function(){ tab('lab'); });
+$('tb-cri').addEventListener('click', function(){ tab('cri'); });
+
+/* تعبئة الجلسات */
+TASKS.forEach(function(t){
+  var o = document.createElement('option');
+  o.value = t.id; o.textContent = t.id + ' · ' + t.name + ' · ' + t.app;
+  $('task').appendChild(o);
+});
+function taskOf(id){ for(var i=0;i<TASKS.length;i++) if(TASKS[i].id===id) return TASKS[i]; return TASKS[0]; }
+function goalText(t){
+  var p = [];
+  if(t.taps !== null) p.push('≤ ' + t.taps + ' نقرة');
+  if(t.sec  !== null) p.push('≤ ' + t.sec + ' ثانية');
+  return (p.length ? 'الهدف: ' + p.join(' · ') : 'بلا هدف رقمي موثّق — قياس أساسي') +
+         ' · مدة التسجيل ' + t.rec + ' ث · المصدر: ' + t.src;
+}
+function syncGoal(){ $('tgt').textContent = goalText(taskOf($('task').value)); }
+$('task').addEventListener('change', syncGoal);
+syncGoal();
+
+function fmt(ms){
+  var s = ms/1000;
+  return String(Math.floor(s/60)).padStart(2,'0') + ':' +
+         String(Math.floor(s%60)).padStart(2,'0') + '.' + Math.floor((ms%1000)/100);
+}
+
+/* بدء */
+$('start').addEventListener('click', function(){
+  var t = taskOf($('task').value);
+  S = { app:$('app').value, taskId:t.id, taskName:t.name, target:t,
+        subject:$('subject').value||'—', observer:$('observer').value||'—',
+        taps:0, flags:{err:0,type:0,wait:0,hes:0,help:0,out:0},
+        t0:Date.now(), ms:0, note:'' };
+  $('ctx').textContent = S.app + ' · ' + t.id + ' ' + t.name + ' · ' + S.subject;
+  $('taps').textContent = '0';
+  ['err','type','wait','hes','help','out'].forEach(function(f){ $('f-'+f).textContent='0'; });
+  document.querySelectorAll('.flag').forEach(function(b){ b.classList.remove('on'); });
+  $('setup').style.display='none'; $('log').style.display='none';
+  $('result').style.display='none'; $('live').style.display='block';
+  timer = setInterval(function(){ $('clock').textContent = fmt(Date.now()-S.t0); }, 100);
+});
+
+/* نقرة */
+function bump(){
+  if(!S) return;
+  S.taps++; $('taps').textContent = S.taps;
+  if(navigator.vibrate) navigator.vibrate(12);
+}
+$('tap').addEventListener('click', bump);
+document.addEventListener('keydown', function(e){
+  if($('live').style.display==='block' && (e.code==='Space'||e.code==='Enter')){ e.preventDefault(); bump(); }
+});
+
+/* الأعلام */
+document.querySelectorAll('.flag').forEach(function(b){
+  b.addEventListener('click', function(){
+    if(!S) return;
+    var f = b.dataset.f;
+    S.flags[f]++; $('f-'+f).textContent = S.flags[f];
+    b.classList.add('on');
+    if(navigator.vibrate) navigator.vibrate(25);
+  });
+});
+
+/* إنهاء */
+$('stop').addEventListener('click', function(){
+  if(!S) return;
+  clearInterval(timer);
+  S.ms = Date.now() - S.t0;
+  $('live').style.display='none'; $('result').style.display='block';
+  $('rctx').textContent = S.app + ' · ' + S.taskId + ' ' + S.taskName + ' · ' + S.subject;
+  $('r-taps').textContent = S.taps + (S.target.taps !== null ? ' (الهدف ≤ ' + S.target.taps + ')' : ' (بلا هدف موثّق)');
+  $('r-time').textContent = (S.ms/1000).toFixed(1) + ' ث' +
+    (S.target.sec !== null ? ' (الهدف ≤ ' + S.target.sec + ')' : ' (بلا هدف موثّق)');
+  $('r-rate').textContent = S.taps ? (S.ms/1000/S.taps).toFixed(1) : '—';
+  $('r-flags').textContent  = S.flags.err+' · '+S.flags.type+' · '+S.flags.wait;
+  $('r-flags2').textContent = S.flags.hes+' · '+S.flags.help+' · '+S.flags.out;
+
+  var v = $('verdict'), verd = judge(S);
+  v.className = 'verdict ' + verd.cls; v.textContent = verd.txt;
+  $('note').value='';
+});
+
+/* الحكم — يقارن فقط بما له هدف موثّق (v4 · PLT-37) */
+function judge(s){
+  var has = (s.target.taps !== null) || (s.target.sec !== null);
+  if(!has) return {cls:'v-na', txt:'📏 قياس أساسي — لا هدف موثّق لهذه الجلسة'};
+  var okT = (s.target.taps === null) || (s.taps <= s.target.taps);
+  var okS = (s.target.sec  === null) || (s.ms/1000 <= s.target.sec);
+  if(okT && okS) return {cls:'v-ok',   txt:'✅ ضمن الهدف الموثّق'};
+  if(okT || okS) return {cls:'v-warn', txt:'⚠️ ضمن الهدف جزئياً'};
+  return {cls:'v-bad', txt:'❌ خارج الهدف الموثّق'};
+}
+
+$('cancel').addEventListener('click', function(){
+  clearInterval(timer); S=null;
+  $('live').style.display='none'; $('setup').style.display='block'; $('log').style.display='block';
+});
+
+/* حفظ */
+$('save').addEventListener('click', function(){
+  if(!S) return;
+  S.note = $('note').value.trim();
+  S.at = new Date().toISOString();
+  sessions.unshift(S); persist(); S=null;
+  $('result').style.display='none'; $('setup').style.display='block'; $('log').style.display='block';
+  render();
+});
+
+/* الجدول */
+function render(){
+  $('cnt').textContent = '(' + sessions.length + ')';
+  if(!sessions.length){ $('tbl').innerHTML = '<div class="hint">لا جلسات بعد.</div>'; return; }
+  var h = '<table><tr><th>التطبيق</th><th>الجلسة</th><th>نقرات</th><th>ثانية</th><th></th></tr>';
+  sessions.forEach(function(s){
+    var okT = (s.target.taps === null) || (s.taps <= s.target.taps);
+    var okS = (s.target.sec  === null) || (s.ms/1000 <= s.target.sec);
+    var has = (s.target.taps !== null) || (s.target.sec !== null);
+    var isUs = s.app.indexOf('Premium')===0;
+    h += '<tr><td><span class="pill '+(isUs?'p-us':'p-imile')+'">'+
+         (isUs?'نحن':'iMile')+'</span></td><td>'+s.taskId+'</td>'+
+         '<td><b>'+s.taps+'</b></td><td><b>'+(s.ms/1000).toFixed(0)+'</b></td>'+
+         '<td>'+(has ? ((okT&&okS)?'✅':'❌') : '—')+'</td></tr>';
+  });
+  h += '</table>';
+
+  /* الوسطاء */
+  var g = {};
+  sessions.forEach(function(s){
+    var k = s.app+'|'+s.taskId;
+    (g[k] = g[k] || []).push(s);
+  });
+  var keys = Object.keys(g);
+  if(keys.length){
+    h += '<table style="margin-top:14px"><tr><th>وسيط النقرات والزمن</th><th>نقرات</th><th>ثانية</th><th>ن</th></tr>';
+    keys.forEach(function(k){
+      var a = g[k];
+      var mt = median(a.map(function(x){return x.taps;}));
+      var ms = median(a.map(function(x){return x.ms/1000;}));
+      h += '<tr><td>'+k.replace('|',' · ')+'</td><td><b>'+mt+'</b></td><td><b>'+ms.toFixed(0)+'</b></td><td>'+a.length+'</td></tr>';
+    });
+    h += '</table>';
+  }
+  $('tbl').innerHTML = h;
+}
+function median(a){ a=a.slice().sort(function(x,y){return x-y;});
+  var m=Math.floor(a.length/2); return a.length%2 ? a[m] : (a[m-1]+a[m])/2; }
+
+/* وسيط جلسة معيّنة لتطبيق معيّن — يغذّي المعايير ١–٣ آلياً */
+function medianOf(app, taskId, field){
+  var a = sessions.filter(function(s){ return s.app===app && s.taskId===taskId; })
+                  .map(function(s){ return field==='taps' ? s.taps : s.ms/1000; });
+  if(!a.length) return null;
+  return median(a);
+}
+function autoValue(app, spec){
+  var p = spec.split('.');
+  var v = medianOf(app, p[0], p[1]);
+  if(v === null) return null;
+  return p[1]==='sec' ? Math.round(v) : v;
+}
+
+/* ═══ تبويب المعايير ═══ */
+function renderCriteria(){
+  var app = $('cri-app').value;
+  var box = criteria[app] || (criteria[app] = {});
+  var h = '';
+  CRITERIA.forEach(function(c){
+    if(c.g) h += '<div class="grp">'+c.g+'</div>';
+    var auto = c.auto ? autoValue(app, c.auto) : null;
+    var val = box[c.n];
+    h += '<div class="cr" data-n="'+c.n+'">'+
+           '<div class="t">'+c.n+'. '+c.t+(c.auto?'<span class="auto">آلي من '+c.auto.split('.')[0]+'</span>':'')+'</div>'+
+           '<div class="g">هدفنا: '+c.goal+'</div>';
+    if(c.auto){
+      h += '<div class="g">وسيط الجلسات المحفوظة: <b>'+(auto===null?'— لا جلسات بعد':auto+' '+c.unit)+'</b></div>';
+    }
+    h += '<div class="row2">';
+    if(c.kind==='yn'){
+      h += '<select class="cv" data-n="'+c.n+'">'+
+             opt('',  'غير معروف', val)+
+             opt('نعم','نعم', val)+
+             opt('لا', 'لا',  val)+
+             opt('جزئياً','جزئياً', val)+
+           '</select>';
+    } else {
+      h += '<input class="cv" data-n="'+c.n+'" type="text" inputmode="decimal" placeholder="قيمة iMile ('+(c.unit||'')+')" value="'+(val?esc(val):'')+'">';
+    }
+    h += '<input class="cn" data-n="'+c.n+'" type="text" placeholder="ملاحظة / مصدر اللقطة" value="'+(box['n'+c.n]?esc(box['n'+c.n]):'')+'">';
+    h += '</div></div>';
+  });
+  $('cri-list').innerHTML = h;
+  document.querySelectorAll('#cri-list .cv').forEach(function(el){
+    el.addEventListener('change', function(){ box[el.dataset.n] = el.value; persistC(); });
+  });
+  document.querySelectorAll('#cri-list .cn').forEach(function(el){
+    el.addEventListener('change', function(){ box['n'+el.dataset.n] = el.value; persistC(); });
+  });
+}
+function opt(v,label,cur){ return '<option value="'+v+'"'+(cur===v?' selected':'')+'>'+label+'</option>'; }
+function esc(s){ return String(s).replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
+$('cri-app').addEventListener('change', renderCriteria);
+$('cri-clear').addEventListener('click', function(){
+  var app = $('cri-app').value;
+  if(confirm('مسح تعبئة معايير '+app+'؟')){ criteria[app] = {}; persistC(); renderCriteria(); }
+});
+
+/* تصدير */
+function copy(txt, btn){
+  var old = btn.textContent;
+  var done = function(){ btn.textContent='✓ نُسخ'; setTimeout(function(){btn.textContent=old;},1500); };
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(txt).then(done).catch(fb);
+  } else fb();
+  function fb(){
+    var ta=document.createElement('textarea'); ta.value=txt;
+    ta.style.position='fixed'; ta.style.opacity='0';
+    document.body.appendChild(ta); ta.select();
+    try{ document.execCommand('copy'); done(); }catch(e){}
+    document.body.removeChild(ta);
+  }
+}
+
+$('export').addEventListener('click', function(){
+  if(!sessions.length) return;
+  var L = ['تقرير معمل قياس التطبيقات — بريميوم جروب (وثيقة 34 §3 · الجلسات الست)',
+           'التاريخ: '+new Date().toLocaleDateString('en-GB'),
+           'عدد الجلسات: '+sessions.length, ''];
+  sessions.forEach(function(s){
+    L.push('— '+s.app+' · '+s.taskId+' '+s.taskName);
+    L.push('  الموظف: '+s.subject+' · الراصد: '+s.observer);
+    L.push('  النقرات: '+s.taps+(s.target.taps!==null?' (هدف ≤'+s.target.taps+')':' (بلا هدف موثّق)')+
+           '  |  الزمن: '+(s.ms/1000).toFixed(1)+' ث'+(s.target.sec!==null?' (هدف ≤'+s.target.sec+')':' (بلا هدف موثّق)'));
+    L.push('  خطأ '+s.flags.err+' · كتابة '+s.flags.type+' · انتظار '+s.flags.wait+
+           ' · تردّد '+s.flags.hes+' · سؤال '+s.flags.help+' · خروج '+s.flags.out);
+    if(s.note) L.push('  ملاحظة: '+s.note);
+    L.push('');
+  });
+  copy(L.join('\n'), $('export'));
+});
+
+$('cri-export').addEventListener('click', function(){
+  var app = $('cri-app').value, box = criteria[app] || {};
+  var L = ['جدول المعايير التسعة عشر (وثيقة 32 الجزء الثاني) — '+app,
+           'التاريخ: '+new Date().toLocaleDateString('en-GB'), ''];
+  CRITERIA.forEach(function(c){
+    if(c.g) L.push('## '+c.g);
+    var auto = c.auto ? autoValue(app, c.auto) : null;
+    var v = box[c.n] || (auto!==null ? String(auto) : 'غير معروف');
+    L.push(c.n+'. '+c.t+'  |  هدفنا: '+c.goal+'  |  القيمة: '+v+(c.unit?' '+c.unit:'')+
+           (box['n'+c.n] ? '  |  ملاحظة: '+box['n'+c.n] : ''));
+  });
+  copy(L.join('\n'), $('cri-export'));
+});
+
+$('clear').addEventListener('click', function(){
+  if(!sessions.length) return;
+  if(confirm('مسح كل الجلسات؟')){ sessions=[]; persist(); render(); }
+});
+
+load(); render();
+})();
+</script>
+</body>
+</html>

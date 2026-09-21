@@ -1,0 +1,87 @@
+%% wms · جداول أخرى
+erDiagram
+    wms_work_order_tasks ||--o{ wms_work_order_events : "work_order_events_task_id_fkey"
+    wms_work_orders ||--o{ wms_work_order_events : "work_order_events_work_order_id_fkey"
+    identity_roles ||--o{ wms_work_order_task_types : "work_order_task_types_default_role_fkey"
+    catalog_services ||--o{ wms_work_order_task_types : "work_order_task_types_service_code_fkey"
+    catalog_services ||--o{ wms_work_order_task_types : "work_order_task_types_service_id_fkey"
+    wms_locations ||--o{ wms_work_order_tasks : "work_order_tasks_location_from_id_fkey"
+    wms_locations ||--o{ wms_work_order_tasks : "work_order_tasks_location_to_id_fkey"
+    hr_employees ||--o{ wms_work_order_tasks : "work_order_tasks_quality_check_by_fkey"
+    wms_work_order_tasks ||--o{ wms_work_order_tasks : "work_order_tasks_reassigned_from_fkey"
+    wms_skus ||--o{ wms_work_order_tasks : "work_order_tasks_sku_id_fkey"
+    hr_teams ||--o{ wms_work_order_tasks : "work_order_tasks_team_id_fkey"
+    wms_work_orders ||--o{ wms_work_order_tasks : "work_order_tasks_work_order_id_fkey"
+    hr_employees ||--o{ wms_work_order_tasks : "work_order_tasks_worker_id_fkey"
+    sales_accounts ||--o{ wms_work_orders : "work_orders_client_id_fkey"
+    sales_contracts ||--o{ wms_work_orders : "work_orders_contract_id_fkey"
+    catalog_services ||--o{ wms_work_orders : "work_orders_service_id_fkey"
+    wms_warehouses ||--o{ wms_work_orders : "work_orders_warehouse_id_fkey"
+
+    wms_work_order_events {
+        int id PK
+        uuid work_order_id FK "→ wms.work_orders"
+        uuid task_id FK "→ wms.work_order_tasks"
+        ts occurred_at
+        text event_type
+        text from_status
+        text to_status
+        num qty
+    }
+    wms_work_order_task_types {
+        text service_code PK,FK "→ catalog.services"
+        text task_type PK "receive · putaway · pick · check · …"
+        uuid service_id FK "→ catalog.services"
+        text default_role FK "→ identity.roles"
+        bool requires_equipment
+        text equipment_note
+        bool billable
+        text billing_trigger "per_event · per_qty · per_contract"
+    }
+    wms_work_order_tasks {
+        uuid id PK
+        uuid work_order_id FK,UK "→ wms.work_orders"
+        uuid worker_id FK "→ hr.employees"
+        uuid team_id FK "→ hr.teams"
+        uuid sku_id FK "→ wms.skus"
+        uuid location_from_id FK "→ wms.locations"
+        uuid location_to_id FK "→ wms.locations"
+        uuid quality_check_by FK "→ hr.employees"
+    }
+    wms_work_orders {
+        uuid id PK
+        uuid entity_id FK,UK "→ platform.entities"
+        uuid warehouse_id FK "→ wms.warehouses"
+        uuid client_id FK "→ sales.accounts"
+        uuid contract_id FK "→ sales.contracts"
+        uuid service_id FK "→ catalog.services"
+        num qty_planned
+        text status "draft · released · in_progress · on_hold · completed · cancelled"
+    }
+    identity_roles {
+        uuid id PK "خارجي · identity.roles"
+    }
+    catalog_services {
+        uuid id PK "خارجي · catalog.services"
+    }
+    wms_locations {
+        uuid id PK "خارجي · wms.locations"
+    }
+    hr_employees {
+        uuid id PK "خارجي · hr.employees"
+    }
+    wms_skus {
+        uuid id PK "خارجي · wms.skus"
+    }
+    hr_teams {
+        uuid id PK "خارجي · hr.teams"
+    }
+    sales_accounts {
+        uuid id PK "خارجي · sales.accounts"
+    }
+    sales_contracts {
+        uuid id PK "خارجي · sales.contracts"
+    }
+    wms_warehouses {
+        uuid id PK "خارجي · wms.warehouses"
+    }

@@ -1,0 +1,9 @@
+stateDiagram-v2
+  [*] --> draft
+  draft --> in_progress
+  in_progress --> review
+  review --> recount
+  recount --> review
+  review --> adjusted
+  adjusted --> closed
+  closed --> [*]

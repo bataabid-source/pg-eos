@@ -1,0 +1,20 @@
+flowchart TB
+  rq[طلب في admin.approval_requests]
+  chain["قراءة السلسلة من platform.approval_chains بالحدّ المالي"]
+  dead{{"هل السلسلة تنتهي عند منصب شاغر"}}
+  fix["البديل: مدير القسم الطالب ثم CFO ثم GM · واعتمادات الموارد إلى GM"]
+  step[خطوة في admin.approval_steps]
+  self{{"مشغّل لا اعتماد ذاتي — المعتمِد لا يساوي الطالب"}}
+  deleg["إنابة سارية — delegated_from ولا تتجاوز SoD"]
+  dec{{القرار}}
+  ok[اعتماد → تنفيذ]
+  no["رفض → reason إلزامي في سجل التدقيق"]
+  esc["تجاوز due_at → تنبيه N-17 للمستوى الأعلى"]
+
+  rq --> chain --> dead
+  dead -- نعم --> fix --> step
+  dead -- لا --> step
+  step --> self --> deleg --> dec
+  dec --> ok
+  dec --> no
+  step -.-> esc

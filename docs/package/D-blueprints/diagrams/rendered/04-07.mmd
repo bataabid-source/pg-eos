@@ -1,0 +1,16 @@
+stateDiagram-v2
+  [*] --> created
+  created --> assigned
+  assigned --> out_for_delivery
+  out_for_delivery --> delivered
+  out_for_delivery --> failed
+  out_for_delivery --> deferred
+  failed --> assigned
+  failed --> returned
+  deferred --> assigned
+  created --> cancelled
+  assigned --> cancelled
+  out_for_delivery --> cancelled
+  delivered --> [*]
+  returned --> [*]
+  cancelled --> [*]

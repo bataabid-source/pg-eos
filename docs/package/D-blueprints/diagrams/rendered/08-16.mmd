@@ -1,0 +1,86 @@
+%% partners · الجداول والعلاقات
+erDiagram
+    partners_partners ||--o{ partners_partner_contracts : "partner_contracts_partner_id_fkey"
+    partners_partner_contracts ||--o{ partners_partner_invoices : "partner_invoices_contract_id_fkey"
+    partners_partners ||--o{ partners_partner_invoices : "partner_invoices_partner_id_fkey"
+    partners_partner_contracts ||--o{ partners_partner_price_lines : "partner_price_lines_contract_id_fkey"
+    catalog_services ||--o{ partners_partner_price_lines : "partner_price_lines_service_id_fkey"
+    billing_billable_events ||--o{ partners_payable_events : "payable_events_billable_event_id_fkey"
+    sales_accounts ||--o{ partners_payable_events : "payable_events_client_id_fkey"
+    partners_partner_contracts ||--o{ partners_payable_events : "payable_events_contract_id_fkey"
+    partners_partners ||--o{ partners_payable_events : "payable_events_partner_id_fkey"
+    catalog_services ||--o{ partners_payable_events : "payable_events_service_id_fkey"
+    sales_accounts ||--o{ partners_service_allocations : "service_allocations_client_id_fkey"
+    partners_partner_contracts ||--o{ partners_service_allocations : "service_allocations_partner_contract_id_fkey"
+    partners_partners ||--o{ partners_service_allocations : "service_allocations_partner_id_fkey"
+    catalog_services ||--o{ partners_service_allocations : "service_allocations_service_id_fkey"
+
+    partners_partner_contracts {
+        uuid id PK
+        uuid entity_id FK,UK "→ platform.entities"
+        uuid partner_id FK "→ partners.partners"
+        text status "draft · active · expired · terminated"
+        date start_date
+        num committed_qty
+        num committed_monthly_cost
+        num min_utilization_pct
+    }
+    partners_partner_invoices {
+        uuid id PK
+        uuid entity_id FK,UK "→ platform.entities"
+        uuid partner_id FK,UK "→ partners.partners"
+        uuid contract_id FK "→ partners.partner_contracts"
+        num claimed_amount
+        num matched_amount
+        num variance_amount
+        text status "received · matched · frozen · approved · paid · rejected"
+    }
+    partners_partner_price_lines {
+        uuid id PK
+        uuid contract_id FK,UK "→ partners.partner_contracts"
+        uuid service_id FK,UK "→ catalog.services"
+        num cost_price
+        text uom
+        num tier_from UK
+        date valid_from
+        date valid_to
+    }
+    partners_partners {
+        uuid id PK
+        text code UK
+        text name_ar
+        text name_en
+        text partner_type
+        text cr_number
+        text tax_number
+        text status "active · suspended · terminated"
+    }
+    partners_payable_events {
+        uuid id PK
+        uuid entity_id FK "→ platform.entities"
+        uuid partner_id FK "→ partners.partners"
+        uuid contract_id FK "→ partners.partner_contracts"
+        uuid client_id FK "→ sales.accounts"
+        uuid service_id FK "→ catalog.services"
+        uuid billable_event_id FK "→ billing.billable_events"
+        text status "pending · priced · invoiced · excluded · disputed"
+    }
+    partners_service_allocations {
+        uuid id PK
+        uuid entity_id FK "→ platform.entities"
+        uuid client_id FK "→ sales.accounts"
+        uuid service_id FK "→ catalog.services"
+        uuid partner_id FK "→ partners.partners"
+        uuid partner_contract_id FK "→ partners.partner_contracts"
+        date valid_from
+        date valid_to
+    }
+    catalog_services {
+        uuid id PK "خارجي · catalog.services"
+    }
+    billing_billable_events {
+        uuid id PK "خارجي · billing.billable_events"
+    }
+    sales_accounts {
+        uuid id PK "خارجي · sales.accounts"
+    }

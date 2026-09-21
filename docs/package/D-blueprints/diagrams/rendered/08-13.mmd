@@ -1,0 +1,186 @@
+%% hr · الجداول والعلاقات
+erDiagram
+    imile_driver_ids ||--o{ hr_commission_daily : "commission_daily_driver_id_ref_fkey"
+    hr_employees ||--o{ hr_commission_daily : "commission_daily_employee_id_fkey"
+    sales_accounts ||--o{ hr_commission_rules : "commission_rules_client_id_fkey"
+    hr_employees ||--o{ hr_disciplinary_cases : "disciplinary_cases_employee_id_fkey"
+    hr_penalty_schedule ||--o{ hr_disciplinary_cases : "disciplinary_cases_penalty_code_fkey"
+    hr_employees ||--o{ hr_disciplinary_cases : "disciplinary_cases_routed_to_fkey"
+    hr_employees ||--o{ hr_disciplinary_cases : "disciplinary_cases_signed_by_fkey"
+    identity_roles ||--o{ hr_disciplinary_cases : "disciplinary_cases_signer_role_fkey"
+    hr_employees ||--o{ hr_employee_documents : "employee_documents_employee_id_fkey"
+    sales_accounts ||--o{ hr_employees : "employees_assigned_client_id_fkey"
+    hr_org_units ||--o{ hr_employees : "employees_org_unit_id_fkey"
+    hr_employees ||--o{ hr_employees : "employees_reports_to_fkey"
+    sales_accounts ||--o{ hr_manpower_requests : "manpower_requests_client_id_fkey"
+    hr_org_units ||--o{ hr_manpower_requests : "manpower_requests_org_unit_id_fkey"
+    hr_employees ||--o{ hr_manpower_requests : "manpower_requests_requested_by_fkey"
+    hr_org_units ||--o{ hr_org_units : "org_units_parent_id_fkey"
+    partners_partners ||--o{ hr_recruitment_cases : "recruitment_cases_agency_partner_id_fkey"
+    hr_employees ||--o{ hr_recruitment_cases : "recruitment_cases_employee_id_fkey"
+    hr_manpower_requests ||--o{ hr_recruitment_cases : "recruitment_cases_request_id_fkey"
+    hr_recruitment_stages ||--o{ hr_recruitment_cases : "recruitment_cases_stage_fkey"
+    hr_recruitment_cases ||--o{ hr_recruitment_costs : "recruitment_costs_case_id_fkey"
+    hr_recruitment_cases ||--o{ hr_recruitment_stage_log : "recruitment_stage_log_case_id_fkey"
+    identity_roles ||--o{ hr_recruitment_stages : "recruitment_stages_default_owner_role_fkey"
+    sales_accounts ||--o{ hr_sales_commission_events : "sales_commission_events_client_id_fkey"
+    sales_contracts ||--o{ hr_sales_commission_events : "sales_commission_events_contract_id_fkey"
+    hr_employees ||--o{ hr_sales_commission_events : "sales_commission_events_employee_id_fkey"
+    hr_commission_rules ||--o{ hr_sales_commission_events : "sales_commission_events_rule_id_fkey"
+    sales_accounts ||--o{ hr_teams : "teams_client_id_fkey"
+    hr_org_units ||--o{ hr_teams : "teams_org_unit_id_fkey"
+    hr_employees ||--o{ hr_teams : "teams_supervisor_employee_id_fkey"
+
+    hr_commission_daily {
+        uuid id PK
+        uuid entity_id FK "→ platform.entities"
+        uuid employee_id FK,UK "→ hr.employees"
+        uuid driver_id_ref FK "→ imile.driver_ids"
+        num gross_commission
+        num deductions
+        num net_commission
+        text status "calculated · disputed · approved · paid"
+    }
+    hr_commission_rules {
+        uuid id PK
+        uuid entity_id FK "→ platform.entities"
+        uuid client_id FK "→ sales.accounts"
+        num rate_per_unit
+        num bonus_rate
+        num rate_pct
+        num split_on_sign_pct
+        num split_on_execute_pct
+    }
+    hr_disciplinary_cases {
+        uuid id PK
+        uuid entity_id FK,UK "→ platform.entities"
+        uuid employee_id FK "→ hr.employees"
+        text penalty_code FK "→ hr.penalty_schedule"
+        uuid signed_by FK "→ hr.employees"
+        text signer_role FK "→ identity.roles"
+        uuid routed_to FK "→ hr.employees"
+        uuid art35_override_by FK "→ identity.users"
+    }
+    hr_employee_documents {
+        uuid id PK
+        uuid employee_id FK "→ hr.employees"
+        text doc_type
+        text doc_no
+        date issue_date
+        date expiry_date
+        text file_url
+        int alert_days_before
+    }
+    hr_employees {
+        uuid id PK
+        uuid entity_id FK "→ platform.entities"
+        uuid org_unit_id FK "→ hr.org_units"
+        uuid reports_to FK "→ hr.employees"
+        date hire_date
+        date end_date
+        text status "active · on_leave · suspended · terminated"
+        uuid assigned_client_id FK "→ sales.accounts"
+    }
+    hr_manpower_requests {
+        uuid id PK
+        uuid entity_id FK,UK "→ platform.entities"
+        uuid requested_by FK "→ hr.employees"
+        uuid org_unit_id FK "→ hr.org_units"
+        num proposed_salary
+        uuid client_id FK "→ sales.accounts"
+        text status "draft · pending_approval · approved · in_progress · …"
+        ts approved_at
+    }
+    hr_org_units {
+        uuid id PK
+        uuid entity_id FK "→ platform.entities"
+        text code UK
+        text name_ar
+        text name_en
+        text unit_type
+        uuid parent_id FK "→ hr.org_units"
+        uuid manager_employee_id
+    }
+    hr_penalty_schedule {
+        uuid id PK
+        text code UK
+        text category "attendance · work · vehicle · client · …"
+        text offence_ar
+        text offence_en
+        bool is_active
+        bool is_fraud
+        int min_degree
+    }
+    hr_recruitment_cases {
+        uuid id PK
+        uuid entity_id FK,UK "→ platform.entities"
+        uuid request_id FK "→ hr.manpower_requests"
+        uuid agency_partner_id FK "→ partners.partners"
+        text stage FK "→ hr.recruitment_stages"
+        uuid employee_id FK "→ hr.employees"
+        num cost_to_date
+        text outcome
+    }
+    hr_recruitment_costs {
+        uuid id PK
+        uuid case_id FK "→ hr.recruitment_cases"
+        text cost_type
+        num amount
+        date incurred_at
+        uuid gov_transaction_id
+        text receipt_url
+        uuid recorded_by
+    }
+    hr_recruitment_stage_log {
+        uuid id PK
+        uuid case_id FK "→ hr.recruitment_cases"
+        text from_stage
+        text to_stage
+        uuid owner_id
+        ts entered_at
+        ts exited_at
+        num duration_days
+    }
+    hr_recruitment_stages {
+        text code PK
+        int seq UK
+        text name_ar
+        text default_owner_role FK "→ identity.roles"
+        int default_sla_days
+        bool is_active
+    }
+    hr_sales_commission_events {
+        uuid id PK
+        uuid entity_id FK "→ platform.entities"
+        uuid employee_id FK "→ hr.employees"
+        uuid user_id FK "→ identity.users"
+        uuid client_id FK "→ sales.accounts"
+        uuid contract_id FK "→ sales.contracts"
+        uuid rule_id FK "→ hr.commission_rules"
+        text status "accrued · under_review · disputed · approved · …"
+    }
+    hr_teams {
+        uuid id PK
+        uuid entity_id FK "→ platform.entities"
+        text code UK
+        text name_ar
+        text team_type
+        uuid org_unit_id FK "→ hr.org_units"
+        uuid supervisor_employee_id FK "→ hr.employees"
+        uuid client_id FK "→ sales.accounts"
+    }
+    imile_driver_ids {
+        uuid id PK "خارجي · imile.driver_ids"
+    }
+    sales_accounts {
+        uuid id PK "خارجي · sales.accounts"
+    }
+    identity_roles {
+        uuid id PK "خارجي · identity.roles"
+    }
+    partners_partners {
+        uuid id PK "خارجي · partners.partners"
+    }
+    sales_contracts {
+        uuid id PK "خارجي · sales.contracts"
+    }

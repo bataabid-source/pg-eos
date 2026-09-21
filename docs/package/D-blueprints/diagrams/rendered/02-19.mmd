@@ -1,0 +1,11 @@
+stateDiagram-v2
+  [*] --> received : تسجيل الفاتورة بـ partner_ref
+  received --> matched : المطابقة الآلية · الفرق 2% فأقل
+  received --> frozen : الفرق فوق 2% · تجميد الدفع
+  received --> rejected : بنود بلا أحداث لدينا
+  frozen --> approved : تسوية النزاع · approved_by ≠ matched_by
+  frozen --> rejected : رفض نهائي
+  matched --> approved : اعتماد الدفع
+  approved --> paid : الدفع
+  paid --> [*]
+  rejected --> [*]

@@ -1,0 +1,117 @@
+%% wms · المخزون والطلبات والجرد
+erDiagram
+    sales_accounts ||--o{ wms_skus : "skus_client_id_fkey"
+    sales_accounts ||--o{ wms_stock_balance : "stock_balance_client_id_fkey"
+    wms_locations ||--o{ wms_stock_balance : "stock_balance_location_id_fkey"
+    wms_skus ||--o{ wms_stock_balance : "stock_balance_sku_id_fkey"
+    sales_accounts ||--o{ wms_stock_movements : "stock_movements_client_id_fkey"
+    wms_locations ||--o{ wms_stock_movements : "stock_movements_from_location_id_fkey"
+    wms_skus ||--o{ wms_stock_movements : "stock_movements_sku_id_fkey"
+    wms_locations ||--o{ wms_stock_movements : "stock_movements_to_location_id_fkey"
+    sales_accounts ||--o{ wms_inbound_orders : "inbound_orders_client_id_fkey"
+    sales_contracts ||--o{ wms_inbound_orders : "inbound_orders_contract_id_fkey"
+    wms_warehouses ||--o{ wms_inbound_orders : "inbound_orders_warehouse_id_fkey"
+    sales_accounts ||--o{ wms_outbound_orders : "outbound_orders_client_id_fkey"
+    sales_contracts ||--o{ wms_outbound_orders : "outbound_orders_contract_id_fkey"
+    wms_warehouses ||--o{ wms_outbound_orders : "outbound_orders_warehouse_id_fkey"
+    wms_locations ||--o{ wms_order_lines : "order_lines_location_id_fkey"
+    wms_skus ||--o{ wms_order_lines : "order_lines_sku_id_fkey"
+    sales_accounts ||--o{ wms_inventory_counts : "inventory_counts_client_id_fkey"
+    wms_warehouses ||--o{ wms_inventory_counts : "inventory_counts_warehouse_id_fkey"
+    wms_stock_movements ||--o{ wms_inventory_count_lines : "inventory_count_lines_adjusted_movement_id_fkey"
+    wms_inventory_counts ||--o{ wms_inventory_count_lines : "inventory_count_lines_count_id_fkey"
+    wms_locations ||--o{ wms_inventory_count_lines : "inventory_count_lines_location_id_fkey"
+    wms_skus ||--o{ wms_inventory_count_lines : "inventory_count_lines_sku_id_fkey"
+
+    wms_skus {
+        uuid id PK
+        uuid client_id FK,UK "→ sales.accounts"
+        text code UK
+        num net_weight_kg
+        num gross_weight_kg
+        num volume_cbm
+        num unit_value
+        text status "active · on_hold · discontinued"
+    }
+    wms_stock_balance {
+        uuid id PK
+        uuid client_id FK,UK "→ sales.accounts"
+        uuid sku_id FK,UK "→ wms.skus"
+        uuid location_id FK,UK "→ wms.locations"
+        date expiry_date
+        num qty_on_hand
+        num qty_allocated
+        num qty_available
+    }
+    wms_stock_movements {
+        uuid id PK
+        uuid entity_id FK "→ platform.entities"
+        ts occurred_at
+        uuid client_id FK "→ sales.accounts"
+        uuid sku_id FK "→ wms.skus"
+        uuid from_location_id FK "→ wms.locations"
+        uuid to_location_id FK "→ wms.locations"
+        num qty
+    }
+    wms_inbound_orders {
+        uuid id PK
+        uuid entity_id FK,UK "→ platform.entities"
+        uuid client_id FK "→ sales.accounts"
+        uuid contract_id FK "→ sales.contracts"
+        uuid warehouse_id FK "→ wms.warehouses"
+        text status "draft · approved · receiving · received · putaway · closed · cancelled"
+        ts expected_at
+        ts arrived_at
+    }
+    wms_outbound_orders {
+        uuid id PK
+        uuid entity_id FK,UK "→ platform.entities"
+        uuid client_id FK "→ sales.accounts"
+        uuid contract_id FK "→ sales.contracts"
+        uuid warehouse_id FK "→ wms.warehouses"
+        text status "draft · checks_pending · credit_rejected · approved · …"
+        ts required_by
+        ts credit_checked_at
+    }
+    wms_order_lines {
+        uuid id PK
+        uuid sku_id FK "→ wms.skus"
+        num qty_ordered
+        num qty_actual
+        date expiry_date
+        uuid location_id FK "→ wms.locations"
+        text status "open · partial · complete · cancelled"
+        ts original_occurred_at
+    }
+    wms_inventory_counts {
+        uuid id PK
+        uuid entity_id FK,UK "→ platform.entities"
+        text doc_no UK
+        uuid warehouse_id FK "→ wms.warehouses"
+        uuid client_id FK "→ sales.accounts"
+        text status "draft · in_progress · review · recount · adjusted · closed"
+        ts started_at
+        ts finished_at
+    }
+    wms_inventory_count_lines {
+        uuid id PK
+        uuid count_id FK "→ wms.inventory_counts"
+        uuid location_id FK "→ wms.locations"
+        uuid sku_id FK "→ wms.skus"
+        num qty_system
+        num qty_counted
+        num recount_qty
+        uuid adjusted_movement_id FK "→ wms.stock_movements"
+    }
+    sales_accounts {
+        uuid id PK "خارجي · sales.accounts"
+    }
+    wms_locations {
+        uuid id PK "خارجي · wms.locations"
+    }
+    sales_contracts {
+        uuid id PK "خارجي · sales.contracts"
+    }
+    wms_warehouses {
+        uuid id PK "خارجي · wms.warehouses"
+    }

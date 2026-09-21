@@ -1,0 +1,15 @@
+flowchart TB
+  al["service_allocations · عميل × خدمة × شريك"] --> ex["تنفيذ لدى الشريك"]
+  ex --> pair["إقفال العملية"]
+  pair --> be["billable_event بسعر العقد"]
+  pair --> pe["payable_event بسعر التعاقد · client_id إلزامي"]
+  be --> lnk["الربط بـ billable_event_id"]
+  pe --> lnk
+  lnk --> mg["resale_margin · هامش فوري"]
+  pi["فاتورة الشريك · partner_invoices"] --> mt["مطابقة آلية بأحداثنا"]
+  mt --> v{"variance_pct"}
+  v -->|"2 فأقل"| au["اعتماد آلي للدفع"]
+  v -->|"فوق 2"| fz["status = frozen · تجميد الدفع · بند قرار"]
+  mt --> nb["بند بلا حدث لدينا → مرفوض"]
+  mt --> ne["حدث بلا بند → تنبيه"]
+  au --> je["مدين 5xxx شريك · دائن 2100 موردين"]

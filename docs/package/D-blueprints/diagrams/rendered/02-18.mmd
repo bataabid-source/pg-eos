@@ -1,0 +1,9 @@
+stateDiagram-v2
+  [*] --> pending : إقفال العملية لدى الشريك
+  pending --> priced : سعر من partner_price_lines
+  pending --> excluded : CFO
+  priced --> invoiced : مطابقة بفاتورة الشريك
+  priced --> disputed : فرق فوق العتبة
+  invoiced --> disputed : نزاع لاحق
+  invoiced --> [*]
+  excluded --> [*]

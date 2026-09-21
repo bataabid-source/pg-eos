@@ -1,0 +1,158 @@
+%% governance · الجداول والعلاقات
+erDiagram
+    governance_budgets ||--o{ governance_budget_lines : "budget_lines_budget_id_fkey"
+    billing_gl_accounts ||--o{ governance_budget_lines : "budget_lines_gl_account_id_fkey"
+    governance_ncr ||--o{ governance_corrective_actions : "corrective_actions_ncr_id_fkey"
+    identity_roles ||--o{ governance_corrective_actions : "corrective_actions_owner_role_fkey"
+    governance_decisions ||--o{ governance_decisions : "decisions_supersedes_id_fkey"
+    governance_kpis ||--o{ governance_key_results : "key_results_kpi_id_fkey"
+    governance_objectives ||--o{ governance_key_results : "key_results_objective_id_fkey"
+    governance_kpis ||--o{ governance_kpi_actuals : "kpi_actuals_kpi_id_fkey"
+    governance_kpis ||--o{ governance_kpi_targets : "kpi_targets_kpi_id_fkey"
+    identity_roles ||--o{ governance_kpis : "kpis_owner_role_fkey"
+    governance_kpis ||--o{ governance_kpis : "kpis_parent_id_fkey"
+    identity_roles ||--o{ governance_ncr : "ncr_owner_role_fkey"
+    identity_roles ||--o{ governance_objectives : "objectives_owner_role_fkey"
+    governance_policies ||--o{ governance_policy_acknowledgements : "policy_acknowledgements_policy_id_fkey"
+    governance_risks ||--o{ governance_risk_reviews : "risk_reviews_risk_id_fkey"
+    identity_roles ||--o{ governance_risks : "risks_owner_role_fkey"
+
+    governance_budget_lines {
+        uuid id PK
+        uuid budget_id FK,UK "→ governance.budgets"
+        uuid gl_account_id FK,UK "→ billing.gl_accounts"
+        date month UK
+        num planned_amount
+        num actual_amount
+        num variance_amount
+        num variance_pct
+    }
+    governance_budgets {
+        uuid id PK
+        uuid entity_id FK,UK "→ platform.entities"
+        int fiscal_year UK
+        text cost_center UK
+        text status "draft · approved · locked · closed"
+        uuid approved_by
+        ts approved_at
+        ts created_at
+    }
+    governance_corrective_actions {
+        uuid id PK
+        uuid ncr_id FK "→ governance.ncr"
+        text action_ar
+        text owner_role FK "→ identity.roles"
+        date due_date
+        ts completed_at
+        ts verified_at
+        text status "open · in_progress · done · verified · cancelled"
+    }
+    governance_decisions {
+        uuid id PK
+        text code UK
+        text title_ar
+        text decision_ar
+        text rationale_ar
+        date decided_at
+        uuid supersedes_id FK "→ governance.decisions"
+        text status "active · superseded · revoked"
+    }
+    governance_key_results {
+        uuid id PK
+        uuid objective_id FK "→ governance.objectives"
+        text title_ar
+        uuid kpi_id FK "→ governance.kpis"
+        num baseline_value
+        num target_value
+        num current_value
+        num progress_pct
+    }
+    governance_kpi_actuals {
+        uuid id PK
+        uuid kpi_id FK,UK "→ governance.kpis"
+        date period UK
+        num actual_value
+        ts measured_at
+    }
+    governance_kpi_targets {
+        uuid id PK
+        uuid kpi_id FK,UK "→ governance.kpis"
+        date period_start UK
+        date period_end UK
+        num target_value
+        uuid set_by
+        ts set_at
+    }
+    governance_kpis {
+        uuid id PK
+        text code UK
+        text name_ar
+        text level "group · entity · module"
+        uuid parent_id FK "→ governance.kpis"
+        uuid entity_id FK "→ platform.entities"
+        text owner_role FK "→ identity.roles"
+        bool is_active
+    }
+    governance_ncr {
+        uuid id PK
+        uuid entity_id FK,UK "→ platform.entities"
+        text doc_no UK
+        text title_ar
+        ts raised_at
+        text owner_role FK "→ identity.roles"
+        text status "open · investigating · action_pending · verifying · closed"
+        ts closed_at
+    }
+    governance_objectives {
+        uuid id PK
+        uuid entity_id FK "→ platform.entities"
+        text code UK
+        text title_ar
+        text quarter
+        text owner_role FK "→ identity.roles"
+        text status "draft · active · achieved · missed · cancelled"
+        ts created_at
+    }
+    governance_policies {
+        uuid id PK
+        text code UK
+        text title_ar
+        int version UK
+        text body_url
+        date effective_from
+        ts approved_at
+        bool is_active
+    }
+    governance_policy_acknowledgements {
+        uuid id PK
+        uuid policy_id FK,UK "→ governance.policies"
+        uuid user_id FK,UK "→ identity.users"
+        ts acknowledged_at
+        text ip_address
+    }
+    governance_risk_reviews {
+        uuid id PK
+        uuid risk_id FK "→ governance.risks"
+        ts reviewed_at
+        uuid reviewed_by
+        int likelihood
+        int impact
+        text finding
+        date next_review_date
+    }
+    governance_risks {
+        uuid id PK
+        uuid entity_id FK "→ platform.entities"
+        text code UK
+        int score
+        text owner_role FK "→ identity.roles"
+        text status "open · mitigating · accepted · closed"
+        ts opened_at
+        ts closed_at
+    }
+    billing_gl_accounts {
+        uuid id PK "خارجي · billing.gl_accounts"
+    }
+    identity_roles {
+        uuid id PK "خارجي · identity.roles"
+    }

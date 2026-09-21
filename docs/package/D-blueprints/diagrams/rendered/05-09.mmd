@@ -1,0 +1,7 @@
+stateDiagram-v2
+  [*] --> available
+  available --> assigned
+  assigned --> available
+  assigned --> suspended
+  suspended --> available
+  suspended --> [*]

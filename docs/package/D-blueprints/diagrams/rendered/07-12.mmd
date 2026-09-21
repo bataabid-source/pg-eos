@@ -1,0 +1,6 @@
+stateDiagram-v2
+  [*] --> issued
+  issued --> superseded: إصدار نسخة أحدث · superseded_by
+  issued --> void: إبطال بسبب إلزامي
+  superseded --> [*]
+  void --> [*]

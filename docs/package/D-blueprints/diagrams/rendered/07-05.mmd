@@ -1,0 +1,15 @@
+flowchart LR
+  sch["جدولة أو واقعة فورية"]
+  sq["source_query<br/>صفر صفوف = سلامة"]
+  dd["كبح التكرار<br/>dedupe_window_hours"]
+  qh["ساعات الهدوء 22:00-07:00<br/>مستثنى: N-01 و N-03"]
+  fire["alert_log · fired_at"]
+  chn["القنوات · داخل التطبيق · واتساب · بريد"]
+  ack["إقرار · acknowledged_at"]
+  esc["تصعيد · escalated_at<br/>escalate_to_roles"]
+  res["إقفال · resolved_at"]
+  mut["إيقاف مؤقت بسبب ومدة<br/>مالك التنبيه وحده"]
+  sch --> sq --> dd --> qh --> fire --> chn
+  chn --> ack --> res
+  chn --> esc --> ack
+  fire -.-> mut

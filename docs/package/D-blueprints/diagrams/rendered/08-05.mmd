@@ -1,0 +1,65 @@
+%% catalog · الجداول والعلاقات
+erDiagram
+    catalog_services ||--o{ catalog_price_exceptions : "price_exceptions_service_id_fkey"
+    catalog_price_lists ||--o{ catalog_price_list_lines : "price_list_lines_price_list_id_fkey"
+    catalog_services ||--o{ catalog_price_list_lines : "price_list_lines_service_id_fkey"
+    catalog_segments ||--o{ catalog_price_lists : "price_lists_segment_id_fkey"
+    catalog_service_categories ||--o{ catalog_services : "services_category_id_fkey"
+
+    catalog_price_exceptions {
+        uuid id PK
+        uuid entity_id FK "→ platform.entities"
+        uuid service_id FK "→ catalog.services"
+        num approved_price
+        num min_price_at_approval
+        date valid_from
+        date valid_to
+        ts approved_at
+    }
+    catalog_price_list_lines {
+        uuid id PK
+        uuid price_list_id FK,UK "→ catalog.price_lists"
+        uuid service_id FK,UK "→ catalog.services"
+        num price
+        text currency
+        num tier_from UK
+        num tier_to
+        num free_units
+    }
+    catalog_price_lists {
+        uuid id PK
+        uuid entity_id FK,UK "→ platform.entities"
+        text code UK
+        uuid segment_id FK "→ catalog.segments"
+        date valid_from
+        date valid_to
+        bool is_internal
+        text status "draft · active · expired"
+    }
+    catalog_segments {
+        uuid id PK
+        text code UK
+        text name_ar
+        text name_en
+        int rank
+        jsonb criteria
+        num discount_pct
+        text review_cycle
+    }
+    catalog_service_categories {
+        uuid id PK
+        text code UK
+        text name_ar
+        text name_en
+        int sort_order
+    }
+    catalog_services {
+        uuid id PK
+        text code UK
+        uuid category_id FK "→ catalog.service_categories"
+        text name_ar
+        uuid entity_id FK "→ platform.entities"
+        num min_price
+        num standard_cost
+        bool is_active
+    }

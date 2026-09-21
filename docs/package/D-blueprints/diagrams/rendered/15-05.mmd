@@ -1,0 +1,20 @@
+stateDiagram-v2
+  [*] --> visible
+  visible: ظاهرة في اللوحة
+  claimed: مسحوبة أو مسنَدة
+  active: نشطة في وضع التركيز
+  paused: معلّقة بسبب من قائمة مغلقة
+  escalated: مصعَّدة إلى المستوى الأعلى
+  closed: مُقفَلة بالإجراء
+  expired: انقضت المهلة
+  visible --> claimed: اسحب أو أسنِد
+  claimed --> active: ابدأ
+  active --> paused: استثناء بكود
+  paused --> active: حُلّ
+  paused --> escalated: بلا حلّ حتى العتبة
+  visible --> escalated: due_at انقضى
+  escalated --> closed: قرار المستوى الأعلى
+  active --> closed: أقفل بالإجراء
+  visible --> expired: بلا بتّ — N-17
+  closed --> [*]
+  expired --> [*]

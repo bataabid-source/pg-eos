@@ -1,0 +1,16 @@
+flowchart LR
+  exc["استثناء أو تجاوز عتبة"]
+  gen["توليد بند<br/>decisions · status open"]
+  inb["صندوق الدور<br/>ترتيب: الأثر المالي ثم الاستعجال"]
+  psh["إشعار تطبيق القرارات<br/>يحترم ساعات الهدوء"]
+  dec["بتّ · decided"]
+  eff["أثر في جدول المصدر"]
+  exp["انقضاء المهلة · expired<br/>تصعيد N-17"]
+  aut["زوال السبب · auto_resolved"]
+  can["إلغاء · cancelled"]
+  exc --> gen --> inb
+  gen --> psh --> dec
+  inb --> dec --> eff
+  inb --> exp
+  inb --> aut
+  inb --> can

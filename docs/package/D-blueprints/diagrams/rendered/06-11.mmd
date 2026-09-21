@@ -1,0 +1,10 @@
+stateDiagram-v2
+  direction LR
+  [*] --> requested
+  requested --> submitted
+  submitted --> in_progress
+  in_progress --> completed
+  in_progress --> rejected
+  submitted --> rejected
+  rejected --> requested
+  completed --> [*]

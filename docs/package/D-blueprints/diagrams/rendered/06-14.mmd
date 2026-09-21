@@ -1,0 +1,12 @@
+stateDiagram-v2
+  direction LR
+  [*] --> pending
+  pending --> delegated
+  delegated --> approved
+  delegated --> rejected
+  pending --> approved
+  pending --> rejected
+  pending --> expired
+  approved --> [*]
+  rejected --> [*]
+  expired --> [*]

@@ -1,0 +1,52 @@
+# PG-EOS — never commit secrets, keys, dumps or backups (CLAUDE.md · GIT).
+# BOOTSTRAP-v4 §9 names the first seven entries; the rest are build output.
+
+# ── secrets and credentials ────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+id_*
+!id_*.ts
+!id_*.tsx
+
+# ── data, dumps, backups ───────────────────────────────────────────────────
+data/
+*.dump
+*.tgz
+*.sql.gz
+*.bak
+
+# ── dependencies and build output ──────────────────────────────────────────
+node_modules/
+dist/
+build/
+.turbo/
+coverage/
+.next/
+out/
+*.tsbuildinfo
+
+# ── test and tool artefacts ────────────────────────────────────────────────
+playwright-report/
+test-results/
+reports/mutation/
+.stryker-tmp/
+
+# ── editor and OS noise ────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# ── NOT ignored, deliberately ──────────────────────────────────────────────
+# .golden-slice-accepted  — the GM's acceptance record for WBS 2.9. It IS COMMITTED:
+#   scripts/new-slice.sh stays a no-op until this file exists in the repository, so a
+#   local-only copy would let one machine replicate while the others could not.
+#   Never add it here (BOOTSTRAP-v5 §9 · EXECUTION-MASTER-v4 §3.5).
+# .claude/                — agents, commands, briefs, hooks and settings are the kit and are
+#   versioned with the code. Only .claude/settings.local.json is personal:
+.claude/settings.local.json

@@ -1,0 +1,9 @@
+stateDiagram-v2
+  [*] --> requested
+  requested --> active: اعتماد approved_by ومرور فحص فصل المهام
+  requested --> rejected: تعارض مع sod_rules
+  active --> expired: بلوغ valid_to · ≤ 90 يوماً
+  active --> revoked: إبطال من المانح
+  expired --> [*]
+  revoked --> [*]
+  rejected --> [*]

@@ -1,0 +1,83 @@
+%% imile · الشحنات وخطط الفرز والجرد اليومي
+erDiagram
+    tms_delivery_tasks ||--o{ imile_shipments : "shipments_delivery_task_id_fkey"
+    hr_employees ||--o{ imile_plan_assignments : "plan_assignments_driver_employee_id_fkey"
+    imile_sorting_plans ||--o{ imile_plan_assignments : "plan_assignments_plan_id_fkey"
+    imile_daily_inventory ||--o{ imile_inventory_discrepancies : "inventory_discrepancies_inventory_id_fkey"
+
+    imile_shipments {
+        uuid id PK
+        num cod_amount
+        text imile_status
+        text internal_status "expected · arrived · sorted · staged · …"
+        ts arrived_at
+        ts sorted_at
+        ts assigned_at
+        uuid delivery_task_id FK "→ tms.delivery_tasks"
+    }
+    imile_sorting_plans {
+        uuid id PK
+        date plan_date UK
+        ts generated_at
+        text status "draft · review · approved · executing · closed"
+        int total_shipments
+        int total_drivers
+        int total_zones
+        num edits_pct
+    }
+    imile_plan_assignments {
+        uuid id PK
+        uuid plan_id FK,UK "→ imile.sorting_plans"
+        text driver_code UK
+        uuid driver_employee_id FK "→ hr.employees"
+        array zones
+        text cage_code
+        int planned_count
+        int actual_count
+    }
+    imile_scan_log {
+        uuid id PK
+        ts scanned_at
+        text tracking_no
+        text scan_type
+        text location_code
+        text cage_code
+        text result
+        ts original_occurred_at
+    }
+    imile_daily_inventory {
+        uuid id PK
+        date count_date UK
+        ts started_at
+        ts finished_at
+        int system_count
+        int scanned_count
+        int missing_count
+        int extra_count
+    }
+    imile_inventory_discrepancies {
+        uuid id PK
+        uuid inventory_id FK "→ imile.daily_inventory"
+        text tracking_no
+        text discrepancy_type
+        text system_status
+        text physical_status
+        text explanation
+        ts resolved_at
+    }
+    imile_coverage_areas {
+        uuid id PK
+        text code UK
+        text name_ar
+        text governorate
+        bool is_rotation
+        date last_rotated_on
+        int daily_capacity_hint
+        bool is_active
+    }
+    tms_delivery_tasks {
+        uuid id PK "خارجي · tms.delivery_tasks"
+    }
+    hr_employees {
+        uuid id PK "خارجي · hr.employees"
+    }

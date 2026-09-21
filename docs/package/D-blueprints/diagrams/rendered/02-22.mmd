@@ -1,0 +1,11 @@
+stateDiagram-v2
+  [*] --> pending : إنشاء الطلب · current_step = 1
+  pending --> delegated : إنابة سارية ومحدودة بـ 90 يوماً
+  pending --> approved : كل الخطوات مبتوتة بالموافقة
+  pending --> rejected : رفض بسبب إلزامي
+  pending --> expired : تجاوز due_at
+  delegated --> approved : المنيب إليه يبتّ · لا يلتف على SoD
+  delegated --> rejected : رفض
+  approved --> [*]
+  rejected --> [*]
+  expired --> [*]

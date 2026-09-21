@@ -1,0 +1,98 @@
+%% identity · الجداول والعلاقات
+erDiagram
+    identity_users ||--o{ identity_delegations : "delegations_from_user_id_fkey"
+    identity_roles ||--o{ identity_delegations : "delegations_role_code_fkey"
+    identity_users ||--o{ identity_delegations : "delegations_to_user_id_fkey"
+    identity_permissions ||--o{ identity_role_permissions : "role_permissions_permission_id_fkey"
+    identity_roles ||--o{ identity_role_permissions : "role_permissions_role_id_fkey"
+    identity_users ||--o{ identity_sessions : "sessions_user_id_fkey"
+    identity_roles ||--o{ identity_sod_rules : "sod_rules_role_a_fkey"
+    identity_roles ||--o{ identity_sod_rules : "sod_rules_role_b_fkey"
+    identity_users ||--o{ identity_user_entities : "user_entities_user_id_fkey"
+    identity_roles ||--o{ identity_user_roles : "user_roles_role_id_fkey"
+    identity_users ||--o{ identity_user_roles : "user_roles_user_id_fkey"
+
+    identity_column_classification {
+        text schema_name PK
+        text table_name PK
+        text column_name PK
+        text sensitivity
+    }
+    identity_delegations {
+        uuid id PK
+        uuid from_user_id FK "→ identity.users"
+        uuid to_user_id FK "→ identity.users"
+        text role_code FK "→ identity.roles"
+        jsonb scope
+        ts valid_from
+        ts valid_to
+        text reason
+    }
+    identity_otp_codes {
+        uuid id PK
+        text email
+        text code_hash
+        ts expires_at
+        ts consumed_at
+        int attempts
+    }
+    identity_permissions {
+        uuid id PK
+        text code UK
+        text module
+        text object
+        text action
+        text description
+    }
+    identity_role_permissions {
+        uuid role_id PK,FK "→ identity.roles"
+        uuid permission_id PK,FK "→ identity.permissions"
+    }
+    identity_roles {
+        uuid id PK
+        text code UK
+        text name_ar
+        text name_en
+        text scope_type "all · entity · org_unit · subordinates · …"
+        text description
+    }
+    identity_sessions {
+        uuid id PK
+        uuid user_id FK "→ identity.users"
+        text token_hash
+        ts issued_at
+        ts expires_at
+        ts revoked_at
+        text ip_address
+        text user_agent
+    }
+    identity_sod_rules {
+        uuid id PK
+        text role_a FK,UK "→ identity.roles"
+        text role_b FK,UK "→ identity.roles"
+        text reason_ar
+        bool is_active
+    }
+    identity_user_entities {
+        uuid user_id PK,FK "→ identity.users"
+        uuid entity_id PK,FK "→ platform.entities"
+    }
+    identity_user_roles {
+        uuid id PK
+        uuid user_id FK "→ identity.users"
+        uuid role_id FK "→ identity.roles"
+        ts granted_at
+        uuid granted_by
+        ts revoked_at
+        uuid revoked_by
+    }
+    identity_users {
+        uuid id PK
+        text email UK
+        text full_name_ar
+        text full_name_en
+        text phone
+        uuid employee_id
+        bool is_active
+        ts last_login_at
+    }

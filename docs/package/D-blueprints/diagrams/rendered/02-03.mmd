@@ -1,0 +1,12 @@
+flowchart LR
+  a["SALES_MGR يقترح الخدمة"] --> b["catalog.services · وصف ووحدة وأساس"]
+  b --> c{"CFO حدّد standard_cost؟"}
+  c -->|"لا"| d["الخدمة غير نشطة · بوابة M03 مغلقة"]
+  c -->|"نعم"| e["min_price = standard_cost × 1.15"]
+  e --> f{"تجاوز CFO لخدمة بعينها؟"}
+  f -->|"نعم"| g["min_price بقيمة مسجَّلة"]
+  f -->|"لا"| h["min_price المشتق"]
+  g --> i["قائمة أسعار لكل شريحة · price_list_lines"]
+  h --> i
+  i --> j["price_lists.status = active"]
+  j --> k["بوابة M03 مفتوحة · التسعير يعمل"]

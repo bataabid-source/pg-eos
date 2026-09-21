@@ -1,0 +1,17 @@
+flowchart LR
+  shop["متجر العميل<br/>Salla · Zid · Shopify · WooCommerce"]
+  conn["الموصّل I-12 — مقترح<br/>يسحب الطلبات بجدولة"]
+  map["الربط والتحويل — مقترح<br/>order id ← client_ref · SKU ← client_sku"]
+  q["platform.integration_queue<br/>ما فشل يذهب هنا"]
+  api["Client API v1 — I-09<br/>POST /orders"]
+  chk["الفحص العشري — 40 §C3<br/>عقد · ائتمان · رصيد · عنوان"]
+  ob["wms.outbound_orders<br/>client_ref"]
+  dt["tms.delivery_tasks<br/>source_type = api"]
+  ox["platform.outbox<br/>الحدث في نفس المعاملة"]
+  n19["تنبيه N-19<br/>طابور > 20 أو > 48 ساعة"]
+
+  shop --> conn --> map --> api --> chk
+  chk -->|نجح| ob --> dt --> ox
+  chk -->|رفض| q
+  map -->|صف معطوب| q
+  q --> n19

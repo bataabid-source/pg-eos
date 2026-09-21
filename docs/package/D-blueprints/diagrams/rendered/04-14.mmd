@@ -1,0 +1,8 @@
+stateDiagram-v2
+  [*] --> calculated
+  calculated --> disputed
+  disputed --> calculated
+  calculated --> approved
+  disputed --> approved
+  approved --> paid
+  paid --> [*]

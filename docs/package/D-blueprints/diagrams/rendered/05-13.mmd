@@ -1,0 +1,10 @@
+stateDiagram-v2
+  [*] --> offline
+  offline --> available
+  available --> busy
+  busy --> available
+  available --> break
+  break --> available
+  available --> offline
+  busy --> offline
+  offline --> [*]

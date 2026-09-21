@@ -1,0 +1,30 @@
+flowchart LR
+  subgraph PUB["الناشرون"]
+    w["M04 المستودع"]
+    t["M05 التوصيل"]
+    im["M11 iMile"]
+    c["M06 الكول سنتر"]
+    b["M07 المحاسبة"]
+    s["M02 المبيعات"]
+  end
+  ob["platform.outbox<br/>نفس المعاملة · correlation_id إلزامي"]
+  rl["الناقل · نشر مرة على الأقل"]
+  subgraph SUB["المشتركون"]
+    sb1["الفوترة<br/>billable_events"]
+    sb2["الوثائق<br/>document_bindings"]
+    sb3["التنبيهات<br/>alert_rules · notifications"]
+    sb4["التدقيق<br/>audit_log"]
+    sb5["التتبّع<br/>عروض مُجسَّدة"]
+  end
+  w --> ob
+  t --> ob
+  im --> ob
+  c --> ob
+  b --> ob
+  s --> ob
+  ob --> rl
+  rl --> sb1
+  rl --> sb2
+  rl --> sb3
+  rl --> sb4
+  rl --> sb5

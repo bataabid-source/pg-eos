@@ -1,0 +1,20 @@
+sequenceDiagram
+  autonumber
+  participant CL as العميل المحتمل
+  participant SR as مندوب المبيعات
+  participant CAT as الكتالوج M03
+  participant GM as المدير العام
+  participant CFO as المدير المالي
+  CL->>SR: اهتمام · sales.leads
+  SR->>SR: تأهيل · sales.opportunities
+  SR->>CAT: تسعير من قائمة الشريحة · price_list_lines
+  CAT-->>SR: سعر مقترح مع min_price
+  alt السعر دون الحد الأدنى
+    SR->>GM: طلب استثناء سعري · price_exceptions
+    GM-->>SR: اعتماد أو رفض من صندوق القرارات
+  end
+  SR->>CFO: عرض سعر · sales.quotes
+  CFO-->>SR: فحص الهامش · تحذير تحت 15% · دون 10% يتطلب GM
+  SR->>CL: عرض معتمد
+  CL->>SR: قبول
+  SR->>CFO: عقد لكل كيان · sales.contracts + contract_sla

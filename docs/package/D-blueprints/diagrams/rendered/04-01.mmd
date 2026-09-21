@@ -1,0 +1,45 @@
+flowchart LR
+  src["مصادر المهمة: أمر صرف · بوابة iMile · نافذة العميل · API"]
+  delmgr["DEL_MGR مدير التوصيل"]
+  delsup["DEL_SUP مشرف التوصيل"]
+  drv["DRIVER السائق — تطبيق الجوال"]
+  fleet["FLEET_MGR مدير الأسطول"]
+  partner["الشريك المنفّذ"]
+  cfo["CFO المدير المالي"]
+
+  tasks[("tms.delivery_tasks")]
+  routes[("tms.routes")]
+  pod[("tms.proof_of_delivery")]
+  fail[("tms.failure_reasons")]
+  contact[("tms.contact_log")]
+  pay[("tms.payment_attempts")]
+  veh[("tms.vehicles + vehicle_documents")]
+  maint[("tms.maintenance_plans + orders")]
+  acc[("tms.accidents")]
+  fuel[("tms.fuel_ledger")]
+  payev[("partners.payable_events")]
+  pinv[("partners.partner_invoices")]
+  bev[("billing.billable_events — DL-01…DL-18")]
+  outbox[("platform.outbox")]
+
+  src --> tasks
+  delmgr --> routes
+  routes --> tasks
+  delsup --> tasks
+  drv --> tasks
+  drv --> pod
+  drv --> contact
+  drv --> pay
+  drv --> fuel
+  tasks --> fail
+  tasks --> partner
+  partner --> payev
+  payev --> pinv
+  pinv --> cfo
+  fleet --> veh
+  fleet --> maint
+  fleet --> acc
+  veh --> tasks
+  tasks --> bev
+  pod --> bev
+  tasks --> outbox

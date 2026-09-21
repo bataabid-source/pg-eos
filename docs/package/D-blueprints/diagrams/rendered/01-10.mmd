@@ -1,0 +1,8 @@
+flowchart LR
+  t0["Tier 0 · المراحل 0-3<br/>Oracle Always Free · A1 4 OCPU / 24 GB<br/>RPO 24س · RTO 4س · نسخ 14/8/6"]
+  tr["المحفّز · أي واحد<br/>قبل المرحلة 4 · أو > 40 مستخدماً متزامناً<br/>أو خرق p95 سبعة أيام"]
+  t1["Tier 1 · المراحل 4-6<br/>OCI مدفوع · قاعدة على جهاز مستقل<br/>نسخة قراءة · أرشفة WAL · RPO ≤ 1س"]
+  t2["Tier 2 · التوسّع<br/>GCP me-central1 · Cloud Run + Cloud SQL"]
+  loc["خادم محلي لبريميوم<br/>عند متطلب سيادة البيانات"]
+  t0 --> tr --> t1 --> t2
+  tr -.-> loc

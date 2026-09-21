@@ -1,0 +1,19 @@
+flowchart TB
+  pgh["PGH — بريميوم جروب القابضة · holding"]
+  exec["الإدارات المركزية: المالية · المبيعات · الإدارة والموارد · التقنية"]
+  pcc["PCC — بريميوم CC"]
+  pst["PST — بريميوم ستوراج"]
+  pdl["PDL — بريميوم دليفري"]
+  por["POR — بريميوم أوردر"]
+  alloc[(billing.cost_allocations — توزيع شهري بنسبة الإيراد)]
+
+  pgh --> exec
+  pgh --> pcc
+  pgh --> pst
+  pgh --> pdl
+  pgh --> por
+  exec --> alloc
+  alloc --> pcc
+  alloc --> pst
+  alloc --> pdl
+  alloc --> por

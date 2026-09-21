@@ -1,0 +1,71 @@
+%% cc · الجداول والعلاقات
+erDiagram
+    cc_agents ||--o{ cc_agent_queues : "agent_queues_agent_id_fkey"
+    cc_queues ||--o{ cc_agent_queues : "agent_queues_queue_id_fkey"
+    cc_agents ||--o{ cc_calls : "calls_agent_id_fkey"
+    sales_accounts ||--o{ cc_calls : "calls_client_id_fkey"
+    cc_queues ||--o{ cc_calls : "calls_queue_id_fkey"
+    sales_accounts ||--o{ cc_queues : "queues_client_id_fkey"
+    cc_tickets ||--o{ cc_ticket_events : "ticket_events_ticket_id_fkey"
+    cc_agents ||--o{ cc_tickets : "tickets_assigned_to_fkey"
+    sales_accounts ||--o{ cc_tickets : "tickets_client_id_fkey"
+    cc_queues ||--o{ cc_tickets : "tickets_queue_id_fkey"
+
+    cc_agent_queues {
+        uuid agent_id PK,FK "→ cc.agents"
+        uuid queue_id PK,FK "→ cc.queues"
+        int priority
+    }
+    cc_agents {
+        uuid id PK
+        uuid user_id FK "→ identity.users"
+        uuid employee_id
+        text extension
+        array languages
+        int skill_level
+        text status "offline · available · busy · break"
+        date hired_at
+    }
+    cc_calls {
+        uuid id PK
+        uuid entity_id FK "→ platform.entities"
+        uuid queue_id FK "→ cc.queues"
+        uuid client_id FK "→ sales.accounts"
+        uuid agent_id FK "→ cc.agents"
+        ts started_at
+        ts answered_at
+        ts ended_at
+    }
+    cc_queues {
+        uuid id PK
+        uuid entity_id FK "→ platform.entities"
+        text code UK
+        text name_ar
+        text name_en
+        uuid client_id FK "→ sales.accounts"
+        bool is_internal
+        num target_abandon_pct
+    }
+    cc_ticket_events {
+        uuid id PK
+        uuid ticket_id FK "→ cc.tickets"
+        ts occurred_at
+        text event_type
+        text from_value
+        text to_value
+        text body
+        bool is_internal
+    }
+    cc_tickets {
+        uuid id PK
+        uuid entity_id FK,UK "→ platform.entities"
+        uuid queue_id FK "→ cc.queues"
+        uuid client_id FK "→ sales.accounts"
+        text status "open · in_progress · pending_client · pending_internal · …"
+        uuid assigned_to FK "→ cc.agents"
+        ts sla_due_at
+        int satisfaction_score
+    }
+    sales_accounts {
+        uuid id PK "خارجي · sales.accounts"
+    }

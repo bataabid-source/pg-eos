@@ -1,0 +1,9 @@
+stateDiagram-v2
+  [*] --> open
+  open --> partial
+  partial --> complete
+  open --> complete
+  open --> cancelled
+  partial --> cancelled
+  complete --> [*]
+  cancelled --> [*]

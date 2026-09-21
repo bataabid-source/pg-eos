@@ -1,0 +1,19 @@
+flowchart TB
+  client["العميل"]
+  pg["بريميوم — المتعاقد الوحيد"]
+  prt["الشريك المنفّذ — لا يُسمّى للعميل"]
+  bev[("billing.billable_events — سعر العقد")]
+  payev[("partners.payable_events — سعر التعاقد")]
+  margin[("partners.resale_margin — الهامش")]
+  ticket["الشكوى تُفتح على بريميوم دائماً"]
+
+  client -->|"طلب الخدمة"| pg
+  pg -->|"تخصيص service_allocations"| prt
+  prt -->|"تنفيذ بمعايير POD نفسها"| pg
+  pg --> bev
+  prt --> payev
+  bev --> margin
+  payev --> margin
+  client --> ticket
+  ticket --> pg
+  pg -->|"تذكرة داخلية موازية"| prt

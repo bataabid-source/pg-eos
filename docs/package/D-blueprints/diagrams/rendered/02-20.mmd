@@ -1,0 +1,10 @@
+stateDiagram-v2
+  [*] --> draft : الطالب يكتب · cost_center إلزامي
+  draft --> pending_approval : رفع للاعتماد بحسب الشريحة
+  draft --> cancelled : الطالب
+  pending_approval --> approved : المعتمِد بالشريحة · approved_by ≠ requested_by
+  pending_approval --> rejected : المعتمِد · سبب إلزامي
+  approved --> ordered : الترسية وإصدار أمر الشراء
+  ordered --> [*]
+  rejected --> [*]
+  cancelled --> [*]

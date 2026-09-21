@@ -1,0 +1,21 @@
+stateDiagram-v2
+  direction TB
+  [*] --> manpower_request
+  manpower_request --> sourcing_route
+  sourcing_route --> work_permit
+  work_permit --> visa_issue
+  visa_issue --> agency_contract
+  agency_contract --> candidate_shortlist
+  candidate_shortlist --> medical_origin
+  medical_origin --> visa_stamp_ticket
+  medical_origin --> candidate_shortlist
+  visa_stamp_ticket --> arrival
+  arrival --> medical_local
+  medical_local --> biometrics_security
+  biometrics_security --> residency_issue
+  residency_issue --> civil_id
+  civil_id --> driving_licence
+  driving_licence --> onboarding_setup
+  onboarding_setup --> probation_start
+  probation_start --> probation_review
+  probation_review --> [*]

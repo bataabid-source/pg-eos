@@ -1,0 +1,13 @@
+flowchart LR
+  sup["لوحة WH_SUP"]
+  q1["الطابور بلا عامل<br/>work_order_tasks status queued"]
+  q2["المتأخر عن SLA<br/>now بعد work_orders.due_at"]
+  q3["الاستثناءات المفتوحة<br/>status paused مع exception_code"]
+  a1["أسنِد — حدّ 3 مهام نشطة"]
+  a2["أعد الإسناد — بسبب إلزامي"]
+  a3["حُلّ أو صعِّد"]
+  op["تظهر في PDA العامل فوراً"]
+  mgr["تظهر عند WH_MGR كبطاقة"]
+  sup --> q1 --> a1 --> op
+  sup --> q2 --> a2 --> op
+  sup --> q3 --> a3 --> mgr

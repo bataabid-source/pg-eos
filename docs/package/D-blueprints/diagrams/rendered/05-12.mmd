@@ -1,0 +1,12 @@
+stateDiagram-v2
+  [*] --> open
+  open --> in_progress
+  in_progress --> pending_client
+  pending_client --> in_progress
+  in_progress --> pending_internal
+  pending_internal --> in_progress
+  in_progress --> resolved
+  resolved --> closed
+  closed --> reopened
+  reopened --> in_progress
+  closed --> [*]

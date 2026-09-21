@@ -1,0 +1,8 @@
+stateDiagram-v2
+  [*] --> pending
+  pending --> processing: مالك التكامل يبدأ المعالجة
+  processing --> done: عولج ودخل النظام
+  processing --> failed: تعذّرت المعالجة
+  failed --> pending: إعادة محاولة
+  pending --> done: معالجة مباشرة
+  done --> [*]

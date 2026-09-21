@@ -1,0 +1,9 @@
+stateDiagram-v2
+  [*] --> pending : تسجيل آلي من الحدث التشغيلي
+  pending --> priced : محرّك التسعير · أول تطابق في الأسبقية الخماسية
+  pending --> excluded : CFO · سبب مسجَّل
+  priced --> invoiced : إدراج في فاتورة معتمدة
+  priced --> disputed : CFO
+  invoiced --> disputed : CFO
+  invoiced --> [*]
+  excluded --> [*]

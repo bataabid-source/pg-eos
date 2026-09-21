@@ -1,0 +1,31 @@
+flowchart LR
+  subgraph IN["بوابات الدخول"]
+    p1["نافذة العميل"]
+    p2["الكول سنتر"]
+    p3["بوابة iMile"]
+  end
+  subgraph OPS["التشغيل"]
+    w1["المستودع WMS"]
+    t1["التوصيل TMS"]
+    i1["محطة iMile"]
+  end
+  ev["حدث المجال<br/>platform.outbox"]
+  subgraph OUT["ما يولّده الحدث"]
+    b1["حدث فوترة<br/>billing.billable_events"]
+    d1["مستند مُولَّد<br/>platform.documents"]
+    n1["تنبيه أو بند قرار"]
+    a1["قيد تدقيق<br/>platform.audit_log"]
+  end
+  inv["فاتورة الكيان المُقدِّم"]
+  cash["تحصيل وقيد محاسبي"]
+  p1 --> w1
+  p2 --> t1
+  p3 --> i1
+  w1 --> ev
+  t1 --> ev
+  i1 --> ev
+  ev --> b1
+  ev --> d1
+  ev --> n1
+  ev --> a1
+  b1 --> inv --> cash

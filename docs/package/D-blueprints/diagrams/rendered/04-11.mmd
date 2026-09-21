@@ -1,0 +1,9 @@
+stateDiagram-v2
+  [*] --> pending
+  pending --> priced
+  pending --> excluded
+  priced --> invoiced
+  priced --> disputed
+  invoiced --> disputed
+  invoiced --> [*]
+  excluded --> [*]

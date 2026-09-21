@@ -1,0 +1,14 @@
+stateDiagram-v2
+  [*] --> planned
+  planned --> in_progress
+  planned --> in_workshop
+  in_progress --> awaiting_parts
+  in_workshop --> awaiting_parts
+  awaiting_parts --> in_progress
+  awaiting_parts --> in_workshop
+  in_progress --> done
+  in_workshop --> done
+  planned --> cancelled
+  in_progress --> cancelled
+  done --> [*]
+  cancelled --> [*]

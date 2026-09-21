@@ -1,0 +1,15 @@
+flowchart TB
+  ev["billable_event · pending"] --> s1{"استثناء سعري ساري للعميل والخدمة؟"}
+  s1 -->|"نعم"| p1["price_source = exception"]
+  s1 -->|"لا"| s2{"سعر في ملحق أسعار العقد؟"}
+  s2 -->|"نعم"| p2["price_source = contract"]
+  s2 -->|"لا"| s3{"سعر في قائمة شريحة العميل؟"}
+  s3 -->|"نعم"| p3["price_source = segment"]
+  s3 -->|"لا"| s4{"سعر في القائمة القياسية؟"}
+  s4 -->|"نعم"| p4["price_source = list"]
+  s4 -->|"لا"| p5["يبقى pending · لا فوترة بصفر"]
+  p1 --> ok["status = priced · unit_price · price_ref_id"]
+  p2 --> ok
+  p3 --> ok
+  p4 --> ok
+  p5 --> lost["تقرير الإيراد الضائع R-14 · تنبيه N-08 بعد 7 أيام · الحارس G18"]

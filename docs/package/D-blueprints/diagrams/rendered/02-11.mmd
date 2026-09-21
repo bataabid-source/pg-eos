@@ -1,0 +1,12 @@
+flowchart TB
+  cl["نقد من العميل"] --> rct["سند سلسلة RCT · billing.receipts"]
+  rct --> alloc["تخصيص ضد فواتير العميل"]
+  co["عهدة الشركة"] --> pc["admin.petty_cash · حد وسقف عملية"]
+  pc --> exp["petty_cash_transactions · expense بإيصال إلزامي"]
+  pc --> gov["صرف رسوم حكومية"]
+  gov --> gv["سند سلسلة GOV · admin.gov_transactions"]
+  exp --> set["تسوية عند 70% من الحد أو نهاية الشهر"]
+  set --> ren["تجديد بعد اعتماد التسوية"]
+  alloc --> cfo["CFO يطابق التيارين منفصلين شهرياً"]
+  gv --> cfo
+  cfo --> ctrl["الضابط التعويضي لتجميع PRO = ACCOUNTANT"]

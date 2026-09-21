@@ -1,0 +1,17 @@
+flowchart LR
+  rev["الإيراد · invoice_lines"] --> prof[("billing.profitability")]
+  dct["تكاليف مباشرة · عمالة ووقود ومساحة ومركبات"] --> ca[("billing.cost_allocations")]
+  prt["تكلفة الشركاء · payable_events بـ client_id"] --> ca
+  hou["تكلفة السكن"] --> ca
+  rec["تكلفة الاستقدام مطفأة على مدة العقد"] --> ca
+  pgh["توزيع تكاليف PGH بنسبة الإيراد"] --> ca
+  sla["غرامات SLA · sla_results"] --> prof
+  ca --> prof
+  prof --> mg{"margin_pct"}
+  mg -->|"15 فأكثر"| ok["أخضر"]
+  mg -->|"10 إلى 15"| wr["أصفر · تحذير"]
+  mg -->|"أقل من 10"| rd["أحمر · قرار GM"]
+  wr --> tri{"ثلاثة أشهر متتالية تحت 15؟"}
+  rd --> tri
+  tri -->|"نعم"| gmd["إعادة تفاوض أو إنهاء · قرار GM مسجَّل · R-13"]
+  bdg[("admin.budget_lines · available مولَّد")] --> var["مقارنة الفعلي بالمخطَّط"]

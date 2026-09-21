@@ -1,0 +1,15 @@
+flowchart LR
+  rc["PRO يسجّل سند قبض · billing.receipts"] --> al["تخصيص ضد فاتورة · receipt_allocations"]
+  al --> ln["بنود الفاتورة · invoice_lines"]
+  ln --> cat["توزيع المحصَّل على فئات الخدمة · ST HD OF VA DL CC"]
+  cat --> own["مَن كان مالك الحساب؟ · account_ownership_history"]
+  own --> rule["القاعدة السارية · commission_rules بنافذة valid_from و valid_to"]
+  rule --> gate{"البوابات"}
+  gate -->|"تأخر التحصيل فوق 60 يوماً"| zero["صفر عمولة"]
+  gate -->|"هامش العقد تحت 15%"| hold["تحذير · يحتاج موافقة"]
+  gate -->|"اجتازت"| acc["صفّ accrued في sales_commission_events"]
+  acc --> rev["مراجعة SALES_MGR"]
+  rev --> apr["اعتماد CFO"]
+  apr --> pay["payroll_period · التصدير للرواتب"]
+  cn["إشعار دائن معتمد · credit_notes"] --> cb["صفّ سالب clawback_credit_note"]
+  cb --> apr

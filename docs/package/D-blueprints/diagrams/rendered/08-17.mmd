@@ -1,0 +1,165 @@
+%% admin · الجداول والعلاقات
+erDiagram
+    admin_approval_requests ||--o{ admin_approval_steps : "approval_steps_request_id_fkey"
+    admin_assets ||--o{ admin_asset_custody : "asset_custody_asset_id_fkey"
+    hr_employees ||--o{ admin_asset_custody : "asset_custody_employee_id_fkey"
+    platform_documents ||--o{ admin_asset_custody : "asset_custody_handover_doc_id_fkey"
+    hr_employees ||--o{ admin_assets : "assets_current_holder_id_fkey"
+    admin_purchase_orders ||--o{ admin_assets : "assets_purchase_order_id_fkey"
+    billing_gl_accounts ||--o{ admin_budget_lines : "budget_lines_gl_account_id_fkey"
+    admin_correspondence ||--o{ admin_correspondence : "correspondence_reply_to_id_fkey"
+    hr_recruitment_cases ||--o{ admin_gov_transactions : "gov_transactions_recruitment_case_id_fkey"
+    hr_employees ||--o{ admin_petty_cash : "petty_cash_holder_employee_id_fkey"
+    sales_accounts ||--o{ admin_petty_cash_transactions : "petty_cash_transactions_client_id_fkey"
+    admin_petty_cash ||--o{ admin_petty_cash_transactions : "petty_cash_transactions_fund_id_fkey"
+    billing_gl_accounts ||--o{ admin_petty_cash_transactions : "petty_cash_transactions_gl_account_id_fkey"
+    sales_accounts ||--o{ admin_purchase_orders : "purchase_orders_client_id_fkey"
+    admin_purchase_requests ||--o{ admin_purchase_orders : "purchase_orders_request_id_fkey"
+    partners_partners ||--o{ admin_purchase_orders : "purchase_orders_vendor_id_fkey"
+    admin_budget_lines ||--o{ admin_purchase_requests : "purchase_requests_budget_line_id_fkey"
+    sales_accounts ||--o{ admin_purchase_requests : "purchase_requests_client_id_fkey"
+    hr_org_units ||--o{ admin_purchase_requests : "purchase_requests_org_unit_id_fkey"
+    partners_partners ||--o{ admin_vendor_quotes : "vendor_quotes_partner_id_fkey"
+    admin_purchase_requests ||--o{ admin_vendor_quotes : "vendor_quotes_request_id_fkey"
+
+    admin_approval_requests {
+        uuid id PK
+        uuid entity_id FK,UK "→ platform.entities"
+        text doc_no UK
+        text request_type
+        num amount
+        text status "pending · approved · rejected · expired · delegated"
+        ts due_at
+        ts completed_at
+    }
+    admin_approval_steps {
+        uuid id PK
+        uuid request_id FK,UK "→ admin.approval_requests"
+        int step_no UK
+        text approver_role
+        uuid approver_user_id
+        ts delegation_expires_at
+        text decision
+        ts decided_at
+    }
+    admin_asset_custody {
+        uuid id PK
+        uuid asset_id FK "→ admin.assets"
+        uuid employee_id FK "→ hr.employees"
+        ts issued_at
+        uuid issued_by
+        ts returned_at
+        num charged_amount
+        uuid handover_doc_id FK "→ platform.documents"
+    }
+    admin_assets {
+        uuid id PK
+        uuid entity_id FK "→ platform.entities"
+        text code UK
+        uuid purchase_order_id FK "→ admin.purchase_orders"
+        num purchase_value
+        date purchase_date
+        text status "in_stock · in_custody · maintenance · disposed"
+        uuid current_holder_id FK "→ hr.employees"
+    }
+    admin_budget_lines {
+        uuid id PK
+        uuid entity_id FK,UK "→ platform.entities"
+        int fiscal_year UK
+        text cost_center UK
+        uuid gl_account_id FK,UK "→ billing.gl_accounts"
+        num annual_amount
+        num committed_amount
+        num spent_amount
+    }
+    admin_correspondence {
+        uuid id PK
+        uuid entity_id FK,UK "→ platform.entities"
+        text doc_no UK
+        text direction
+        text correspondent
+        ts due_at
+        text status "open · replied · closed"
+        uuid reply_to_id FK "→ admin.correspondence"
+    }
+    admin_gov_transactions {
+        uuid id PK
+        uuid entity_id FK,UK "→ platform.entities"
+        uuid recruitment_case_id FK "→ hr.recruitment_cases"
+        text stage "requested · submitted · in_progress · completed · rejected"
+        ts stage_started_at
+        ts due_at
+        num fees_paid
+        ts completed_at
+    }
+    admin_petty_cash {
+        uuid id PK
+        uuid entity_id FK "→ platform.entities"
+        uuid holder_employee_id FK "→ hr.employees"
+        num limit_amount
+        num current_balance
+        text status "active · closed"
+        date opened_at
+        date closed_at
+    }
+    admin_petty_cash_transactions {
+        uuid id PK
+        uuid fund_id FK "→ admin.petty_cash"
+        ts occurred_at
+        text txn_type
+        num amount
+        text description
+        uuid client_id FK "→ sales.accounts"
+        uuid gl_account_id FK "→ billing.gl_accounts"
+    }
+    admin_purchase_orders {
+        uuid id PK
+        uuid entity_id FK,UK "→ platform.entities"
+        uuid request_id FK "→ admin.purchase_requests"
+        uuid vendor_id FK "→ partners.partners"
+        uuid client_id FK "→ sales.accounts"
+        num total_amount
+        text status "issued · received · matched · paid · cancelled"
+        num received_amount
+    }
+    admin_purchase_requests {
+        uuid id PK
+        uuid entity_id FK,UK "→ platform.entities"
+        uuid org_unit_id FK "→ hr.org_units"
+        uuid client_id FK "→ sales.accounts"
+        uuid budget_line_id FK "→ admin.budget_lines"
+        num estimated_amount
+        text status "draft · pending_approval · approved · rejected · ordered · cancelled"
+        date needed_by
+    }
+    admin_vendor_quotes {
+        uuid id PK
+        uuid request_id FK "→ admin.purchase_requests"
+        uuid partner_id FK "→ partners.partners"
+        text vendor_name
+        num amount
+        int delivery_days
+        date validity_date
+        bool is_selected
+    }
+    hr_employees {
+        uuid id PK "خارجي · hr.employees"
+    }
+    platform_documents {
+        uuid id PK "خارجي · platform.documents"
+    }
+    billing_gl_accounts {
+        uuid id PK "خارجي · billing.gl_accounts"
+    }
+    hr_recruitment_cases {
+        uuid id PK "خارجي · hr.recruitment_cases"
+    }
+    sales_accounts {
+        uuid id PK "خارجي · sales.accounts"
+    }
+    partners_partners {
+        uuid id PK "خارجي · partners.partners"
+    }
+    hr_org_units {
+        uuid id PK "خارجي · hr.org_units"
+    }

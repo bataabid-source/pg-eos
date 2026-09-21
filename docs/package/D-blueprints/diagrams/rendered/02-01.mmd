@@ -1,0 +1,21 @@
+flowchart LR
+  ops["أحداث تشغيلية · مستودع · توصيل · كول سنتر"] --> be["تسعير الحدث"]
+  cat["كتالوج 92 خدمة · حد أدنى · قوائم أسعار"] --> be
+  be --> bet[("billing.billable_events")]
+  bet --> inv["تجميع شهري · مسودة فاتورة"]
+  inv --> invt[("billing.invoices · invoice_lines")]
+  invt --> doc1["فاتورة PDF + ورقة تفصيل · سلسلة INV"]
+  invt --> rct["التحصيل · PRO"]
+  rct --> rctt[("billing.receipts · receipt_allocations")]
+  rctt --> rec["المطابقة البنكية · CFO"]
+  invt --> cn["إشعار دائن · GM حصراً"]
+  cn --> cnt[("billing.credit_notes")]
+  invt --> je[("billing.journal_entries · journal_lines")]
+  rctt --> je
+  pur["المشتريات والعهدة والرسوم"] --> purt[("admin.purchase_* · petty_cash · gov_transactions")]
+  purt --> je
+  prt["الشركاء · payable_events"] --> prtt[("partners.payable_events · partner_invoices")]
+  prtt --> je
+  je --> cls["الإقفال الشهري · CFO"]
+  cls --> prof[("billing.profitability · cost_allocations")]
+  cls --> bdg[("admin.budget_lines")]

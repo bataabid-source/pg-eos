@@ -1,0 +1,8 @@
+stateDiagram-v2
+  [*] --> active
+  active --> converted
+  active --> expired
+  active --> cancelled
+  converted --> [*]
+  expired --> [*]
+  cancelled --> [*]

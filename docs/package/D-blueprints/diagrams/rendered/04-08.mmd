@@ -1,0 +1,14 @@
+stateDiagram-v2
+  [*] --> registered
+  registered --> active
+  active --> maintenance
+  active --> idle
+  active --> out_of_service
+  maintenance --> active
+  idle --> active
+  out_of_service --> active
+  active --> disposed
+  maintenance --> disposed
+  idle --> disposed
+  out_of_service --> disposed
+  disposed --> [*]

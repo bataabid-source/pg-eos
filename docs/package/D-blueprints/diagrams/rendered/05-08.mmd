@@ -1,0 +1,7 @@
+stateDiagram-v2
+  [*] --> draft
+  draft --> review
+  review --> approved
+  approved --> executing
+  executing --> closed
+  closed --> [*]
