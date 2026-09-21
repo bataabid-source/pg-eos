@@ -1,5 +1,5 @@
 # حالة المستودع — PG-EOS (بالعربية)
-**آخر تحديث: 21 سبتمبر 2026 · هذا المجلد (`claude-kit/`) هو جذر مستودع التنفيذ — لا يُنقل ولا يُعاد ترتيبه من خارج Claude Code**
+**آخر تحديث: 22 سبتمبر 2026 · المسار: `C:\Users\Mohammed\Desktop\PG-EOS\claude-kit\` (المجلد الأعلى أُعيدت تسميته من `New sys` إلى `PG-EOS` يوم 22/9) · هذا المجلد (`claude-kit/`) هو جذر مستودع التنفيذ — لا يُنقل ولا يُعاد ترتيبه من خارج Claude Code**
 
 ## أين وصل البناء (المصدر: `docs/PROJECT_STATE.md`، يحدّثه pg-scribe فقط)
 | المهمة | الحالة | الـcommit |
@@ -24,12 +24,15 @@
    `docker compose -f infra/docker/docker-compose.yml up -d postgres`
    ثم `PGHOST=localhost PGPORT=5432 PGUSER=postgres PGDATABASE=pgeos bash database/schema/apply.sh --recreate`
    المتوقع: صفر أخطاء · 175 جدولاً · G7 = 0 · G-SEED = 0.
-3. `claude` → `/model sonnet` → `/resume` — **دائماً من داخل `claude-kit/`** وليس من `New sys/`.
+3. `claude` → `/model sonnet` → `/resume` — **دائماً من داخل `claude-kit/`** وليس من المجلد الأعلى `PG-EOS/`.
 
 ## حادثة 21/9 (مُغلقة)
 عملية «تنظيف» من خارج Claude Code (جلسة Cowork على مجلد `New sys/`) حذفت هيكل 0.4 وملفات 0.13 غير المُلتزَمة ونقلتها إلى `_TO_DELETE/` (commit `a901a04`). جلسة Claude Code أعادت الملفات (`1bc09f7`) وأعادت بناء 0.13 (`50055f8`). **لا فقد دائم.** التفصيل: `docs/notes/2026-09-21-incident-a901a04-root-cause.md`.
-- مجلد `New sys/_TO_DELETE/` يحتوي الآن نسخاً مكرّرة فقط (node_modules قديم · pg-eos-repo · تقارير غير دقيقة) — **يمكنك حذفه بأمان**.
+- مجلد `PG-EOS/_TO_DELETE/` يحتوي الآن نسخاً مكرّرة فقط (node_modules قديم · pg-eos-repo · تقارير غير دقيقة) — **يمكنك حذفه بأمان**.
 - القاعدة: لا تُنظَّم ملفات `claude-kit/` يدوياً ولا عبر مساعد خارجي؛ ملفات `package.json · pnpm-workspace.yaml · turbo.json · packages/ · modules/ · apps/ · tests/` هي ناتج البناء وليست بقايا.
+
+## مشروع Claude.ai «PG-EOS»
+تعليماته والوثائق الحاكمة لرفعها مجهّزة في `PG-EOS/PG-EOS-project-upload/` (الملف `00-INSTRUCTIONS-PASTE-INTO-PROJECT.md` يُلصق في خانة التعليمات، والباقي يُرفع كملفات معرفة).
 
 ## ترتيب القراءة عند أي تعارض
 `docs/package/40` → `36` → `EXECUTION-MASTER-v4` → `42` → `38` → `22` → `database/schema/01 · 13 · 13B · 019` → `BOOTSTRAP-v5` (تعليمات تشغيل فقط) → `D-blueprints/` (ملزمة للشاشات واللوحات والمؤشرات) → المرجعية.
