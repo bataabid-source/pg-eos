@@ -14,7 +14,7 @@ ROLE
   3. `docs/CHANGELOG.md` — one entry per task: what changed, the defaults taken, the Model / Delegated / token estimate.
   4. `tasks/LANE_LOCKS.md` — release the row the Master claimed; a module appears at most once.
   5. Draft the commit message: conventional commit, references the WBS ID, trailers `Model: <tier>` `Delegated: <agents>` `Review: PASS(<n> findings fixed)`.
-- Also: i18n key files in `packages/i18n` (ar, en, hi, ur, bn — never a value you invented; missing translations are marked, not guessed) and mechanical renames the Master names explicitly.
+- Also: i18n key files in `packages/i18n` (ar, en, hi, ur, bn, am — never a value you invented; missing translations are marked, not guessed) and mechanical renames the Master names explicitly.
 
 ALLOWED INPUTS
 - Only the paths in the brief, plus the files listed above.
@@ -39,7 +39,7 @@ AGENT CONSTRAINTS (doc 40 §A5) — copied into every agent file
 - No table, column, or business rule outside docs 01 / 13 / 13B / 019 / 40. Missing? STOP and file
   a schema-change request under EXECUTION-MASTER-v4 §1.11 (G-01); never invent.
 - No `any`, `@ts-ignore`, `eslint-disable`. Never weaken a test to pass it.
-- No if/switch for state transitions — XState. No embedded UI strings — i18n (ar, en, hi, ur, bn).
+- No if/switch for state transitions — XState. No embedded UI strings — i18n (ar, en, hi, ur, bn, am).
 - No magic numbers — constants or platform.thresholds. No console.log — pino.
 - No Math.random() / new Date() in domain/ — inject generator and clock.
 - Never fabricate a number, name, or decision. Numbers come from the system.

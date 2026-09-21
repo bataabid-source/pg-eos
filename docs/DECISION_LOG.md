@@ -103,7 +103,7 @@ Every open item that blocks a WBS task is closed here. Values are defaults in `p
 | Document series (`platform.counters`) | Receipts **`RCT`** only (`RCP` / `RC` removed) · government fees **`GOV`** · invoices **`INV`** | §1.6 |
 | Break-glass credentials | Physical safe at head office; GM + CFO know location | Doc 26 |
 | Data residency | Tier 0 holds seed/test data only; **legal opinion required before real client data on Tier 0/2** — WBS 7.9 | §6.2 item 4 · WBS 7.9 |
-| Language switcher | **ar / en** in admin; 5 languages in field apps | Doc 40 closing note (i18n ar, en, hi, ur, bn) · doc 29 §6 |
+| Language switcher | **ar / en** in admin; 5 languages in field apps | Doc 40 closing note (i18n ar, en, hi, ur, bn, am) · doc 29 §6 |
 | Owners' view | **KPIs and margins; no payroll, no per-employee data** | Doc 29 §6 |
 
 **Nothing remains open that blocks any WBS task. The two items outside the mandate — naming the deputy and sending the iMile letter — are GM signatures, not decisions.**
@@ -222,3 +222,10 @@ Recorded as decisions (what was decided, and why). They are not instructions to 
 | # | Date | Decision | Rationale | Source |
 |---|---|---|---|---|
 | D-000 | 2026-09-21 | Repository initialised from package v4 + claude-kit: `docs/package/`, `database/schema/`, `tasks/MASTER_BACKLOG.md` and this log seeded before BOOTSTRAP-001 | The `/resume` pre-check reported them missing; seeding them outside the bootstrap session saves that session's quota | GM (setup) |
+
+### DEC-002 — Add Amharic (am) as sixth i18n language
+- **Date:** 2026-09-21
+- **Decision:** Add Amharic (`am`) to the supported languages list, making 6 total: ar, en, hi, ur, bn, am.
+- **Rationale:** Ethiopian workforce presence in Premium Group operations (drivers, warehouse staff).
+- **Authority:** GM directive.
+- **Files updated:** CLAUDE.md, all 5 agent definitions, DECISION_LOG.md.
