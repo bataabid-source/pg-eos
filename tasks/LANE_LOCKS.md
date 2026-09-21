@@ -2,6 +2,7 @@
 
 | module | lane | task | claimed_at | worktree |
 |---|---|---|---|---|
+| `packages/contracts` | C | 0.13 | 2026-09-21 | main — Phase 0 is never parallelised (single-lane Master task; rule 3 freeze does not apply, no lane is running) |
 
 ## Rules (CLAUDE.md · PARALLEL LANES — CONFLICT-FREE MECHANISM (v5))
 

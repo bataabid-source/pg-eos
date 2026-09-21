@@ -1,0 +1,30 @@
+{
+  "name": "@pg-eos/contracts",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.test.json",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "generate:openapi": "tsc -p tsconfig.json && node dist/scripts/generate-openapi.js"
+  },
+  "dependencies": {
+    "zod": "^4.6.5",
+    "zod-openapi": "^6.0.2"
+  },
+  "devDependencies": {
+    "@seriousme/openapi-schema-validator": "^2.10.0",
+    "typescript": ">=5.7.0 <6.1.0",
+    "vitest": "^4.1.11"
+  }
+}
