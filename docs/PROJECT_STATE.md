@@ -6,8 +6,8 @@ Maintained by pg-scribe only, in the same commit as the task it records.
 | field | value |
 |---|---|
 | Phase | 0 — Foundation |
-| Current task | **None READY** — 0.17 BLOCKED, escalated to GM (sequencing conflict, see Blockers) |
-| Golden slice (2.9) | not built · `.golden-slice-accepted` absent · `scripts/new-slice.sh` is a no-op |
+| Current task | **0.17** — OTP/sessions/RBAC-SoD mechanism only (GM decision 2026-09-22, opus model, lane M) |
+| Golden slice (2.9) | not built · `.golden-slice-accepted` absent · `scripts/new-slice.sh` is a no-op. **Acceptance gains a Phase-0 wiring line (GM 2026-09-22): the golden slice must wire up every part deferred from Phase-0 "mechanism only" tasks — starting with 0.17's login endpoints.** |
 | Deployment tier | Tier 0 (`docs/package/42-Oracle-Cloud-Deployment.md`) |
 | Schema | `database/schema/01 · 13 · 13B · 019` — the ONLY permitted schema · `apply.sh --recreate` **green on this machine 2026-09-22**: 175 tables/14 schemas, `wms.verify_wh1()` 21/21 pass (3,330 locations), G1–G13 = 0 (G6 blocking, 0 rows — WBS 0.16 complete), G18/G-SEED report-only = 0 |
 | Session model | sonnet (opus only for the 2.9 session, an ADR, a security review, or a second failure) |
@@ -37,18 +37,15 @@ None claimed. Live table: `tasks/LANE_LOCKS.md` — Phase 0 and the golden slice
   `.claude/agents`, `.claude/commands` or the lane-guard hook, so `docs/MODEL_ROUTING.md` cannot be followed
   and all work falls back to the Master (this happened in 0.4 — CHANGELOG). Check: `/resume` is offered.
 - **Git lock files cannot be deleted** (`.git/*.lock` → `stale-*.lock-*`); remove by hand.
-- **0.17 BLOCKED — escalated to GM 2026-09-22, `docs/notes/0.17-sequencing-decision-request.md`.**
-  0.17's acceptance needs real login endpoints + an admin UI, but golden slice 2.9 isn't accepted
-  (`scripts/new-slice.sh` a no-op) and 0.19 (admin shell) depends on 0.17 — circular. User chose
-  "stop and escalate" over the Master's own suggested narrowed-scope option. Likely affects EVERY
-  later task needing real hexagonal module/UI code, not just 0.17 — GM decision may be project-wide.
 - A REAL BLOCKER: acceptance fails · legal/money decision absent · schema missing and G-01 forbids. Else state default, record in CHANGELOG, proceed.
 
 ## Next 3 tasks
 
-None confirmed READY pending the GM's 0.17 decision above — 0.18/0.19 both depend on 0.17, and any
-other task needing real module/UI code likely hits the same golden-slice wall. Re-run `/resume`
-once the GM responds.
+1. **0.17** — OTP/sessions/RBAC-SoD mechanism (lane M, opus). Login endpoints/UI deferred → 2.9.
+2. **0.18** — RLS already schema-enabled (G7=0); this slice adds the client-isolation test via
+   `withContext` — no UI/endpoint needed, fully buildable now (lane M).
+3. **0.19** — deferred in full (its acceptance criterion IS a rendered screen — no part reduces to
+   a mechanism+tests package under the Phase-0 rule); revisit after 2.9 + admin shell scaffold.
 
 ## Notes
 
@@ -56,3 +53,7 @@ once the GM responds.
 - Phase 0 gate: 0.18 isolation (G7 = 0) · 0.16 classification (G6 = 0) · 0.8 restore · 0.1 owners · 0.2 decisions.
 - psql 16 + docker postgres verified 2026-09-22 (CHANGELOG). `docker compose up -d postgres` needs
   `PGADMIN_PASSWORD` set to any value (interpolation quirk, profile-gated service, not fixed).
+- **Standing rule (GM 2026-09-22, `docs/notes/0.17-sequencing-decision-request.md`):** every
+  Phase-0 task until 2.9's acceptance delivers mechanism-only (`packages/*`, tests) — no module
+  tree, API endpoint, or screen. Deferred parts are tracked here and in `MASTER_BACKLOG.md`, never
+  by editing `docs/package/38-WBS.md`.
