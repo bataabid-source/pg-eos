@@ -60,13 +60,29 @@ export interface OtpClockOptions {
 }
 
 /**
- * No identity.users row for this email, or the row has is_active = false. Never a signal to
+ * No identity.users row for this subject, or the row has is_active = false. Never a signal to
  * create one — see the NO SELF-REGISTRATION note above.
+ *
+ * One class, two entry points, because it is one condition: "the account this call is about is not
+ * an active account". generateOtp knows its subject by email, issueSession (session.ts) knows its
+ * subject by id — a second, parallel error class for the id-shaped case would be two things that
+ * mean the same thing and can drift apart (round-2 review, finding 4). session.ts imports this
+ * class rather than declaring its own, and re-exports it so either module is a valid import site.
  */
 export class UnknownOrInactiveUserError extends Error {
-  constructor(email: string) {
-    super(`no active identity.users row for email: ${email}`);
+  private constructor(subject: string) {
+    super(`no active identity.users row for ${subject}`);
     this.name = 'UnknownOrInactiveUserError';
+  }
+
+  /** The subject was identified by identity.users.email (the OTP path). */
+  static forEmail(email: string): UnknownOrInactiveUserError {
+    return new UnknownOrInactiveUserError(`email: ${email}`);
+  }
+
+  /** The subject was identified by identity.users.id (the session path). */
+  static forUserId(userId: string): UnknownOrInactiveUserError {
+    return new UnknownOrInactiveUserError(`id: ${userId}`);
   }
 }
 
@@ -103,7 +119,7 @@ export async function generateOtp(
     );
     const user = users.rows[0];
     if (!user) {
-      throw new UnknownOrInactiveUserError(email);
+      throw UnknownOrInactiveUserError.forEmail(email);
     }
 
     const expiryMinutes = await getThreshold(tx, OTP_EXPIRY_MINUTES_KEY);
@@ -126,21 +142,49 @@ export async function generateOtp(
 }
 
 /**
- * Verifies a code against the newest unconsumed OTP for that email.
+ * Verifies a code against EVERY live OTP outstanding for that email.
  *
  * Decision order, and why:
- *   1. no unconsumed row            → invalid. Covers "a consumed code cannot be reused": the
- *                                     consumed row is no longer a candidate at all.
- *   2. past its own expires_at      → invalid, and the row is left untouched. An expired row is
- *                                     already dead; bumping its attempts counter would record
- *                                     nothing useful and mutate a row the caller can never use.
- *   3. hash mismatch                → invalid, identity.otp_codes.attempts += 1, NOT consumed.
- *                                     The counter exists to bound brute force against a live code,
- *                                     which is why it is incremented only in this branch.
- *   4. otherwise                    → consumed_at is set to the injected instant, valid.
+ *   1. no live candidate row        → invalid. A live candidate is a row that is unconsumed AND
+ *                                     not past its own expires_at, so this one branch covers both
+ *                                     "a consumed code cannot be reused" and "an expired code is
+ *                                     rejected even if correct". Neither kind of row is touched:
+ *                                     a dead row's attempts counter records nothing useful.
+ *   2. the owning user is inactive  → invalid, and no counter moves (see IS_ACTIVE below).
+ *   3. no candidate's code_hash matches → invalid, identity.otp_codes.attempts += 1 on every live
+ *                                     candidate, none consumed (see ATTEMPTS below).
+ *   4. otherwise                    → the MATCHING row's consumed_at is set to the injected
+ *                                     instant, valid, and that row's user id is returned.
  *
- * `for update of o` locks the candidate row for the life of the caller's transaction, so two
- * concurrent verifications of the same live code cannot both reach step 4.
+ * WHY EVERY ROW AND NOT "THE NEWEST" (round-2 review, finding 3). Round 1 selected a single
+ * candidate with `order by o.expires_at desc limit 1`. identity.otp_codes has no created_at column
+ * (01-Data-Model.sql:279-286), so expires_at was the only available proxy for issue order — and it
+ * is not a sound one: `identity.otp.expiry_minutes` is a live-editable platform.thresholds value,
+ * so lowering it between two outstanding codes gives the NEWER code the EARLIER expires_at. The
+ * newest-first pick then locked onto the stale row and rejected the code the user had just
+ * received. There is no ordering that fixes this without a created_at column, so ordering is no
+ * longer relied upon at all: the submitted code is checked against each live row, and a match on
+ * ANY of them is a valid verification of THAT row. This is not a weakening — each row still
+ * requires its own exact HMAC match, so the guess space is unchanged.
+ *
+ * ATTEMPTS, when several codes are outstanding (the brief does not specify which row absorbs the
+ * attempt). Every live row is incremented, because every live row was in fact tested against the
+ * submitted code: the guess was an attempt on the whole live set, not on one arbitrarily chosen
+ * member of it, and a counter that rose on only one row would understate brute force against the
+ * others. With the ordinary single-outstanding-code case this is exactly one increment, unchanged
+ * from round 1.
+ *
+ * IS_ACTIVE (round-2 review, finding 4). A user deactivated between issue and verification must
+ * not be able to consume a live code and walk it into issueSession. The owning identity.users row
+ * is therefore re-checked here and not only in generateOtp. This is not an invented business rule:
+ * `is_active` is the column doc 01 already defines for it (01:220) and generateOtp already refuses
+ * on it — round 1 simply applied it at one end of the code's life and not the other. An inactive
+ * owner does NOT increment attempts, for the same reason an expired row does not: the codes are
+ * already dead, so the counter has nothing left to bound. identity.users.email is unique (01:214),
+ * so all candidates for one email share one owner and the check cannot be self-contradictory.
+ *
+ * `for update of o` locks the live candidate rows for the life of the caller's transaction, so two
+ * concurrent verifications of the same code cannot both reach step 4.
  *
  * The expiry comparison is made BY POSTGRES, against the injected instant passed in as a bound
  * timestamptz parameter, rather than in JavaScript: drizzle's node-postgres session installs its
@@ -148,16 +192,10 @@ export async function generateOtp(
  * depend on JS parsing Postgres's output format — an avoidable failure mode when the database can
  * compare two timestamptz values exactly.
  *
- * identity.otp_codes has no created_at column (01:279-286), so "newest" is ordered by expires_at —
- * monotonic with issue time for a fixed expiry threshold. Reading the user id through the join on
- * identity.users is what makes the `valid` branch able to return a userId at all.
- *
- * Note (deliberately NOT implemented): this does not re-check is_active, and it does not enforce
- * OTP max attempts. Refusing a verification because the user was deactivated after the code was
- * issued, or because attempts exceeded a threshold, are both rules that appear nowhere in docs
- * 01 / 13 / 13B / 019 / 40 — inventing either here is precisely what CLAUDE.md · AGENT CONSTRAINTS
- * forbids. Both are flagged to the Master as open questions for the task that builds the login
- * endpoint (which is where a lockout policy belongs).
+ * Still deliberately NOT implemented: OTP max attempts. Refusing a verification because attempts
+ * exceeded a threshold is a lockout policy that appears nowhere in docs 01 / 13 / 13B / 019 / 40,
+ * and inventing one here is what CLAUDE.md · AGENT CONSTRAINTS forbids; it is flagged to the
+ * Master for the task that builds the login endpoint, which is where such a policy belongs.
  */
 export async function verifyOtp(
   email: string,
@@ -171,44 +209,57 @@ export async function verifyOtp(
     const candidates = await tx.execute<{
       id: string;
       code_hash: string;
-      is_expired: boolean;
       user_id: string;
+      is_active: boolean;
     }>(sql`
       select o.id,
              o.code_hash,
-             (o.expires_at < ${at.toISOString()}::timestamptz) as is_expired,
-             u.id as user_id
+             u.id as user_id,
+             u.is_active
         from identity.otp_codes o
         join identity.users u on u.email = o.email
        where o.email = ${email}
          and o.consumed_at is null
-       order by o.expires_at desc
-       limit 1
+         and o.expires_at >= ${at.toISOString()}::timestamptz
+       order by o.id
          for update of o
     `);
 
-    const candidate = candidates.rows[0];
-    if (!candidate) {
+    const liveRows = candidates.rows;
+    if (liveRows.length === 0) {
       return { valid: false };
     }
 
-    if (candidate.is_expired) {
+    if (liveRows.some((row) => !row.is_active)) {
       return { valid: false };
     }
 
-    if (!hashesEqual(candidate.code_hash, keyedHash(code))) {
-      await tx.execute(
-        sql`update identity.otp_codes set attempts = attempts + 1 where id = ${candidate.id}`,
+    const presented = keyedHash(code);
+    const matched = liveRows.find((row) => hashesEqual(row.code_hash, presented));
+
+    if (!matched) {
+      // Each live id is bound as its own parameter (sql.join), not as one array parameter:
+      // drizzle's sql template unwraps a JS array value into its elements rather than handing
+      // node-postgres an array to serialise, so `= any($1::uuid[])` receives a bare uuid and
+      // Postgres rejects it as a malformed array literal.
+      const liveIds = sql.join(
+        liveRows.map((row) => sql`${row.id}::uuid`),
+        sql`, `,
       );
+      await tx.execute(sql`
+        update identity.otp_codes
+           set attempts = attempts + 1
+         where id in (${liveIds})
+      `);
       return { valid: false };
     }
 
     await tx.execute(sql`
       update identity.otp_codes
          set consumed_at = ${at.toISOString()}::timestamptz
-       where id = ${candidate.id}
+       where id = ${matched.id}
     `);
 
-    return { valid: true, userId: candidate.user_id, otpId: candidate.id };
+    return { valid: true, userId: matched.user_id, otpId: matched.id };
   });
 }

@@ -2,7 +2,6 @@
 
 | module | lane | task | claimed_at | worktree |
 |---|---|---|---|---|
-| identity | M | 0.17 | 2026-09-22T18:10:00Z | .claude/worktrees/upbeat-wu-e2c00c |
 
 ## Migrations issued
 

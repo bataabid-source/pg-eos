@@ -1,5 +1,5 @@
 {
-  "name": "@pg-eos/identity",
+  "name": "@pg-eos/identity-mechanisms",
   "version": "0.0.0",
   "private": true,
   "type": "module",

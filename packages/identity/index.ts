@@ -7,7 +7,14 @@
 //
 // The three test suites import directly from './src/*.js' rather than through this barrel — same
 // precedent as packages/events/index.ts (WBS 0.12); the barrel exists for future consumers of
-// @pg-eos/identity.
+// @pg-eos/identity-mechanisms.
+//
+// PACKAGE NAME (round-2 review, finding 1): the manifest name is `@pg-eos/identity-mechanisms`,
+// not `@pg-eos/identity` — the latter is already taken by `modules/identity/package.json`
+// (WBS 0.16), and two workspace projects sharing one name make `pnpm --filter` ambiguous. The
+// directory stays `packages/identity/`; only the manifest name carries the distinction, and
+// "mechanisms" is the GM's own Phase-0 vocabulary (docs/notes/0.17-sequencing-decision-request.md:
+// mechanisms only until 2.9).
 //
 // NOT re-exported, deliberately: src/hmac.ts (keyedHash / hashesEqual) and src/context.ts. Both
 // are internal plumbing — a caller that can hash with the package's own key, or hand-assemble the

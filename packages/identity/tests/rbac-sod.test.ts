@@ -49,6 +49,21 @@ const ROLE_ACCOUNTANT = 'ACCOUNTANT';
 const ROLE_WH_MGR = 'WH_MGR';
 const ROLE_HR_MGR = 'HR_MGR';
 
+/**
+ * PostgreSQL SQLSTATE 23503 — foreign_key_violation (PostgreSQL docs, Appendix A, Class 23). What
+ * identity.user_roles.user_id's reference to identity.users(id) (01:249-251) raises for a user id
+ * that does not exist. Quoted here, not invented, and used to prove the error that surfaces from
+ * a NON-SoD failure is the genuine database error rather than a relabelled one.
+ */
+const FOREIGN_KEY_VIOLATION_SQLSTATE = '23503';
+
+/**
+ * SQLSTATE of a plpgsql `raise exception` with no explicit condition — what identity.check_sod()
+ * raises (13B:549), and the ONLY SQLSTATE src/rbac.ts may translate into SodViolationError. Named
+ * here so the discrimination test can assert the non-SoD failure does not carry it.
+ */
+const PLPGSQL_RAISE_EXCEPTION_SQLSTATE = 'P0001';
+
 const pool = new Pool({
   host: process.env['PGHOST'] ?? 'localhost',
   port: Number(process.env['PGPORT'] ?? '5432'),
@@ -88,12 +103,18 @@ async function roleIdOf(code: string): Promise<string> {
   return row.id;
 }
 
+/**
+ * How many ACTIVE (revoked_at is null — 01:249-257) identity.user_roles rows the user holds for
+ * `roleCode`. The `revoked_at is null` filter is the one the name promises and the one
+ * identity.check_sod() itself applies (13B:547), so a count taken here means the same thing the
+ * trigger means by "already holds".
+ */
 async function activeUserRoleCount(userId: string, roleCode: string): Promise<number> {
   const result: QueryResult<{ n: string }> = await pool.query(
     `select count(*)::text as n
        from identity.user_roles ur
        join identity.roles r on r.id = ur.role_id
-      where ur.user_id = $1 and r.code = $2`,
+      where ur.user_id = $1 and r.code = $2 and ur.revoked_at is null`,
     [userId, roleCode],
   );
   const row = result.rows[0];
@@ -101,6 +122,63 @@ async function activeUserRoleCount(userId: string, roleCode: string): Promise<nu
     throw new Error('count query returned no row');
   }
   return Number(row.n);
+}
+
+/** Every active identity.user_roles row of the user, whatever the role — used to prove that a
+ *  refused assignment left nothing at all behind. */
+async function activeUserRoleTotal(userId: string): Promise<number> {
+  const result: QueryResult<{ n: string }> = await pool.query(
+    `select count(*)::text as n
+       from identity.user_roles
+      where user_id = $1 and revoked_at is null`,
+    [userId],
+  );
+  const row = result.rows[0];
+  if (!row) {
+    throw new Error('count query returned no row');
+  }
+  return Number(row.n);
+}
+
+/** The rejection of `promise`, or a failure if it resolved. Returned as `unknown` so each test
+ *  states for itself what the error must and must not be. */
+async function rejectionOf(promise: Promise<unknown>): Promise<unknown> {
+  try {
+    await promise;
+  } catch (error) {
+    return error;
+  }
+  throw new Error('expected the call to reject, but it resolved');
+}
+
+/**
+ * Walks an error's `cause` chain, exactly as src/rbac.ts's own discrimination does: drizzle wraps
+ * a failing query and carries pg's DatabaseError — the one holding the SQLSTATE — underneath. A
+ * test that inspected only the outermost error would be blind to the same thing the production
+ * matcher looks at. Bounded by `seen`, so a cyclic chain cannot spin.
+ */
+function errorChain(error: unknown): Error[] {
+  const seen = new Set<unknown>();
+  const chain: Error[] = [];
+  let current: unknown = error;
+  while (current instanceof Error && !seen.has(current)) {
+    seen.add(current);
+    chain.push(current);
+    current = current.cause;
+  }
+  return chain;
+}
+
+function sqlStatesIn(error: unknown): string[] {
+  return errorChain(error)
+    .map((link) => ('code' in link ? link.code : undefined))
+    .filter((code): code is string => typeof code === 'string');
+}
+
+function messagesIn(error: unknown): string {
+  return errorChain(error)
+    .map((link) => link.message)
+    .join(' | ');
 }
 
 interface SodRule {
@@ -263,6 +341,61 @@ describe('SoD — assignRole surfaces the identity.check_sod() rejection (13B:53
       );
       expect(await activeUserRoleCount(reverse.id, rule.role_a)).toBe(0);
     }
+  });
+});
+
+describe('assignRole failure discrimination — only trg_sod is an SoD violation (pg-reviewer round 1, finding 7)', () => {
+  // src/rbac.ts translates a failed identity.user_roles insert into SodViolationError ONLY when the
+  // error chain carries SQLSTATE P0001 together with identity.check_sod()'s own message fragment
+  // (13B:549). Two delivered branches of that logic shipped without a test: the unknown-role-code
+  // guard, and the selectivity of the matcher itself. Both are covered here. Neither test
+  // re-implements the matcher — each drives a real failure through the real database and asserts
+  // what surfaces.
+
+  it('rejects an unknown role code with a clear error naming the code — not silently, and not as a SodViolationError', async () => {
+    const user = await createFixtureUser();
+    // randomUUID()-suffixed, so no identity.roles row can exist for it — asserted, not assumed.
+    const unknownRoleCode = `NO_SUCH_ROLE_${randomUUID()}`;
+    const existing: QueryResult<{ id: string }> = await pool.query(
+      'select id from identity.roles where code = $1',
+      [unknownRoleCode],
+    );
+    expect(existing.rows).toHaveLength(0);
+
+    const error = await rejectionOf(assignRole(user.id, unknownRoleCode, null));
+
+    // "Clear" is asserted as: it is an Error, it names the role code the caller passed, and it
+    // says what was not found. A silent resolve, or a resolve with an empty result, fails at
+    // rejectionOf above — a no-op must not be reported as a successful grant.
+    expect(error).toBeInstanceOf(Error);
+    expect(messagesIn(error)).toContain(unknownRoleCode);
+    // Mislabelling this as an SoD refusal would tell an operator a conflict rule blocked a grant
+    // that in fact addressed a role that does not exist.
+    expect(error).not.toBeInstanceOf(SodViolationError);
+
+    expect(await activeUserRoleTotal(user.id)).toBe(0);
+  });
+
+  it('surfaces a non-SoD identity.user_roles failure (foreign-key violation on user_id) unchanged — the P0001 matcher does not relabel it SodViolationError', async () => {
+    // A user id of the right type that no identity.users row carries. The role code is real and
+    // conflicts with nothing, so the insert…select does produce a row and the insert is genuinely
+    // attempted: trg_sod fires first, finds no existing user_roles row for this user, and returns
+    // NEW without raising — then the user_id foreign key (01:250) rejects the insert. That is a
+    // real, non-SoD failure on exactly the table whose errors assignRole inspects.
+    const nonExistentUserId = randomUUID();
+
+    const error = await rejectionOf(assignRole(nonExistentUserId, ROLE_WH_MGR, null));
+
+    // The finding: prove the discrimination is SELECTIVE, not merely present.
+    expect(error).not.toBeInstanceOf(SodViolationError);
+    // And prove the failure really was the foreign key — otherwise "not SodViolationError" could
+    // pass for the wrong reason (e.g. the insert never happening at all).
+    expect(sqlStatesIn(error)).toContain(FOREIGN_KEY_VIOLATION_SQLSTATE);
+    expect(sqlStatesIn(error)).not.toContain(PLPGSQL_RAISE_EXCEPTION_SQLSTATE);
+    // No trailing activeUserRoleTotal(nonExistentUserId) check here (round-2 review finding 3,
+    // minor): identity.user_roles.user_id references identity.users(id) (01-Data-Model.sql:250),
+    // so no row for a non-existent user id can ever exist — asserting it would be vacuously true
+    // regardless of whether assignRole's discrimination logic is correct.
   });
 });
 

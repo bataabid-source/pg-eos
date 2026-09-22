@@ -18,10 +18,20 @@
 //
 // KNOWN SCHEMA GAP, same as the OTP suite (WBS 0.17 brief, "Known schema gap"): platform.thresholds
 // has no production seed row for a session lifetime, and CLAUDE.md forbids inventing one. This
-// suite seeds its own fixture row under `identity.session.lifetime_minutes`, never asserts the
-// seeded number as a literal (it re-reads `value` at assert time), and deletes the row in afterAll
-// only if THIS run inserted it — see the OTP suite header for the full reasoning and the one
-// narrow concurrency window that remains until production seed rows exist.
+// suite seeds its own fixture row under `identity.session.lifetime_minutes` and never asserts the
+// seeded number as a literal — it re-reads `value` at assert time.
+//
+// CONCURRENCY — KNOWN, ACCEPTED, NARROW FLAKE (not an oversight), identical to the OTP suite's,
+// whose header carries the full reasoning. This key and `identity.otp.expiry_minutes` are the only
+// two fixture rows in the whole WBS 0.17 suite that cannot be randomUUID()-suffixed, because the
+// implementation reads a FIXED key. afterAll deletes the row only if THIS run inserted it AND the
+// row still holds the value this run wrote, so it can never remove a row another run or a future
+// production seed has replaced. It does NOT close the remaining window: a run that inserted the
+// row and finishes first will delete it out from under a concurrent run whose own insert was a
+// no-op, and that run then fails with "threshold fixture missing at assert time". Accepted for
+// this mechanism-only slice; it disappears for good when the Master's follow-up lands real
+// production seed rows for these keys. Re-run the suite if it is hit — do not add fixture
+// machinery here.
 //
 // Fixture users are deleted in afterAll; identity.sessions.user_id is `on delete cascade`, so the
 // session rows go with them — no separate session cleanup is needed or written.
@@ -33,7 +43,7 @@ import type { QueryResult } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 // The package under test — does not exist yet. This is the RED.
-import { issueSession, verifySession, revokeSession } from '../src/session.js';
+import { issueSession, verifySession, revokeSession, UnknownOrInactiveUserError } from '../src/session.js';
 import type { IssuedSession, SessionVerification } from '../src/session.js';
 
 const SESSION_LIFETIME_MINUTES_KEY = 'identity.session.lifetime_minutes';
@@ -148,8 +158,12 @@ afterAll(async () => {
     await pool.query('delete from identity.users where email = any($1::text[])', [fixtureEmails]);
   }
   if (lifetimeThresholdSeededByThisRun) {
-    await pool.query('delete from platform.thresholds where key = $1', [
+    // `and value = …` is the narrowing guard: if anything else — a concurrent run, or the
+    // Master's eventual production seed — has replaced this row's value since this run inserted
+    // it, the row is no longer this run's to remove and the delete matches nothing.
+    await pool.query('delete from platform.thresholds where key = $1 and value = $2::numeric', [
       SESSION_LIFETIME_MINUTES_KEY,
+      SESSION_LIFETIME_FIXTURE.value,
     ]);
   }
   await pool.end();
@@ -238,6 +252,25 @@ describe('Session mechanism — issueSession / verifySession / revokeSession (WB
     const verification = await verifySession(neverIssued, { now: () => new Date() });
 
     expect(verification.valid).toBe(false);
+  });
+
+  it('issueSession rejects with UnknownOrInactiveUserError for a deactivated user, and creates no identity.sessions row', async () => {
+    // Round-2 review finding 2 (pg-reviewer): issueSession's is_active guard (session.ts:83-106)
+    // shared no test with the OTP path's — this proves it directly, on the session side, rather
+    // than only through generateOtp's already-covered check. is_active is the same column doc 01
+    // already gates OTP issuance on (01-Data-Model.sql:220); no new rule is invented here.
+    const user = await createFixtureUser();
+    await pool.query('update identity.users set is_active = false where id = $1', [user.id]);
+
+    await expect(issueSession(user.id, { now: () => new Date() })).rejects.toBeInstanceOf(
+      UnknownOrInactiveUserError,
+    );
+
+    const sessions: QueryResult<{ id: string }> = await pool.query(
+      'select id from identity.sessions where user_id = $1',
+      [user.id],
+    );
+    expect(sessions.rows).toHaveLength(0);
   });
 });
 

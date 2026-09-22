@@ -6,7 +6,7 @@ Maintained by pg-scribe only, in the same commit as the task it records.
 | field | value |
 |---|---|
 | Phase | 0 — Foundation |
-| Current task | **0.17** — OTP/sessions/RBAC-SoD mechanism only (GM decision 2026-09-22, opus model, lane M) |
+| Current task | **0.18** — RLS client-isolation test (G7=0 already; this slice adds the ID-tampering test via withContext — no UI/endpoint needed, lane M) |
 | Golden slice (2.9) | not built · `.golden-slice-accepted` absent · `scripts/new-slice.sh` is a no-op. **Acceptance gains a Phase-0 wiring line (GM 2026-09-22): the golden slice must wire up every part deferred from Phase-0 "mechanism only" tasks — starting with 0.17's login endpoints.** |
 | Deployment tier | Tier 0 (`docs/package/42-Oracle-Cloud-Deployment.md`) |
 | Schema | `database/schema/01 · 13 · 13B · 019` — the ONLY permitted schema · `apply.sh --recreate` **green on this machine 2026-09-22**: 175 tables/14 schemas, `wms.verify_wh1()` 21/21 pass (3,330 locations), G1–G13 = 0 (G6 blocking, 0 rows — WBS 0.16 complete), G18/G-SEED report-only = 0 |
@@ -22,11 +22,11 @@ None claimed. Live table: `tasks/LANE_LOCKS.md` — Phase 0 and the golden slice
 
 | task | commit |
 |---|---|
+| 0.17 — Identity mechanism (mechanisms only): OTP, sessions, RBAC/SoD evaluation — packages/identity/ | `<pending>` |
 | 0.16 — Column sensitivity classification: `identity.column_classification` + deploy guard | `<pending>` |
 | 0.15 — Document engine: templates, bindings, Chromium PDF, bilingual RTL | `<pending>` |
 | 0.12 — `packages/events`: outbox relay + subscriber registry | `<pending>` |
 | 0.11 — `packages/db`: Drizzle + `withContext()` + lint rule | `<pending>` |
-| 0.10 — `platform`: thresholds, feature flags, automation rules, decisions table | `<pending>` |
 
 ## Blockers
 
@@ -41,11 +41,11 @@ None claimed. Live table: `tasks/LANE_LOCKS.md` — Phase 0 and the golden slice
 
 ## Next 3 tasks
 
-1. **0.17** — OTP/sessions/RBAC-SoD mechanism (lane M, opus). Login endpoints/UI deferred → 2.9.
-2. **0.18** — RLS already schema-enabled (G7=0); this slice adds the client-isolation test via
+1. **0.18** — RLS already schema-enabled (G7=0); this slice adds the client-isolation test via
    `withContext` — no UI/endpoint needed, fully buildable now (lane M).
-3. **0.19** — deferred in full (its acceptance criterion IS a rendered screen — no part reduces to
+2. **0.19** — deferred in full (its acceptance criterion IS a rendered screen — no part reduces to
    a mechanism+tests package under the Phase-0 rule); revisit after 2.9 + admin shell scaffold.
+3. **0.20** — Runbook v1 (deploy, rollback, restore, secrets rotation) — drafted as soon as 0.6 is green (lane A).
 
 ## Notes
 

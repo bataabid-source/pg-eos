@@ -25,7 +25,13 @@ import { sql } from 'drizzle-orm';
 
 import { INTERNAL_NO_ACTOR_CTX } from './context.js';
 import { keyedHash } from './hmac.js';
+import { UnknownOrInactiveUserError } from './otp.js';
 import { getThreshold, minutesAfter } from './thresholds.js';
+
+// The "this account is not an active account" error is declared once, in otp.ts, and shared —
+// not re-declared here (round-2 review, finding 4; see the class's own doc-comment). It is
+// re-exported so a caller may import it from whichever module it reached the condition through.
+export { UnknownOrInactiveUserError } from './otp.js';
 
 /** platform.thresholds key holding the session lifetime, in minutes. Read from the table, never
  *  defaulted here — see thresholds.ts. */
@@ -73,6 +79,16 @@ function generateToken(): string {
  * issued_at is written explicitly from the injected clock rather than left to the column's
  * `default now()`: the two must agree, and only the injected clock is deterministic.
  *
+ * IS_ACTIVE (round-2 review, finding 4). The subject's identity.users row is checked for
+ * `is_active` (01-Data-Model.sql:220) inside the same transaction as the insert, before any
+ * session exists. Round 1 checked it only in generateOtp, which left the deactivated-mid-flow
+ * hole open at both ends: a user deactivated after their OTP was issued could verify it and then
+ * be handed a working session. This is not an invented rule — is_active is the column doc 01
+ * already defines for "this account may not be used", and the FK on identity.sessions.user_id
+ * already forces the row to exist; only its active state was going unread.
+ *
+ * @throws UnknownOrInactiveUserError when no identity.users row with `is_active` matches
+ *         `userId` — nothing is written (the withContext transaction rolls back).
  * @throws Error when platform.thresholds has no row for SESSION_LIFETIME_MINUTES_KEY.
  */
 export async function issueSession(
@@ -82,6 +98,13 @@ export async function issueSession(
   const now = opts.now ?? defaultClock;
 
   return withContext(INTERNAL_NO_ACTOR_CTX, async (tx) => {
+    const users = await tx.execute<{ id: string }>(
+      sql`select id from identity.users where id = ${userId}::uuid and is_active`,
+    );
+    if (!users.rows[0]) {
+      throw UnknownOrInactiveUserError.forUserId(userId);
+    }
+
     const lifetimeMinutes = await getThreshold(tx, SESSION_LIFETIME_MINUTES_KEY);
     const issuedAt = now();
     const expiresAt = minutesAfter(issuedAt, lifetimeMinutes);
@@ -121,6 +144,12 @@ export async function verifySession(
   const at = now();
 
   return withContext(INTERNAL_NO_ACTOR_CTX, async (tx) => {
+    // KNOWN SCHEMA GAP — no index on identity.sessions.token_hash (round-2 review, finding 8).
+    // 01-Data-Model.sql:267-277 indexes identity.sessions on (user_id, expires_at) only, so this
+    // lookup — the hot path of every authenticated request once a transport exists — is a
+    // sequential scan on the busiest table in auth. The fix is a migration adding an index on
+    // token_hash; database/schema/* is frozen in Phase 0 and Master-owned, so it is out of WBS
+    // 0.17's write scope and is recorded here (and in the report) rather than silently carried.
     const result = await tx.execute<{ id: string; user_id: string }>(sql`
       select id, user_id
         from identity.sessions
