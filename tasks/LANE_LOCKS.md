@@ -1,7 +1,6 @@
 # LANE_LOCKS — module ownership, one row per claimed module
 
-| module | lane | task | claimed_at | worktree |
-|---|---|---|---|---|
+(No active lane locks. Phase 0 and the golden slice are never parallelised.)
 
 ## Migrations issued
 

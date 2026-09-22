@@ -31,7 +31,11 @@ ERR="$(mktemp)"
 trap 'rm -f "$OUT" "$ERR"' EXIT
 
 echo "guards-run: $GUARDS against database '$DB'"
-if ! psql -X -q -A -t -v ON_ERROR_STOP=1 -d "$DB" -f "$GUARDS" >"$OUT" 2>"$ERR"; then
+# WBS 0.15: stdin redirection, not -f — see database/schema/apply.sh's header for the full,
+# epistemically-honest account (root cause not fully isolated; verified-safe defensive fix, kept
+# despite a diagnostics cost, because -f reproducibly corrupted multi-byte UTF-8 in the working
+# environment these guards actually run in, and stdin did not).
+if ! psql -X -q -A -t -v ON_ERROR_STOP=1 -d "$DB" <"$GUARDS" >"$OUT" 2>"$ERR"; then
   echo "guards-run: psql failed — the guards did not complete." >&2
   sed -n '1,40p' "$ERR" >&2
   exit 2

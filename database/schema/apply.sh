@@ -10,6 +10,27 @@
 #   ملفات الأساس بترتيب الرقم (sort -V)، وهي جزء من المخطط لا من الحراسة:
 #   --no-guards لا يعطّلها. لا هجرات؟ تُتخطّى الخطوة بصمت.
 #
+#   ⚠️ WBS 0.15: كل ملف يُطبَّق عبر إعادة توجيه stdin (`psql ... < file`)، لا
+#   عبر `-f file`. الحقيقة المؤكَّدة، لا التفسير: في جلسة عمل واحدة معيَّنة على
+#   هذا الجهاز (psql 16.15، Windows)، أُعيد إنتاج نفس النتيجة أربع مرات متتالية
+#   بقواعد بيانات فارغة جديدة في كل مرة: `psql -f 01-Data-Model.sql` يُنتج
+#   `platform.entities.name_ar='PCC'` تالفاً («ط¨ط±ظٹظ…ظٹظˆظ… CC» بدل «بريميوم
+#   CC»، مؤكَّد على مستوى البايت عبر عميل pg لا عبر عرض طرفية psql)، بينما
+#   `psql < 01-Data-Model.sql` على نفس الملف يُنتج القيمة الصحيحة — نفس القاعدة
+#   الفارغة حديثاً، نفس متغيرات PG*. أُعيد الاختبار أيضاً بعد تثبيت ترميز الطرفية
+#   على 65001 (UTF-8) صراحة؛ استمر التلف — فالسبب ليس ترميز الطرفية النشط وحده.
+#   **لم يُحسَم السبب الجذري.** مراجعة مستقلة (pg-reviewer) على جلسة عمل أخرى
+#   على نفس الجهاز **لم تستطع** إعادة إنتاج التلف بنفس الاستدعاء الحرفي — ما
+#   يرجّح أن الشرط المُطلِق بيئي دقيق (نسخة/مسار psql.exe المحدَّد فعلياً، أو
+#   حالة طرفية/console لهذه الجلسة تحديداً) لا خللاً عاماً في psql على وندوز.
+#   القرار: الإبقاء على stdin كإجراء احترازي مُتحقَّق منه في بيئة العمل الفعلية
+#   لهذه الجلسات — صفر أثر جانبي وظيفي (كل الحرّاس وكل مجموعات اختبارات
+#   0.9-0.12 ما زالت خضراء بعده)، بثمن معروف ومقبول: رسائل خطأ psql تفقد اسم
+#   الملف/رقم السطر الدقيقين (raw stdin لا `-f` نفسه). لتشخيص خطأ نحوي في ملف
+#   معيَّن يدوياً، شغِّل `psql -f <file>` مباشرة لأغراض التشخيص فقط، لا للتطبيق
+#   الفعلي. لا تُرجع أياً من استدعاءات psql هنا إلى `-f` كإجراء تطبيق افتراضي
+#   دون إعادة اختبار هذا مباشرة على الجهاز الذي سيُشغَّل عليه.
+#
 # الاستعمال:
 #   ./apply.sh                          # على PGDATABASE أو pgeos
 #   PGDATABASE=pgeos_test ./apply.sh
@@ -34,7 +55,7 @@ for arg in "$@"; do
   case "$arg" in
     --recreate)  RECREATE=1 ;;
     --no-guards) RUN_GUARDS=0 ;;
-    -h|--help)   sed -n '2,19p' "${BASH_SOURCE[0]}"; exit 0 ;;
+    -h|--help)   sed -n '2,11p;33,40p' "${BASH_SOURCE[0]}"; exit 0 ;;
     *) echo "خيار غير معروف: $arg" >&2; exit 2 ;;
   esac
 done
@@ -65,7 +86,7 @@ step=0
 for f in "${FILES[@]}"; do
   step=$((step + 1))
   printf '→ [%d/%d] %s … ' "$step" "${#FILES[@]}" "$f"
-  if psql -d "$PGDATABASE" -v ON_ERROR_STOP=1 -q -f "$DIR/$f" > /dev/null; then
+  if psql -d "$PGDATABASE" -v ON_ERROR_STOP=1 -q < "$DIR/$f" > /dev/null; then
     echo "تم"
   else
     echo "فشل"
@@ -91,7 +112,7 @@ if [[ "${#MIGRATIONS[@]}" -gt 0 ]]; then
   for m in "${MIGRATIONS[@]}"; do
     step=$((step + 1))
     printf '→ [%d/%d] %s … ' "$step" "${#MIGRATIONS[@]}" "$m"
-    if psql -d "$PGDATABASE" -v ON_ERROR_STOP=1 -q -f "$MIG_DIR/$m" > /dev/null; then
+    if psql -d "$PGDATABASE" -v ON_ERROR_STOP=1 -q < "$MIG_DIR/$m" > /dev/null; then
       echo "تم"
     else
       echo "فشل"
@@ -152,7 +173,7 @@ if [[ "$RUN_GUARDS" -eq 1 ]]; then
   echo "───────────────────────────────────────────────────────────────"
   echo " الحراسة G1–G13 + G18 (40 Part F)"
   echo "───────────────────────────────────────────────────────────────"
-  psql -d "$PGDATABASE" -v ON_ERROR_STOP=1 -f "$DIR/guards.sql"
+  psql -d "$PGDATABASE" -v ON_ERROR_STOP=1 < "$DIR/guards.sql"
 
   echo
   echo "  عدّ الحرّاس الحمر (G1–G13؛ G6 مهمة WBS 0.16 · G18 تقرير فقط):"
