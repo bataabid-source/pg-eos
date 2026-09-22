@@ -22,11 +22,11 @@ None claimed. Live table: `tasks/LANE_LOCKS.md` — Phase 0 and the golden slice
 
 | task | commit |
 |---|---|
-| 0.17 — Identity mechanism (mechanisms only): OTP, sessions, RBAC/SoD evaluation — packages/identity/ | `<pending>` |
-| 0.16 — Column sensitivity classification: `identity.column_classification` + deploy guard | `<pending>` |
-| 0.15 — Document engine: templates, bindings, Chromium PDF, bilingual RTL | `<pending>` |
-| 0.12 — `packages/events`: outbox relay + subscriber registry | `<pending>` |
-| 0.11 — `packages/db`: Drizzle + `withContext()` + lint rule | `<pending>` |
+| 0.17 — Identity mechanism (mechanisms only): OTP, sessions, RBAC/SoD evaluation — packages/identity/ | `c90dd6e` |
+| 0.16 — Column sensitivity classification: `identity.column_classification` + deploy guard | `a021126` |
+| 0.15 — Document engine: templates, bindings, Chromium PDF, bilingual RTL | `954ff3a` |
+| 0.12 — `packages/events`: outbox relay + subscriber registry | `4164eb0` |
+| 0.11 — `packages/db`: Drizzle + `withContext()` + lint rule | `e138ba2` |
 
 ## Blockers
 
