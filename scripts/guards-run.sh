@@ -10,13 +10,26 @@
 #     and deploy. G1–G13 are the SQL half and are evaluated here.
 #   - G6 (unclassified columns) is a normal blocking guard (WBS 0.16 closed column
 #     classification; identity.column_classification now covers every column G6 checks).
+#   - G14 (doc 40 Part F row G14, WBS 0.18 `tests/isolation`) is NOT SQL — it is the
+#     `pnpm test:isolation` vitest suite. It IS run here (as of WBS 0.18): CLAUDE.md ·
+#     DEPLOYMENT PIPELINE and doc 40 Part F both say `pnpm guards:run` covers G1–G18, and this
+#     script previously fell short of that for G14. Pass condition: the suite's own "0 rows, no
+#     error" assertions all hold, i.e. `pnpm test:isolation` exits 0 — evaluated below, folded
+#     into this script's own exit code exactly like G1–G13.
+#     `turbo.json`'s `test:isolation` task sets **`"cache": false`, which is mandatory, not a
+#     preference**: G14's verdict depends on live DATABASE state (which policies exist, what the
+#     applied schema looks like), and turbo hashes only files — it cannot see the database. With
+#     caching left on, turbo replays a previous green in ~50 ms without connecting to Postgres at
+#     all, so a database whose RLS had since been disabled would still print `G14 0 green`. A guard
+#     that can report green without executing is worse than no guard. Do not remove that line.
 #   - G18 (billing.verify_unpriced_events) is REPORT-ONLY and never blocks.
 #   - G-SEED (reference-seed completeness) is REPORT-ONLY and never blocks.
-#   - G14–G17 are not SQL and are not run here: `pnpm test:isolation` · `pnpm playwright test
-#     tests/scenarios` · `pnpm stryker run` · `pnpm test:trace`.
+#   - G15–G17 are still not SQL and still not run here: `pnpm playwright test tests/scenarios` (G15)
+#     · `pnpm stryker run` (G16) · `pnpm test:trace` (G17).
 #
-# Exit: 0 all blocking guards green · 1 at least one of G1–G13 (G6 included, WBS 0.16 closed) returned a row
-#       · 2 the guards file or psql could not be run.
+# Exit: 0 all blocking guards green · 1 at least one of G1–G14 (G6 included, WBS 0.16 closed;
+#       G14 included, WBS 0.18) returned a row / failed · 2 the guards file, psql or pnpm could not
+#       be run.
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -24,11 +37,13 @@ GUARDS="${PG_GUARDS_FILE:-$ROOT/database/schema/guards.sql}"
 DB="${PGDATABASE:-pgeos}"
 
 command -v psql >/dev/null 2>&1 || { echo "guards-run: psql not found on PATH." >&2; exit 2; }
+command -v pnpm >/dev/null 2>&1 || { echo "guards-run: pnpm not found on PATH (needed for G14 — pnpm test:isolation)." >&2; exit 2; }
 [ -f "$GUARDS" ] || { echo "guards-run: $GUARDS not found." >&2; exit 2; }
 
 OUT="$(mktemp)"
 ERR="$(mktemp)"
-trap 'rm -f "$OUT" "$ERR"' EXIT
+G14_LOG="$(mktemp)"
+trap 'rm -f "$OUT" "$ERR" "$G14_LOG"' EXIT
 
 echo "guards-run: $GUARDS against database '$DB'"
 # WBS 0.15: stdin redirection, not -f — see database/schema/apply.sh's header for the full,
@@ -39,6 +54,28 @@ if ! psql -X -q -A -t -v ON_ERROR_STOP=1 -d "$DB" <"$GUARDS" >"$OUT" 2>"$ERR"; t
   echo "guards-run: psql failed — the guards did not complete." >&2
   sed -n '1,40p' "$ERR" >&2
   exit 2
+fi
+
+# G14 (doc 40 Part F row G14, WBS 0.18) — not SQL, so it is not part of guards.sql above. Run
+# `pnpm test:isolation` (tests/isolation) here so it is folded into this script's own verdict table
+# and exit code, exactly like G1–G13. `G14_ROWS` is 0 when the suite's own zero-rows/no-error
+# assertions all held (the suite exited 0), 1 otherwise — there is no literal SQL row count for a
+# test suite, so this mirrors the SQL guards' "0 = green" convention rather than inventing one.
+echo "guards-run: pnpm test:isolation (G14, doc 40 Part F) ..."
+if (cd "$ROOT" && pnpm test:isolation >"$G14_LOG" 2>&1); then
+  G14_ROWS=0
+else
+  G14_ROWS=1
+fi
+
+# Exit 0 is NOT evidence that the suite ran. `turbo run <task> --filter=<pkg>` exits 0 when the
+# package exists but no longer defines that script — so renaming or deleting `test:isolation` in
+# tests/isolation/package.json would turn G14 into a permanent silent green. Require positive proof
+# in the captured output that vitest actually reported a result. Same reasoning as turbo.json's
+# `"cache": false`: a guard that can report green without executing is worse than no guard.
+if [ "$G14_ROWS" -eq 0 ] && ! grep -q 'Test Files' "$G14_LOG"; then
+  echo "guards-run: G14 exited 0 but its output contains no vitest result — the suite did not run." >&2
+  G14_ROWS=1
 fi
 
 # guards.sql prints a "--- Gn: ... ---" banner before each guard; everything between two banners
@@ -64,15 +101,22 @@ printf -- '---------- -------- ---------------------------------------------\n'
 
 report_line() { printf '%-10s %-8s %s\n' "$1" "$2" "$3"; }
 
-for g in G1 G2 G3 G4 G5 G6 G7 G8 G9 G10 G11 G12 G13 G18 G-SEED; do
-  rows="$(printf '%s\n' "$SUMMARY" | awk -v k="$g" '$1==k {print $2}')"
-  rows="${rows:-0}"
+for g in G1 G2 G3 G4 G5 G6 G7 G8 G9 G10 G11 G12 G13 G14 G18 G-SEED; do
+  if [ "$g" = "G14" ]; then
+    rows="$G14_ROWS"
+  else
+    rows="$(printf '%s\n' "$SUMMARY" | awk -v k="$g" '$1==k {print $2}')"
+    rows="${rows:-0}"
+  fi
   case "$g" in
     G18)
       if [ "$rows" -gt 0 ]; then report_line "$g" "$rows" "REPORT ONLY — unpriced billing events"
       else report_line "$g" "$rows" "green"; fi ;;
     G-SEED)
       if [ "$rows" -gt 0 ]; then report_line "$g" "$rows" "REPORT ONLY — reference seed count mismatch"
+      else report_line "$g" "$rows" "green"; fi ;;
+    G14)
+      if [ "$rows" -gt 0 ]; then report_line "$g" "$rows" "RED — blocks merge and deploy (pnpm test:isolation failed)"; BLOCKING=$((BLOCKING + 1))
       else report_line "$g" "$rows" "green"; fi ;;
     *)
       if [ "$rows" -gt 0 ]; then report_line "$g" "$rows" "RED — blocks merge and deploy"; BLOCKING=$((BLOCKING + 1))
@@ -81,12 +125,17 @@ for g in G1 G2 G3 G4 G5 G6 G7 G8 G9 G10 G11 G12 G13 G18 G-SEED; do
 done
 
 echo
-echo "G14–G17 are not SQL: pnpm test:isolation · pnpm playwright test tests/scenarios · pnpm stryker run · pnpm test:trace"
+echo "G15–G17 are not SQL and still not run here: pnpm playwright test tests/scenarios (G15) · pnpm stryker run (G16) · pnpm test:trace (G17)."
 
 if [ "$BLOCKING" -gt 0 ]; then
   echo
   echo "guards-run: $BLOCKING blocking guard(s) RED. There is no 'deploy and fix'. Failing rows:" >&2
   grep -E '^G([1-9]|1[0-3])\|' "$OUT" | head -40 >&2
+  if [ "$G14_ROWS" -gt 0 ]; then
+    echo >&2
+    echo "guards-run: G14 (pnpm test:isolation) failed — last 40 lines of its output:" >&2
+    tail -n 40 "$G14_LOG" >&2
+  fi
   exit 1
 fi
 

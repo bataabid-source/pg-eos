@@ -1,0 +1,22 @@
+{
+  "name": "@pg-eos/isolation-tests",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.test.json",
+    "lint": "eslint .",
+    "test:isolation": "vitest run"
+  },
+  "dependencies": {
+    "@pg-eos/db": "workspace:*",
+    "drizzle-orm": "^0.45.3",
+    "pg": "^8.13.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.6",
+    "@types/pg": "^8.13.0",
+    "typescript": ">=5.7.0 <6.1.0",
+    "vitest": "^4.1.11"
+  }
+}

@@ -31,6 +31,23 @@ const MODULES = readdirSync('modules', { withFileTypes: true })
 
 const SOURCE = ['apps/**/*.{ts,tsx}', 'modules/**/*.{ts,tsx}', 'packages/**/*.{ts,tsx}'];
 
+// The lintable AGENT CONSTRAINTS (doc 40 §A5) and the withContext rule apply to `tests/**` too,
+// which SOURCE deliberately does not cover: SOURCE is also the boundaries `include`, and `tests/*`
+// is not a boundaries element (no module/app/package pattern matches it), so widening SOURCE
+// itself would silently change what the boundaries rule inspects. Tests under `modules/*/tests/`
+// were already covered by SOURCE's `modules/**`; the root `tests/` tree (WBS 0.18's
+// `tests/isolation`, doc 40 Part F's G14 runner) is the first TypeScript outside it and would
+// otherwise have been exempt from `no-console` and `ban-ts-comment` repo-wide. It does NOT, on its
+// own, give `local/no-db-outside-with-context` any purchase on tests/isolation's own RLS-bypassing
+// calls: that rule only tracks the `db` binding imported from `@pg-eos/db` (packages/db/eslint-
+// rules/no-db-outside-with-context.js), and tests/isolation/tests/client-isolation.test.ts never
+// imports `db` — its superuser fixture client is a raw `pg.Client`, deliberately outside `db`'s
+// pooled/withContext path (see that file's own header comment), so the rule has nothing to flag
+// there either way. What this widening actually buys `local/no-db-outside-with-context` is coverage
+// for any FUTURE test file under `tests/**` that does import `db` directly instead of going through
+// `withContext` — which, absent this widening, would have been invisible to the rule entirely.
+const AGENT_CONSTRAINED = [...SOURCE, 'tests/**/*.{ts,tsx}'];
+
 /** Every way of naming another module from inside modules/<self>. */
 function crossModuleImports(self) {
   const others = MODULES.filter((name) => name !== self);
@@ -97,7 +114,7 @@ export default tseslint.config(
 
   // ── agent constraints that are lintable, doc 40 §A5 ────────────────────────
   {
-    files: SOURCE,
+    files: AGENT_CONSTRAINED,
     rules: {
       '@typescript-eslint/no-explicit-any': 'error',
       '@typescript-eslint/ban-ts-comment': 'error',
@@ -109,7 +126,7 @@ export default tseslint.config(
   // packages/db/** itself is excluded: its own client.ts/with-context.ts implementation IS the
   // safe path (the plumbing the rule protects), not a caller that needs to route through it.
   {
-    files: SOURCE,
+    files: AGENT_CONSTRAINED,
     ignores: ['packages/db/**'],
     plugins: { local: { rules: { 'no-db-outside-with-context': noDbOutsideWithContext } } },
     rules: {

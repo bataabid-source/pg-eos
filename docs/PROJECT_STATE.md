@@ -6,13 +6,13 @@ Maintained by pg-scribe only, in the same commit as the task it records.
 | field | value |
 |---|---|
 | Phase | 0 — Foundation |
-| Current task | **0.18** — RLS client-isolation test (G7=0 already; ID-tampering test via `withContext`, no UI/endpoint, lane M). **Pre-flight verified 2026-09-23 (`1577a12`): no 0.18 test exists on any branch/worktree yet; `withContext` + the five `client_portal_scope`/`sku_client_scope` tables are all present in 01, so NO new migration is needed — but `PGUSER=postgres` is superuser and bypasses RLS unconditionally, and `database/schema/**` + `database/migrations/**` contain zero `create role`. G14 (`pnpm test:isolation`) is also undefined in every `package.json`. A non-superuser `NOBYPASSRLS` app role is a G-01 prerequisite; without it the test cannot honestly pass.** |
+| Current task | **0.18** — RLS client-isolation test. Delivered: `tests/isolation` workspace, G14 runner (`pnpm test:isolation`) wired into `scripts/guards-run.sh`, turbo routing, eslint scoped. Suite 21/24 test scenarios pass; 3 pinned FAILS (SCR-RLS-01/-02 unfixed). **BLOCKED — not DONE — on two G-01 schema decisions pending GM.** |
 | Golden slice (2.9) | not built · `.golden-slice-accepted` absent · `scripts/new-slice.sh` is a no-op. **Acceptance gains a Phase-0 wiring line (GM 2026-09-22): the golden slice must wire up every part deferred from Phase-0 "mechanism only" tasks — starting with 0.17's login endpoints.** |
 | Deployment tier | Tier 0 (`docs/package/42-Oracle-Cloud-Deployment.md`) |
 | Schema | `database/schema/01 · 13 · 13B · 019` — the ONLY permitted schema · `apply.sh --recreate` **green on this machine 2026-09-22**: 175 tables/14 schemas, `wms.verify_wh1()` 21/21 pass (3,330 locations), G1–G13 = 0 (G6 blocking, 0 rows — WBS 0.16 complete), G18/G-SEED report-only = 0 |
 | Session model | sonnet (opus only for the 2.9 session, an ADR, a security review, or a second failure) |
 | Toolchain | pnpm 9.15.9 · Node 25.2.1 · Docker 29.0.1 · psql 16.15 installed · migrations auto-runner enabled (WBS 0.11) · **psql UTF-8 fix** (WBS 0.15: stdin redirect not `-f` to avoid multi-byte corruption; trade-off: error output loses line numbers — see `apply.sh` header for details) · TypeScript 5.9.3 ceiling `<6.1.0` |
-| Setup check | `scripts/check-setup.sh` → FILES READY · `scripts/check-boundaries.sh` → BOUNDARIES ENFORCED (A–F) · `apply.sh --recreate` GREEN 2026-09-22 · guards G1–G13/G18 GREEN (G14–G17 outside SQL, not yet run) |
+| Setup check | `scripts/check-setup.sh` → FILES READY · `scripts/check-boundaries.sh` → BOUNDARIES ENFORCED (A–F) · `apply.sh --recreate` GREEN 2026-09-22 · guards G1–G14/G18 GREEN (G15–G17 not yet run) |
 
 ## Lanes
 
@@ -30,31 +30,25 @@ None claimed. Live table: `tasks/LANE_LOCKS.md` — Phase 0 and the golden slice
 
 ## Blockers
 
-- **Concurrent external processes on this working directory can delete uncommitted work** (incident:
-  `a901a04` mid-slice deleted 0.13 untracked files; recovered at `1bc09f7` + `50055f8`). Commit more
-  frequently on long slices as mitigation until a root cause is found (CHANGELOG 0.13 §incident).
-- **Sessions must start inside `claude-kit/`.** Opened one level above, Claude Code never registers
-  `.claude/agents`, `.claude/commands` or the lane-guard hook, so `docs/MODEL_ROUTING.md` cannot be followed
-  and all work falls back to the Master (this happened in 0.4 — CHANGELOG). Check: `/resume` is offered.
-- **Git lock files cannot be deleted** (`.git/*.lock` → `stale-*.lock-*`); remove by hand.
-- A REAL BLOCKER: acceptance fails · legal/money decision absent · schema missing and G-01 forbids. Else state default, record in CHANGELOG, proceed.
+- **WBS 0.18: SCR-RLS-01** (`entity_scope` OR `client_portal_scope` defeats isolation) — reproduced live,
+  7 tables affected. Awaiting GM decision on Option B/C.
+- **WBS 0.18: SCR-RLS-02** (`audit_log` partitioned parent has no RLS, bypasses G7) — reproduced live.
+  Awaiting GM decision on recommended A+B+C.
+- Concurrent external processes on this working directory can delete uncommitted work (incident `a901a04`).
+- Sessions must start inside `claude-kit/` (`.claude/agents` + lane-guard hook not registered otherwise).
+- Git lock files (`.git/*.lock` → `stale-*.lock-*`) cannot be deleted via tools; remove by hand.
 
 ## Next 3 tasks
 
-1. **0.18** — client-isolation test via `withContext`; no UI/endpoint, no new migration. **Blocked
-   on a G-01 non-superuser app role (see Current task) — NOT "fully buildable now".** (lane M)
-2. **0.19** — deferred in full (its acceptance criterion IS a rendered screen — no part reduces to
-   a mechanism+tests package under the Phase-0 rule); revisit after 2.9 + admin shell scaffold.
-3. **0.20** — Runbook v1 (deploy, rollback, restore, secrets rotation) — drafted as soon as 0.6 is green (lane A).
+1. **0.18** — **BLOCKED on SCR-RLS-01 and SCR-RLS-02 (GM)** — not DONE, partial delivery complete.
+2. **0.19** — deferred in full (acceptance criterion IS a rendered screen; no mechanism-only subset).
+3. **0.20** — Runbook v1 (deploy, rollback, restore, secrets rotation) — awaiting 0.6 green (lane A).
 
 ## Notes
 
-- WAITING_GM (never blocks code lanes): Phase 0 lane A — 0.2 · 0.3 · 0.5 · 0.7 · 0.8 · 0.20, plus four in `tasks/proposed/`.
-- Phase 0 gate: 0.18 isolation (G7 = 0) · 0.16 classification (G6 = 0) · 0.8 restore · 0.1 owners · 0.2 decisions.
-- 0.9's two abandoned WIP branches (`0217e85`, `f127ab2`) are catalogued in `docs/notes/0.9-abandoned-wip.md` — never merge, never delete; 0.9 stays closed at `aa46787`.
-- psql 16 + docker postgres verified 2026-09-22 (CHANGELOG). `docker compose up -d postgres` needs
-  `PGADMIN_PASSWORD` set to any value (interpolation quirk, profile-gated service, not fixed).
-- **Standing rule (GM 2026-09-22, `docs/notes/0.17-sequencing-decision-request.md`):** every
-  Phase-0 task until 2.9's acceptance delivers mechanism-only (`packages/*`, tests) — no module
-  tree, API endpoint, or screen. Deferred parts are tracked here and in `MASTER_BACKLOG.md`, never
-  by editing `docs/package/38-WBS.md`.
+- WAITING_GM: Phase 0 lane A tasks (0.2, 0.3, 0.5, 0.7, 0.8, 0.20) plus four in `tasks/proposed/`.
+- Phase 0 gate: 0.18 isolation (G7 = 0; 2 SCRs open) · 0.16 classification (G6 = 0) · 0.8 restore · 0.1 owners.
+- 0.9 closed at `aa46787` with two unmerged WIP branches (`0217e85`, `f127ab2`), catalogued in
+  `docs/notes/0.9-abandoned-wip.md` — never merge, never delete.
+- Phase-0 policy (GM 2026-09-22): every task delivers mechanism-only (`packages/*`, tests), no
+  modules/endpoints/screens. Deferred parts tracked here and in `MASTER_BACKLOG.md` (not docs/package/38).
