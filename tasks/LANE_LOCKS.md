@@ -1,5 +1,8 @@
 # LANE_LOCKS — module ownership, one row per claimed module
 
+| module | lane | task | claimed_at | worktree |
+|---|---|---|---|---|
+
 ## Rules (CLAUDE.md · PARALLEL LANES — CONFLICT-FREE MECHANISM (v5))
 
 1. A module appears at most once; a lane writes only inside its locked modules and `tests/`, and a worker needing a file outside its lock STOPS and reports.
