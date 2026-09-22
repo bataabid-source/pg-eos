@@ -1,8 +1,14 @@
 # LANE_LOCKS — module ownership, one row per claimed module
 
-| module | lane | task | claimed_at | worktree |
-|---|---|---|---|---|
-| packages/db | B | 0.11 | 2026-09-22T12:30:00Z | .claude/worktrees/upbeat-wu-e2c00c |
+Currently none claimed.
+
+## Migrations issued
+
+Not a lock table — deliberately not a `|`-prefixed markdown table, since
+`.claude/hooks/lane-guard.sh` parses every such line in this file as a
+module-lock row (see Rules below). One line per migration, newest first:
+
+- `0001_B_fix-is-internal-empty-guc.sql` — lane B, task 0.11, applied 2026-09-22.
 
 ## Rules (CLAUDE.md · PARALLEL LANES — CONFLICT-FREE MECHANISM (v5))
 

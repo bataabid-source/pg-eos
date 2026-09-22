@@ -22,7 +22,7 @@ import { randomUUID } from 'node:crypto';
 
 import { sql } from 'drizzle-orm';
 import { Pool } from 'pg';
-import type { QueryResult } from 'pg';
+import type { PoolClient, QueryResult } from 'pg';
 import { afterAll, describe, expect, it } from 'vitest';
 
 // The package under test. packages/db does not exist yet (WBS 0.11 RED) — this import fails to
@@ -111,10 +111,44 @@ describe('withContext — sets exactly the three RLS GUCs for the duration of th
   });
 });
 
-describe('withContext — a connection that has never run through withContext starts with nothing set (WBS 0.11, fail-closed RLS)', () => {
-  it('current_user_id()/current_client_id() are null and is_internal() is false on a fresh connection checked out of the SAME pool withContext itself uses, outside any withContext call', async () => {
-    const client = await internalPool.connect();
+// pg-reviewer (opus), round 3: the original single test here was named as if it exercised "a
+// connection that has never run through withContext," but the connection `internalPool.connect()`
+// actually hands back depends entirely on pg.Pool's own LIFO idle-list behavior and on what ran
+// earlier in this same file — the test only caught the WBS 0.11 empty-GUC regression when an
+// earlier test in the file happened to have already pushed a committed-then-reverted connection
+// onto the idle stack ahead of it. Run in isolation (`-t` filtering, `.only`, or a reordered/split
+// file) it passed even against the buggy `platform.is_internal()`, because in isolation the pool
+// hands back a connection that was never actually exercised. Split into two precisely-named,
+// order-independent tests below: one that proves its "genuinely new connection" claim using the
+// pool's own public API instead of assuming it, and one that deterministically drives a connection
+// through the exact bug scenario itself rather than relying on an earlier test to have done so.
+describe('withContext — connections handed back by the internal pool correctly read unset RLS GUCs, whether genuinely new or previously used by a committed withContext call (WBS 0.11, fail-closed RLS)', () => {
+  it('a physical connection the pool itself just created (proven via pg.Pool\'s own "connect" event — pg-pool emits it only when isNew, never when handing back a reused idle client — after first draining every currently-idle connection so none can be silently reused instead) reads current_user_id()/current_client_id() as null and is_internal() as false', async () => {
+    // Drain every idle connection out of `internalPool` first, holding (not releasing) each one.
+    // pg.Pool.connect() reuses an idle client whenever `idleCount > 0` (pg-pool/index.js
+    // `connect()`); only once idleCount is 0 does the next connect() call have to create a
+    // genuinely new client. This is the "explicitly grow the pool" approach — using pg.Pool's own
+    // public idleCount/connect API, not an assumption about what earlier tests left behind.
+    const drained: PoolClient[] = [];
+    while (internalPool.idleCount > 0) {
+      drained.push(await internalPool.connect());
+    }
+
+    let sawNewConnection = false;
+    const onConnect = (): void => {
+      sawNewConnection = true;
+    };
+    internalPool.once('connect', onConnect);
+
+    let client: PoolClient | undefined;
     try {
+      client = await internalPool.connect();
+      // If the pool did NOT just emit 'connect' for this checkout, it handed back a reused
+      // client instead of creating a new one, and this test's claim about a "genuinely new
+      // connection" would be unproven — fail loudly here rather than assert on an unverified
+      // connection (pg-reviewer round 3: "if you can't prove it's pristine, don't claim it is").
+      expect(sawNewConnection).toBe(true);
+
       const result: QueryResult<{
         user_id: string | null;
         client_id: string | null;
@@ -124,8 +158,72 @@ describe('withContext — a connection that has never run through withContext st
       );
       const row = result.rows[0];
       if (!row) {
-        throw new Error('fresh-connection query returned no row');
+        throw new Error('new-connection query returned no row');
       }
+      expect(row.user_id).toBeNull();
+      expect(row.client_id).toBeNull();
+      expect(row.is_internal).toBe(false);
+    } finally {
+      internalPool.removeListener('connect', onConnect);
+      client?.release();
+      for (const drainedClient of drained) {
+        drainedClient.release();
+      }
+    }
+  });
+
+  it('a connection that HAS run through withContext and committed reads current_user_id()/current_client_id() as null and is_internal() as false again afterward — deterministically driven within this one test, not inferred from an earlier test happening to run first (regression test for the WBS 0.11 fail-closed RLS bug fixed by database/migrations/0001_B_fix-is-internal-empty-guc.sql)', async () => {
+    const userId = randomUUID();
+    const clientId = randomUUID();
+    let backendPidDuringCommit: number | undefined;
+
+    // Step 1 — deterministically put a connection from `internalPool` into the exact
+    // "committed-then-reverted" state the bug is about: a withContext(...) call that sets all
+    // three GUCs and commits normally (no throw). SET LOCAL is transaction-scoped, so once this
+    // commits, the underlying physical connection's custom GUCs revert to Postgres's post-commit
+    // default for a never-in-postgresql.conf custom GUC — the EMPTY STRING (''), not NULL (see
+    // database/migrations/0001_B_fix-is-internal-empty-guc.sql lines 12-27 for the live proof).
+    // That empty string is exactly what made the old `coalesce(current_setting(...), 'false')`
+    // throw `invalid input syntax for type boolean: ""` on any connection reused after a commit.
+    await withContext({ userId, clientId, isInternal: true }, async (tx) => {
+      const seenBeforeCommit = await tx.execute(
+        sql`select platform.is_internal() as is_internal, pg_backend_pid() as pid`,
+      );
+      const row = seenBeforeCommit.rows[0] as { is_internal: boolean; pid: number } | undefined;
+      if (!row) {
+        throw new Error('pre-commit sanity query returned no row');
+      }
+      expect(row.is_internal).toBe(true);
+      backendPidDuringCommit = row.pid;
+    });
+
+    // Step 2 — ONLY AFTER that withContext(...) promise has resolved (i.e., committed and
+    // released its client back to the pool — see src/with-context.ts, the success path calls
+    // `client.release()` synchronously right after `commit`), check out a connection from the SAME
+    // internal pool. This test does not rely on test-file ordering, `.only`/`-t` filtering, or
+    // which physical connection pg.Pool happens to hand back for unrelated reasons — the
+    // withContext call immediately above, inside THIS test, is what puts a connection into the
+    // state being asserted on.
+    const client = await internalPool.connect();
+    try {
+      const after: QueryResult<{
+        user_id: string | null;
+        client_id: string | null;
+        is_internal: boolean;
+        pid: number;
+      }> = await client.query(
+        'select platform.current_user_id() as user_id, platform.current_client_id() as client_id, platform.is_internal() as is_internal, pg_backend_pid() as pid',
+      );
+      const row = after.rows[0];
+      if (!row) {
+        throw new Error('post-commit query returned no row');
+      }
+      // Prove, at the Postgres level rather than by assuming pg.Pool's internal LIFO idle-list
+      // behavior, that this checkout really did hand back the exact same physical backend
+      // connection Step 1 just committed on — otherwise the assertions below would prove nothing
+      // about the regression (a genuinely different, never-touched connection would trivially
+      // read unset GUCs regardless of whether the bug is present).
+      expect(row.pid).toBe(backendPidDuringCommit);
       expect(row.user_id).toBeNull();
       expect(row.client_id).toBeNull();
       expect(row.is_internal).toBe(false);

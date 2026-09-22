@@ -3,8 +3,12 @@
 # PG-EOS · apply.sh — تطبيق المخطط الكامل ثم تشغيل الحراسة
 # الإصدار 4.0 · 21/09/2026 · المصدر: 40-Build-Specification-EN.md Part I
 #
-#   01 → 13 → 13B → 019   بـ -v ON_ERROR_STOP=1   ثم   guards.sql
+#   01 → 13 → 13B → 019   ثم   ../migrations/*.sql   بـ -v ON_ERROR_STOP=1
+#   ثم   guards.sql
 #   «No database object exists outside them.» (40 Part I)
+#   الهجرات الأمامية (database/migrations/NNNN_<lane>_<slug>.sql) تُطبَّق بعد
+#   ملفات الأساس بترتيب الرقم (sort -V)، وهي جزء من المخطط لا من الحراسة:
+#   --no-guards لا يعطّلها. لا هجرات؟ تُتخطّى الخطوة بصمت.
 #
 # الاستعمال:
 #   ./apply.sh                          # على PGDATABASE أو pgeos
@@ -30,7 +34,7 @@ for arg in "$@"; do
   case "$arg" in
     --recreate)  RECREATE=1 ;;
     --no-guards) RUN_GUARDS=0 ;;
-    -h|--help)   sed -n '2,20p' "${BASH_SOURCE[0]}"; exit 0 ;;
+    -h|--help)   sed -n '2,19p' "${BASH_SOURCE[0]}"; exit 0 ;;
     *) echo "خيار غير معروف: $arg" >&2; exit 2 ;;
   esac
 done
@@ -69,6 +73,33 @@ for f in "${FILES[@]}"; do
     exit 1
   fi
 done
+
+# الهجرات الأمامية — database/migrations/NNNN_<lane>_<slug>.sql بترتيب الرقم.
+# لا ملفات .sql؟ تُتخطّى الخطوة بلا ترويسة ولا خطأ.
+MIG_DIR="$(dirname "$DIR")/migrations"
+MIGRATIONS=()
+while IFS= read -r m; do
+  [[ -n "$m" ]] && MIGRATIONS+=("$m")
+done < <(for p in "$MIG_DIR"/*.sql; do [[ -f "$p" ]] && basename "$p"; done | sort -V)
+
+if [[ "${#MIGRATIONS[@]}" -gt 0 ]]; then
+  echo
+  echo "───────────────────────────────────────────────────────────────"
+  echo " الهجرات الأمامية (database/migrations)"
+  echo "───────────────────────────────────────────────────────────────"
+  step=0
+  for m in "${MIGRATIONS[@]}"; do
+    step=$((step + 1))
+    printf '→ [%d/%d] %s … ' "$step" "${#MIGRATIONS[@]}" "$m"
+    if psql -d "$PGDATABASE" -v ON_ERROR_STOP=1 -q -f "$MIG_DIR/$m" > /dev/null; then
+      echo "تم"
+    else
+      echo "فشل"
+      echo "✗ توقف التطبيق عند الهجرة $m — لا تكمل. راجع الخطأ أعلاه." >&2
+      exit 1
+    fi
+  done
+fi
 
 q() { psql -d "$PGDATABASE" -At -c "$1"; }
 

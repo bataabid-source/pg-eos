@@ -6,12 +6,12 @@ Maintained by pg-scribe only, in the same commit as the task it records.
 | field | value |
 |---|---|
 | Phase | 0 — Foundation |
-| Current task | **0.11–0.12** — `packages/db`, `packages/events` (READY, depend on 0.9 DONE) |
+| Current task | **0.12** — `packages/events` (READY, lane B, depends on 0.9 DONE) |
 | Golden slice (2.9) | not built · `.golden-slice-accepted` absent · `scripts/new-slice.sh` is a no-op |
 | Deployment tier | Tier 0 (`docs/package/42-Oracle-Cloud-Deployment.md`) |
 | Schema | `database/schema/01 · 13 · 13B · 019` — the ONLY permitted schema · `apply.sh --recreate` **green on this machine 2026-09-22**: 175 tables/14 schemas, `wms.verify_wh1()` 21/21 pass (3,330 locations), G1–G13 = 0 (G6 non-blocking, 2404 rows — WBS 0.16), G18/G-SEED report-only = 0 |
 | Session model | sonnet (opus only for the 2.9 session, an ADR, a security review, or a second failure) |
-| Toolchain | pnpm 9.15.9 · Node 25.2.1 · Docker 29.0.1 · **psql 16.15 installed 2026-09-22** (`C:\Program Files\PostgreSQL\16\bin`, User PATH) · TypeScript held at 5.9.3, ceiling `<6.1.0` (typescript-eslint peer) — CHANGELOG 0.4 |
+| Toolchain | pnpm 9.15.9 · Node 25.2.1 · Docker 29.0.1 · **psql 16.15 installed 2026-09-22** (`C:\Program Files\PostgreSQL\16\bin`, User PATH) · **migrations auto-runner enabled 2026-09-22**: `apply.sh` applies every `database/migrations/*.sql` sorted numerically after baseline (WBS 0.11) · TypeScript held at 5.9.3, ceiling `<6.1.0` (typescript-eslint peer) — CHANGELOG 0.4 |
 | Setup check | `scripts/check-setup.sh` → FILES READY · `scripts/check-boundaries.sh` → BOUNDARIES ENFORCED (A–F) · `apply.sh --recreate` GREEN 2026-09-22 · guards G1–G13/G18 GREEN (G14–G17 outside SQL, not yet run) |
 
 ## Lanes
@@ -22,12 +22,11 @@ None claimed. Live table: `tasks/LANE_LOCKS.md` — Phase 0 and the golden slice
 
 | task | commit |
 |---|---|
+| 0.11 — `packages/db`: Drizzle + `withContext()` + lint rule | `<pending>` |
 | 0.10 — `platform`: thresholds, feature flags, automation rules, decisions table | `<pending>` |
 | 0.9 — `platform` schema atomic allocator + audit chain proof | `<pending>` |
 | 0.14 — `packages/domain-kit`: Money, Quantity, Clock, IdGenerator | `a8f4899` |
 | 0.13 — `packages/contracts`: Zod → OpenAPI; ContractRegistry · Problem · Idempotency-Key · drift test | `50055f8` |
-| SCR-I18N-01 — Amharic (`am`) language added (G-01 · D-001) | `8d62747` |
-| 0.4 — pnpm · Turborepo · TS strict · ESLint boundaries | `05674b5` |
 
 ## Blockers
 
@@ -42,8 +41,8 @@ None claimed. Live table: `tasks/LANE_LOCKS.md` — Phase 0 and the golden slice
 
 ## Next 3 tasks
 
-1. **0.11–0.12** — `packages/db`, `packages/events` (READY, depend on 0.9).
-2. **0.6** — CI, the seven named gates (Master) — needs 0.4 (DONE) **and** 0.5 (lane A, WAITING_GM).
+1. **0.12** — `packages/events` (READY, lane B, depends on 0.9).
+2. **0.6** — CI, the seven named gates (Master) — needs 0.4 (DONE) and 0.5 (lane A, WAITING_GM).
 3. **0.15** — Document engine: templates, bindings, Chromium PDF, bilingual RTL (lane M, depends on 0.9).
 
 ## Notes
