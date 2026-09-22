@@ -176,7 +176,7 @@ if [[ "$RUN_GUARDS" -eq 1 ]]; then
   psql -d "$PGDATABASE" -v ON_ERROR_STOP=1 < "$DIR/guards.sql"
 
   echo
-  echo "  عدّ الحرّاس الحمر (G1–G13؛ G6 مهمة WBS 0.16 · G18 تقرير فقط):"
+  echo "  عدّ الحرّاس الحمر (G1–G13 مانعة · G18 تقرير فقط):"
   for g in \
     "G1|select count(*) from wms.verify_balance_integrity()" \
     "G2|select count(*) from billing.verify_journal_balance()" \
@@ -196,9 +196,8 @@ if [[ "$RUN_GUARDS" -eq 1 ]]; then
     n="$(q "$sql")"
     if [[ "$n" == "0" ]]; then
       printf '    %-4s %s ✓\n' "$name" "$n"
-    elif [[ "$name" == "G6" || "$name" == "G18" ]]; then
-      printf '    %-4s %s  (غير مانع — %s)\n' "$name" "$n" \
-        "$([[ "$name" == "G6" ]] && echo 'مهمة WBS 0.16' || echo 'تقرير فقط')"
+    elif [[ "$name" == "G18" ]]; then
+      printf '    %-4s %s  (غير مانع — تقرير فقط)\n' "$name" "$n"
     else
       printf '    %-4s %s ✗ يوقف النشر\n' "$name" "$n"
     fi

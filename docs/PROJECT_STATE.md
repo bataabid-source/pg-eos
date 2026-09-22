@@ -6,10 +6,10 @@ Maintained by pg-scribe only, in the same commit as the task it records.
 | field | value |
 |---|---|
 | Phase | 0 — Foundation |
-| Current task | **0.16** — Column sensitivity classification (TODO, lane M, depends on 0.9 DONE; **blocker: G6 must return 0**) |
+| Current task | **0.17** — M01 Identity: OTP login, sessions, roles, permissions, structure editor (TODO, lane M, depends on 0.11 DONE) |
 | Golden slice (2.9) | not built · `.golden-slice-accepted` absent · `scripts/new-slice.sh` is a no-op |
 | Deployment tier | Tier 0 (`docs/package/42-Oracle-Cloud-Deployment.md`) |
-| Schema | `database/schema/01 · 13 · 13B · 019` — the ONLY permitted schema · `apply.sh --recreate` **green on this machine 2026-09-22**: 175 tables/14 schemas, `wms.verify_wh1()` 21/21 pass (3,330 locations), G1–G13 = 0 (G6 non-blocking, 2605 rows — WBS 0.16), G18/G-SEED report-only = 0 |
+| Schema | `database/schema/01 · 13 · 13B · 019` — the ONLY permitted schema · `apply.sh --recreate` **green on this machine 2026-09-22**: 175 tables/14 schemas, `wms.verify_wh1()` 21/21 pass (3,330 locations), G1–G13 = 0 (G6 blocking, 0 rows — WBS 0.16 complete), G18/G-SEED report-only = 0 |
 | Session model | sonnet (opus only for the 2.9 session, an ADR, a security review, or a second failure) |
 | Toolchain | pnpm 9.15.9 · Node 25.2.1 · Docker 29.0.1 · psql 16.15 installed · migrations auto-runner enabled (WBS 0.11) · **psql UTF-8 fix** (WBS 0.15: stdin redirect not `-f` to avoid multi-byte corruption; trade-off: error output loses line numbers — see `apply.sh` header for details) · TypeScript 5.9.3 ceiling `<6.1.0` |
 | Setup check | `scripts/check-setup.sh` → FILES READY · `scripts/check-boundaries.sh` → BOUNDARIES ENFORCED (A–F) · `apply.sh --recreate` GREEN 2026-09-22 · guards G1–G13/G18 GREEN (G14–G17 outside SQL, not yet run) |
@@ -22,11 +22,11 @@ None claimed. Live table: `tasks/LANE_LOCKS.md` — Phase 0 and the golden slice
 
 | task | commit |
 |---|---|
+| 0.16 — Column sensitivity classification: `identity.column_classification` + deploy guard | `<pending>` |
 | 0.15 — Document engine: templates, bindings, Chromium PDF, bilingual RTL | `<pending>` |
 | 0.12 — `packages/events`: outbox relay + subscriber registry | `<pending>` |
 | 0.11 — `packages/db`: Drizzle + `withContext()` + lint rule | `<pending>` |
 | 0.10 — `platform`: thresholds, feature flags, automation rules, decisions table | `<pending>` |
-| 0.9 — `platform` schema atomic allocator + audit chain proof | `<pending>` |
 
 ## Blockers
 
@@ -41,9 +41,9 @@ None claimed. Live table: `tasks/LANE_LOCKS.md` — Phase 0 and the golden slice
 
 ## Next 3 tasks
 
-1. **0.16** — Column sensitivity classification (lane M, depends on 0.9; **blocker: G6 must return 0**).
-2. **0.17** — M01 Identity: OTP login, sessions, roles, permissions, structure editor (lane M, depends on 0.11).
-3. **0.18** — RLS enabled on every operational table in 01/13/13B/019 (lane M, depends on 0.17).
+1. **0.17** — M01 Identity: OTP login, sessions, roles, permissions, structure editor (lane M, depends on 0.11).
+2. **0.18** — RLS enabled on every operational table in 01/13/13B/019 (lane M, depends on 0.17).
+3. **0.19** — Admin app shell: navigation, Decision Inbox, empty-state component, design system (lane M, depends on 0.17).
 
 ## Notes
 

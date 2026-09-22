@@ -1,6 +1,7 @@
 # LANE_LOCKS — module ownership, one row per claimed module
 
-(No active lane locks. Phase 0 and the golden slice are never parallelised.)
+| module | lane | task | claimed_at | worktree |
+|---|---|---|---|---|
 
 ## Migrations issued
 
@@ -8,6 +9,7 @@ Not a lock table — deliberately not a `|`-prefixed markdown table, since
 `.claude/hooks/lane-guard.sh` parses every such line in this file as a
 module-lock row (see Rules below). One line per migration, newest first:
 
+- `0002_M_classify-columns.sql` — lane M, task 0.16, applied 2026-09-22.
 - `0001_B_fix-is-internal-empty-guc.sql` — lane B, task 0.11, applied 2026-09-22.
 
 ## Rules (CLAUDE.md · PARALLEL LANES — CONFLICT-FREE MECHANISM (v5))

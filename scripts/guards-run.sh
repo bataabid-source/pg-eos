@@ -8,14 +8,14 @@
 # The pass condition is CLAUDE.md · TESTING:
 #   - G1–G17 must each return zero rows or their stated condition; a single failure blocks merge
 #     and deploy. G1–G13 are the SQL half and are evaluated here.
-#   - G6 (unclassified columns) is non-blocking until WBS 0.16 closes classification — reported as
-#     a WARNING here, exactly as BOOTSTRAP-v5 §3 of the Phase-0 gate states.
+#   - G6 (unclassified columns) is a normal blocking guard (WBS 0.16 closed column
+#     classification; identity.column_classification now covers every column G6 checks).
 #   - G18 (billing.verify_unpriced_events) is REPORT-ONLY and never blocks.
 #   - G-SEED (reference-seed completeness) is REPORT-ONLY and never blocks.
 #   - G14–G17 are not SQL and are not run here: `pnpm test:isolation` · `pnpm playwright test
 #     tests/scenarios` · `pnpm stryker run` · `pnpm test:trace`.
 #
-# Exit: 0 all blocking guards green · 1 at least one of G1–G13 (excluding G6) returned a row
+# Exit: 0 all blocking guards green · 1 at least one of G1–G13 (G6 included, WBS 0.16 closed) returned a row
 #       · 2 the guards file or psql could not be run.
 set -uo pipefail
 
@@ -68,9 +68,6 @@ for g in G1 G2 G3 G4 G5 G6 G7 G8 G9 G10 G11 G12 G13 G18 G-SEED; do
   rows="$(printf '%s\n' "$SUMMARY" | awk -v k="$g" '$1==k {print $2}')"
   rows="${rows:-0}"
   case "$g" in
-    G6)
-      if [ "$rows" -gt 0 ]; then report_line "$g" "$rows" "WARNING — unclassified columns; non-blocking until WBS 0.16"
-      else report_line "$g" "$rows" "green"; fi ;;
     G18)
       if [ "$rows" -gt 0 ]; then report_line "$g" "$rows" "REPORT ONLY — unpriced billing events"
       else report_line "$g" "$rows" "green"; fi ;;
