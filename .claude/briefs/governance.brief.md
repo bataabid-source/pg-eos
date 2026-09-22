@@ -1,6 +1,6 @@
 # `governance` — module brief (generated)
 
-Generated 2026-09-21 by `scripts/gen-briefs.py` from the live schema (`175` tables, 14 schemas). **Do not hand-edit** — change the schema under G-01, then re-run the script.
+Generated 2026-09-22 by `scripts/gen-briefs.py` from the live schema (`175` tables, 14 schemas). **Do not hand-edit** — change the schema under G-01, then re-run the script.
 Schema `governance` · tables in this module: 14 · default lane: 3 (doc 38 `Lane` column governs).
 
 ## 1. Where the rules are
@@ -16,7 +16,7 @@ Schema `governance` · tables in this module: 14 · default lane: 3 (doc 38 `Lan
 | `budget_lines` | — | no | internal_only |
 | `budgets` | — | yes | entity_scope |
 | `corrective_actions` | — | no | internal_only |
-| `decisions` | 36 §6-2 · 40 §C9: سجل القرارات المركزي الدائم. غير platfo… | no | internal_only |
+| `decisions` | 36 ط¢آ§6-2 ط¢آ· 40 ط¢آ§C9: ط·آ³ط·آ¬ط¸â€‍ ط·آ§ط¸â€‍ط¸â€ڑط·… | no | internal_only |
 | `key_results` | — | no | internal_only |
 | `kpi_actuals` | — | no | internal_only |
 | `kpi_targets` | — | no | internal_only |

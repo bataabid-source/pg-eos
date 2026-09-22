@@ -1,6 +1,6 @@
 # `fleet` — module brief (generated)
 
-Generated 2026-09-21 by `scripts/gen-briefs.py` from the live schema (`175` tables, 14 schemas). **Do not hand-edit** — change the schema under G-01, then re-run the script.
+Generated 2026-09-22 by `scripts/gen-briefs.py` from the live schema (`175` tables, 14 schemas). **Do not hand-edit** — change the schema under G-01, then re-run the script.
 Schema `tms` · tables in this module: 6 · default lane: 3 (doc 38 `Lane` column governs).
 > **`fleet` has no schema of its own — its tables live in schema `tms`.** Lane 3 owns `fleet`, lane 2 owns `tms` delivery; both write inside schema `tms`, so a migration touching either is requested from the Master (BOOTSTRAP-v5 §6).
 

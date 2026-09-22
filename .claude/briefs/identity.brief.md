@@ -1,6 +1,6 @@
 # `identity` — module brief (generated)
 
-Generated 2026-09-21 by `scripts/gen-briefs.py` from the live schema (`175` tables, 14 schemas). **Do not hand-edit** — change the schema under G-01, then re-run the script.
+Generated 2026-09-22 by `scripts/gen-briefs.py` from the live schema (`175` tables, 14 schemas). **Do not hand-edit** — change the schema under G-01, then re-run the script.
 Schema `identity` · tables in this module: 11 · default lane: M (doc 38 `Lane` column governs).
 
 ## 1. Where the rules are
@@ -15,7 +15,7 @@ Schema `identity` · tables in this module: 11 · default lane: M (doc 38 `Lane`
 | table | row purpose (obj_description) | entity_id | RLS policies |
 |---|---|---|---|
 | `column_classification` | — | no | reference_read · reference_write |
-| `delegations` | EXECUTION-MASTER-v4 §1.6 (ex DECISIONS-ADDENDUM §2) (ADR-… | no | internal_only |
+| `delegations` | EXECUTION-MASTER-v4 ط¢آ§1.6 (ex DECISIONS-ADDENDUM ط¢آ§2)… | no | internal_only |
 | `otp_codes` | — | no | internal_only |
 | `permissions` | — | no | reference_read · reference_write |
 | `role_permissions` | — | no | reference_read · reference_write |

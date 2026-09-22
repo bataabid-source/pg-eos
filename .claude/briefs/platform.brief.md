@@ -1,6 +1,6 @@
 # `platform` — module brief (generated)
 
-Generated 2026-09-21 by `scripts/gen-briefs.py` from the live schema (`175` tables, 14 schemas). **Do not hand-edit** — change the schema under G-01, then re-run the script.
+Generated 2026-09-22 by `scripts/gen-briefs.py` from the live schema (`175` tables, 14 schemas). **Do not hand-edit** — change the schema under G-01, then re-run the script.
 Schema `platform` · tables in this module: 26 · default lane: M (doc 38 `Lane` column governs).
 
 ## 1. Where the rules are
@@ -27,20 +27,20 @@ Schema `platform` · tables in this module: 26 · default lane: M (doc 38 `Lane`
 | `automation_rules` | — | no | reference_read · reference_write |
 | `counters` | — | yes | reference_read · reference_write |
 | `decisions` | — | yes | entity_scope |
-| `document_bindings` | لا تبويب نماذج. كل مستند مربوط بعملية وانتقال حالة يولّده… | no | reference_read · reference_write |
+| `document_bindings` | ط¸â€‍ط·آ§ ط·ع¾ط·آ¨ط¸ث†ط¸ظ¹ط·آ¨ ط¸â€ ط¸â€¦ط·آ§ط·آ°ط·آ¬. ط¸… | no | reference_read · reference_write |
 | `document_templates` | — | yes | reference_read · reference_write |
 | `documents` | — | yes | entity_scope |
 | `domain_owners` | — | no | reference_read · reference_write |
-| `domain_quality_monthly` | بطاقة جودة البيانات الشهرية لكل مجال D01–D12 — مصدر التنب… | no | internal_only |
-| `entities` | الكيانات القانونية. الشركة القابضة (holding) جذر الشجرة و… | no | internal_only |
+| `domain_quality_monthly` | ط·آ¨ط·آ·ط·آ§ط¸â€ڑط·آ© ط·آ¬ط¸ث†ط·آ¯ط·آ© ط·آ§ط¸â€‍ط·آ¨ط¸ظ¹ط… | no | internal_only |
+| `entities` | ط·آ§ط¸â€‍ط¸ئ’ط¸ظ¹ط·آ§ط¸â€ ط·آ§ط·ع¾ ط·آ§ط¸â€‍ط¸â€ڑط·آ§ط¸â€… | no | internal_only |
 | `feature_flags` | — | no | reference_read · reference_write |
 | `integration_config` | — | no | reference_read · reference_write |
 | `integration_queue` | — | no | internal_only |
 | `integration_runs` | — | no | internal_only |
 | `notifications` | — | yes | entity_scope |
-| `outbox` | صندوق صادر معامَلاتي — 40 §B3. يُكتب في نفس معاملة تغيير… | yes | entity_scope |
+| `outbox` | ط·آµط¸â€ ط·آ¯ط¸ث†ط¸â€ڑ ط·آµط·آ§ط·آ¯ط·آ± ط¸â€¦ط·آ¹ط·آ§ط¸â€… | yes | entity_scope |
 | `settings` | — | yes | reference_read · reference_write |
-| `thresholds` | الحدود العددية التي يحرّرها المدير العام بلا نشر (40 §B5)… | no | reference_read · reference_write |
+| `thresholds` | ط·آ§ط¸â€‍ط·آ­ط·آ¯ط¸ث†ط·آ¯ ط·آ§ط¸â€‍ط·آ¹ط·آ¯ط·آ¯ط¸ظ¹ط·آ© ط… | no | reference_read · reference_write |
 
 ## 3. Status columns and their allowed values (check constraints)
 

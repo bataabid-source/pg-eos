@@ -1,6 +1,6 @@
 # `partners` — module brief (generated)
 
-Generated 2026-09-21 by `scripts/gen-briefs.py` from the live schema (`175` tables, 14 schemas). **Do not hand-edit** — change the schema under G-01, then re-run the script.
+Generated 2026-09-22 by `scripts/gen-briefs.py` from the live schema (`175` tables, 14 schemas). **Do not hand-edit** — change the schema under G-01, then re-run the script.
 Schema `partners` · tables in this module: 6 · default lane: 3 (doc 38 `Lane` column governs).
 
 ## 1. Where the rules are

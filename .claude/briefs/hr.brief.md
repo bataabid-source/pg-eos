@@ -1,6 +1,6 @@
 # `hr` — module brief (generated)
 
-Generated 2026-09-21 by `scripts/gen-briefs.py` from the live schema (`175` tables, 14 schemas). **Do not hand-edit** — change the schema under G-01, then re-run the script.
+Generated 2026-09-22 by `scripts/gen-briefs.py` from the live schema (`175` tables, 14 schemas). **Do not hand-edit** — change the schema under G-01, then re-run the script.
 Schema `hr` · tables in this module: 14 · default lane: 2 (doc 38 `Lane` column governs).
 
 ## 1. Where the rules are
@@ -21,12 +21,12 @@ Schema `hr` · tables in this module: 14 · default lane: 2 (doc 38 `Lane` colum
 | `employees` | — | yes | entity_scope |
 | `manpower_requests` | — | yes | entity_scope |
 | `org_units` | — | yes | reference_read · reference_write |
-| `penalty_schedule` | لائحة الجزاءات — البنود نفسها في وثيقة 15 §2..§5 وتُبذَر… | no | reference_read · reference_write |
+| `penalty_schedule` | ط¸â€‍ط·آ§ط·آ¦ط·آ­ط·آ© ط·آ§ط¸â€‍ط·آ¬ط·آ²ط·آ§ط·طŒط·آ§ط·ع¾ أ… | no | reference_read · reference_write |
 | `recruitment_cases` | — | yes | entity_scope |
 | `recruitment_costs` | — | no | internal_only |
 | `recruitment_stage_log` | — | no | internal_only |
 | `recruitment_stages` | — | no | reference_read · reference_write |
-| `sales_commission_events` | استحقاق عمولة المبيعات لكل تحصيل أو إشعار دائن أو عقد — S… | yes | entity_scope · own_sales_commission |
+| `sales_commission_events` | ط·آ§ط·آ³ط·ع¾ط·آ­ط¸â€ڑط·آ§ط¸â€ڑ ط·آ¹ط¸â€¦ط¸ث†ط¸â€‍ط·آ© ط·آ… | yes | entity_scope · own_sales_commission |
 | `teams` | — | yes | reference_read · reference_write |
 
 ## 3. Status columns and their allowed values (check constraints)

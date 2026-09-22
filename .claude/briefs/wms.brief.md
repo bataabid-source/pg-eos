@@ -1,6 +1,6 @@
 # `wms` — module brief (generated)
 
-Generated 2026-09-21 by `scripts/gen-briefs.py` from the live schema (`175` tables, 14 schemas). **Do not hand-edit** — change the schema under G-01, then re-run the script.
+Generated 2026-09-22 by `scripts/gen-briefs.py` from the live schema (`175` tables, 14 schemas). **Do not hand-edit** — change the schema under G-01, then re-run the script.
 Schema `wms` · tables in this module: 20 · default lane: 1 (doc 38 `Lane` column governs).
 
 ## 1. Where the rules are
@@ -29,12 +29,12 @@ Schema `wms` · tables in this module: 20 · default lane: 1 (doc 38 `Lane` colu
 | `space_blocks_out_of_service` | — | no | internal_only |
 | `space_reservations` | — | yes | client_portal_scope · entity_scope |
 | `stock_balance` | — | no | internal_only |
-| `stock_movements` | دفتر لا يُعدَّل. التصحيح بحركة تسوية مقابلة فقط | yes | entity_scope |
+| `stock_movements` | ط·آ¯ط¸ظ¾ط·ع¾ط·آ± ط¸â€‍ط·آ§ ط¸ظ¹ط¸عˆط·آ¹ط·آ¯ط¸عکط¸â€کط¸â€‍… | yes | entity_scope |
 | `warehouses` | — | yes | reference_read · reference_write |
-| `work_order_events` | سجل زمني لأوامر العمل ومهامها — دفتر لا يُعدَّل. التصحيح… | no | internal_only |
-| `work_order_task_types` | 12 §1: خريطة الخدمات الداخلية الـ39 إلى أنواع المهام الخم… | no | internal_only |
-| `work_order_tasks` | المهمة المسنَدة لعامل بعينه — بوقت بدء وانتهاء وكمية منجز… | no | internal_only |
-| `work_orders` | أمر عمل داخل المستودع — الوحدة القابلة للإسناد والتتبّع و… | yes | client_portal_scope · entity_scope |
+| `work_order_events` | ط·آ³ط·آ¬ط¸â€‍ ط·آ²ط¸â€¦ط¸â€ ط¸ظ¹ ط¸â€‍ط·آ£ط¸ث†ط·آ§ط¸â€¦ط·… | no | internal_only |
+| `work_order_task_types` | 12 ط¢آ§1: ط·آ®ط·آ±ط¸ظ¹ط·آ·ط·آ© ط·آ§ط¸â€‍ط·آ®ط·آ¯ط¸â€¦ط·آ§… | no | internal_only |
+| `work_order_tasks` | ط·آ§ط¸â€‍ط¸â€¦ط¸â€،ط¸â€¦ط·آ© ط·آ§ط¸â€‍ط¸â€¦ط·آ³ط¸â€ ط¸عکط… | no | internal_only |
+| `work_orders` | ط·آ£ط¸â€¦ط·آ± ط·آ¹ط¸â€¦ط¸â€‍ ط·آ¯ط·آ§ط·آ®ط¸â€‍ ط·آ§ط¸â€‍ط… | yes | client_portal_scope · entity_scope |
 | `zones` | — | no | reference_read · reference_write |
 
 ## 3. Status columns and their allowed values (check constraints)

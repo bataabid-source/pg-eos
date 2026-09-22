@@ -1,6 +1,6 @@
 # `imile` — module brief (generated)
 
-Generated 2026-09-21 by `scripts/gen-briefs.py` from the live schema (`175` tables, 14 schemas). **Do not hand-edit** — change the schema under G-01, then re-run the script.
+Generated 2026-09-22 by `scripts/gen-briefs.py` from the live schema (`175` tables, 14 schemas). **Do not hand-edit** — change the schema under G-01, then re-run the script.
 Schema `imile` · tables in this module: 15 · default lane: 2 (doc 38 `Lane` column governs).
 
 ## 1. Where the rules are
@@ -14,15 +14,15 @@ Schema `imile` · tables in this module: 15 · default lane: 2 (doc 38 `Lane` co
 | table | row purpose (obj_description) | entity_id | RLS policies |
 |---|---|---|---|
 | `agent_health` | — | no | internal_only |
-| `coverage_areas` | بلا بذرة عمداً: قائمة المناطق بيانات تشغيلية يُدخلها مشرف… | no | reference_read · reference_write |
+| `coverage_areas` | ط·آ¨ط¸â€‍ط·آ§ ط·آ¨ط·آ°ط·آ±ط·آ© ط·آ¹ط¸â€¦ط·آ¯ط·آ§ط¸â€¹: ط¸… | no | reference_read · reference_write |
 | `daily_inventory` | — | no | internal_only |
 | `dispatch_autonomy` | — | no | internal_only |
 | `driver_id_assignments` | — | no | internal_only |
 | `driver_ids` | — | no | internal_only |
-| `driver_trust` | ADR-28 §9. الاحتفاظ 24 شهراً (تاريخ). لا يُعرض للسائق كقي… | no | internal_only |
+| `driver_trust` | ADR-28 ط¢آ§9. ط·آ§ط¸â€‍ط·آ§ط·آ­ط·ع¾ط¸ظ¾ط·آ§ط·آ¸ 24 ط·آ´ط¸… | no | internal_only |
 | `driver_zone_exclusions` | — | no | internal_only |
 | `dtl_problems` | — | no | internal_only |
-| `dtl_rule_autonomy` | ADR-27 §8: الاستقلالية تُكتسب لكل (نوع مشكلة × نوع قرار).… | no | internal_only |
+| `dtl_rule_autonomy` | ADR-27 ط¢آ§8: ط·آ§ط¸â€‍ط·آ§ط·آ³ط·ع¾ط¸â€ڑط¸â€‍ط·آ§ط¸â€‍ط¸ظ… | no | internal_only |
 | `inventory_discrepancies` | — | no | internal_only |
 | `plan_assignments` | — | no | internal_only |
 | `scan_log` | — | no | internal_only |

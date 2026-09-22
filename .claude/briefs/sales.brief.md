@@ -1,6 +1,6 @@
 # `sales` — module brief (generated)
 
-Generated 2026-09-21 by `scripts/gen-briefs.py` from the live schema (`175` tables, 14 schemas). **Do not hand-edit** — change the schema under G-01, then re-run the script.
+Generated 2026-09-22 by `scripts/gen-briefs.py` from the live schema (`175` tables, 14 schemas). **Do not hand-edit** — change the schema under G-01, then re-run the script.
 Schema `sales` · tables in this module: 11 · default lane: 2 (doc 38 `Lane` column governs).
 
 ## 1. Where the rules are
@@ -14,7 +14,7 @@ Schema `sales` · tables in this module: 11 · default lane: 2 (doc 38 `Lane` co
 
 | table | row purpose (obj_description) | entity_id | RLS policies |
 |---|---|---|---|
-| `account_ownership_history` | سجل ملكية حساب العميل بتاريخ — أساس تقسيم العمولة عند نقل… | yes | entity_scope |
+| `account_ownership_history` | ط·آ³ط·آ¬ط¸â€‍ ط¸â€¦ط¸â€‍ط¸ئ’ط¸ظ¹ط·آ© ط·آ­ط·آ³ط·آ§ط·آ¨ ط·آ… | yes | entity_scope |
 | `accounts` | — | no | client_portal_scope |
 | `activities` | — | no | internal_only |
 | `contacts` | — | no | internal_only |
