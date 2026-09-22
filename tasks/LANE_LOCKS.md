@@ -1,6 +1,7 @@
 # LANE_LOCKS — module ownership, one row per claimed module
 
-Currently none claimed.
+| module | lane | task | claimed_at | worktree |
+|---|---|---|---|---|
 
 ## Migrations issued
 

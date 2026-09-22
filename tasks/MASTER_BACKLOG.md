@@ -32,7 +32,7 @@ Type: 🧑 human decision/data · 🤖 AI-buildable slice · 🔧 infra · ✅ v
 | 0.9 | `platform` schema from 01 + 13B: entities, settings, counters, `next_doc_no`, **`platform.outbox`** (`domain_events` dropped), **`platform.audit_log` partitioned monthly, PK `(id, occurred_at)`, with the eleven v4 columns of doc 40 §B2 and the `audit_hash_chain` trigger** | 🤖 | 0.4 | **B** | SYSADMIN | 100 concurrent `next_doc_no` calls → 100 unique numbers; `platform.verify_audit_chain()` returns zero rows and detects a deliberately tampered row | DONE @ <pending> |
 | 0.10 | `platform`: thresholds, feature flags, automation rules, decisions table | 🤖 | 0.9 | **B** | SYSADMIN | Threshold change takes effect without redeploy | DONE @ <pending> |
 | 0.11 | `packages/db`: Drizzle + `withContext()` + lint rule | 🤖 | 0.9 | **B** | SYSADMIN | `db.` outside `withContext()` fails build | DONE @ <pending> |
-| 0.12 | `packages/events`: outbox relay + subscriber registry | 🤖 | 0.9 | **B** | SYSADMIN | Event written in same tx as state; relay at-least-once; subscriber idempotent | TODO |
+| 0.12 | `packages/events`: outbox relay + subscriber registry | 🤖 | 0.9 | **B** | SYSADMIN | Event written in same tx as state; relay at-least-once; subscriber idempotent | DONE @ <pending> |
 | 0.13 | `packages/contracts`: Zod → OpenAPI generation | 🤖 | 0.4 | **C** | SYSADMIN | OpenAPI spec generated; contract test harness runs | DONE @ 50055f8 |
 | 0.14 | `packages/domain-kit`: Money, Quantity, Clock, IdGenerator | 🤖 | 0.4 | **C** | SYSADMIN | Domain tests deterministic across 1,000 runs | DONE @ <pending> |
 | 0.15 | Document engine: templates, bindings, Chromium PDF, bilingual RTL | 🤖 | 0.9 | **M** | SYSADMIN | Arabic/English PDF renders correctly; entity header auto-applied | TODO |

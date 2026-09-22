@@ -6,7 +6,7 @@ Maintained by pg-scribe only, in the same commit as the task it records.
 | field | value |
 |---|---|
 | Phase | 0 — Foundation |
-| Current task | **0.12** — `packages/events` (READY, lane B, depends on 0.9 DONE) |
+| Current task | **0.15** — Document engine: templates, bindings, Chromium PDF, bilingual RTL (READY, lane M, depends on 0.9 DONE) |
 | Golden slice (2.9) | not built · `.golden-slice-accepted` absent · `scripts/new-slice.sh` is a no-op |
 | Deployment tier | Tier 0 (`docs/package/42-Oracle-Cloud-Deployment.md`) |
 | Schema | `database/schema/01 · 13 · 13B · 019` — the ONLY permitted schema · `apply.sh --recreate` **green on this machine 2026-09-22**: 175 tables/14 schemas, `wms.verify_wh1()` 21/21 pass (3,330 locations), G1–G13 = 0 (G6 non-blocking, 2404 rows — WBS 0.16), G18/G-SEED report-only = 0 |
@@ -22,11 +22,11 @@ None claimed. Live table: `tasks/LANE_LOCKS.md` — Phase 0 and the golden slice
 
 | task | commit |
 |---|---|
+| 0.12 — `packages/events`: outbox relay + subscriber registry | `<pending>` |
 | 0.11 — `packages/db`: Drizzle + `withContext()` + lint rule | `<pending>` |
 | 0.10 — `platform`: thresholds, feature flags, automation rules, decisions table | `<pending>` |
 | 0.9 — `platform` schema atomic allocator + audit chain proof | `<pending>` |
 | 0.14 — `packages/domain-kit`: Money, Quantity, Clock, IdGenerator | `a8f4899` |
-| 0.13 — `packages/contracts`: Zod → OpenAPI; ContractRegistry · Problem · Idempotency-Key · drift test | `50055f8` |
 
 ## Blockers
 
@@ -41,9 +41,9 @@ None claimed. Live table: `tasks/LANE_LOCKS.md` — Phase 0 and the golden slice
 
 ## Next 3 tasks
 
-1. **0.12** — `packages/events` (READY, lane B, depends on 0.9).
-2. **0.6** — CI, the seven named gates (Master) — needs 0.4 (DONE) and 0.5 (lane A, WAITING_GM).
-3. **0.15** — Document engine: templates, bindings, Chromium PDF, bilingual RTL (lane M, depends on 0.9).
+1. **0.15** — Document engine: templates, bindings, Chromium PDF, bilingual RTL (READY, lane M, depends on 0.9).
+2. **0.16** — Column sensitivity classification (lane M, depends on 0.9; **blocker: G6 must return 0**).
+3. **0.17** — M01 Identity: OTP login, sessions, roles, permissions, structure editor (lane M, depends on 0.11).
 
 ## Notes
 
