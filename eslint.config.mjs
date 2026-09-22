@@ -21,6 +21,8 @@ import js from '@eslint/js';
 import boundaries from 'eslint-plugin-boundaries';
 import tseslint from 'typescript-eslint';
 
+import noDbOutsideWithContext from './packages/db/eslint-rules/no-db-outside-with-context.js';
+
 /** Module packages, read from disk so a new module is covered the day it is created. */
 const MODULES = readdirSync('modules', { withFileTypes: true })
   .filter((entry) => entry.isDirectory())
@@ -100,6 +102,18 @@ export default tseslint.config(
       '@typescript-eslint/no-explicit-any': 'error',
       '@typescript-eslint/ban-ts-comment': 'error',
       'no-console': 'error',
+    },
+  },
+
+  // ── all DB access goes through withContext(ctx, fn), CLAUDE.md · ARCHITECTURE ──────────────
+  // packages/db/** itself is excluded: its own client.ts/with-context.ts implementation IS the
+  // safe path (the plumbing the rule protects), not a caller that needs to route through it.
+  {
+    files: SOURCE,
+    ignores: ['packages/db/**'],
+    plugins: { local: { rules: { 'no-db-outside-with-context': noDbOutsideWithContext } } },
+    rules: {
+      'local/no-db-outside-with-context': 'error',
     },
   },
 
