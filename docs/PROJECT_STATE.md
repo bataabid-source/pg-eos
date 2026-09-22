@@ -6,7 +6,7 @@ Maintained by pg-scribe only, in the same commit as the task it records.
 | field | value |
 |---|---|
 | Phase | 0 — Foundation |
-| Current task | **0.17** — M01 Identity: OTP login, sessions, roles, permissions, structure editor (TODO, lane M, depends on 0.11 DONE) |
+| Current task | **None READY** — 0.17 BLOCKED, escalated to GM (sequencing conflict, see Blockers) |
 | Golden slice (2.9) | not built · `.golden-slice-accepted` absent · `scripts/new-slice.sh` is a no-op |
 | Deployment tier | Tier 0 (`docs/package/42-Oracle-Cloud-Deployment.md`) |
 | Schema | `database/schema/01 · 13 · 13B · 019` — the ONLY permitted schema · `apply.sh --recreate` **green on this machine 2026-09-22**: 175 tables/14 schemas, `wms.verify_wh1()` 21/21 pass (3,330 locations), G1–G13 = 0 (G6 blocking, 0 rows — WBS 0.16 complete), G18/G-SEED report-only = 0 |
@@ -37,13 +37,18 @@ None claimed. Live table: `tasks/LANE_LOCKS.md` — Phase 0 and the golden slice
   `.claude/agents`, `.claude/commands` or the lane-guard hook, so `docs/MODEL_ROUTING.md` cannot be followed
   and all work falls back to the Master (this happened in 0.4 — CHANGELOG). Check: `/resume` is offered.
 - **Git lock files cannot be deleted** (`.git/*.lock` → `stale-*.lock-*`); remove by hand.
+- **0.17 BLOCKED — escalated to GM 2026-09-22, `docs/notes/0.17-sequencing-decision-request.md`.**
+  0.17's acceptance needs real login endpoints + an admin UI, but golden slice 2.9 isn't accepted
+  (`scripts/new-slice.sh` a no-op) and 0.19 (admin shell) depends on 0.17 — circular. User chose
+  "stop and escalate" over the Master's own suggested narrowed-scope option. Likely affects EVERY
+  later task needing real hexagonal module/UI code, not just 0.17 — GM decision may be project-wide.
 - A REAL BLOCKER: acceptance fails · legal/money decision absent · schema missing and G-01 forbids. Else state default, record in CHANGELOG, proceed.
 
 ## Next 3 tasks
 
-1. **0.17** — M01 Identity: OTP login, sessions, roles, permissions, structure editor (lane M, depends on 0.11).
-2. **0.18** — RLS enabled on every operational table in 01/13/13B/019 (lane M, depends on 0.17).
-3. **0.19** — Admin app shell: navigation, Decision Inbox, empty-state component, design system (lane M, depends on 0.17).
+None confirmed READY pending the GM's 0.17 decision above — 0.18/0.19 both depend on 0.17, and any
+other task needing real module/UI code likely hits the same golden-slice wall. Re-run `/resume`
+once the GM responds.
 
 ## Notes
 
