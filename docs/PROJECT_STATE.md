@@ -6,7 +6,7 @@ Maintained by pg-scribe only, in the same commit as the task it records.
 | field | value |
 |---|---|
 | Phase | 0 — Foundation |
-| Current task | **0.18** — RLS client-isolation test (G7=0 already; this slice adds the ID-tampering test via withContext — no UI/endpoint needed, lane M) |
+| Current task | **0.18** — RLS client-isolation test (G7=0 already; ID-tampering test via `withContext`, no UI/endpoint, lane M). **Pre-flight verified 2026-09-23 (`<pending>`): no 0.18 test exists on any branch/worktree yet; `withContext` + the five `client_portal_scope`/`sku_client_scope` tables are all present in 01, so NO new migration is needed — but `PGUSER=postgres` is superuser and bypasses RLS unconditionally, and `database/schema/**` + `database/migrations/**` contain zero `create role`. G14 (`pnpm test:isolation`) is also undefined in every `package.json`. A non-superuser `NOBYPASSRLS` app role is a G-01 prerequisite; without it the test cannot honestly pass.** |
 | Golden slice (2.9) | not built · `.golden-slice-accepted` absent · `scripts/new-slice.sh` is a no-op. **Acceptance gains a Phase-0 wiring line (GM 2026-09-22): the golden slice must wire up every part deferred from Phase-0 "mechanism only" tasks — starting with 0.17's login endpoints.** |
 | Deployment tier | Tier 0 (`docs/package/42-Oracle-Cloud-Deployment.md`) |
 | Schema | `database/schema/01 · 13 · 13B · 019` — the ONLY permitted schema · `apply.sh --recreate` **green on this machine 2026-09-22**: 175 tables/14 schemas, `wms.verify_wh1()` 21/21 pass (3,330 locations), G1–G13 = 0 (G6 blocking, 0 rows — WBS 0.16 complete), G18/G-SEED report-only = 0 |
@@ -41,8 +41,8 @@ None claimed. Live table: `tasks/LANE_LOCKS.md` — Phase 0 and the golden slice
 
 ## Next 3 tasks
 
-1. **0.18** — RLS already schema-enabled (G7=0); this slice adds the client-isolation test via
-   `withContext` — no UI/endpoint needed, fully buildable now (lane M).
+1. **0.18** — client-isolation test via `withContext`; no UI/endpoint, no new migration. **Blocked
+   on a G-01 non-superuser app role (see Current task) — NOT "fully buildable now".** (lane M)
 2. **0.19** — deferred in full (its acceptance criterion IS a rendered screen — no part reduces to
    a mechanism+tests package under the Phase-0 rule); revisit after 2.9 + admin shell scaffold.
 3. **0.20** — Runbook v1 (deploy, rollback, restore, secrets rotation) — drafted as soon as 0.6 is green (lane A).
@@ -51,6 +51,7 @@ None claimed. Live table: `tasks/LANE_LOCKS.md` — Phase 0 and the golden slice
 
 - WAITING_GM (never blocks code lanes): Phase 0 lane A — 0.2 · 0.3 · 0.5 · 0.7 · 0.8 · 0.20, plus four in `tasks/proposed/`.
 - Phase 0 gate: 0.18 isolation (G7 = 0) · 0.16 classification (G6 = 0) · 0.8 restore · 0.1 owners · 0.2 decisions.
+- 0.9's two abandoned WIP branches (`0217e85`, `f127ab2`) are catalogued in `docs/notes/0.9-abandoned-wip.md` — never merge, never delete; 0.9 stays closed at `aa46787`.
 - psql 16 + docker postgres verified 2026-09-22 (CHANGELOG). `docker compose up -d postgres` needs
   `PGADMIN_PASSWORD` set to any value (interpolation quirk, profile-gated service, not fixed).
 - **Standing rule (GM 2026-09-22, `docs/notes/0.17-sequencing-decision-request.md`):** every
