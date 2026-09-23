@@ -16,6 +16,10 @@ BUILD METHOD (doc 36 §5) — every slice, in order, never skipping:
 - ADRs live in docs/adr/ (template + numbering in docs/adr/README.md). ADR-0001 authorises WBS 1.5 as a proof slice
   (data model + seed) ahead of the golden slice. Proof/mechanism slices before 2.9 (0.9, 0.17, 0.18, 2.1, 2.8) follow the
   standing substitute recorded in CHANGELOG 0.16 / 2.1; every use-case slice replicates 2.9.
+- SLICE SEQUENCE (fixed, GM 2026-09-23): pg-tester (RED) → pg-backend / pg-frontend (build) → pg-tester (verify GREEN)
+  → pg-reviewer (opus) → pg-scribe → ONE `feat(<WBS>)` commit. pg-tester writes only test files (`tests/**`, `**/tests/**`,
+  `*.test.*`, `*.spec.*`, `features/**`, `*.feature`); builders never touch a test file — a test defect goes back to
+  pg-tester. pg-reviewer is also called BEFORE any migration touching the schema, RLS or the audit chain is written.
 - GOLDEN SLICE = WBS 2.9 "Receive inbound order." Built once with full human review. Every later
   slice replicates its file structure exactly. No file without a counterpart in the golden slice.
 - Code track and infra track are independent. Never block code on a manual infra task; develop on

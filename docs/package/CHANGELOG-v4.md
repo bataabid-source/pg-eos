@@ -81,3 +81,10 @@ pst-warehouse-3d: حارس three.js · الكود السباعي وكود الإ
 ## 13. إضافة (23/09/2026) — تثبيت نموذج pg-scribe على sonnet
 
 - **توجيه المدير العام 2026-09-23 (لا haiku؛ `pg-scribe` = sonnet):** `A-governing/BOOTSTRAP-v5.md` §3 السطر 69 (`pg-scribe     model: haiku` → `model: sonnet`) و§4 جدول التوجيه السطر 84 (`pg-scribe | haiku | ≤ 10k` → `pg-scribe | sonnet | ≤ 10k`)، الإصدار 5.0 → 5.1؛ و`41-Cloud-and-AI-Efficiency.md` §1 السطر 93 (`pg-scribe` haiku → `pg-scribe` sonnet)، الإصدار 4.0 → 4.1. `CLAUDE.md` و`docs/MODEL_ROUTING.md` كانا قد طابقا هذا التثبيت مسبقاً في الالتزام `dc3cc1b`.
+
+## 14. إضافة (23/09/2026) — نطاقات كتابة الوكلاء وتسلسل الشريحة الثابت
+
+- **توجيه المدير العام 2026-09-23 (بلا وكيل جديد):** `pg-tester` يكتب ملفات الاختبار فقط (`tests/**` · `**/tests/**` · `*.test.*` · `*.spec.*` · `features/**` · `*.feature`) ويُستدعى ثانيةً للتحقق بعد البناء؛ `pg-backend` لا يمسّ أي ملف اختبار وأي خلل في اختبار يعود إلى `pg-tester`؛ `pg-reviewer` يُستدعى عند إغلاق الشريحة **وقبل** كتابة أي ترحيل يمسّ المخطط أو RLS أو سلسلة التدقيق. التسلسل الثابت: tester ← backend ← tester (تحقق) ← reviewer ← scribe ← commit `feat(<WBS>)` واحد.
+- **`A-governing/BOOTSTRAP-v5.md` 5.1 → 5.2:** §2 الخطوات 6–13 (أُعيد ترقيمها: خطوة تحقق pg-tester وبوابة المراجع قبل الترحيل)، §3 أسطر أدوار pg-reviewer وpg-backend وpg-tester، §6 كتلة SPEED AND QUALITY (بند SLICE SEQUENCE مطابق حرفياً لـCLAUDE.md). **§4 (جدول التوجيه) لم يتغيّر** — التسلسل والأدوار في §2 و§3 لا في §4.
+- **`41-Cloud-and-AI-Efficiency.md` §1:** لا تعديل — لا يصف نطاقات الكتابة ولا تسلسل الشريحة.
+- خارج الحزمة (بلا إصدار): `CLAUDE.md` BUILD METHOD · `.claude/agents/pg-{tester,backend,reviewer}.md` · `.claude/commands/slice.md` · `docs/AGENT_WORKFLOW.md`.

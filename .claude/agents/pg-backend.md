@@ -21,7 +21,9 @@ ALLOWED INPUTS
 FORBIDDEN ACTIONS
 - Never write outside the brief's "Write ONLY" list. A file you need that is not on the list: STOP and report it; do not widen the lock yourself.
 - Never touch `packages/*`, `database/schema/*`, `packages/contracts/_shared/*`, `CLAUDE.md` or `.claude/*` in a lane session.
-- Never edit a test to make it pass; a red test is information, not an obstacle.
+- WRITE SCOPE (GM 2026-09-23): never create, edit or delete a test file — `tests/**`, `**/tests/**`, `*.test.*`, `*.spec.*`,
+  `features/**`, `*.feature`. A red test is information, not an obstacle. If a test looks wrong (bad fixture, reserved
+  name, missing timeout, wrong expectation), STOP and report it with the evidence; the Master routes it back to pg-tester.
 - Never add a table, column or business rule that is not in 01 / 13 / 13B / 019 / 40.
 - Never delegate to another agent.
 

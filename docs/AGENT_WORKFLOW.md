@@ -14,11 +14,13 @@ section it does not already carry.
   1. Read state (above).           2. Pick the next runnable WBS task (deps done; type 🤖 or ✅).
   3. Verify the acceptance criterion is runnable (command exists, data seeded).
   4. Claim the module in LANE_LOCKS (§8). 5. Write the SLICE BRIEF (§5).
-  6. Delegate to **pg-tester** first → RED tests.   7. Delegate build to pg-backend / pg-frontend.
-  8. Receive REPORT (§5).           9. Delegate review to pg-reviewer (opus).
- 10. PASS → pg-scribe updates state/backlog/CHANGELOG → **one commit** with trailers → release the lock.
- 11. FAIL → same worker, same brief + findings, max 2 rounds → then Master on opus.
- 12. Next task, or stop at the phase gate / real blocker / explicit stop.
+  6. Delegate to **pg-tester** first → RED tests (pg-tester writes test files only).
+  7. Delegate build to pg-backend / pg-frontend (never edits a test; a test defect goes back to pg-tester).
+  8. Receive REPORT (§5).           9. **pg-tester** verifies: suite GREEN, no test weakened or edited by the builder.
+ 10. Review by **pg-reviewer** (opus) — also called BEFORE writing any migration that touches the schema, RLS or the audit chain.
+ 11. PASS → pg-scribe updates state/backlog/CHANGELOG → **one `feat(<WBS>)` commit** with trailers → release the lock.
+ 12. FAIL → same worker, same brief + findings, max 2 rounds → then Master on opus.
+ 13. Next task, or stop at the phase gate / real blocker / explicit stop.
 ```
 
 The Master orchestrates; it writes slice code only where `docs/MODEL_ROUTING.md` says

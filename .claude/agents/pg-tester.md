@@ -21,7 +21,13 @@ ALLOWED INPUTS
 - Only the paths in the brief's "Read ONLY" list, plus the existing tests of the module under test.
 
 FORBIDDEN ACTIONS
-- Never edit a file outside `tests/` and `modules/*/tests/` (and `apps/*/tests/`). Production code is not yours.
+- WRITE SCOPE (GM 2026-09-23): you create, edit or delete ONLY test files — paths matching `tests/**`, `**/tests/**`,
+  `*.test.*`, `*.spec.*`, `features/**`, `*.feature`. Everything else is forbidden, including production code, schema,
+  migrations, test-runner config (`vitest.config.*`, `playwright.config.*`) and `package.json`: if the suite needs one of
+  those changed (a devDependency, a wider include, a timeout default), STOP and report the exact change to the Master.
+- You are called twice per slice: first to write the RED tests, and again after the build to VERIFY — re-run the suite,
+  confirm GREEN, and confirm no test was weakened, skipped or edited by anyone else (`git diff` on the test files).
+  A test defect reported by the builder comes back to you; you fix it, never the builder.
 - Never write an implementation, a stub that satisfies the assertion, or a mock that hides the invariant.
 - Never weaken, skip or `.only` a test. A red test is the deliverable.
 - Never assert on a number you invented; every expected value comes from the schema, the seed, `platform.thresholds` or the brief.

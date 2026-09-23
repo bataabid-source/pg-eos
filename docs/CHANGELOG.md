@@ -4,6 +4,16 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — Agent write-scopes + fixed slice sequence — GM directive 2026-09-23 (2026-09-23)
+
+- **pg-tester** writes only test files (`tests/**`, `**/tests/**`, `*.test.*`, `*.spec.*`, `features/**`, `*.feature`); runner config and `package.json` changes are requested from the Master. Called twice per slice: RED first, then VERIFY after the build.
+- **pg-backend** never creates, edits or deletes a test file; a suspected test defect is reported and routed back to pg-tester.
+- **pg-reviewer** is called at slice close (after pg-tester's verification, before pg-scribe) and BEFORE any migration touching the schema, RLS or the audit chain is written; it now also checks both write-scopes.
+- **Fixed sequence** documented in CLAUDE.md BUILD METHOD, BOOTSTRAP-v5 §2/§3/§6 (→ 5.2, CHANGELOG-v4 §14), `.claude/commands/slice.md`, `docs/AGENT_WORKFLOW.md`: tester → backend → tester (verify) → reviewer → scribe → one `feat(<WBS>)` commit. No new agent. Enforcement is by agent definition plus pg-reviewer's write-scope check; no hook was added.
+- Model: opus (session, Master direct — doc edits ≤ 30 lines each) · Delegated: none · Review: n/a · tokens: ≈ 25k
+
+---
+
 ## X — Package docs pin pg-scribe to sonnet + archive of worktree resume-d2f142 — GM directive 2026-09-23, F (2026-09-23)
 
 - **F1 (package docs):** `docs/package/BOOTSTRAP-v5.md` §3 line 69 (`pg-scribe     model: haiku` → `model: sonnet`) and §4 routing-table line 84 (`pg-scribe | haiku | ≤ 10k` → `pg-scribe | sonnet | ≤ 10k`); no other haiku mention in the file refers to pg-scribe (line 63 is the generic tier-alias list, left as-is) and no separate mix/percentage line exists in §4 to fold. Version 5.0 → 5.1, date → 23 September 2026. `docs/package/41-Cloud-and-AI-Efficiency.md` §1 line 93 (`pg-scribe` haiku → `pg-scribe` sonnet, inside the "القاعدة ٨" row); no other haiku mention in the file. Version 4.0 → 4.1, date → 23/09/2026. `docs/package/CHANGELOG-v4.md`: appended `## 13. إضافة (23/09/2026) — تثبيت نموذج pg-scribe على sonnet` (next in sequence after `## 12.`), one bullet listing both files, the lines changed, the version bumps, and citing GM directive 2026-09-23 (no haiku; pg-scribe = sonnet; `CLAUDE.md` and `docs/MODEL_ROUTING.md` already aligned in `dc3cc1b`).

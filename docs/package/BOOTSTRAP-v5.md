@@ -1,5 +1,5 @@
 PREMIUM GROUP — PG-EOS · CLAUDE CODE MASTER AGENT BOOTSTRAP (v5)
-**Version 5.1 · 23 September 2026 · Supersedes BOOTSTRAP-v4 (operating instruction only — the rule sources are unchanged)**
+**Version 5.2 · 23 September 2026 · Supersedes BOOTSTRAP-v4 (operating instruction only — the rule sources are unchanged)**
 
 > **What v5 adds over v4 (nothing else changes):**
 > 1. **Conflict-free parallelism as a mechanism** — module ownership locks (`tasks/LANE_LOCKS.md`), Master-issued migration numbers, one merge queue, and a lane brief that lists the only paths a lane may write.
@@ -49,11 +49,13 @@ Per task (mandatory, in order):
   1. Read state (above).           2. Pick the next runnable WBS task (deps done; type 🤖 or ✅).
   3. Verify the acceptance criterion is runnable (command exists, data seeded).
   4. Claim the module in LANE_LOCKS (§8). 5. Write the SLICE BRIEF (§5).
-  6. Delegate to **pg-tester** first → RED tests.   7. Delegate build to pg-backend / pg-frontend.
-  8. Receive REPORT (§5).           9. Delegate review to pg-reviewer (opus).
- 10. PASS → pg-scribe updates state/backlog/CHANGELOG → **one commit** with trailers → release the lock.
- 11. FAIL → same worker, same brief + findings, max 2 rounds → then Master on opus.
- 12. Next task, or stop at the phase gate / real blocker / explicit stop.
+  6. Delegate to **pg-tester** first → RED tests (pg-tester writes test files only).
+  7. Delegate build to pg-backend / pg-frontend (never edits a test; a test defect goes back to pg-tester).
+  8. Receive REPORT (§5).           9. **pg-tester** verifies: suite GREEN, no test weakened or edited by the builder.
+ 10. Review by **pg-reviewer** (opus) — also called BEFORE writing any migration that touches the schema, RLS or the audit chain.
+ 11. PASS → pg-scribe updates state/backlog/CHANGELOG → **one `feat(<WBS>)` commit** with trailers → release the lock.
+ 12. FAIL → same worker, same brief + findings, max 2 rounds → then Master on opus.
+ 13. Next task, or stop at the phase gate / real blocker / explicit stop.
 
 A REAL BLOCKER is only: (a) the acceptance test cannot be run; (b) a needed decision is absent from EXECUTION-MASTER-v4 Part 1 AND touches money, permissions, or a legal/penalty rule; (c) a schema object is missing and G-01 (EXECUTION-MASTER-v4 §1.11) does not allow adding it. Everything else: state one default, record it in CHANGELOG, proceed.
 
@@ -62,10 +64,10 @@ A REAL BLOCKER is only: (a) the acceptance test cannot be run; (b) a needed deci
 ==================================================
 Create under `.claude/agents/`. `model:` uses tier aliases opus · sonnet · haiku. `inherit` is forbidden. If an alias is unsupported, REPORT it — never fall back silently.
 
-  pg-reviewer   model: opus     10-point review (doc 36 §5-4) · RLS/SoD/secrets · routing-trailer check · PASS/FAIL with numbered findings. Never edits code. The only opus agent.
-  pg-backend    model: sonnet   NestJS · Drizzle · XState · outbox · pg-boss · migrations. Replicates the golden slice via `scripts/new-slice.sh`. Reads only the brief's file list.
+  pg-reviewer   model: opus     10-point review (doc 36 §5-4) · RLS/SoD/secrets · routing-trailer check · PASS/FAIL with numbered findings. Called at slice close and before any schema / RLS / audit-chain migration is written. Never edits code. The only opus agent.
+  pg-backend    model: sonnet   NestJS · Drizzle · XState · outbox · pg-boss · migrations. Replicates the golden slice via `scripts/new-slice.sh`. Reads only the brief's file list. Never edits a test file.
   pg-frontend   model: sonnet   React/TanStack/shadcn (admin, portal) · React Native/Expo (driver, decisions) · PWA (PDA). RTL default. Builds from the Zod contract and the D-blueprint screen spec named in the brief.
-  pg-tester     model: sonnet   Gherkin → Playwright · property tests (fast-check) · guards G1–G18 · mutation. Writes tests FIRST and reports RED before build starts.
+  pg-tester     model: sonnet   Gherkin → Playwright · property tests (fast-check) · guards G1–G18 · mutation. Writes tests FIRST and reports RED before build starts; verifies GREEN after the build. Writes test files only.
   pg-scribe     model: sonnet   PROJECT_STATE · MASTER_BACKLOG · CHANGELOG · LANE_LOCKS release · commit message · i18n files · renames. No logic, no schema.
 
 Each agent file: role · **allowed inputs = "only the paths in the brief"** · forbidden actions · REPORT format (§5) · the AGENT CONSTRAINTS block of §6 verbatim · `tools:` limited to what the role needs (pg-reviewer and pg-scribe: no Bash except `git`/`pnpm test`; pg-tester: no Edit outside `tests/` and `*/tests/`).
@@ -131,6 +133,7 @@ QUOTA DISCIPLINE (v5)
 SPEED AND QUALITY (v5)
 - `scripts/new-slice.sh <module> <use-case>` copies the golden-slice tree (domain/ application/ infrastructure/ api/ tests/ + contract + i18n keys) with names substituted; every replicated slice starts from it. Hand-made file trees are a review FAIL.
 - pg-tester writes the Gherkin scenario, the property tests for the invariants in the brief, and the guard additions **before** any implementation; the build brief includes the failing test names.
+- SLICE SEQUENCE (fixed, GM 2026-09-23): pg-tester (RED) → pg-backend / pg-frontend (build) → pg-tester (verify GREEN) → pg-reviewer (opus) → pg-scribe → ONE `feat(<WBS>)` commit. pg-tester writes only test files (`tests/**`, `**/tests/**`, `*.test.*`, `*.spec.*`, `features/**`, `*.feature`); builders never touch a test file — a test defect goes back to pg-tester. pg-reviewer is also called BEFORE any migration touching the schema, RLS or the audit chain is written.
 - Pre-commit (husky): gates ① lint+boundaries+types, ② domain unit tests of the touched module, ③ `pnpm guards:run --changed`. Commit is refused on red.
 - CI on every PR: gates ①–⑦; nightly: Stryker mutation on `domain/` (≥ 75%), full Playwright S1–S20, `apply.sh --recreate` on an ephemeral database.
 - Review checklist (doc 36 §5-4) is applied literally; "minor" findings are still findings. A slice with an open finding is not DONE.
