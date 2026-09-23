@@ -76,12 +76,15 @@ order by 1,2,3;
 --      40 Part F: «"Operational table" for G7 means any base table in the
 --      fourteen business schemas … where a table has no entity_id, RLS is
 --      still enabled and the policy is written against the access rule.»
+--      SCR-RLS-02 (D-002, 2026-09-23): relkind in ('r','p') — a partitioned PARENT is a base
+--      table for this purpose. With 'r' alone, platform.audit_log's parent had RLS off and no
+--      policy while G7 returned 0; reads through the parent bypassed every partition policy.
 -- ───────────────────────────────────────────────────────────────────────────
 \echo '--- G7: جداول بلا RLS ---'
 select 'G7' as guard, n.nspname as schema_name, t.relname as table_name
 from pg_class t
 join pg_namespace n on n.oid = t.relnamespace
-where t.relkind = 'r'
+where t.relkind in ('r','p')
   and n.nspname in ('platform','identity','catalog','sales','wms','tms','cc',
                     'billing','hr','partners','admin','housing','imile','governance')
   and not t.relrowsecurity

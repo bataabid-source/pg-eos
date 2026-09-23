@@ -184,7 +184,7 @@ if [[ "$RUN_GUARDS" -eq 1 ]]; then
     "G4|select count(*) from imile.verify_no_orphan_ids()" \
     "G5|select count(*) from partners.verify_paid_matched()" \
     "G6|select count(*) from identity.unclassified_columns" \
-    "G7|select count(*) from pg_class t join pg_namespace n on n.oid=t.relnamespace where t.relkind='r' and n.nspname in ('platform','identity','catalog','sales','wms','tms','cc','billing','hr','partners','admin','housing','imile','governance') and not t.relrowsecurity" \
+    "G7|select count(*) from pg_class t join pg_namespace n on n.oid=t.relnamespace where t.relkind in ('r','p') and n.nspname in ('platform','identity','catalog','sales','wms','tms','cc','billing','hr','partners','admin','housing','imile','governance') and not t.relrowsecurity" \
     "G8|select count(*) from platform.verify_audit_chain()" \
     "G9|with w as (select * from platform.outbox order by id desc limit 1000) select count(*) from w where not exists (select 1 from platform.audit_log a where a.correlation_id = w.correlation_id)" \
     "G10|select count(*) from platform.audit_log where operation in ('reject','void','override') and (reason is null or btrim(reason)='')" \
@@ -204,7 +204,7 @@ if [[ "$RUN_GUARDS" -eq 1 ]]; then
   done
   echo
   echo "  G13: $(q "select count(distinct n) from (select platform.next_doc_no((select id from platform.entities where code='PST'),'INV','ALL') as n from generate_series(1,100)) s") رقماً فريداً من 100 (المتوقع 100)"
-  echo "  G14–G17 خارج SQL: pnpm test:isolation · playwright · stryker · test:trace"
+  echo "  G14 خارج SQL ويشغّله pnpm guards:run (tests/isolation، WBS 0.18) · G15–G17 لم تُشغَّل بعد: playwright · stryker · test:trace"
 fi
 
 echo

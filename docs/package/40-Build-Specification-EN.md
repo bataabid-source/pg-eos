@@ -634,7 +634,7 @@ Every guard below is a **copy-and-paste-runnable** line. G1–G13 and G18 are SQ
 | G4 | `select count(*) from imile.verify_no_orphan_ids();` | `0` | yes |
 | G5 | `select count(*) from partners.verify_paid_matched();` | `0` | yes |
 | G6 | `select count(*) from information_schema.columns c where c.table_schema in ('platform','identity','catalog','sales','wms','tms','cc','billing','hr','partners','admin','housing','imile','governance') and not exists (select 1 from identity.column_classification k where k.schema_name = c.table_schema and k.table_name = c.table_name and k.column_name = c.column_name);` | `0` | yes |
-| G7 | `select count(*) from pg_class t join pg_namespace n on n.oid = t.relnamespace where t.relkind = 'r' and n.nspname in ('platform','identity','catalog','sales','wms','tms','cc','billing','hr','partners','admin','housing','imile','governance') and not t.relrowsecurity;` | `0` | yes |
+| G7 | `select count(*) from pg_class t join pg_namespace n on n.oid = t.relnamespace where t.relkind in ('r','p') and n.nspname in ('platform','identity','catalog','sales','wms','tms','cc','billing','hr','partners','admin','housing','imile','governance') and not t.relrowsecurity;` | `0` | yes |
 | G8 | `select * from platform.verify_audit_chain();` | `0 rows` | yes |
 | G9 | `with w as (select * from platform.outbox order by id desc limit 1000) select count(*) from w where not exists (select 1 from platform.audit_log a where a.correlation_id = w.correlation_id);` | `0` | yes |
 | G10 | `select count(*) from platform.audit_log where operation in ('reject','void') and (reason is null or btrim(reason) = '');` | `0` | yes |
@@ -649,7 +649,7 @@ Every guard below is a **copy-and-paste-runnable** line. G1–G13 and G18 are SQ
 
 `deploy.sh` and `pnpm guards:run` execute **G1–G18**. A single blocking failure stops merge *and* deploy. There is no "deploy and fix".
 
-**"Operational table" for G7** means any base table in the fourteen business schemas listed above. Fixed reference tables and system logs are not exempt by category: where a table has no `entity_id`, RLS is still enabled and the policy is written against the access rule that applies to it (internal-only, owner-role-only, or unrestricted read). Enabling RLS on every remaining table in 01/13/13B is WBS task 0.18; classifying every column for G6 is WBS task 0.16.
+**"Operational table" for G7** means any base table in the fourteen business schemas listed above, **including a partitioned parent (`relkind = 'p'`)** — a policy on the parent is what governs reads through it, so a parent with RLS off exposes every partition regardless of the partitions' own policies (D-002 / SCR-RLS-02, 2026-09-23; `platform.audit_log` was the case). Fixed reference tables and system logs are not exempt by category: where a table has no `entity_id`, RLS is still enabled and the policy is written against the access rule that applies to it (internal-only, owner-role-only, or unrestricted read). Enabling RLS on every remaining table in 01/13/13B is WBS task 0.18; classifying every column for G6 is WBS task 0.16.
 
 ---
 

@@ -1,10 +1,11 @@
 # SCR-RLS-01 — `entity_scope` OR-defeats `client_portal_scope`, breaking client isolation
 
-**Status: OPEN — awaiting GM/system-owner decision.** Raised under **EXECUTION-MASTER-v4 §1.11 (G-01)**
-by the WBS 0.18 slice, 2026-09-23. Type: **schema change** (RLS policy shape) to two frozen files,
-`database/schema/01-Data-Model.sql` (three tables) and
-`database/schema/13B-Schema-Reference-Consolidation.sql` (four more). Single-lane Master task once
-approved.
+**Status: APPROVED (GM, "نفذ الاصلاحات", 2026-09-23) — APPLIED as Options B + C in `database/migrations/0003_M_rls-scr-01-02.sql`, recorded as D-002 in `docs/DECISION_LOG.md`.** Raised under **EXECUTION-MASTER-v4 §1.11 (G-01)**
+by the WBS 0.18 slice, 2026-09-23. Type: **schema change** (RLS policy shape) affecting policies
+declared in two frozen files — `database/schema/01-Data-Model.sql` (three tables) and
+`database/schema/13B-Schema-Reference-Consolidation.sql` (four more) — **delivered as the forward-only
+migration `database/migrations/0003_M_rls-scr-01-02.sql`** (CLAUDE.md · GIT: migrations are
+forward-only); those two files deliberately keep their original text. Single-lane Master task.
 
 This is a **security finding, reproduced against the live applied schema**, not a theoretical one.
 
@@ -149,23 +150,48 @@ B, never instead of it.
 
 ## 5. What 0.18 did in the meantime
 
-Nothing in the schema — G-01 forbids it. The slice:
+**Interim record — superseded by the APPLIED status above (0003, D-002, 2026-09-23).** Until approval,
+nothing in the schema changed — G-01 forbids it. The slice:
 
 1. delivers `tests/isolation` and the `pnpm test:isolation` runner doc 40 Part F names (G14), proving
    the criterion holds for a pure portal user across all five client-scoped tables, in both
    directions, under a genuine `NOBYPASSRLS` role;
-2. pins this defect with an executable, deliberately-failing test (`it.fails(...)`, "SCR-RLS-01")
-   plus a companion assertion pinning exactly what is returned today, across the three of the seven
-   tables that have fixture rows in the suite (`billing.invoices`, `tms.delivery_tasks`,
-   `wms.outbound_orders`). The `it.fails` turns **red** the moment the schema is fixed, forcing the
-   test and this note to be revisited rather than forgotten. The other four tables
+2. **(superseded once applied)** originally pinned this defect with `it.fails(...)`; after 0003 the
+   same three tests (`billing.invoices`, `tms.delivery_tasks`, `wms.outbound_orders`) assert the
+   requirement directly and pass — Option B is proven independently of Option C by constructing the
+   dual-role user with `session_replication_role = replica` in the fixture, and Option C is proven by
+   two tests expecting SQLSTATE `23514` on the front-door path. The other four tables
    (`wms.occupancy_snapshots`, `wms.space_allocations`, `wms.space_reservations`, `wms.work_orders`)
    are **not** pinned by a test — they are outside the suite's fixture surface, and seeding them was
    judged disproportionate for a defect already recorded here. That is a deliberate omission;
-3. records 0.18 as **NOT DONE / BLOCKED on this SCR** in `docs/PROJECT_STATE.md` and
-   `tasks/MASTER_BACKLOG.md`.
+3. recorded 0.18 as **NOT DONE / BLOCKED on this SCR** in `docs/PROJECT_STATE.md` and
+   `tasks/MASTER_BACKLOG.md` (commit `428a565`); lifted once 0003 was applied and the suite went
+   green on a freshly recreated database.
 
-## 6. Also still open, and NOT covered here
+## 6. Consequences of Option B recorded at application (D-002) — OPEN, deliberately not changed here
+
+1. **`is_internal` becomes load-bearing for internal reads AND writes on the seven tables.**
+   `platform.is_internal()` is GUC-only and returns `false` when `app.is_internal` is unset;
+   `entity_scope` is `FOR ALL` with a `USING` clause only, so the same predicate is the `WITH CHECK`
+   for INSERT/UPDATE. Every internal caller must pass `isInternal: true` through `withContext` or it
+   silently reads and writes nothing. Verified at application: the only non-test callers
+   (`packages/identity/src/context.ts`) already do; the client portal reads through
+   `client_portal_scope` / `sku_client_scope` (untouched); drivers, partners and imile were already
+   `is_internal = true` by necessity (13B ق-9 gives housing/partners/hr no client-facing policy). No
+   caller is broken today. To be decided with the 0.5/0.6 application-role design, alongside
+   SCR-RLS-02 §7.
+2. **Not extended** to `wms.inbound_orders`, `cc.tickets` or the four `13-Schema-Additions.sql:702-708`
+   tables. Not vulnerable today (no client policy on them); a client policy added later re-opens the
+   hole silently. Deliberate scope decision — the "worth extending" in §4 was an aside, not part of
+   the approved recommendation. Recorded in `tasks/MASTER_BACKLOG.md` row 0.18.
+3. **No guard detects this defect class.** G7 got a detector for SCR-RLS-02's class; the
+   permissive-composition class has none — §1's enumeration query is the candidate. A new guard
+   changes doc 40 Part F (rank-1) and needs its own G-01 request; not invented here.
+4. **`identity.users.user_type` has no CHECK constraint**, so Option C binds only the literal
+   `'client'` (the same literal the schema's own `client_user_has_client` CHECK uses). Any other
+   non-internal `user_type` value would escape both triggers. A CHECK on `user_type` is its own SCR.
+
+## 7. Also still open, and NOT covered here
 
 - The runtime still connects as superuser `postgres` (`packages/db/src/client.ts:23-33`), which
   bypasses RLS unconditionally. A production `NOBYPASSRLS` application role with scoped GRANTs is

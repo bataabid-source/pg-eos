@@ -3,10 +3,12 @@
 // Proves the executable half of tests/isolation/client-isolation.feature: doc 40 Part F row G7
 // ("every operational table in the fourteen business schemas has RLS enabled" — 0 rows) and row
 // G14 ("client A requests client B's ids directly" — 0 rows, no error). Runner name is fixed by
-// doc 40 Part F: `pnpm test:isolation`. RLS itself (the policies under test) is ALREADY DELIVERED
-// in database/schema/01-Data-Model.sql:1433-1486 — nothing here is schema; this file is the
-// permanent, re-runnable proof that those policies hold against a live Postgres instance, in the
-// same spirit as modules/platform/tests/integration/schema-invariants.test.ts.
+// doc 40 Part F: `pnpm test:isolation`. RLS itself (the policies under test) is delivered by
+// database/schema/01-Data-Model.sql:1433-1486 and 13B-Schema-Reference-Consolidation.sql, AS
+// AMENDED by database/migrations/0003_M_rls-scr-01-02.sql (D-002, docs/DECISION_LOG.md — GM-
+// approved and applied 2026-09-23) — nothing here is schema; this file is the permanent,
+// re-runnable proof that those policies hold against a live Postgres instance, in the same spirit
+// as modules/platform/tests/integration/schema-invariants.test.ts.
 //
 // CONCURRENT RUNS (review round 3, FIX 4): two invocations of this suite against the SAME database
 // (e.g. two worktrees' `pnpm guards:run` running at once) SERIALIZE rather than race — `beforeAll`
@@ -161,6 +163,28 @@ function firstRow<T extends QueryResultRow>(result: QueryResult<T>, what: string
     throw new Error(`${what}: query returned no rows where at least one was expected`);
   }
   return row;
+}
+
+/**
+ * PostgreSQL SQLSTATE 23514 — check_violation (PostgreSQL docs, Appendix A, Class 23). What
+ * `identity.enforce_client_users_hold_no_entities()` (SCR-RLS-01 Option C) raises via `raise
+ * exception using errcode = 'check_violation'` when a `user_type = 'client'` row would hold an
+ * `identity.user_entities` row. Quoted here, not invented — matches the SQLSTATE naming convention
+ * `packages/identity/tests/rbac-sod.test.ts` already uses for its own FOREIGN_KEY_VIOLATION_SQLSTATE.
+ */
+const CHECK_VIOLATION_SQLSTATE = '23514';
+
+/** The SQLSTATE carried by `error`, or undefined if `error` is not an `Error` with a `code` — the
+ *  same `'code' in error` narrowing idiom `packages/identity/tests/rbac-sod.test.ts` uses (its
+ *  `sqlStatesIn`), simplified here to a single error rather than a `cause`-chain: the superuser
+ *  fixture client (`pg.Client#query`) throws pg's own `DatabaseError` directly, never wrapped by
+ *  drizzle, so there is no chain to walk. */
+function sqlStateOf(error: unknown): string | undefined {
+  if (!(error instanceof Error) || !('code' in error)) {
+    return undefined;
+  }
+  const { code } = error;
+  return typeof code === 'string' ? code : undefined;
 }
 
 /** One seeded client's row ids, keyed by the fully-qualified table name (see TABLES below). */
@@ -395,6 +419,13 @@ beforeAll(async () => {
   // read-only and scoped to exactly what scenario 6 needs.
   await superuser.query(`grant usage on schema platform to ${ROLE}`);
 
+  // SCR-RLS-02 (b)/(c): the fixture role also needs SELECT on the platform.audit_log PARENT
+  // (relkind 'p') only — never on any of its five leaf partitions (audit_log_2026_09 etc.), so
+  // Option A's fix for the "reads through the parent bypass every partition's policy" defect is
+  // exercised exactly the way docs/notes/SCR-RLS-02-audit-log-partitioned-parent-has-no-rls.md §3
+  // reproduced the defect: a role that can reach the parent but never the leaves.
+  await superuser.query(`grant select on platform.audit_log to ${ROLE}`);
+
   entities = {
     outboundOrderEntityId: await resolveEntityId('PST'),
     deliveryTaskEntityId: await resolveEntityId('PDL'),
@@ -504,13 +535,24 @@ describe('Guard-of-the-guard — RLS has teeth for this session (must pass befor
 });
 
 describe('G7 — every operational table in the fourteen business schemas has RLS enabled', () => {
-  it('the G7 query (database/schema/guards.sql:80-88 / doc 40 Part F row G7) returns zero rows', async () => {
+  // SCR-RLS-02 Option B (docs/notes/SCR-RLS-02-audit-log-partitioned-parent-has-no-rls.md §5):
+  // widens G7's own query from `t.relkind = 'r'` to `t.relkind in ('r','p')` — everything else is
+  // unchanged, verbatim against what the Master is putting in database/schema/guards.sql. G7's
+  // ORIGINAL `relkind = 'r'` filter made a partitioned PARENT (relkind 'p') invisible to the guard,
+  // which is exactly how `platform.audit_log` — RLS disabled, zero policies on the parent itself —
+  // passed G7 = 0 while every read through it bypassed all five leaf partitions' policies (SCR-RLS-
+  // 02 §1-§3). Before migration 0003 (D-002) applied Option A, `platform.audit_log` (relkind 'p')
+  // had relrowsecurity = false and appeared in this widened query's result, where the narrower
+  // `relkind = 'r'` query never saw it at all. Since 0003, the parent itself carries RLS and an
+  // entity_scope policy (proved directly below and in the SCR-RLS-02 (c) describe block at the end
+  // of this file), so this query is expected to return zero rows on an ordinary, healthy database.
+  it("the G7 query (SCR-RLS-02 Option B: relkind in ('r','p') — database/schema/guards.sql, doc 40 Part F row G7) returns zero rows", async () => {
     const result = await withContext(ctxInternal, (tx) =>
       tx.execute(sql`
         select 'G7' as guard, n.nspname as schema_name, t.relname as table_name
         from pg_class t
         join pg_namespace n on n.oid = t.relnamespace
-        where t.relkind = 'r'
+        where t.relkind in ('r','p')
           and n.nspname in ('platform','identity','catalog','sales','wms','tms','cc',
                             'billing','hr','partners','admin','housing','imile','governance')
           and not t.relrowsecurity
@@ -578,13 +620,20 @@ describe('entity_scope does not leak the client boundary', () => {
   it("platform.allowed_entities() is empty inside client A's portal context, so the entity_scope OR-leg is always false for this user", async () => {
     // wms.outbound_orders, tms.delivery_tasks and billing.invoices each carry an entity_scope
     // policy (FOR ALL, permissive) in addition to client_portal_scope (FOR SELECT, permissive) —
-    // database/schema/01-Data-Model.sql:1445-1479. Permissive policies are OR-ed together, so if
-    // client A's user held ANY identity.user_entities row, entity_scope could grant visibility into
-    // rows client_portal_scope alone would deny, silently defeating client isolation for any user
-    // who is both a portal user and holds internal entity access. It does not happen here because
-    // ctxA.userId is null (never linked in identity.user_entities either way) — this assertion
-    // proves the OR's other leg is inert for the contexts every assertion above relies on, not just
-    // assumed.
+    // database/schema/01-Data-Model.sql:1445-1479. Permissive policies are OR-ed together. Before
+    // migration 0003 (D-002), entity_scope's predicate was `entity_id = any(allowed_entities())`
+    // alone, with no gate on platform.is_internal() — so a client A user who held ANY
+    // identity.user_entities row would have had entity_scope grant visibility into rows
+    // client_portal_scope alone would deny, silently defeating client isolation for any user who
+    // was both a portal user and held entity access (this is SCR-RLS-01, reproduced and fixed by
+    // Option B — see the describe blocks below). Since 0003, entity_scope also requires
+    // platform.is_internal(), so that OR-leg is now structurally inert for every portal user
+    // (is_internal() = false) regardless of identity.user_entities membership — proved directly by
+    // the SCR-RLS-01 dual-role-user block below, which deliberately grants ctxA's user real entity
+    // access to show Option B holds even then. This scenario's own ctxA.userId is null (never
+    // linked in identity.user_entities either way), which is a SEPARATE, narrower reason the OR-leg
+    // is inert for these specific contexts — this assertion proves that narrower fact holds for the
+    // contexts every assertion above this line relies on, not just assumed.
     const result = await withContext(ctxA, (tx) =>
       tx.execute<{ allowed: readonly string[] }>(
         sql`select platform.allowed_entities() as allowed`,
@@ -613,61 +662,123 @@ describe('An internal context is not "deny all" — it discriminates on client i
 });
 
 // ─────────────────────────────────────────────────────────────────────────────────────────────
-// SCR-RLS-01 — KNOWN DEFECT: entity_scope OR-defeats client_portal_scope for a dual-role user
+// SCR-RLS-01 — entity_scope OR-defeated client_portal_scope for a dual-role user
 // ─────────────────────────────────────────────────────────────────────────────────────────────
 // Full write-up, options and reproduction SQL: docs/notes/SCR-RLS-01-entity-scope-defeats-client-
 // isolation.md. Read that file first — this comment only summarizes it.
 //
+// STATUS: GM/system-owner APPROVED Options B + C (docs/notes/SCR-RLS-01-...md §4, recorded as D-002
+// in docs/DECISION_LOG.md). Migration `database/migrations/0003_M_rls-scr-01-02.sql` applied Options
+// B + C on 2026-09-23 and IS applied to this database — this block is now an ordinary requirement
+// suite, not a known-defect pin:
+//   - Option B: `entity_scope` on the seven affected tables is now
+//     `for all using (platform.is_internal() and entity_id = any(platform.allowed_entities()))` —
+//     the permissive OR-leg is inert for every portal user (`is_internal() = false`), independent of
+//     whether that user holds an identity.user_entities row at all. Verified live against pg_policy
+//     for all seven tables in the "SCR-RLS-01 Option B — policy shape proof" block below.
+//   - Option C: trigger function `identity.enforce_client_users_hold_no_entities()` makes a
+//     `user_type = 'client'` row and an `identity.user_entities` row for that user mutually
+//     exclusive at the database level (see the "SCR-RLS-01 Option C" describe block below).
+//
 // Every assertion ABOVE this block deliberately used a portal context whose userId was `null` (see
 // the "entity_scope does not leak" describe block), so `platform.allowed_entities()` was guaranteed
 // empty and the entity_scope permissive leg was inert. That was NOT a loophole in this suite — it
-// is the honest boundary of what the schema currently guarantees. This block removes that
+// is the honest boundary of what the schema guaranteed before this SCR. This block removes that
 // precondition: it seeds a REAL identity.users portal row for client A that ALSO holds an
-// identity.user_entities row for the SAME entities as the seeded rows below. Nothing in the schema
-// forbids that combination — verified: no constraint or trigger ties identity.users.user_type =
-// 'client' to the absence of identity.user_entities rows. Reproduced live against the applied
-// schema (see the note): the tampering query below returns 1 row where the acceptance criterion
-// (doc 38 row 0.18 / doc 40 Part F row G14 — "zero rows, no error") demands 0.
+// identity.user_entities row for the SAME entities as the seeded rows below, to prove Option B holds
+// on its own merits — EVEN IF Option C's trigger were somehow bypassed — not merely because C now
+// makes the dual role impossible to construct through the front door. See "WHY THE FIXTURE BYPASSES
+// TRIGGERS", below, for how the dual-role user is still constructed even with C in place.
 //
-// SCOPE — three of the seven affected tables (review round 3, Master-verified against live
-// pg_policy): the Master confirmed the same permissive `allowed_entities()` OR permissive
-// `current_client_id()` composition on ALL of billing.invoices · tms.delivery_tasks ·
-// wms.outbound_orders · wms.occupancy_snapshots · wms.space_allocations · wms.space_reservations ·
-// wms.work_orders. Only the first three already have seeded fixture rows and a SELECT_BY_ID
-// builder in this file (TABLES, above) — SCR_RLS_01_TABLES below runs both tests in this block
-// against exactly those three. The remaining four (wms.occupancy_snapshots, wms.space_allocations,
-// wms.space_reservations, wms.work_orders) are recorded as affected in the SCR-RLS-01 note but are
-// NOT seeded here — they are outside this slice's fixture surface (their own required-column
-// shapes were never verified against the live schema for this brief) and adding invented fixtures
-// for them would violate CLAUDE.md · AGENT CONSTRAINTS ("never fabricate a number, name, or
-// decision").
+// SCOPE — three of the seven affected tables get BEHAVIORAL coverage (review round 3,
+// Master-verified against live pg_policy): the Master confirmed the same permissive
+// `allowed_entities()` OR permissive `current_client_id()` composition — before 0003 — on ALL of
+// billing.invoices · tms.delivery_tasks · wms.outbound_orders · wms.occupancy_snapshots ·
+// wms.space_allocations · wms.space_reservations · wms.work_orders. Only the first three already
+// have seeded fixture rows and a SELECT_BY_ID builder in this file (TABLES, above) —
+// SCR_RLS_01_TABLES below runs both behavioral tests in this block against exactly those three. The
+// remaining four (wms.occupancy_snapshots, wms.space_allocations, wms.space_reservations,
+// wms.work_orders) are outside this slice's fixture surface (their own required-column shapes were
+// never verified against the live schema for this brief) and adding invented fixtures for them would
+// violate CLAUDE.md · AGENT CONSTRAINTS ("never fabricate a number, name, or decision") — but all
+// seven, including these four, get SHAPE coverage (no fixture rows needed) from the
+// "SCR-RLS-01 Option B — policy shape proof" describe.each block immediately below, which proves via
+// pg_policy that Option B's exact predicate landed on every one of the seven, not just the three this
+// file seeds behavioral fixtures for.
 //
 // Each table's fixture row was seeded (seedClient, above) against a specific entity — outbound
 // orders against PST, delivery tasks against PDL, invoices against PCC — so the dual-role user
 // below is granted identity.user_entities access to all three entities, putting entity_scope's OR
 // leg in play for all three tables, not only billing.invoices.
 //
-// TWO tests per table, deliberately paired (review round 3, FIX 2 — a regression from "leaks one
-// row" to "errors out" must not go on recording green forever under `it.fails` alone, since
-// `it.fails` passes for ANY thrown reason, not only the pinned leak):
-//   - `it.fails` states the REQUIREMENT: `expect(result.rows).toEqual([])`, unmodified from every
-//     positive G14 case above. It is NOT a weakened assertion — see the paragraph below.
-//   - the companion `it(...)` pins TODAY'S REALITY precisely: the query resolves WITHOUT throwing,
-//     and `result.rows` is EXACTLY `[{ id: <client B's row id for that table> }]` — one row, that
-//     row, nothing else. A regression to "throws" turns the companion red immediately (a thrown
-//     query never reaches `.rows`); a fix to "zero rows" turns the companion red too (the row no
-//     longer leaks) at the same moment `it.fails` turns red for the opposite, correct reason. The
-//     two can only ever disagree in the direction of a NEW failure mode neither anticipated, which
-//     is exactly when a human should look, not when a green checkmark should hide it.
-//
-// `it.fails` records, honestly, that the correct assertion currently does NOT hold; if it ever
-// started passing (i.e. SCR-RLS-01 got fixed, most likely via the note's Option B — gating
-// entity_scope on platform.is_internal()) `it.fails` itself would turn RED, because a test declared
-// "expected to fail" that instead passes is exactly what `it.fails` is for catching — forcing this
-// block and the SCR note to be revisited and removed, rather than silently forgotten as a green
-// checkmark that means nothing. Do not mistake either test for skipped, `.only`-ed, or softened:
-// both assertions are real, unmodified in kind from every positive/negative G14 case above.
-describe("SCR-RLS-01 — KNOWN DEFECT: entity_scope OR-defeats client_portal_scope for a dual-role user", () => {
+// The requirement below is the SAME, unmodified assertion as every positive G14 case above
+// (`expect(result.rows).toEqual([])`) — no longer wrapped in `it.fails`. It is green since migration
+// 0003 applied Option B on 2026-09-23, with no test change made on that day.
+
+/**
+ * All seven tables migration 0003 (D-002, SCR-RLS-01 Option B) rewrote `entity_scope` on — see the
+ * SCOPE paragraph above for which three of these also get behavioral fixture coverage. This block
+ * proves the policy SHAPE for all seven directly against pg_policy, via the superuser client, with
+ * no fixture rows — the same technique this file already uses for platform.audit_log (last describe
+ * block below). polqual strings below are quoted verbatim from a live `pg_get_expr(polqual,
+ * polrelid)` read against the applied migration, not invented.
+ */
+const SCR_RLS_01_ALL_SEVEN_TABLES = [
+  'billing.invoices',
+  'tms.delivery_tasks',
+  'wms.outbound_orders',
+  'wms.occupancy_snapshots',
+  'wms.space_allocations',
+  'wms.space_reservations',
+  'wms.work_orders',
+] as const;
+
+interface PolicyShapeRow {
+  readonly polpermissive: boolean;
+  readonly cmd: string;
+  readonly qual: string;
+}
+
+describe.each(SCR_RLS_01_ALL_SEVEN_TABLES)(
+  'SCR-RLS-01 Option B — policy shape proof (no fixture rows) — %s',
+  (table) => {
+    it('entity_scope is permissive, FOR ALL, with exactly the Option B predicate', async () => {
+      const result = await superuser.query<PolicyShapeRow>(
+        `select polpermissive, polcmd::text as cmd, pg_get_expr(polqual, polrelid) as qual
+           from pg_policy
+          where polrelid = $1::regclass and polname = 'entity_scope'`,
+        [table],
+      );
+
+      expect(result.rows).toHaveLength(1);
+      const row = firstRow(result, `pg_policy entity_scope shape lookup for ${table}`);
+      expect(row.polpermissive).toBe(true);
+      expect(row.cmd).toBe('*');
+      expect(row.qual).toBe(
+        '(platform.is_internal() AND (entity_id = ANY (platform.allowed_entities())))',
+      );
+    });
+
+    it("client_portal_scope's predicate is untouched by Option B (proves B did not touch the client leg)", async () => {
+      const result = await superuser.query<PolicyShapeRow>(
+        `select polpermissive, polcmd::text as cmd, pg_get_expr(polqual, polrelid) as qual
+           from pg_policy
+          where polrelid = $1::regclass and polname = 'client_portal_scope'`,
+        [table],
+      );
+
+      expect(result.rows).toHaveLength(1);
+      const row = firstRow(result, `pg_policy client_portal_scope shape lookup for ${table}`);
+      expect(row.polpermissive).toBe(true);
+      expect(row.cmd).toBe('r');
+      expect(row.qual).toBe(
+        '(platform.is_internal() OR (client_id = platform.current_client_id()))',
+      );
+    });
+  },
+);
+
+describe("SCR-RLS-01 — entity_scope must not OR-defeat client_portal_scope for a dual-role user", () => {
   // Three of the seven affected tables — see the SCOPE paragraph in the header comment above for
   // why exactly these three and not all seven.
   const SCR_RLS_01_TABLES = ['billing.invoices', 'tms.delivery_tasks', 'wms.outbound_orders'] as const;
@@ -677,6 +788,12 @@ describe("SCR-RLS-01 — KNOWN DEFECT: entity_scope OR-defeats client_portal_sco
   // NEXT run, and suffixed with randomUUID() so concurrent/repeated runs never collide.
   const dualRoleUserEmail = `rls-isolation-test-dual-role-${randomUUID()}@example.invalid`;
   let dualRoleUserId: string | undefined;
+
+  // A SEPARATE, legitimately-constructed internal user for the Option B positive control (b) below
+  // — `user_type = 'internal'` holding a genuine identity.user_entities row, exactly the shape
+  // Option C continues to permit. No session_replication_role bypass needed for this one.
+  const internalUserEmail = `rls-isolation-test-internal-${randomUUID()}@example.invalid`;
+  let internalUserId: string | undefined;
 
   beforeAll(async () => {
     // Live columns of identity.users (verified 2026-09-23, per the brief this review round quotes):
@@ -691,29 +808,73 @@ describe("SCR-RLS-01 — KNOWN DEFECT: entity_scope OR-defeats client_portal_sco
     );
     dualRoleUserId = firstRow(user, 'insert identity.users dual-role SCR-RLS-01 fixture').id;
 
-    // The SAME three entities the fixture rows in SCR_RLS_01_TABLES were seeded against
-    // (entities.invoiceEntityId/PCC, entities.deliveryTaskEntityId/PDL,
-    // entities.outboundOrderEntityId/PST — resolved once in the top-level beforeAll) — this is what
-    // makes platform.allowed_entities() non-empty for this user for all three tables under test, so
-    // the entity_scope OR-leg is in play for each of them, not only billing.invoices.
-    for (const entityId of [
-      entities.invoiceEntityId,
-      entities.deliveryTaskEntityId,
-      entities.outboundOrderEntityId,
-    ]) {
-      await superuser.query(
-        `insert into identity.user_entities (user_id, entity_id) values ($1, $2)`,
-        [dualRoleUserId, entityId],
-      );
+    // ─────────────────────────────────────────────────────────────────────────────────────────
+    // WHY THE FIXTURE BYPASSES TRIGGERS FOR THIS INSERT ONLY
+    // ─────────────────────────────────────────────────────────────────────────────────────────
+    // Once Option C's trigger (`user_entities_reject_client_user`, BEFORE INSERT OR UPDATE OF
+    // user_id ON identity.user_entities), created by migration 0003 (D-002) and live on this
+    // database since 2026-09-23, a PLAIN insert of a user_entities row for a `user_type = 'client'`
+    // user — exactly what this fixture needs — is itself REJECTED (SQLSTATE 23514; see the
+    // "SCR-RLS-01 Option C" describe block below, which asserts exactly that rejection). But the
+    // requirement under test here is Option B, and it must hold independently of Option C — "even if
+    // C were bypassed" — not merely because C makes the dual role unconstructable through the front
+    // door. `session_replication_role = replica` disables ORIGIN-mode triggers (both this one and,
+    // incidentally, FK constraint triggers) for the duration of this session; it does not, and
+    // cannot, disable RLS itself, which is exactly what Option B is under test. The referenced ids
+    // (dualRoleUserId, each entityId) are real, already-inserted rows either way, so the FK trigger's
+    // absence changes nothing about the data's validity — only the now-existing enforcement trigger
+    // is being deliberately bypassed here, as the fixture-construction mechanism. Wrapped in
+    // try/finally so a failure mid-loop can never leave this superuser SESSION (shared by every other
+    // query in this file via `superuser`) permanently in replica mode.
+    await superuser.query('set session_replication_role = replica');
+    try {
+      // The SAME three entities the fixture rows in SCR_RLS_01_TABLES were seeded against
+      // (entities.invoiceEntityId/PCC, entities.deliveryTaskEntityId/PDL,
+      // entities.outboundOrderEntityId/PST — resolved once in the top-level beforeAll) — this is
+      // what makes platform.allowed_entities() non-empty for this user for all three tables under
+      // test, so the entity_scope OR-leg is in play for each of them, not only billing.invoices.
+      for (const entityId of [
+        entities.invoiceEntityId,
+        entities.deliveryTaskEntityId,
+        entities.outboundOrderEntityId,
+      ]) {
+        await superuser.query(
+          `insert into identity.user_entities (user_id, entity_id) values ($1, $2)`,
+          [dualRoleUserId, entityId],
+        );
+      }
+    } finally {
+      await superuser.query('set session_replication_role = origin');
     }
+
+    // Positive control (b) fixture — a LEGITIMATE internal user + user_entities row, no bypass.
+    const internalUser = await superuser.query<{ id: string }>(
+      `insert into identity.users (email, full_name_ar, user_type) values ($1, $2, 'internal') returning id`,
+      [internalUserEmail, 'مستخدم اختبار SCR-RLS-01 (داخلي بصلاحية كيان)'],
+    );
+    internalUserId = firstRow(
+      internalUser,
+      'insert identity.users internal SCR-RLS-01 positive-control fixture',
+    ).id;
+    await superuser.query(
+      `insert into identity.user_entities (user_id, entity_id) values ($1, $2)`,
+      [internalUserId, entities.invoiceEntityId],
+    );
   });
 
   afterAll(async () => {
     // user_entities first, then users — FK order, and idempotent/safe even if beforeAll partially
     // failed (mirrors deleteClientRows's own ordering comment above).
-    if (dualRoleUserId) {
-      await superuser.query('delete from identity.user_entities where user_id = $1', [dualRoleUserId]);
-      await superuser.query('delete from identity.users where id = $1', [dualRoleUserId]);
+    try {
+      if (dualRoleUserId) {
+        await superuser.query('delete from identity.user_entities where user_id = $1', [dualRoleUserId]);
+        await superuser.query('delete from identity.users where id = $1', [dualRoleUserId]);
+      }
+    } finally {
+      if (internalUserId) {
+        await superuser.query('delete from identity.user_entities where user_id = $1', [internalUserId]);
+        await superuser.query('delete from identity.users where id = $1', [internalUserId]);
+      }
     }
   });
 
@@ -725,8 +886,8 @@ describe("SCR-RLS-01 — KNOWN DEFECT: entity_scope OR-defeats client_portal_sco
   }
 
   describe.each(SCR_RLS_01_TABLES)('%s', (table) => {
-    it.fails(
-      `client A's portal user, who ALSO holds identity.user_entities access to this row's entity, still gets zero rows from client B's row on direct ID substitution`,
+    it(
+      `client A's portal user, who ALSO holds identity.user_entities access to this row's entity, gets zero rows from client B's row on direct ID substitution`,
       async () => {
         const result = await selectById(dualRoleCtx(), table, rowIdFor(clientB, table));
 
@@ -734,18 +895,250 @@ describe("SCR-RLS-01 — KNOWN DEFECT: entity_scope OR-defeats client_portal_sco
       },
     );
 
-    // The FIX 2 companion — pins TODAY'S reality precisely (no throw, exactly client B's one row),
-    // so a regression from "leaks one row" to "errors out" cannot hide behind `it.fails` recording
-    // green for the wrong reason. See the header comment above for the full pairing rationale.
+    // Positive control (a) — client_portal_scope leg must still work for the dual-role user's OWN
+    // client's row, both before and after migration 0003: Option B only narrows entity_scope's
+    // OR-leg, it does not touch client_portal_scope at all.
     it(
-      `today's reality (companion to the it.fails above): the tampering query on client A's dual-role context resolves WITHOUT throwing and returns exactly client B's row`,
+      `the dual-role user's OWN client-A row in this table still returns exactly 1 row (client_portal_scope leg is unaffected by Option B)`,
       async () => {
-        const bId = rowIdFor(clientB, table);
+        const result = await selectById(dualRoleCtx(), table, rowIdFor(clientA, table));
 
-        const result = await selectById(dualRoleCtx(), table, bId);
-
-        expect(result.rows).toEqual([{ id: bId }]);
+        expect(result.rows).toHaveLength(1);
       },
     );
+  });
+
+  // Positive control (b) — an INTERNAL user with real entity access must still see across clients
+  // via entity_scope, both before and after migration 0003: Option B only ADDS
+  // `platform.is_internal()` to entity_scope's predicate; it does not remove `entity_id = any(...)`,
+  // and this user genuinely has `is_internal = true`.
+  describe('positive control — an internal user with real entity access (entity_scope leg)', () => {
+    it("selects client B's billing.invoices row by id and gets exactly 1 row", async () => {
+      if (!internalUserId) {
+        throw new Error('internalUserId was not seeded — beforeAll must have failed');
+      }
+      const ctx: WithContextCtx = { userId: internalUserId, clientId: null, isInternal: true };
+
+      const result = await selectById(ctx, 'billing.invoices', rowIdFor(clientB, 'billing.invoices'));
+
+      expect(result.rows).toHaveLength(1);
+    });
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+// SCR-RLS-01 Option C — client users cannot hold entity access
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+// docs/notes/SCR-RLS-01-entity-scope-defeats-client-isolation.md §4, Option C: a trigger making
+// `user_type = 'client'` and an `identity.user_entities` row for that user mutually exclusive.
+// Migration 0003 (D-002) created `identity.enforce_client_users_hold_no_entities()` and its two
+// triggers (`user_entities_reject_client_user` / `users_reject_client_with_entities`) on this
+// database on 2026-09-23; both inserts/updates below are now rejected, as asserted.
+describe('SCR-RLS-01 Option C — identity.enforce_client_users_hold_no_entities()', () => {
+  it("inserting identity.user_entities for a user with user_type = 'client' is rejected with SQLSTATE 23514 (check_violation)", async () => {
+    const email = `rls-isolation-test-optionc-insert-${randomUUID()}@example.invalid`;
+    const user = await superuser.query<{ id: string }>(
+      `insert into identity.users (email, full_name_ar, user_type, client_id)
+       values ($1, $2, 'client', $3) returning id`,
+      [email, 'مستخدم اختبار SCR-RLS-01 Option C (إدراج)', clientA.clientId],
+    );
+    const userId = firstRow(user, 'insert identity.users Option C insert-path fixture').id;
+
+    try {
+      let thrown: unknown = null;
+      try {
+        await superuser.query(
+          `insert into identity.user_entities (user_id, entity_id) values ($1, $2)`,
+          [userId, entities.invoiceEntityId],
+        );
+      } catch (error) {
+        thrown = error;
+      }
+
+      expect(thrown).not.toBeNull();
+      expect(sqlStateOf(thrown)).toBe(CHECK_VIOLATION_SQLSTATE);
+    } finally {
+      // Idempotent/safe whether or not the insert above actually took (today, RED, it does) — see
+      // deleteClientRows's own comment above for the same pattern.
+      await superuser.query('delete from identity.user_entities where user_id = $1', [userId]);
+      await superuser.query('delete from identity.users where id = $1', [userId]);
+    }
+  });
+
+  it("updating a user who holds a user_entities row to user_type = 'client' is rejected with SQLSTATE 23514 (check_violation)", async () => {
+    const email = `rls-isolation-test-optionc-update-${randomUUID()}@example.invalid`;
+    const user = await superuser.query<{ id: string }>(
+      `insert into identity.users (email, full_name_ar, user_type, client_id)
+       values ($1, $2, 'internal', $3) returning id`,
+      [email, 'مستخدم اختبار SCR-RLS-01 Option C (تحديث)', clientA.clientId],
+    );
+    const userId = firstRow(user, 'insert identity.users Option C update-path fixture').id;
+
+    try {
+      // Legitimate while user_type is still 'internal' — Option C's trigger only rejects a
+      // user_entities row for a user whose user_type is ALREADY 'client' at insert time.
+      await superuser.query(
+        `insert into identity.user_entities (user_id, entity_id) values ($1, $2)`,
+        [userId, entities.invoiceEntityId],
+      );
+
+      let thrown: unknown = null;
+      try {
+        await superuser.query(`update identity.users set user_type = 'client' where id = $1`, [userId]);
+      } catch (error) {
+        thrown = error;
+      }
+
+      expect(thrown).not.toBeNull();
+      expect(sqlStateOf(thrown)).toBe(CHECK_VIOLATION_SQLSTATE);
+    } finally {
+      await superuser.query('delete from identity.user_entities where user_id = $1', [userId]);
+      await superuser.query('delete from identity.users where id = $1', [userId]);
+    }
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+// SCR-RLS-02 — platform.audit_log's partitioned parent has no RLS
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+// docs/notes/SCR-RLS-02-audit-log-partitioned-parent-has-no-rls.md. The G7 test above already
+// covers Option B (the widened guard query itself). This block covers Options A (RLS + policy on
+// the parent) and the read-bypass Option A closes. Before migration 0003 (D-002), the parent had
+// `relrowsecurity = false` and zero policies of its own, so every read through it was unfiltered.
+// Since 0003 (applied 2026-09-23), the parent carries RLS and an entity_scope policy — proved
+// directly by the assertions below.
+describe('SCR-RLS-02 — platform.audit_log partitioned parent has RLS (Option A, migration 0003) and reads through it are scoped', () => {
+  // ───────────────────────────────────────────────────────────────────────────────────────────
+  // WHY THIS BLOCK SEEDS ITS OWN AUDIT ROW
+  // ───────────────────────────────────────────────────────────────────────────────────────────
+  // The vacuity guard inside the test below (`preconditionCount < 1`) used to be satisfied only by
+  // ACCIDENT — by rows left behind by modules/platform/tests/integration/schema-invariants.test.ts
+  // (WBS 0.9) from a PREVIOUS run against the same database. Nothing in the schema writes audit
+  // rows automatically: the only audit-log trigger is `trg_audit_hash_chain` (BEFORE INSERT on
+  // platform.audit_log and its partitions, database/schema/13B-Schema-Reference-Consolidation.sql:
+  // 260-261), which stamps prev_hash/row_hash on a row already being inserted — nothing calls it on
+  // its own. On a FRESH database (`apply.sh --recreate`, then a single run of this suite, no other
+  // suite ever having run), this suite's own seeding produces zero rows with entity_id is not null,
+  // so the vacuity guard threw and the whole test failed for a reason that had nothing to do with
+  // RLS: the test was silently order-dependent on database HISTORY, not on the schema under test.
+  //
+  // Fixed by seeding ONE audited row through the superuser client here, scoped to this describe
+  // block only. Same column list and shape as modules/platform/tests/integration/schema-invariants
+  // .test.ts:97-102 (this repo's own precedent for a hand-inserted platform.audit_log row) — only
+  // `table_name` differs ('_rls_isolation_fixture', not that other suite's '_test_fixture'), so this
+  // row is unambiguously identifiable as this suite's own fixture data, and `entity_id` is
+  // `entities.invoiceEntityId` (PCC — resolved once, top-level beforeAll) so it satisfies the exact
+  // predicate (`entity_id is not null`) the test below queries. The vacuity guard itself is left
+  // exactly as it was — it is now guaranteed to pass, and stays in place as a regression guard for
+  // the day this insert silently stops working.
+  // `occurred_at` is captured as TEXT (`::text`), not as node-postgres's parsed `Date`, and
+  // compared back with an explicit `::timestamptz` cast in the teardown query below — not out of
+  // caution, but because the `Date` round-trip is provably lossy here: `platform.audit_log.
+  // occurred_at` is `timestamptz` (microsecond precision — confirmed live: e.g.
+  // `2026-09-23 03:12:51.999516+03`), while JS `Date` only carries millisecond precision. Reading
+  // the column back as a `Date` and feeding it straight into `occurred_at = $2` in the delete below
+  // silently truncated the fractional seconds, so the WHERE clause's equality leg never matched the
+  // real row and every run's supposedly chain-safe tail delete quietly deleted 0 rows — confirmed by
+  // running the suite three times against a fresh database and finding all three fixture rows still
+  // present afterwards. Casting to `text` at the SQL boundary preserves the value Postgres itself
+  // printed, so the round-trip back through `::timestamptz` reconstructs the identical instant.
+  let fixtureRowId: string | undefined;
+  let fixtureOccurredAt: string | undefined;
+
+  beforeAll(async () => {
+    const inserted = await superuser.query<{ id: string; occurred_at: string }>(
+      `insert into platform.audit_log
+         (occurred_at, user_id, actor_type, entity_id, schema_name, table_name, record_id, operation)
+       values (now(), null, 'system', $1, 'platform', '_rls_isolation_fixture', $2, 'insert')
+       returning id, occurred_at::text as occurred_at`,
+      [entities.invoiceEntityId, randomUUID()],
+    );
+    const row = firstRow(inserted, 'insert platform.audit_log SCR-RLS-02 fixture row');
+    fixtureRowId = row.id;
+    fixtureOccurredAt = row.occurred_at;
+  });
+
+  afterAll(async () => {
+    if (!fixtureRowId || !fixtureOccurredAt) {
+      // beforeAll itself must have failed — nothing to clean up.
+      return;
+    }
+    // Chain-safe teardown only. `platform.verify_audit_chain()` (G8) orders by (occurred_at, id)
+    // and checks each row's prev_hash against the PREVIOUS row's row_hash — deleting the TAIL row
+    // is chain-safe, deleting a MIDDLE row breaks every later row's prev_hash link. Delete this
+    // fixture row only if it is STILL the tail (no row with a strictly greater (occurred_at, id)
+    // exists). If some other row was appended after it before teardown ran (a concurrent process,
+    // or another test inserting more audit rows), 0 rows are deleted here ON PURPOSE and the
+    // fixture row is left in place — it is a validly chained row, clearly marked as fixture data
+    // via `table_name = '_rls_isolation_fixture'`. Deliberately NOT added to
+    // sweepLeftoverFixtureRows (see that function's own scope comment): a prefix sweep against
+    // platform.audit_log could delete a MIDDLE row on some later run and break G8, which this
+    // targeted tail-only delete cannot.
+    await superuser.query(
+      `delete from platform.audit_log
+        where id = $1 and occurred_at = $2::timestamptz
+          and not exists (
+            select 1 from platform.audit_log a
+            where (a.occurred_at, a.id) > ($2::timestamptz, $1)
+          )`,
+      [fixtureRowId, fixtureOccurredAt],
+    );
+  });
+
+  it("a portal context with no entity access reads zero platform.audit_log rows with entity_id is not null, and the query does not throw", async () => {
+    // Vacuity guard: if the table happens to hold no row with entity_id is not null, the assertion
+    // below would pass trivially and prove nothing. Thrown, not asserted, so the failure names
+    // exactly what is missing rather than reporting a misleading "0 === 0" pass. Guaranteed to pass
+    // now by this block's own beforeAll seeding (see the header comment above) — kept as a
+    // regression guard, not removed.
+    const precondition = await superuser.query<{ n: string }>(
+      `select count(*)::text as n from platform.audit_log where entity_id is not null`,
+    );
+    const preconditionCount = Number(
+      firstRow(precondition, 'platform.audit_log precondition count (entity_id is not null)').n,
+    );
+    if (preconditionCount < 1) {
+      throw new Error(
+        'vacuity guard: platform.audit_log has zero rows with entity_id is not null — the bypass assertion below would pass trivially',
+      );
+    }
+
+    let thrown: unknown = null;
+    let result: QueryResult<{ n: number }> | undefined;
+    try {
+      result = await withContext(ctxA, (tx) =>
+        tx.execute<{ n: number }>(
+          sql`select count(*)::int as n from platform.audit_log where entity_id is not null`,
+        ),
+      );
+    } catch (error) {
+      thrown = error;
+    }
+
+    // Both halves, exactly like the G14 tampering cases above: "0" alone would also be true of a
+    // rejected promise whose .rows was never reached.
+    expect(thrown).toBeNull();
+    expect(result ? firstRow(result, "platform.audit_log count inside client A's portal context").n : undefined).toBe(0);
+
+    // Proves this block's own fixture insert (beforeAll, above) chained correctly and did not
+    // corrupt G8 — via the superuser client, which bypasses RLS (irrelevant here: G8 checks the
+    // hash chain, not row visibility).
+    const chainCheck = await superuser.query('select * from platform.verify_audit_chain()');
+    expect(chainCheck.rows).toEqual([]);
+  });
+
+  it('platform.audit_log has row security enabled and carries an entity_scope policy (SCR-RLS-02 Option A)', async () => {
+    const result = await superuser.query<{ relrowsecurity: boolean; policy_count: string }>(
+      `select c.relrowsecurity,
+              (select count(*) from pg_policy p
+                where p.polrelid = c.oid and p.polname = 'entity_scope')::text as policy_count
+       from pg_class c
+       join pg_namespace n on n.oid = c.relnamespace
+       where n.nspname = 'platform' and c.relname = 'audit_log'`,
+    );
+    const row = firstRow(result, 'pg_class/pg_policy lookup for platform.audit_log');
+
+    expect(row.relrowsecurity).toBe(true);
+    expect(Number(row.policy_count)).toBeGreaterThanOrEqual(1);
   });
 });

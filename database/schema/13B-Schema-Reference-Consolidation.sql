@@ -2985,12 +2985,13 @@ begin
     select n.nspname as sch, c.relname as tab
     from pg_class c
     join pg_namespace n on n.oid = c.relnamespace
-    where c.relkind = 'r'
+    where c.relkind in ('r','p')   -- D-002 / SCR-RLS-02: الأب المُقسَّم أيضاً — سياسة الأب هي التي تحكم القراءة عبره
       and n.nspname in ('platform','identity','catalog','sales','wms','tms','cc',
                         'billing','hr','partners','admin','housing','imile','governance')
     order by 1,2
   loop
-    -- ① تفعيل RLS على كل جدول أساسي (أقسام audit_log ضمناً — الوراثة لا تنقل relrowsecurity)
+    -- ① تفعيل RLS على كل جدول أساسي (أقسام audit_log وأبوها ضمناً — الوراثة لا تنقل relrowsecurity،
+    --    وسياسة الأب المُقسَّم تُطبَّق على كل أقسامه تلقائياً؛ D-002)
     execute format('alter table %I.%I enable row level security', r.sch, r.tab);
 
     -- إن كانت للجدول سياسة قائمة (من 01 أو من المرحلة الأولى) فلا تُكرَّر
@@ -3078,7 +3079,7 @@ commit;
 --   select count(*) from pg_constraint where conname like 'chk\_%';  -- قيود الحالات
 --   -- G7: يجب أن يعيد صفراً
 --   select count(*) from pg_class t join pg_namespace n on n.oid=t.relnamespace
---    where t.relkind='r' and n.nspname in ('platform','identity','catalog','sales','wms',
+--    where t.relkind in ('r','p') and n.nspname in ('platform','identity','catalog','sales','wms',
 --      'tms','cc','billing','hr','partners','admin','housing','imile','governance')
 --      and not t.relrowsecurity;
 --   -- ثم يُطبَّق 019-Warehouse-WH1-Setup.sql
@@ -3088,7 +3089,9 @@ commit;
 -- ═══════════════════════════════════════════════════════════════════════════
 --   0.16 · تصنيف كل عمود في identity.column_classification (حارس G6) —
 --          العرض identity.unclassified_columns يسرد المتبقي.
---   0.18 · مراجعة سياسات RLS المولَّدة آلياً في 13B-22: النمط صحيح، لكن بعض
+--   0.18 · [نُفِّذ 2026-09-23 — D-002: SCR-RLS-01 (entity_scope مقيَّدة بـ is_internal على سبعة
+--          جداول + قيد التنافي في identity) و SCR-RLS-02 (RLS على أب audit_log، G7 يشمل 'p') —
+--          الترحيل 0003] مراجعة سياسات RLS المولَّدة آلياً في 13B-22: النمط صحيح، لكن بعض
 --          الجداول تحتاج سياسة عميل (client_portal_scope) أو سياسة دور أضيق.
 --   ·     · بذر platform.domain_owners للمجالات D01–D12 من 22 §2.
 --   ·     · بذر platform.integration_config بـ I-01…I-11 من 23 §1 (PLT N-5)

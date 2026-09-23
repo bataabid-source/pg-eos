@@ -9,6 +9,7 @@ Not a lock table — deliberately not a `|`-prefixed markdown table, since
 `.claude/hooks/lane-guard.sh` parses every such line in this file as a
 module-lock row (see Rules below). One line per migration, newest first:
 
+- `0003_M_rls-scr-01-02.sql` — lane M, task 0.18 (SCR-RLS-01 B+C, SCR-RLS-02 A+B+C), applied 2026-09-23.
 - `0002_M_classify-columns.sql` — lane M, task 0.16, applied 2026-09-22.
 - `0001_B_fix-is-internal-empty-guc.sql` — lane B, task 0.11, applied 2026-09-22.
 

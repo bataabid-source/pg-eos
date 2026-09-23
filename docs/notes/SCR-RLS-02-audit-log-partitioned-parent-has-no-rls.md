@@ -1,6 +1,6 @@
 # SCR-RLS-02 — `platform.audit_log`'s partitioned parent has RLS disabled; reads bypass every partition policy
 
-**Status: OPEN — awaiting GM/system-owner decision.** Raised under **EXECUTION-MASTER-v4 §1.11 (G-01)**
+**Status: APPROVED (GM, "نفذ الاصلاحات", 2026-09-23) — APPLIED: Option A in `database/migrations/0003_M_rls-scr-01-02.sql`; Option B (G7 `relkind in ('r','p')`) in `guards.sql` · `apply.sh` · doc 40 Part F row G7; Option C in the 13B auto-policy loop. Recorded as D-002.** Raised under **EXECUTION-MASTER-v4 §1.11 (G-01)**
 by the WBS 0.18 slice, 2026-09-23. Type: **schema change** to frozen files
 (`database/schema/13B-Schema-Reference-Consolidation.sql` and `database/schema/guards.sql`).
 Single-lane Master task once approved.
@@ -118,20 +118,39 @@ recurring. None of the three changes any application code.
 
 ## 6. What 0.18 did in the meantime
 
-Nothing in the schema — G-01 forbids it. 0.18 records the defect here, reports it in
-`docs/PROJECT_STATE.md` and `tasks/MASTER_BACKLOG.md`, and closes **NOT DONE**: the backlog title of
+**Interim record — superseded by the APPLIED status above (0003, D-002, 2026-09-23).** Until approval,
+nothing in the schema changed — G-01 forbids it. 0.18 recorded the defect here, reported it in
+`docs/PROJECT_STATE.md` and `tasks/MASTER_BACKLOG.md` (commit `428a565`), and closed **NOT DONE**: the backlog title of
 row 0.18 is *"RLS enabled on every operational table in 01/13/13B/019"*, and while this parent has
 `relrowsecurity = false` that sentence is not true, whatever G7 returns.
 
-No test pins this one. The 0.18 suite's fixture role is scoped to the five client-scoped tables and
-`platform.audit_log` is not one of them; adding it would mean granting the fixture role `select` on
-the audit log, which is exactly the privilege whose absence limits the blast radius today. The
-reproduction in §3 is the record instead. **If the GM prefers an executable pin, say so and it will
-be added — it is a deliberate omission, not an oversight.**
+**(superseded once applied)** Before the fix, no test pinned this — granting the fixture role `select`
+on the audit log would have manufactured the very privilege whose absence limited the blast radius.
+After 0003 that objection is gone (the parent is protected), so the suite now grants the fixture role
+`select on platform.audit_log`, seeds its own audited row through the parent (the shape
+`modules/platform/tests/integration/schema-invariants.test.ts` uses), and asserts a portal context
+with no entity access reads **zero** rows with a non-null `entity_id`, that the parent has
+`relrowsecurity = true` with an `entity_scope` policy, and that G7's widened query returns 0.
 
-## 7. Related, separate
+## 7. Consequence of Option A that the GM must know — OPEN, deliberately not changed here
+
+`platform.audit_hash_chain` and `platform.sanitize_audit` are **not** `security definer`. Once the
+runtime stops connecting as superuser (WBS 0.5/0.6 — `packages/db/src/client.ts` KNOWN GAP), audit
+rows are inserted under the acting user's own RLS context. `entity_scope` on the parent is `FOR ALL`
+with a `USING` clause only, so the same predicate governs `INSERT`: a **portal user**
+(`allowed_entities() = {}`) whose action audits a row with a non-null `entity_id` will have the audit
+insert — and therefore the whole transaction — rejected. This is exactly the semantics the five
+partition policies already encoded for direct partition writes (the schema author's intent), and §5
+Option A says "identical predicate", so 0003 applies it verbatim rather than silently inventing a
+write-permissive variant. It has no effect today (superuser runtime). It must be decided **with the
+0.5/0.6 application-role design**: either an `INSERT`-permissive / `SELECT`-scoped policy split on
+the audit log, or a `security definer` audit writer. Tracked in `tasks/MASTER_BACKLOG.md` row 0.18
+"carried forward" and in `docs/PROJECT_STATE.md`.
+
+## 8. Related, separate
 
 `docs/notes/SCR-RLS-01-entity-scope-defeats-client-isolation.md` — a different defect (permissive
-policy composition on seven client-scoped tables), also raised by 0.18, also OPEN. The two share a
+policy composition on seven client-scoped tables), also raised by 0.18, also **APPLIED** by the same
+migration 0003 under D-002. The two share a
 root cause only in the loose sense that both are about RLS *coverage* being assumed rather than
 proven; they need different fixes and can be decided independently.
