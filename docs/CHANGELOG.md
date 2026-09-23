@@ -4,6 +4,14 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — SCR-TMS-PICKUP-01 filed: pickup leg for the delivery-only client (D-136) — DONE (2026-09-24)
+
+- GM directive "سجل الطلب" (D-136). Filed `docs/notes/SCR-TMS-PICKUP-01-external-pickup-point.md` under EXECUTION-MASTER-v4 §1.11 (G-01): Gap-Register #61 (D-10 §6-2) as a formal request — `tms.delivery_tasks` gets no `collected` state, no `pickup_delivery` task type (and no check constraint on `task_type`), no pickup site, no `tms.proof_of_collection`, no `tms.task.collected` event, no catalog code for the collection leg. Shapes in §3, five GM decisions in §5, default DEFERRED-POST-PILOT (D-127). Gap-Register #61 row points to the SCR.
+- No code, no schema, no migration, no WBS row. Adjacent gaps #59 / #60 and D-11 rows 22–23 listed in §2, not resolved.
+- Model: Master session fable-5.1 · Delegated: none · Review: n/a (governance) · tokens ≈ 45k (estimate)
+
+---
+
 ## 2.3 — Generate the 3,330 WH1 location codes from seed 019 — DONE (2026-09-24)
 
 - Verification-only, closed like 2.1 (0d546d5): no production code written. `database/schema/019-Warehouse-WH1-Setup.sql` already generates all 3,330 codes via `wms.generate_locations` — 3,153 storage (300 pallet + 2,853 shelf) + 30 operational + 147 structural (`X-` prefix, blocked) — plus the 7% `operational_buffer` `space_blocks_out_of_service` rows, inserted in the same migration.
