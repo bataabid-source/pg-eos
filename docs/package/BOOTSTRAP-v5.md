@@ -1,5 +1,5 @@
 PREMIUM GROUP — PG-EOS · CLAUDE CODE MASTER AGENT BOOTSTRAP (v5)
-**Version 5.0 · 21 September 2026 · Supersedes BOOTSTRAP-v4 (operating instruction only — the rule sources are unchanged)**
+**Version 5.1 · 23 September 2026 · Supersedes BOOTSTRAP-v4 (operating instruction only — the rule sources are unchanged)**
 
 > **What v5 adds over v4 (nothing else changes):**
 > 1. **Conflict-free parallelism as a mechanism** — module ownership locks (`tasks/LANE_LOCKS.md`), Master-issued migration numbers, one merge queue, and a lane brief that lists the only paths a lane may write.
@@ -66,7 +66,7 @@ Create under `.claude/agents/`. `model:` uses tier aliases opus · sonnet · hai
   pg-backend    model: sonnet   NestJS · Drizzle · XState · outbox · pg-boss · migrations. Replicates the golden slice via `scripts/new-slice.sh`. Reads only the brief's file list.
   pg-frontend   model: sonnet   React/TanStack/shadcn (admin, portal) · React Native/Expo (driver, decisions) · PWA (PDA). RTL default. Builds from the Zod contract and the D-blueprint screen spec named in the brief.
   pg-tester     model: sonnet   Gherkin → Playwright · property tests (fast-check) · guards G1–G18 · mutation. Writes tests FIRST and reports RED before build starts.
-  pg-scribe     model: haiku    PROJECT_STATE · MASTER_BACKLOG · CHANGELOG · LANE_LOCKS release · commit message · i18n files · renames. No logic, no schema.
+  pg-scribe     model: sonnet   PROJECT_STATE · MASTER_BACKLOG · CHANGELOG · LANE_LOCKS release · commit message · i18n files · renames. No logic, no schema.
 
 Each agent file: role · **allowed inputs = "only the paths in the brief"** · forbidden actions · REPORT format (§5) · the AGENT CONSTRAINTS block of §6 verbatim · `tools:` limited to what the role needs (pg-reviewer and pg-scribe: no Bash except `git`/`pnpm test`; pg-tester: no Edit outside `tests/` and `*/tests/`).
 
@@ -81,7 +81,7 @@ Each agent file: role · **allowed inputs = "only the paths in the brief"** · f
 | UI slice from contract + D-blueprint screen | pg-frontend    | sonnet  | ≤ 40k                                      |
 | Tests, guards, mutation                     | pg-tester      | sonnet  | ≤ 30k                                      |
 | Slice review                                | pg-reviewer    | opus    | ≤ 30k                                      |
-| State/backlog/CHANGELOG/i18n/renames        | pg-scribe      | haiku   | ≤ 10k                                      |
+| State/backlog/CHANGELOG/i18n/renames        | pg-scribe      | sonnet  | ≤ 10k                                      |
 | Single-file edit ≤ 30 lines, no new logic   | Master, direct | session | —                                          |
 | Planning, briefs, locks, merges, commits    | Master, direct | session | —                                          |
 | ADR / architecture / security design        | Master on opus | opus    | —                                          |

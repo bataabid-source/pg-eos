@@ -77,3 +77,7 @@ pst-warehouse-3d: حارس three.js · الكود السباعي وكود الإ
 - **قاعدة hook التزام (B4): `.githooks/commit-msg` نسخة مُصرَّحة:** يرفض أي رسالة أول سطر فيها لا يطابق `type(WBS): description` حيث WBS موجود في `docs/package/38-WBS.md` أو `X`. يُفعَّل عبر `git config core.hooksPath .githooks` بآلية البرنامج النصي `prepare` الجذري.
 
 - **تأكيدات B7:** `platform.test_probe` و`identity.test_probe` ليستا جداول — هما قيم نصية (`aggregate_type` في طلبات `platform.outbox` في اختبارات `packages/events`؛ رمز إذن في `identity.permissions` في اختبارات `packages/identity`)، تُنشآ وتُحذفان ضمن الاختبارات (`afterAll` أو اختبار فردي). مقبول من GM. `modules/wms` مبني يدويّاً مقبول (موثَّق منذ 0.16).
+
+## 13. إضافة (23/09/2026) — تثبيت نموذج pg-scribe على sonnet
+
+- **توجيه المدير العام 2026-09-23 (لا haiku؛ `pg-scribe` = sonnet):** `A-governing/BOOTSTRAP-v5.md` §3 السطر 69 (`pg-scribe     model: haiku` → `model: sonnet`) و§4 جدول التوجيه السطر 84 (`pg-scribe | haiku | ≤ 10k` → `pg-scribe | sonnet | ≤ 10k`)، الإصدار 5.0 → 5.1؛ و`41-Cloud-and-AI-Efficiency.md` §1 السطر 93 (`pg-scribe` haiku → `pg-scribe` sonnet)، الإصدار 4.0 → 4.1. `CLAUDE.md` و`docs/MODEL_ROUTING.md` كانا قد طابقا هذا التثبيت مسبقاً في الالتزام `dc3cc1b`.
