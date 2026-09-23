@@ -1,6 +1,6 @@
 -- ═══════════════════════════════════════════════════════════════════════════
 -- PG-EOS · 13B — توحيد المخطط المرجعي (Schema Reference Consolidation)
--- وثيقة 13B · PostgreSQL 16 · الإصدار 4.3 · 23/09/2026
+-- وثيقة 13B · PostgreSQL 16 · الإصدار 4.4 · 23/09/2026
 --
 -- > **v4 — حالة الوثيقة:** حاكمة · **الحاكم عند التعارض:** 40 · 36 ·
 -- > EXECUTION-MASTER-v4 · 22 · **التصحيحات المطبّقة في v4:** SCR-1…SCR-7 ·
@@ -1633,7 +1633,7 @@ commit;
 --   SCR-5  hr.disciplinary_cases.signed_by/routed_to + المشغّل +
 --          قيدا م.35 و م.37 ....................................... 13B-16
 --   SCR-6  قيد check على hr.recruitment_cases.stage + due_at ....... 13B-17
---   SCR-7  sales.possible_duplicates · platform.mdm_scorecard ...... 13B-18
+--   SCR-7  sales.possible_duplicates · platform.mdm_scorecard ...... 13B-19
 -- ═══════════════════════════════════════════════════════════════════════════
 
 begin;
@@ -2235,7 +2235,8 @@ select a.id a_id, a.code a_code, a.name_ar a_name,
        round(similarity(a.name_ar,b.name_ar)::numeric,3) sim
 from sales.accounts a join sales.accounts b on a.id < b.id
 where a.deleted_at is null and b.deleted_at is null
-  and (a.cr_number = b.cr_number or similarity(a.name_ar,b.name_ar) > 0.85);
+  and (a.cr_number = b.cr_number or similarity(a.name_ar,b.name_ar) >= 0.85);
+-- v4.4 · قرار GM 23/09/2026 (WBS 1.5، المرحلة D): `> 0.85` → `>= 0.85` كما في 40 §C2 INV-C2-3 — الترحيل 0006.
 
 -- v4 SCR-7 · المصدر: 22 §7 (v4)
 create or replace view platform.mdm_scorecard as

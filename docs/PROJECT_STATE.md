@@ -6,13 +6,13 @@ Maintained by pg-scribe only, in the same commit as the task it records.
 | field | value |
 |---|---|
 | Phase | 0 — Foundation → 2 — Warehouse (2.1 started 2026-09-23) |
-| Current task | **1.5 — ACTIVE, STOPPED** (lane M, lock sales). SCR-TRGM-01: Arabic trigrams are empty under lc_ctype C, so name-duplicate detection never fires on name_ar — GM decision needed (options in the SCR note; Master recommends A). 2.8 DONE @ `b5da282`. Completion **13/132**. |
+| Current task | **1.5 — DONE (proof)** (this commit; previous task 2.8 @ `b5da282`). Completion 13/132 (0.17 mechanisms and 1.5 proof excluded — ADR-0001). SCR-TRGM-01 resolved (option A). 2.6 now READY. |
 | Golden slice (2.9) | not built · `.golden-slice-accepted` absent · `scripts/new-slice.sh` is a no-op. **Acceptance gains a Phase-0 wiring line (GM 2026-09-22): the golden slice must wire up every part deferred from Phase-0 "mechanism only" tasks — starting with 0.17's login endpoints.** |
 | Deployment tier | Tier 0 (`docs/package/42-Oracle-Cloud-Deployment.md`) |
-| Schema | `database/schema/01 · 13 · 13B · 019` — the ONLY permitted schema (01 v1.1, 13B v4.3, migrations 0001–0005) · `apply.sh --recreate` **green on this machine 2026-09-23**: 175 tables/14 schemas, `wms.verify_wh1()` 21/21 pass (3,330 locations), G1–G13 = 0 (G6 blocking, 0 rows — WBS 0.16 complete), G18/G-SEED report-only = 0 |
+| Schema | `database/schema/01 · 13 · 13B · 019` — the ONLY permitted schema (01 v1.1, 13B v4.4, migrations 0001–0006) · DB locale UTF8 / collate C / ctype C.UTF-8 · `apply.sh --recreate` **green on this machine 2026-09-23**: 175 tables/14 schemas, `wms.verify_wh1()` 21/21 pass (3,330 locations), G1–G13 = 0 (G6 blocking, 0 rows — WBS 0.16 complete), G18/G-SEED report-only = 0 |
 | Session model | opus (`claude-opus-5-5`, set by the GM via /model on 2026-09-23 before phase F; earlier today fable `claude-fable-5-1`) · workers sonnet, reviews/ADR/security opus, pg-scribe sonnet, no haiku (GM 2026-09-23) |
 | Toolchain | pnpm 9.15.9 · Node 25.2.1 · Docker 29.0.1 · psql 16.15 installed · migrations auto-runner enabled (WBS 0.11) · **psql UTF-8 fix** (WBS 0.15: stdin redirect not `-f` to avoid multi-byte corruption; trade-off: error output loses line numbers — see `apply.sh` header for details) · TypeScript 5.9.3 ceiling `<6.1.0` |
-| Setup check | `scripts/check-setup.sh` → FILES READY · `scripts/check-boundaries.sh` → BOUNDARIES ENFORCED (A–F) · `apply.sh --recreate` GREEN 2026-09-23 (175 tables, migrations 0001–0005) · guards G1–G14/G18 GREEN (G15–G17 not yet run) · `pnpm -w build --force` 9/9 and `pnpm -w test -- --force` 10/10 GREEN 2026-09-23 (no turbo cache) · commit-msg hook `.githooks/commit-msg` active |
+| Setup check | `scripts/check-setup.sh` → FILES READY · `scripts/check-boundaries.sh` → BOUNDARIES ENFORCED (A–F) · `apply.sh --recreate` GREEN 2026-09-23 (migrations 0001–0006, DB locale UTF8 / collate C / ctype C.UTF-8) · gate ① typecheck 14/14 · lint · boundaries A–F · guards G1–G14 + G18 GREEN (G15–G17 not yet run) · `pnpm -w build --force` 10/10 and `pnpm -w test -- --force` 13/13 GREEN 2026-09-23 (0 cached) · commit-msg hook `.githooks/commit-msg` active |
 
 ## Lanes
 
@@ -22,15 +22,15 @@ None claimed.
 
 | task | commit |
 |---|---|
+| 1.5 — Customer accounts proof slice (ADR-0001) + SCR-TRGM-01 option A | (this commit — recorded by the next commit) |
 | 2.8 — Stock ledger + derived balance + verify_balance_integrity (fixes e5bff15 SCR-AUDIT-01, 787d9dc SCR-WMS-01) | `b5da282` |
 | 2.1 — WH1 zones + 8 space blocks proof (modules/wms scaffold) | `0d546d5` |
 | 0.18 — RLS client-isolation suite (43/43) + G14 runner; SCRs 01/02 applied (D-002) | `f03e160` |
 | 0.17 — Identity mechanism (mechanisms only): OTP, sessions, RBAC/SoD evaluation — packages/identity/ | `c90dd6e` |
-| 0.16 — Column sensitivity classification: `identity.column_classification` + deploy guard | `a021126` |
 
 ## Blockers
 
-- **SCR-TRGM-01:** Arabic trigrams empty under lc_ctype C — name-duplicate detection never fires on name_ar (sales.possible_duplicates); GM decision needed (options A/B/C in `docs/notes/SCR-TRGM-01-arabic-trigrams-c-ctype.md`; Master recommends A).
+- **GM decision pending:** dev (postgres:16, glibc) vs Tier-0 (postgres:16-alpine, musl) image parity — doc 42 §9.
 - **Open G-01 item:** where the G8 anchor is stored before the first partition detach (≥ 2028-03).
 - WAITING_GM · **2.2** field survey — chain 2.2 → 2.3 → 2.4 → 2.9.
 - WAITING_GM · **0.2** three cloud decisions (doc 42 §11) → 0.3 → 0.5 → 0.6; and **0.8** restore test.
@@ -42,9 +42,9 @@ None claimed.
 
 ## Next 3 tasks
 
-1. GM word on SCR-TRGM-01 → 1.5 (gate findings, 0006, docs 22 / ADR-0001).
-2. re-assess 2.6 after 1.5.
-3. 0.6 CI (waits on 0.5).
+1. 2.6 wms.skus (READY; out of scope of the current directive — awaits GM)
+2. 2.2 field survey → 2.3 → 2.4 (WAITING_GM)
+3. 0.6 CI (waits on 0.5)
 
 ## Notes
 

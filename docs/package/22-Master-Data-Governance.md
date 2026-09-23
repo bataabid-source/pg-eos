@@ -1,5 +1,5 @@
 # حوكمة البيانات المرجعية
-**وثيقة 22 · الإصدار 4.0 · 21/09/2026**
+**وثيقة 22 · الإصدار 4.1 · 23/09/2026**
 
 > **v4 — حالة الوثيقة:** حاكمة (الملكية وفصل المهام وسلاسل الاعتماد، المرتبة 6) · **الحاكم عند التعارض:** 40 · 36 · EXECUTION-MASTER-v4 · 42 · 38 · **التصحيحات المطبّقة في v4:** GOV-05, GOV-40, GOV-50, GOV-57, ADM-01, ADM-07, ADM-09, ADM-14, ADM-24, ADM-25, ADM-50, PLT-07, PLT-25, SCH (13B) · **القرارات المفتوحة سابقاً:** مُغلقة في EXECUTION-MASTER-v4 §1.
 
@@ -250,10 +250,10 @@ create table identity.sod_rules (
 | المركبة | رقم اللوحة | رقم الهيكل |
 | الشريك | السجل التجاري | الآيبان |
 
-> **مِلكية الكائن:** العرض `sales.possible_duplicates` أدناه **غير معرَّف في `01/13/13B/019`** حتى الآن. يُرفع إلى 13B بطلب تغيير مخطط (G-01)؛ نصّه هنا هو المواصفة لا التنفيذ.
+> **مِلكية الكائن (v4.1):** العرض `sales.possible_duplicates` معرَّف في `13B §13B-19` (SCR-7) منذ v4، وصُحِّح شرطه إلى `>= 0.85` بالترحيل `0006_M_possible-duplicates-ge.sql` (13B v4.4، قرار GM 23/09/2026) مطابقةً للوثيقة 40 §C2 INV-C2-3. النص أدناه منسوخ حرفياً من 13B. **شرط مسبق:** كشف الأسماء العربية يتطلب قاعدة منشأة بـ `lc_ctype = C.UTF-8` (SCR-TRGM-01)؛ تحت `C` لا تُولِّد pg_trgm أي trigram للعربية.
 
 ```sql
--- كما يُرفع إلى 13B — فحص دوري يُشغَّل أسبوعياً ويُرفع لمالك المجال
+-- منسوخ من 13B §13B-19 (v4.4) — فحص دوري يُشغَّل أسبوعياً ويُرفع لمالك المجال
 create extension if not exists pg_trgm;
 create or replace view sales.possible_duplicates as
 select a.id a_id, a.code a_code, a.name_ar a_name,
@@ -261,7 +261,7 @@ select a.id a_id, a.code a_code, a.name_ar a_name,
        round(similarity(a.name_ar,b.name_ar)::numeric,3) sim
 from sales.accounts a join sales.accounts b on a.id < b.id
 where a.deleted_at is null and b.deleted_at is null
-  and (a.cr_number = b.cr_number or similarity(a.name_ar,b.name_ar) > 0.85);
+  and (a.cr_number = b.cr_number or similarity(a.name_ar,b.name_ar) >= 0.85);
 ```
 
 **الدمج لا الحذف:** السجل المكرر يُدمج في الأصل مع نقل كل حركاته، ويبقى كودهُ مؤشراً للأصل. **لا يُحذف سجل له حركات إطلاقاً.**

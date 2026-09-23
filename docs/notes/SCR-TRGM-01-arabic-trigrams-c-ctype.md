@@ -1,6 +1,6 @@
 # SCR-TRGM-01 — pg_trgm produces no trigrams for Arabic under `lc_ctype = C`: duplicate detection on `name_ar` never fires
 
-**Status: OPEN — GM decision required** (raised under EXECUTION-MASTER-v4 §1.11, G-01; environment/DDL).
+**Status: RESOLVED — option A** (GM reply "نفذ" to the Master's recommendation, 2026-09-23): databases are created with UTF8, `lc_collate = C`, `lc_ctype = C.UTF-8` (`database/schema/apply.sh`, `infra/docker/docker-compose.yml`, doc 42 v4.1 §4.2/§6.3/§9). Raised under EXECUTION-MASTER-v4 §1.11 (G-01; environment/DDL).
 Date: 2026-09-23 · Raised during WBS 1.5 (phase D of the GM directive of 2026-09-23) by the migration-gate review of 0006
 (pg-reviewer open question 1), measured by the Master.
 Blocks: WBS 1.5 acceptance "duplicate detection fires" (doc 38) for Arabic names; doc 40 §C2 INV-C2-3 ("Duplicate detection on
@@ -38,9 +38,9 @@ Writing the 1.5 proof with Latin names only would make "duplicate detection fire
 
 Master recommendation: **A** (smallest change; the collation, and so every ordering and index, stays `C`).
 
-## 4. What is on hold
+## 4. Resolution (2026-09-23)
 
-- WBS 1.5 (phase D): the proof suite, migration 0006 (`> 0.85` → `>= 0.85`, gate FAIL(8) — all findings are wording, the SQL passed)
-  and the docs 22 / ADR-0001 corrections wait for this decision, because the proof's name-similarity scenarios must run on Arabic
-  names to mean anything.
-- Nothing else is affected today: no other module uses pg_trgm or Arabic text matching yet.
+- `apply.sh --recreate` creates the database from `template0` with UTF8 / collate C / ctype C.UTF-8 and refuses any database created otherwise; the local compose initialises new clusters the same way; doc 42 v4.1 adds the same settings to the Tier-0 compose and to `restore.sh`, plus a behaviour check at WBS 0.5 and 0.8 (musl accepts any locale name, so the name alone proves nothing).
+- Measured after the rebuild: `pgeos` = C.UTF-8|C; Arabic trigrams present; the 1.5 proof runs every name scenario on Arabic names.
+- Every environment must be rebuilt with `apply.sh --recreate` (no production data exists yet).
+- Flagged to the GM, not decided: dev image `postgres:16` (glibc) vs Tier-0 `postgres:16-alpine` (musl) — verified by behaviour, see doc 42 §9.

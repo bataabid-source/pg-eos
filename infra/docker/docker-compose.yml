@@ -24,7 +24,11 @@ services:
       # never reachable from the network, so no password is set for local connections.
       # Tier 0 (doc 42) uses scram-sha-256 with a secret from the host — never this setting.
       POSTGRES_HOST_AUTH_METHOD: trust
-      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+      # SCR-TRGM-01 (GM 2026-09-23, option A): ctype C.UTF-8 so pg_trgm sees Arabic letters; collation stays C.
+      # Applies to a NEW cluster only (an existing data volume keeps its settings); apply.sh --recreate
+      # creates pgeos with the same locale explicitly either way.
+      # --locale=C keeps every other category C (as before); only LC_CTYPE changes (GM approved ctype only).
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C --lc-ctype=C.UTF-8"
       TZ: Asia/Kuwait
     command:
       - postgres

@@ -2,7 +2,6 @@
 
 | module | lane | task | claimed_at | worktree |
 |---|---|---|---|---|
-| sales | M | 1.5 | 2026-09-23 | (main — single lane, GM directive 2026-09-23 phase D) |
 
 ## Migrations issued
 
@@ -10,7 +9,7 @@ Not a lock table — deliberately not a `|`-prefixed markdown table, since
 `.claude/hooks/lane-guard.sh` parses every such line in this file as a
 module-lock row (see Rules below). One line per migration, newest first:
 
-- `0006_M_possible-duplicates-ge.sql` — lane M, task 1.5 (GM directive phase D: 13B §13B-19 `> 0.85` → `>= 0.85`), issued 2026-09-23.
+- `0006_M_possible-duplicates-ge.sql` — lane M, task 1.5 (GM directive phase D: 13B §13B-19 `> 0.85` → `>= 0.85`), applied 2026-09-23 (pg-reviewer migration gate PASS, round 3).
 - `0005_M_balance-integrity-batch.sql` — lane M, task 2.8 fix (SCR-WMS-01), applied 2026-09-23 (pg-reviewer migration gate PASS, round 2).
 - `0004_M_audit-chain-seq.sql` — lane M, task 0.9 fix (SCR-AUDIT-01, ADR-0002), applied 2026-09-23 (pg-reviewer migration gate PASS, round 3).
 - `0003_M_rls-scr-01-02.sql` — lane M, task 0.18 (SCR-RLS-01 B+C, SCR-RLS-02 A+B+C), applied 2026-09-23.

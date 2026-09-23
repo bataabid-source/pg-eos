@@ -301,3 +301,34 @@ describe('platform.audit_hash_chain / platform.verify_audit_chain — definer ri
     expect(offenders, offenders.join('; ')).toEqual([]);
   });
 });
+
+// SCR-TRGM-01 (environment-wide, not sales-specific) — GM-approved option A, 2026-09-23
+// (.claude/briefs/_slice-1.5.brief.md decision 7): databases are created with lc_ctype C.UTF-8,
+// lc_collate C, so that pg_trgm produces real trigrams for Arabic (and other non-ASCII) text.
+// Under the old plain-C ctype, show_trgm() returns an empty array for any non-ASCII input — this
+// describe block is the permanent, re-runnable proof that this database's ctype/collate actually
+// deliver working Arabic trigrams, not merely that the pg_trgm extension is installed. This is
+// asserted here, at the platform level, because it governs every module's use of pg_trgm on
+// Arabic columns (starting with modules/sales/tests/integration/customer-accounts.test.ts), not
+// only sales.
+const EXPECTED_DATCTYPE = 'C.UTF-8';
+const EXPECTED_DATCOLLATE = 'C';
+// "warehouse" — a plain Arabic dictionary word used only to probe trigram extraction; not a
+// fixture, not a business value (CLAUDE.md AGENT CONSTRAINTS — never fabricate a name).
+const ARABIC_TRIGRAM_PROBE_WORD = 'مخزن';
+
+describe('the database ctype supports Arabic trigrams (SCR-TRGM-01)', () => {
+  it('datctype is C.UTF-8, datcollate is C, and show_trgm() returns real trigrams for Arabic text', async () => {
+    const dbSettings: QueryResult<{ datctype: string; datcollate: string }> = await pool.query(
+      `select datctype, datcollate from pg_database where datname = current_database()`,
+    );
+    expect(dbSettings.rows[0]?.datctype).toBe(EXPECTED_DATCTYPE);
+    expect(dbSettings.rows[0]?.datcollate).toBe(EXPECTED_DATCOLLATE);
+
+    const trigrams: QueryResult<{ trigrams: string[] }> = await pool.query(
+      `select show_trgm($1::text) as trigrams`,
+      [ARABIC_TRIGRAM_PROBE_WORD],
+    );
+    expect(trigrams.rows[0]?.trigrams).not.toEqual([]);
+  });
+});

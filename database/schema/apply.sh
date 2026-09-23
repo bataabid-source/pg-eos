@@ -35,7 +35,7 @@
 #   ./apply.sh                          # على PGDATABASE أو pgeos
 #   PGDATABASE=pgeos_test ./apply.sh
 #   PGHOST=/tmp/pgsock PGPORT=5433 PGUSER=postgres PGDATABASE=pgeos ./apply.sh
-#   ./apply.sh --recreate               # dropdb + createdb قبل التطبيق
+#   ./apply.sh --recreate               # dropdb + createdb (UTF8 · ctype C.UTF-8 · collate C — SCR-TRGM-01) قبل التطبيق
 #   ./apply.sh --no-guards              # تطبيق بلا حراسة
 # ═══════════════════════════════════════════════════════════════════════════
 set -euo pipefail
@@ -46,6 +46,10 @@ export PGHOST="${PGHOST:-/var/run/postgresql}"
 export PGPORT="${PGPORT:-5432}"
 export PGUSER="${PGUSER:-postgres}"
 export PGDATABASE="${PGDATABASE:-pgeos}"
+# SCR-TRGM-01 (قرار GM 23/09/2026، الخيار A): تصنيف الحروف UTF-8 كي تُولِّد pg_trgm trigrams للعربية
+# (تحت ctype = C تُهمَل كل الحروف العربية وsimilarity() = 0)، والترتيب يبقى C كما كان.
+readonly PG_LC_CTYPE="C.UTF-8"
+readonly PG_LC_COLLATE="C"
 # إخفاء NOTICE («المشغّل غير موجود، تخطٍّ») — التحذيرات والأخطاء تبقى ظاهرة
 export PGOPTIONS="${PGOPTIONS:--c client_min_messages=warning}"
 
@@ -79,7 +83,14 @@ done
 if [[ "$RECREATE" -eq 1 ]]; then
   echo "→ إعادة إنشاء القاعدة ${PGDATABASE} …"
   dropdb --if-exists "$PGDATABASE"
-  createdb "$PGDATABASE"
+  createdb -T template0 -E UTF8 --lc-collate="$PG_LC_COLLATE" --lc-ctype="$PG_LC_CTYPE" "$PGDATABASE"
+fi
+
+# SCR-TRGM-01: قاعدة منشأة بغير هذا الإعداد تُرفض — الـctype لا يتغيّر إلا بإعادة الإنشاء (--recreate).
+DB_LOCALE="$(psql -d "$PGDATABASE" -Atqc "select datctype || '|' || datcollate from pg_database where datname = current_database()")"
+if [[ "$DB_LOCALE" != "${PG_LC_CTYPE}|${PG_LC_COLLATE}" ]]; then
+  echo "✗ القاعدة ${PGDATABASE} منشأة بـ ctype|collate = ${DB_LOCALE} والمطلوب ${PG_LC_CTYPE}|${PG_LC_COLLATE} (SCR-TRGM-01) — أعد التشغيل بـ --recreate." >&2
+  exit 1
 fi
 
 step=0

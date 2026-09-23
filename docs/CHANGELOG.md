@@ -4,6 +4,20 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## 1.5 — Customer accounts proof slice (ADR-0001) + SCR-TRGM-01 option A — DONE (proof) (2026-09-23)
+
+- **WBS 1.5 built as a proof slice** per `docs/adr/ADR-0001-1.5-proof-slice.md`: data model + labelled fixtures only, no UI/workflow/public API; the full slice is replicated later from the golden slice 2.9.
+- **SCR-TRGM-01 option A approved by the GM** ("نفذ", 2026-09-23): databases created with `UTF8` / `lc_collate C` / `lc_ctype C.UTF-8` — `apply.sh` (createdb template0 + refusal check), `infra/docker/docker-compose.yml`, doc 42 4.0 → 4.1 (§4.2 compose + behaviour check at WBS 0.5 / 0.8, §6.3 `restore.sh` locale check, §9 glibc-vs-musl parity flagged to the GM).
+- **Migration** `database/migrations/0006_M_possible-duplicates-ge.sql` + 13B 4.3 → 4.4 (view `> 0.85` → `>= 0.85`, SCR-7 index pointer → 13B-19); doc 22 4.0 → 4.1 (§5 view text + ownership note); ADR-0001 dated resolution line; `CHANGELOG-v4.md` §17; `docs/notes/SCR-TRGM-01-arabic-trigrams-c-ctype.md` RESOLVED.
+- **Float finding:** `similarity()` returns `real`; `float4(0.85) = 0.8500000238 > 0.85`, so the exact-0.85 pair was already reported by `>`; the proof is the normalized view text (RED before 0006) plus a non-regression boundary test with the Arabic pair اختبارمكررتجريبي / اختبارمكررتجريبي كو.
+- **Tests:** `modules/sales` scaffold (pg-backend) + `customer-accounts` 19/19; platform environment test (ctype `C.UTF-8` / collate `C` / Arabic trigrams) → `platform` 24/24; before option A, on ctype `C`, similarity of identical Arabic names was 0.
+- **Reviews:** migration gate FAIL(8) → FAIL(6) → PASS; slice close items C1–C8 and C-N1–C-N3 (11); close review FAIL(7) → fixed (initdb keeps --locale=C with only LC_CTYPE C.UTF-8 — GM approved ctype only; doc 42 behaviour check says "pass in full" instead of a fixed count; restore.sh restarts the API on every exit path; test citations and decision 6 quoted exactly; Gherkin covers null CR numbers and the "< 1" bound; PROJECT_STATE setup row); close re-check FAIL(3) → fixed (test comments: ctype-check placement reason, decision 6 and decision 3 quoted exactly) ⇒ 8 + 6 + 11 + 7 + 3 = 35.
+- **Carried forward:** dev/Tier-0 image parity (GM decision); Tier-2 managed DB locale to verify; the view has no `security_invoker` (G-01 when API roles/grants arrive); `modules/platform/tests/integration/automation-rules-threshold-integrity.test.ts` still carries a line-style 13B citation (its own slice); every environment must be rebuilt with `apply.sh --recreate`.
+- **Commits of this task:** `0b6ffbb` (wip STOP) + this `feat(1.5)` close-out.
+- Model: opus (Master session, claude-opus-5-5) · sonnet (workers) · Delegated: pg-backend (sonnet, scaffold), pg-tester (sonnet), pg-reviewer (opus), pg-scribe (sonnet); Master direct: apply.sh, compose, 13B, 0006, docs 22/42, ADR-0001 line, SCR note · Review: PASS(35 findings fixed) · tokens: ≈ 1.1M (estimate)
+
+---
+
 ## 1.5 — STOP: SCR-TRGM-01 (2026-09-23)
 
 - **WBS 1.5 (phase D) is ACTIVE on lane M (lock sales claimed) and STOPPED:** new G-01 request `docs/notes/SCR-TRGM-01-arabic-trigrams-c-ctype.md` — every database of the cluster has `lc_ctype C`, so `pg_trgm` produces no trigrams for Arabic; `similarity()` of two identical Arabic names = 0 (measured; under `C.UTF-8`: 1, one-letter variant 0.818). `sales.possible_duplicates` compares `name_ar` only, so INV-C2-3's name branch never fires on Arabic names. Options: A — create databases with `lc_ctype C.UTF-8`, `lc_collate C` (Master recommends); B — normalised name column; C — accept Latin-only. GM decision required.
