@@ -6,8 +6,8 @@ Maintained by pg-scribe only, in the same commit as the task it records.
 | field | value |
 |---|---|
 | Phase | 0 — Foundation → 2 — Warehouse · **pilot-first (D-127, GM 2026-09-24): the pilot runs on seed 019 + synthetic data; every field/human/sign-off/training/naming item and Tier-0 provisioning is DEFERRED-POST-PILOT** |
-| Current task | **0.8 DONE — pilot backup/restore acceptance (D-130)** (previous task X — D-135 @ `41c1e04`). Completion 17/133 (doc 38 v4.2: 0.6 → 0.6a/0.6b, D-124; 0.17 mechanisms and 1.5 proof excluded — ADR-0001). |
-| Golden slice (2.9) | not built · `.golden-slice-accepted` absent · `scripts/new-slice.sh` is a no-op. Deps 2.4, 2.6, 2.8, 0.15 — 2.6, 2.8, 0.15 DONE; **2.3 → 2.4 now unblocked (D-128)**. **Phase-0 gate: passed on 0.8 (D-130)** — pilot backup/restore acceptance against local Docker, 8/8 green. Acceptance also wires every Phase-0 "mechanism only" deferral (GM 2026-09-22), starting with 0.17's login endpoints. |
+| Current task | **2.3 DONE — generate the 3,330 WH1 location codes from seed 019 (verification-only)** (previous task 0.8 — pilot backup/restore @ `56fa267`). Completion 18/133 (doc 38 v4.2: 0.6 → 0.6a/0.6b, D-124; 0.17 mechanisms and 1.5 proof excluded — ADR-0001). |
+| Golden slice (2.9) | not built · `.golden-slice-accepted` absent · `scripts/new-slice.sh` is a no-op. Deps 2.4, 2.6, 2.8, 0.15 — 2.6, 2.8, 0.15, **2.3 now DONE**; **2.4 next**. **Phase-0 gate: passed on 0.8 (D-130)** — pilot backup/restore acceptance against local Docker, 8/8 green. Acceptance also wires every Phase-0 "mechanism only" deferral (GM 2026-09-22), starting with 0.17's login endpoints. |
 | Deployment tier | **Pilot Tier 0 = local Docker `postgres:16` (D-129)**; Oracle Tier 0 (`docs/package/42-Oracle-Cloud-Deployment.md`) after the pilot (0.3, 0.5, 0.7, 0.6b DEFERRED-POST-PILOT) |
 | Schema | `database/schema/01 · 13 · 13B · 019` — the ONLY permitted schema (01 v1.1, 13B v4.4, migrations 0001–0006) · DB locale UTF8 / collate C / ctype C.UTF-8 · `apply.sh --recreate` green 2026-09-23: 175 tables/14 schemas, `wms.verify_wh1()` 21/21, G1–G13 = 0, G18/G-SEED = 0 · **SCR-HR-ATT-01 APPROVED (D-131)** — migration number not yet issued; pg-reviewer pre-migration review before any DDL |
 | Session model | fable (`claude-fable-5-1`, set by the GM via /model 2026-09-23 evening; earlier opus) · workers sonnet, reviews/ADR/security opus, pg-scribe sonnet, no haiku (GM 2026-09-23) |
@@ -22,11 +22,11 @@ None claimed.
 
 | task | commit |
 |---|---|
+| 0.8 — pilot backup/restore acceptance (D-130) | `56fa267` |
 | X — D-135 session operating directive v6 in CLAUDE.md | `41c1e04` |
 | X — D-127…D-134 pilot-first (2.2 closed on seed, ADR-0003 accepted, 0.6a READY) | `1f5027f` |
 | X — D-125 cleanup (biometric import retired, GM-confirm list) | `92d0dd9` |
 | X — ADR-0003 native attendance (Proposed, D-126) + SCR-HR-ATT-01 + doc-38 draft | `e38c171` |
-| X — CR-BIO-DSH pre-read; Part 0 D-122/123/124 re-verified | `3750448` |
 
 ## Blockers
 
@@ -39,9 +39,9 @@ None claimed.
 
 ## Next 3 tasks
 
-1. **0.6a** CI gates ①–⑥ on GitHub Actions (READY, lane M; D-124 + D-133 `pgeos_app` role, `entity_scope` USING / WITH CHECK)
-2. **2.3** generate the 3,330 codes from seed 019 (READY, lane 2; D-128) → 2.4
-3. **2.4** (dep 2.3) → 2.9 golden slice
+1. **2.4** (dep 2.3 DONE, lane 2) → 2.9 golden slice
+2. **0.6a** CI gates ①–⑥ on GitHub Actions (WAITING_GM — D3/2.3: CI draft unreviewed, needs migration-number approval + secret-scanner choice; D-124 + D-133 `pgeos_app` role, `entity_scope` USING / WITH CHECK)
+3. **2.9** golden slice "Receive inbound order" (dep 2.4, full human review) — never parallelised
 
 ## Notes
 
@@ -51,4 +51,4 @@ None claimed.
 - Phase-0 policy (GM 2026-09-22): mechanism-only tasks; deferred parts tracked here and in `MASTER_BACKLOG.md`.
 - GIT rule (GM 2026-09-23 B3): task ↔ code link is `git log` with `type(WBS):`; previous task's hash recorded here inside the next task's commit. Push policy D-120.
 - GM decision sheet: `docs/notes/2026-09-23-gm-decision-sheet.md` · cleanup dispositions: `docs/notes/2026-09-24-cleanup-candidates.md` §4.
-- **Batched question for GM:** doc-38 row 0.8 wording still says OCI + dep 0.5 (not delegated).
+- **Batched questions for GM:** (a) doc-38 row 0.8 wording still says OCI + dep 0.5 (not delegated). (b) 0.6a: approve issuing a migration number for the D-133 `pgeos_app` role / `entity_scope` USING/WITH CHECK split (pg-reviewer pre-migration review first), and choose a secret scanner, so the CI draft can be committed.
