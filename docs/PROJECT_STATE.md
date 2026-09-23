@@ -6,17 +6,17 @@ Maintained by pg-scribe only, in the same commit as the task it records.
 | field | value |
 |---|---|
 | Phase | 0 — Foundation → 2 — Warehouse (2.1 started 2026-09-23) |
-| Current task | **None active.** Completion **12/132** (0.17 mechanisms-only excluded — GM 2026-09-23). Last DONE: 2.1 @ `0d546d5`. GM directive 2026-09-23 phases A+B executed (environment restored, governance); next: C = 2.8 after GM approval. |
+| Current task | **2.8 — ACTIVE, STOPPED (BLOCKED)** on lane M. Implementation green except the concurrency gate: SCR-AUDIT-01 (audit hash-chain order race, 13B frozen path) needs a GM decision — see Blockers. Completion still 12/132. Phase E of the GM directive done (`1a9335b` ADR-0001 · `dc3cc1b` archive + pinning); phase D waits on phase-C gates. |
 | Golden slice (2.9) | not built · `.golden-slice-accepted` absent · `scripts/new-slice.sh` is a no-op. **Acceptance gains a Phase-0 wiring line (GM 2026-09-22): the golden slice must wire up every part deferred from Phase-0 "mechanism only" tasks — starting with 0.17's login endpoints.** |
 | Deployment tier | Tier 0 (`docs/package/42-Oracle-Cloud-Deployment.md`) |
 | Schema | `database/schema/01 · 13 · 13B · 019` — the ONLY permitted schema · `apply.sh --recreate` **green on this machine 2026-09-23 (13B v4.2)**: 175 tables/14 schemas, `wms.verify_wh1()` 21/21 pass (3,330 locations), G1–G13 = 0 (G6 blocking, 0 rows — WBS 0.16 complete), G18/G-SEED report-only = 0 |
-| Session model | fable (`claude-fable-5-1`, GM-set — not one of the four `docs/MODEL_ROUTING.md` tier aliases, reported verbatim, never silently mapped). Reviews and security design run on opus per MODEL_ROUTING §4 |
+| Session model | fable (`claude-fable-5-1`, GM-set — not one of the four `docs/MODEL_ROUTING.md` tier aliases, reported verbatim, never silently mapped). Reviews and security design run on opus per MODEL_ROUTING §4 · GM 2026-09-23: workers sonnet, reviews/ADR opus, pg-scribe repinned to sonnet, no haiku; the Master session itself still runs on the GM-set session model (changeable only from the model menu). |
 | Toolchain | pnpm 9.15.9 · Node 25.2.1 · Docker 29.0.1 · psql 16.15 installed · migrations auto-runner enabled (WBS 0.11) · **psql UTF-8 fix** (WBS 0.15: stdin redirect not `-f` to avoid multi-byte corruption; trade-off: error output loses line numbers — see `apply.sh` header for details) · TypeScript 5.9.3 ceiling `<6.1.0` |
 | Setup check | `scripts/check-setup.sh` → FILES READY · `scripts/check-boundaries.sh` → BOUNDARIES ENFORCED (A–F) · `apply.sh --recreate` GREEN 2026-09-23 (175 tables, migrations 0001–0003) · guards G1–G14/G18 GREEN (G15–G17 not yet run) · `pnpm -w build --force` 9/9 and `pnpm -w test -- --force` 10/10 GREEN 2026-09-23 (no turbo cache) · commit-msg hook `.githooks/commit-msg` active |
 
 ## Lanes
 
-None claimed. Live table: `tasks/LANE_LOCKS.md` — Phase 0 and the golden slice are never parallelised.
+wms claimed by lane M for 2.8 (tasks/LANE_LOCKS.md) — single lane, no parallelism before 2.9. Golden slice (2.9) is never parallelised.
 
 ## Last 5 DONE (newest first)
 
@@ -30,10 +30,11 @@ None claimed. Live table: `tasks/LANE_LOCKS.md` — Phase 0 and the golden slice
 
 ## Blockers
 
+- **SCR-AUDIT-01 (G-01, GM decision):** `platform.audit_hash_chain()` chains in lock order, `verify_audit_chain()` verifies in (occurred_at, id) order → concurrent audit writers break the chain (2.8 concurrency run: ~700 / ~3,500+ broken rows, G8/G14 red until recreate). Options A/B/C in docs/notes/SCR-AUDIT-01-hash-chain-order-race.md; Master recommends B. Blocks 2.8 close-out and phase D.
+- **SCR candidate (2.8):** `wms.verify_balance_integrity()` ignores `batch_no` while `stock_balance` is keyed with it — false positives with several batches per location; 2.8 uses batch_no '' only.
 - WAITING_GM · **2.2** field survey — chain 2.2 → 2.3 → 2.4 → 2.9.
 - WAITING_GM · **0.2** three cloud decisions (doc 42 §11) → 0.3 → 0.5 → 0.6; and **0.8** restore test.
 - **Phase-0 gate open** (0.2, 0.8); **2.9 does not start before it closes**.
-- **B1 ADR (1.5 proof slice) blocked:** no ADR folder exists in the repo; waits for the GM to name it.
 - (0.18 carried forward) `entity_scope` is `FOR ALL` with `USING` only on `platform.audit_log` and on seven tables, governs INSERT — portal user's audited action rejected; every internal reader/writer must pass `isInternal: true` (GUC-only, false when unset). SCR-RLS-01 §6, SCR-RLS-02 §7, D-002.
 - Concurrent external processes on this working directory can delete uncommitted work (incident `a901a04`).
 - Sessions must start inside `claude-kit/` (`.claude/agents` + lane-guard hook not registered otherwise).
@@ -41,9 +42,9 @@ None claimed. Live table: `tasks/LANE_LOCKS.md` — Phase 0 and the golden slice
 
 ## Next 3 tasks
 
-1. **2.8** — stock ledger + derived balance + verify_balance_integrity() (READY; deps 0.12 DONE) — GM directive phase C, starts only on explicit GM approval
-2. **1.5** — proof slice (data model + seed only, per ADR B1) to unblock 2.6 → 2.9 — GM directive phase D, after C
-3. **0.6** — CI pipeline (lane M; waits on 0.5 WAITING_GM)
+1. GM decision on SCR-AUDIT-01 → migration 0004 (Master, single lane) → 2.8 close-out (pg-tester fixes role prefix + timeout, re-run gates, opus review).
+2. 1.5 proof slice (ADR-0001) — after 2.8 gates green.
+3. 0.6 CI pipeline (waits on 0.5 WAITING_GM)
 
 ## Notes
 

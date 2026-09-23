@@ -20,11 +20,14 @@ import { sql } from 'drizzle-orm';
 export async function rebuildBalance(
   ctx: WithContextCtx,
   input: { readonly clientId: string; readonly skuId: string },
-  // Not used: rebuildBalance recomputes purely from the ledger's own stored occurred_at values
-  // (see file header) — it never needs "now", so no Clock/IdGenerator call is needed here. Kept in
-  // the signature per the brief's Public surface block (positional-call contract).
-  _deps: LedgerDeps,
+  deps: LedgerDeps,
 ): Promise<{ readonly rowsWritten: number }> {
+  // rebuildBalance recomputes purely from the ledger's own stored occurred_at values (see file
+  // header) — it never needs "now", so neither deps.clock nor deps.ids is called. `deps` is kept
+  // in the signature only to match the brief's Public surface block (positional-call contract);
+  // this reference exists solely so the unused parameter isn't a silent, unexplained no-op.
+  void deps;
+
   return withContext(ctx, async (tx) => {
     const foldResult = await tx.execute<{
       readonly location_id: string;

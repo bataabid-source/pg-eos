@@ -159,11 +159,6 @@ async function insertMovementRow(
   return row;
 }
 
-/**
- * decision 2/3: upserts wms.stock_balance atomically (`on conflict … do update`) — never a racy
- * read-then-write. `qty_allocated` is untouched (2.11's concern, not 2.8's). A `no_negative_stock`
- * rejection is translated to the typed NegativeStockError; any other error is rethrown as-is.
- */
 /** The location a single-sided entry's balance delta applies at (decision 1: exactly one side). */
 function balanceLocationId(entry: LedgerEntry): string {
   const locationId = entry.toLocationId ?? entry.fromLocationId;
@@ -208,7 +203,8 @@ async function lockBalanceRow(tx: NodePgDatabase, balanceKeyText: string): Promi
  * `qty_on_hand` (existing + delta), which is exactly what decision 3 wants enforced — and only
  * INSERTs when no row exists yet (in which case the raw delta genuinely IS the whole balance, and
  * a negative one is correctly rejected). The caller must already hold this key's advisory lock
- * (lockBalanceRow) before calling this.
+ * (lockBalanceRow) before calling this. `qty_allocated` is never referenced here — untouched by
+ * either branch (2.11's concern, not 2.8's).
  */
 async function applyLockedBalanceDelta(
   tx: NodePgDatabase,
