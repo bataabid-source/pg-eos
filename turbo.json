@@ -33,6 +33,10 @@
       "dependsOn": ["^build"],
       "cache": false
     },
+    "test:ops": {
+      "dependsOn": ["^build"],
+      "cache": false
+    },
     "lint": {}
   }
 }

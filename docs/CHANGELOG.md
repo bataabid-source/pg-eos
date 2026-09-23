@@ -4,6 +4,17 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## 0.8 — Pilot backup/restore acceptance (D-130) — DONE (2026-09-23)
+
+- Delivered: `scripts/backup.sh` (`pg_dump -Fc` of local `pgeos` to `data/backups/db-<ts>.dump`; refuses to overwrite; refuses non-loopback `PGHOST` unless `PG_ALLOW_REMOTE_RESTORE=1`), `scripts/restore.sh` (drop/create `pgeos_restore` with `template0` UTF8 collate C ctype C.UTF-8, `pg_restore --no-owner --no-privileges`, RLS-bypass role precondition, guards `wms.verify_balance_integrity` / `billing.verify_journal_balance` / `platform.verify_audit_chain` = 0 rows, `wms.verify_wh1()` 21 rows none `passed is not true`, SCR-TRGM-01 locale+trigram check; exit 0 only if all pass); `tests/ops/` workspace package `@pg-eos/ops-tests` (Gherkin S-0.8-1..3 + vitest 8 tests, incl. negative S-0.8-3 bait DB without `pg_trgm`); root `package.json` `test:ops`; `turbo.json` `test:ops` task (cache false).
+- Acceptance run: `pnpm test:ops` 8/8 green (~50s) against local Docker `postgres:16`; restore into `pgeos_restore`, all guard functions 0. Guards G1–G14, G18, G-SEED green (`PGUSER=postgres`).
+- Defaults taken: **D1** per-package `eslint .` in `tests/ops` fails ENOENT on `modules` from root `eslint.config.mjs` — pre-existing, `tests/isolation` identical; gate ① root `pnpm lint` is clean on new files. **D2** no golden-slice tree for ops scripts (no counterpart; `new-slice.sh` no-op; reviewer agreed). **D3** `PG_ALLOW_REMOTE_RESTORE` reused as override for `backup.sh`. **D4** `pnpm guards:run` defaults `PGUSER` to the OS user and fails locally (`role "Mohammed" does not exist`); run with `PGUSER=postgres` — pre-existing, outside this slice.
+- Phase-0 gate: closes on 0.8 per D-130 — now passed. The OCI Object Storage target + lifecycle rules remain with 0.5 (DEFERRED-POST-PILOT).
+- Batched open question for GM: doc-38 row 0.8 wording still says OCI + dep 0.5 (not delegated).
+- Model: Master session (sonnet-5 at start, opus-5.5 by close) · Delegated: pg-tester (sonnet), pg-backend (sonnet), pg-reviewer (opus), pg-scribe (sonnet) · Review: PASS(11 findings fixed — round 1: 9, round 2: 2, round 3: 0) · tokens ≈ pg-tester 55k+60k+66k, pg-backend 34k+28k+8k, pg-reviewer 45k+45k+20k (estimate)
+
+---
+
 ## X — Session operating directive v6 appended to CLAUDE.md (speed + quality, D-135) — DONE (2026-09-23)
 
 - `CLAUDE.md` gains one appended block, "SESSION OPERATING DIRECTIVE (v6 — GM 2026-09-23)" (127 → 154 lines); nothing above it is paraphrased or trimmed. Content: the critical path 0.8 → 0.6a → 2.3 → 2.4 → 2.9 → `.golden-slice-accepted` → lanes; `/pg-resume`-only session start (no full re-read of docs 40 / 36 / 38); "build, don't govern" (a session without a `feat(<WBS>)` commit has failed unless on a REAL BLOCKER; `docs(X)` only on a verbatim GM directive); default-record-proceed with zero mid-slice questions (batched in the closing report); no new prose files without a named GM request; split-before-not-after (12 files / 1,500 lines · 2× budget); pg-backend ∥ pg-frontend in step 7 only; RED → GREEN → review → one commit unchanged, fix rounds bounded per D-117; close with commit + push (D-120) + Arabic report ≤ 15 lines.

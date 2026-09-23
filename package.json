@@ -17,7 +17,8 @@
     "lint:boundaries": "bash scripts/check-boundaries.sh",
     "guards:run": "bash scripts/guards-run.sh",
     "check:setup": "bash scripts/check-setup.sh",
-    "test:isolation": "turbo run test:isolation --filter=@pg-eos/isolation-tests"
+    "test:isolation": "turbo run test:isolation --filter=@pg-eos/isolation-tests",
+    "test:ops": "turbo run test:ops --filter=@pg-eos/ops-tests"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
