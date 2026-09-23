@@ -6,7 +6,7 @@ Maintained by pg-scribe only, in the same commit as the task it records.
 | field | value |
 |---|---|
 | Phase | 0 — Foundation → 2 — Warehouse (2.1 started 2026-09-23) |
-| Current task | **2.8 — DONE** (this commit; previous task hash 787d9dc). Completion **13/132** (0.17 mechanisms-only excluded). Next: phase D — 1.5 proof slice (ADR-0001). |
+| Current task | **1.5 — ACTIVE, STOPPED** (lane M, lock sales). SCR-TRGM-01: Arabic trigrams are empty under lc_ctype C, so name-duplicate detection never fires on name_ar — GM decision needed (options in the SCR note; Master recommends A). 2.8 DONE @ `b5da282`. Completion **13/132**. |
 | Golden slice (2.9) | not built · `.golden-slice-accepted` absent · `scripts/new-slice.sh` is a no-op. **Acceptance gains a Phase-0 wiring line (GM 2026-09-22): the golden slice must wire up every part deferred from Phase-0 "mechanism only" tasks — starting with 0.17's login endpoints.** |
 | Deployment tier | Tier 0 (`docs/package/42-Oracle-Cloud-Deployment.md`) |
 | Schema | `database/schema/01 · 13 · 13B · 019` — the ONLY permitted schema (01 v1.1, 13B v4.3, migrations 0001–0005) · `apply.sh --recreate` **green on this machine 2026-09-23**: 175 tables/14 schemas, `wms.verify_wh1()` 21/21 pass (3,330 locations), G1–G13 = 0 (G6 blocking, 0 rows — WBS 0.16 complete), G18/G-SEED report-only = 0 |
@@ -22,7 +22,7 @@ None claimed.
 
 | task | commit |
 |---|---|
-| 2.8 — Stock ledger + derived balance + verify_balance_integrity (fixes e5bff15 SCR-AUDIT-01, 787d9dc SCR-WMS-01) | `(this commit — recorded by the next commit per the GIT rule)` |
+| 2.8 — Stock ledger + derived balance + verify_balance_integrity (fixes e5bff15 SCR-AUDIT-01, 787d9dc SCR-WMS-01) | `b5da282` |
 | 2.1 — WH1 zones + 8 space blocks proof (modules/wms scaffold) | `0d546d5` |
 | 0.18 — RLS client-isolation suite (43/43) + G14 runner; SCRs 01/02 applied (D-002) | `f03e160` |
 | 0.17 — Identity mechanism (mechanisms only): OTP, sessions, RBAC/SoD evaluation — packages/identity/ | `c90dd6e` |
@@ -30,6 +30,7 @@ None claimed.
 
 ## Blockers
 
+- **SCR-TRGM-01:** Arabic trigrams empty under lc_ctype C — name-duplicate detection never fires on name_ar (sales.possible_duplicates); GM decision needed (options A/B/C in `docs/notes/SCR-TRGM-01-arabic-trigrams-c-ctype.md`; Master recommends A).
 - **Open G-01 item:** where the G8 anchor is stored before the first partition detach (≥ 2028-03).
 - WAITING_GM · **2.2** field survey — chain 2.2 → 2.3 → 2.4 → 2.9.
 - WAITING_GM · **0.2** three cloud decisions (doc 42 §11) → 0.3 → 0.5 → 0.6; and **0.8** restore test.
@@ -41,8 +42,8 @@ None claimed.
 
 ## Next 3 tasks
 
-1. 1.5 proof slice (ADR-0001; 13B sales.possible_duplicates (§13B-19) '> 0.85' → '>= 0.85').
-2. re-assess 2.6 readiness after 1.5.
+1. GM word on SCR-TRGM-01 → 1.5 (gate findings, 0006, docs 22 / ADR-0001).
+2. re-assess 2.6 after 1.5.
 3. 0.6 CI (waits on 0.5).
 
 ## Notes

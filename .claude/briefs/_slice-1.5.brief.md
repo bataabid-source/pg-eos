@@ -1,7 +1,9 @@
 # SLICE BRIEF — WBS 1.5 · Customer accounts — PROOF SLICE (ADR-0001)
 
 Task: 1.5 — M02 `sales`: accounts, contacts (leads, opportunities, activities are OUT of this proof)      Lane: 1 in doc 38 — runs single-lane on main
-Lock: sales (tasks/LANE_LOCKS.md)      Owner: SALES_MGR      Deps: 0.13 DONE (`335b5db`)
+Lock: sales (tasks/LANE_LOCKS.md, lane M — single lane)      Owner: SALES_MGR      Deps: 0.13 DONE (`335b5db`)
+GM directive 2026-09-23 phase D: start condition met (2.8 DONE @ `b5da282`, every phase-C gate green). Within D the GM ordered
+13B §13B-19 `sales.possible_duplicates` corrected from `> 0.85` to `>= 0.85` (doc 40 §C2 INV-C2-3 governs the schema) — migration 0006.
 Governing decision: **docs/adr/ADR-0001-1.5-proof-slice.md (Accepted, GM 2026-09-23)** — data model + seed only, no UI, no workflow,
 no public API; the full 1.5 slice is replicated later from the golden slice 2.9; status becomes `DONE (proof)`, excluded from the ratio.
 Model routing (GM 2026-09-23): pg-tester sonnet → pg-backend sonnet (scaffold only) → pg-reviewer opus → pg-scribe sonnet.
@@ -28,8 +30,11 @@ Start condition (GM directive 2026-09-23, phase D): every phase-C gate green —
   index.ts (empty M02 shell comment like modules/wms/index.ts)} — copied from modules/wms with names changed; then `pnpm install`.
 - pg-tester: modules/sales/tests/integration/customer-accounts.feature · modules/sales/tests/integration/customer-accounts.test.ts
 - pnpm-lock.yaml regenerates via `pnpm install` — never hand-edited.
-Forbidden: database/**, packages/**, docs/**, scripts/**, any other module, CLAUDE.md, .claude/**. **No migration. No seed file.**
-A persistent seed or any schema change needs a schema-change request under G-01 first (ADR-0001) → STOP and report.
+- Master only (after pg-reviewer's migration gate): database/schema/13B-Schema-Reference-Consolidation.sql §13B-19 (`> 0.85` → `>= 0.85`, v4.3 → v4.4),
+  database/migrations/0006_M_possible-duplicates-ge.sql (`create or replace view` with the identical text), doc 22 §5 view text (4.0 → 4.1),
+  CHANGELOG-v4.
+Forbidden for workers: database/**, packages/**, docs/**, scripts/**, any other module, CLAUDE.md, .claude/**. **No seed file.**
+Any other schema change needs a schema-change request under G-01 first (ADR-0001) → STOP and report.
 
 ## Acceptance criterion (doc 38 row 1.5, verbatim)
 "One account per client across entities; duplicate detection fires"
@@ -47,11 +52,16 @@ on `cr_number` and on name similarity, (c) RLS on `sales.accounts`, (d) contacts
    `name_ar` → the pair once (`a_id < b_id`, sim 1.000). Two live fixture accounts whose `name_ar` similarity is > 0.85 (e.g. the same
    Arabic name with one trailing character changed — compute `similarity()` in SQL and assert it is > 0.85 before asserting the view)
    → the view returns the pair with `sim` = round(similarity, 3). A soft-deleted twin is NOT reported.
-3. **The doc-40 boundary (ADR-0001 "Known discrepancy").** doc 40 INV-C2-3 says "≥ 0.85"; the view uses `> 0.85`. The proof includes
-   one test at the boundary: search deterministically (in SQL, over a fixed candidate list of name variants written in the test) for a
-   pair whose `similarity()` equals exactly 0.85; if such a pair exists, assert the view reports it (doc 40 semantics). If it FAILS,
-   that is the SCR the ADR predicts — report it RED, do not weaken it, do not change the view. If no candidate pair reaches exactly
-   0.85, the test records that fact with `it.skip` and the candidate list, and the report says so (this is the only sanctioned skip).
+3. **The doc-40 boundary (ADR-0001 "Known discrepancy"; GM directive phase D).** The view is corrected to `>= 0.85` (migration 0006).
+   Master's measurement on PostgreSQL 16.15: the pair `name_ar = 'premiumlogistics'` / `'premiumlogistics co'` has
+   `similarity() = 17/20 = 0.85` exactly — but `similarity()` returns `real`, and float4(0.85) = 0.8500000238, so the OLD `> 0.85`
+   already reports this pair (the comparison against the numeric literal runs in double precision). The boundary behaviour therefore
+   cannot be RED on the old view. Tests:
+   (a) RED first: `pg_get_viewdef('sales.possible_duplicates'::regclass)` contains `>= 0.85` (and not `> 0.85` without `=`) — fails on the
+       old view, passes after 0006.
+   (b) Non-regression at the boundary: insert the two synthetic accounts above (fixture codes), assert in SQL that `similarity()` =
+       0.85 (compare `similarity(a,b)::numeric(10,6) = 0.850000`), and that the view returns the pair with `sim = 0.850`. State in the
+       test comment why it passes on both view versions (float4 rounding). No `it.skip`.
 4. **RLS shape proof** (0.18 pattern, no role dance): `pg_class.relrowsecurity = true` for sales.accounts; `pg_policy` has
    `client_portal_scope` FOR SELECT on sales.accounts whose `qual` text contains `platform.is_internal()` and `platform.current_client_id()`.
    Functional isolation of sales.accounts was already proven by WBS 0.18 (43/43) — cite, do not repeat.
@@ -107,7 +117,7 @@ Feature: Customer accounts — one per client across entities, duplicate detecti
   `pnpm lint`, `pnpm lint:boundaries` · `pnpm guards:run` · `pnpm -w build --force` · `pnpm -w test -- --force`.
 - Constraints (CLAUDE.md · AGENT CONSTRAINTS): no any / @ts-ignore / eslint-disable / console.log / magic numbers / fabricated values.
 
-Contract: none.   Screen/Board spec: none.   Migration number: none issued.
+Contract: none.   Screen/Board spec: none.   Migration number: 0006 (issued to the Master, 2026-09-23).
 Stop-and-ask if: a table/column/rule needed is not in 01 / 13 / 13B / 019 / 40; if the boundary test is RED (report the SCR text).
 
 ## Report back (§5 REPORT format)

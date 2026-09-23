@@ -4,6 +4,14 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## 1.5 — STOP: SCR-TRGM-01 (2026-09-23)
+
+- **WBS 1.5 (phase D) is ACTIVE on lane M (lock sales claimed) and STOPPED:** new G-01 request `docs/notes/SCR-TRGM-01-arabic-trigrams-c-ctype.md` — every database of the cluster has `lc_ctype C`, so `pg_trgm` produces no trigrams for Arabic; `similarity()` of two identical Arabic names = 0 (measured; under `C.UTF-8`: 1, one-letter variant 0.818). `sales.possible_duplicates` compares `name_ar` only, so INV-C2-3's name branch never fires on Arabic names. Options: A — create databases with `lc_ctype C.UTF-8`, `lc_collate C` (Master recommends); B — normalised name column; C — accept Latin-only. GM decision required.
+- **Work done so far in D (uncommitted → this commit):** `modules/sales` scaffold (pg-backend); proof suite `modules/sales/tests/integration/customer-accounts.{feature,test.ts}` — 16/17 green, 1 RED by design (view text `> 0.85` until migration 0006); its similarity scenarios pass only with Latin synthetic names (the SCR's point); migration 0006 (`> 0.85` → `>= 0.85`) drafted, migration gate FAIL(8) — all wording findings, SQL passed; not yet written to the repo. Float finding: `similarity()` returns real, `float4(0.85) = 0.8500000238`, so an exact 0.85 pair was already reported by `>`; the change is textual alignment with doc 40 §C2 INV-C2-3.
+- Model: opus (Master session, claude-opus-5-5) · sonnet (workers) · Delegated: pg-backend (sonnet, scaffold), pg-tester (sonnet), pg-reviewer (opus, gate), pg-scribe (sonnet) · Review: gate FAIL(8) open
+
+---
+
 ## 2.8 — Stock ledger + derived balance + verify_balance_integrity() — DONE (2026-09-23)
 
 - **Delivered (doc 38 acceptance verbatim "Zero rows after 1,000 random movements; property test green"):** `modules/wms/src/stock-ledger` (postMovement, postTransfer, reverseMovement, rebuildBalance, domain folds), event `wms.stock.moved` (`packages/events/catalog.ts`), outbox + audit per ledger row in one transaction, audit row last (ADR-0002); mechanism slice, flat layout (0.17 precedent), no endpoint/UI/XState, no schema change in this commit (schema fixes landed as `e5bff15` SCR-AUDIT-01 and `787d9dc` SCR-WMS-01).

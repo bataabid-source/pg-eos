@@ -54,7 +54,7 @@ Type: 🧑 human decision/data · 🤖 AI-buildable slice · 🔧 infra · ✅ v
 | 1.2 | M03 `catalog`: categories, services (7 categories), segments, price lists, exceptions | 🤖 | 0.13 | **1** | CFO | Price below floor rejected from UI, API and import | READY |
 | 1.3 | **Data gate M03:** floor price + standard cost for every active service | 🧑 | 1.2 | **A** | CFO | Scorecard = 100% | WAITING_GM |
 | 1.4 | Pricing engine: exception → contract → segment → list → pending | 🤖 | 1.2 | **1** | CFO | Tiered pricing matches manual calc on 3 cases; unpriced event stays pending | TODO |
-| 1.5 | M02 `sales`: accounts, contacts, leads, opportunities, activities | 🤖 | 0.13 | **1** | SALES_MGR | One account per client across entities; duplicate detection fires | READY (proof slice per docs/adr/ADR-0001-1.5-proof-slice.md; starts after 2.8 gates are green — GM directive 2026-09-23 phase D) |
+| 1.5 | M02 `sales`: accounts, contacts, leads, opportunities, activities | 🤖 | 0.13 | **1** | SALES_MGR | One account per client across entities; duplicate detection fires | BLOCKED — ACTIVE on lane M since 2026-09-23 (proof slice, ADR-0001); stopped on SCR-TRGM-01 (docs/notes/SCR-TRGM-01-arabic-trigrams-c-ctype.md, GM decision); suite 16/17 (1 RED by design until migration 0006). |
 | 1.6 | M02: quotes with approval flow (rep → sales mgr → CFO → GM on exception) | 🤖 | 1.4, 1.5 | **1** | CFO | Sent quote is frozen; edit creates new version | TODO |
 | 1.7 | M02: contracts, price annexes, SLA definitions, billing flags (DL-11/12/13/14/18) | 🤖 | 1.6 | **1** | CFO | Order on expired contract rejected | TODO |
 | 1.8 | Group-level credit limit and hold | 🤖 | 1.5 | **1** | CFO | Hold blocks orders in all four entities | TODO |
@@ -77,7 +77,7 @@ Type: 🧑 human decision/data · 🤖 AI-buildable slice · 🔧 infra · ✅ v
 | 2.5 | Print and apply **3,330 labels** — 3,153 storage + 30 operational (white, section colour) + 147 structural (**black background, white text**, prefix `X-`); 5% random scan audit | 🧑 | 2.3 | **A** | WH_MGR | Audit ≥ 99% match | WAITING_GM |
 | 2.6 | `wms.skus` with client ownership, dimensions, storage conditions, tracking policy | 🤖 | 1.5 | **2** | WH_MGR | Cross-client SKU mix rejected | TODO |
 | 2.7 | **Data gate M04 (SKUs):** ≥95% of active SKUs complete | 🧑 | 2.6 | **A** | WH_MGR | Scorecard ≥ 95% | WAITING_GM |
-| 2.8 | Stock ledger + derived balance + `verify_balance_integrity()` | 🤖 | 0.12 | **2** | WH_MGR | Zero rows after 1,000 random movements; property test green | DONE @ <this commit> — mechanism slice; fixes e5bff15 (SCR-AUDIT-01) and 787d9dc (SCR-WMS-01); modules/wms 85/85; review PASS. |
+| 2.8 | Stock ledger + derived balance + `verify_balance_integrity()` | 🤖 | 0.12 | **2** | WH_MGR | Zero rows after 1,000 random movements; property test green | DONE @ `b5da282` — mechanism slice; fixes e5bff15 (SCR-AUDIT-01) and 787d9dc (SCR-WMS-01); modules/wms 85/85; review PASS. |
 | 2.9 | **GOLDEN SLICE — Receive inbound order** (PDA + state machine + ledger + event + GRN + billable events) | 🤖 | 2.4, 2.6, 2.8, 0.15 | **M** | WH_MGR + GM review | Full human review; becomes the template | TODO |
 | 2.10 | Put-away with automatic location suggestion (A2) | 🤖 | 2.9 | **1** | WH_MGR | Suggestion respects conditions, ABC, capacity, client assignment | TODO |
 | 2.11 | Outbound order: ten-condition check, FEFO allocation, pick sequence (A3) | 🤖 | 2.9, 1.8 | **1** | WH_MGR | Each of ten conditions has a failing test with the correct message | TODO |
