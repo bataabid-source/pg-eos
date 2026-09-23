@@ -1,0 +1,171 @@
+# PG-EOS · CI — gates ①–⑥ (CLAUDE.md · DEPLOYMENT PIPELINE). Gate ⑦ (build images + migrations)
+# is the deploy pipeline, not CI. WBS 0.6a part 2/2: CI and integration tests connect as
+# pgeos_app (D-133, migration 0007), never as the postgres superuser, so RLS actually applies.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  static:
+    name: "① lint + boundaries + typecheck"
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm lint:boundaries
+      - run: pnpm typecheck
+
+  test:
+    name: "②③ unit + integration (as pgeos_app)"
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: pgeos
+          POSTGRES_USER: postgres
+          # Loopback service container, never reachable outside the job network — same posture as
+          # infra/docker/docker-compose.yml (local dev). No password literal anywhere in this file.
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C --lc-ctype=C.UTF-8"
+          TZ: Asia/Kuwait  # parity with infra/docker/docker-compose.yml
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d pgeos"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: localhost
+      PGPORT: 5432
+      PGUSER: postgres
+      PGDATABASE: pgeos
+      PG_APP_USER: pgeos_app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # Runner pinned to ubuntu-24.04 (not the moving ubuntu-latest label): its image ships the
+      # PostgreSQL 16 client that apply.sh needs. This step only asserts that, so an image change
+      # fails loudly here instead of deep inside apply.sh.
+      - name: Assert psql 16
+        run: psql --version | grep -q ' 16\.'
+      - name: Apply schema (creates pgeos_app via migration 0007)
+        run: bash database/schema/apply.sh --recreate
+      # Default taken: gates ② (unit) and ③ (integration) share this one job because the
+      # workspace's `pnpm test` (turbo run test) does not separate unit from integration test
+      # tasks — a red in either blocks merge, same as running them as two jobs would. turbo's
+      # `dependsOn: ["^build"]` on the test tasks builds dependencies first, so a separate build
+      # step is not needed.
+      # --concurrency=1: every package's tests share ONE database. In parallel,
+      # modules/platform audit-chain-seq.test.ts (creates an audit_log partition — DDL,
+      # AccessExclusiveLock) deadlocks (40P01) with another package's audit writes holding the
+      # audit-chain advisory lock. Seen twice locally on 2026-09-24; serial runs are green.
+      - run: pnpm exec turbo run test --concurrency=1
+
+  acceptance:
+    name: "④ acceptance (doc 40 Part E)"
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check golden-slice acceptance gate
+        run: |
+          if [ -f .golden-slice-accepted ]; then
+            echo "golden slice accepted: wire Playwright S1-S20 (post-2.9)" >&2
+            exit 1
+          else
+            echo "no acceptance scenarios exist yet (golden slice 2.9 not built)"
+          fi
+
+  guards:
+    name: "⑤ guards (G1-G18)"
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: pgeos
+          POSTGRES_USER: postgres
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C --lc-ctype=C.UTF-8"
+          TZ: Asia/Kuwait  # parity with infra/docker/docker-compose.yml
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d pgeos"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: localhost
+      PGPORT: 5432
+      PGUSER: postgres
+      PGDATABASE: pgeos
+      PG_APP_USER: pgeos_app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Assert psql 16
+        run: psql --version | grep -q ' 16\.'
+      - run: bash database/schema/apply.sh --recreate
+      # G14 (test:isolation) connects as pgeos_app, per PG_APP_USER above.
+      - run: pnpm guards:run
+
+  security:
+    name: "⑥ security scan"
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Dependency audit (blocking)
+        run: pnpm audit --audit-level=high
+      - name: Gitleaks (blocking, honours .gitleaksignore)
+        # safe.directory: the container user differs from the checkout owner; without it git
+        # refuses the repo ("dubious ownership") and the scan would not run.
+        run: |
+          docker run --rm -v "${{ github.workspace }}:/repo" \
+            -e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_0=safe.directory -e GIT_CONFIG_VALUE_0='*' \
+            ghcr.io/gitleaks/gitleaks:v8.24.2 git /repo --redact
+      - name: SBOM (SPDX JSON)
+        uses: anchore/sbom-action@v0.17.9
+        with:
+          path: .
+          format: spdx-json
+          output-file: sbom.spdx.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: sbom.spdx.json

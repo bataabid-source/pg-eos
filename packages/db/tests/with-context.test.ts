@@ -23,7 +23,7 @@ import { randomUUID } from 'node:crypto';
 import { sql } from 'drizzle-orm';
 import { Pool } from 'pg';
 import type { PoolClient, QueryResult } from 'pg';
-import { afterAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 // The package under test. packages/db does not exist yet (WBS 0.11 RED) — this import fails to
 // resolve until pg-backend builds packages/db/index.ts exporting `withContext` (and `db`).
@@ -66,8 +66,41 @@ const COMMIT_PROOF_THRESHOLD_KEY = 'dtl.auto_close.min_confidence';
 // here for the same reason.
 const SENTINEL_CHANGED_BY = '00000000-0000-0000-0000-000000000000';
 
+// WBS 0.6a part 2 (D-133): now that the internal pool connects as the non-superuser pgeos_app
+// role (packages/db/src/client.ts), platform.thresholds' `reference_write` policy
+// (13B-Schema-Reference-Consolidation.sql ~3120-3124: `for all ... using (platform.is_internal()
+// and platform.has_perm(%L)) with check (...)`) actually applies — the UPDATE below needs a real
+// identity.user_roles grant of this exact, already-seeded permission code (01-Data-Model.sql:3150
+// -3152 · 13B), not merely `isInternal: true`. Never invented — the code and its seeding are
+// exactly what the schema defines.
+const REFERENCE_MANAGE_PERMISSION_CODE = 'platform.reference.manage';
+
 afterAll(async () => {
   await pool.end();
+});
+
+// WBS 0.6a part 2 (D-133): CI + integration tests run as role pgeos_app, not the admin PGUSER.
+// client.ts's shared pool (and therefore every withContext() call) must connect as
+// `process.env.PG_APP_USER ?? process.env.PGUSER ?? 'postgres'` — CLAUDE.md's ARCHITECTURE rule
+// ("All DB access goes through withContext(ctx, fn)") only has teeth once the runtime connection
+// is a real non-superuser role with entity_scope USING/WITH CHECK enforced (migration 0007). This
+// is RED today: client.ts hardcodes `process.env['PGUSER'] ?? 'postgres'` and ignores PG_APP_USER
+// entirely, so `current_user` reads back as the admin user (postgres) instead of pgeos_app when
+// PG_APP_USER=pgeos_app is set in the environment.
+describe('withContext — connects as PG_APP_USER (WBS 0.6a part 2, D-133)', () => {
+  it('withContext connects as PG_APP_USER when it is set', async () => {
+    const expectedUser =
+      process.env['PG_APP_USER'] ?? process.env['PGUSER'] ?? 'postgres';
+
+    await withContext({ userId: randomUUID(), clientId: null, isInternal: true }, async (tx) => {
+      const result = await tx.execute(sql`select current_user as current_user`);
+      const row = result.rows[0] as { current_user: string } | undefined;
+      if (!row) {
+        throw new Error('current_user query returned no row');
+      }
+      expect(row.current_user).toBe(expectedUser);
+    });
+  });
 });
 
 describe('withContext — sets exactly the three RLS GUCs for the duration of the callback (WBS 0.11)', () => {
@@ -343,7 +376,75 @@ describe('withContext — an injection-shaped ctx value is treated as an inert l
 });
 
 describe('withContext — a write inside the callback is durably committed once the promise resolves (WBS 0.11 review round 2, finding 2)', () => {
-  it('a value written via tx.execute(...) inside withContext is visible, after withContext resolves, to an independent read on a completely different connection (from the package\'s own internal pool)', async () => {
+  // WBS 0.6a part 2 (D-133) fixture: SENTINEL_CHANGED_BY must be a real identity.users row
+  // holding REFERENCE_MANAGE_PERMISSION_CODE through a real identity.roles /
+  // identity.role_permissions / identity.user_roles chain (01-Data-Model.sql:212-247), because the
+  // UPDATE inside withContext below now runs as pgeos_app and is subject to
+  // platform.thresholds' reference_write RLS policy. Created/removed here (via the admin `pool`,
+  // superuser) rather than assumed to pre-exist — 01's own comment on the founding seed
+  // (13B:1441) says explicitly there is no founding user, so this id is never already an
+  // identity.users row.
+  let fixtureRoleId: string;
+
+  beforeAll(async () => {
+    // Idempotent against a leftover row from a previously interrupted run reusing the same fixed
+    // sentinel id (never delete platform.audit_log — CLAUDE.md — but these identity.* rows are not
+    // that table).
+    await pool.query('delete from identity.user_roles where user_id = $1', [SENTINEL_CHANGED_BY]);
+    await pool.query('delete from identity.users where id = $1', [SENTINEL_CHANGED_BY]);
+
+    await pool.query(
+      `insert into identity.users (id, email, full_name_ar, user_type)
+       values ($1, $2, $3, 'internal')`,
+      [
+        SENTINEL_CHANGED_BY,
+        `_wbs06a_thresholds_writer_${randomUUID()}@test.invalid`,
+        'كاتب اختبار WBS 0.6a — دالة withContext',
+      ],
+    );
+
+    const roleResult: QueryResult<{ id: string }> = await pool.query(
+      `insert into identity.roles (code, name_ar, scope_type)
+       values ($1, $2, 'all') returning id`,
+      [`_wbs06a_thresholds_writer_${randomUUID()}`, 'دور اختبار كاتب العتبات — WBS 0.6a'],
+    );
+    const roleRow = roleResult.rows[0];
+    if (!roleRow) throw new Error('fixture identity.roles insert returned no row');
+    fixtureRoleId = roleRow.id;
+
+    const permissionResult: QueryResult<{ id: string }> = await pool.query(
+      'select id from identity.permissions where code = $1',
+      [REFERENCE_MANAGE_PERMISSION_CODE],
+    );
+    const permissionRow = permissionResult.rows[0];
+    if (!permissionRow) {
+      throw new Error(
+        `seeded permission '${REFERENCE_MANAGE_PERMISSION_CODE}' not found in identity.permissions (01-Data-Model.sql:3150-3152) — is database/schema/apply.sh applied to this database?`,
+      );
+    }
+
+    await pool.query(
+      'insert into identity.role_permissions (role_id, permission_id) values ($1, $2)',
+      [fixtureRoleId, permissionRow.id],
+    );
+    await pool.query('insert into identity.user_roles (user_id, role_id) values ($1, $2)', [
+      SENTINEL_CHANGED_BY,
+      fixtureRoleId,
+    ]);
+  });
+
+  afterAll(async () => {
+    await pool.query('delete from identity.user_roles where user_id = $1', [SENTINEL_CHANGED_BY]);
+    if (fixtureRoleId) {
+      await pool.query('delete from identity.role_permissions where role_id = $1', [
+        fixtureRoleId,
+      ]);
+      await pool.query('delete from identity.roles where id = $1', [fixtureRoleId]);
+    }
+    await pool.query('delete from identity.users where id = $1', [SENTINEL_CHANGED_BY]);
+  });
+
+  it('a value written via tx.execute(...) inside withContext is visible, after withContext resolves, to an independent read on a guaranteed different connection (this file\'s own separate admin pool)', async () => {
     // Step 1 — read the real, currently-seeded row via this test file's own plain pool.query, so
     // the "clearly different" write below is always derived from what is actually there, never a
     // hardcoded assumed original. changed_by/changed_at are captured too because the write below
@@ -387,25 +488,44 @@ describe('withContext — a write inside the callback is durably committed once 
 
       // Step 3 — ONLY AFTER the withContext(...) promise has settled (proving the transaction
       // committed, not merely that the write happened inside an as-yet-uncommitted transaction),
-      // read the row back on a completely different, independent connection: the package's own
-      // internal pool (packages/db/src/client.ts), checked out explicitly so it is a distinct
-      // physical connection from whatever withContext itself used internally, and distinct from
-      // this test file's separate `pool` too.
-      const reader = await internalPool.connect();
-      let readBackValue: string | undefined;
-      try {
-        const readBack: QueryResult<{ value: string }> = await reader.query(
-          'select value from platform.thresholds where key = $1',
-          [COMMIT_PROOF_THRESHOLD_KEY],
-        );
-        readBackValue = readBack.rows[0]?.value;
-      } finally {
-        reader.release();
-      }
+      // read the row back on a GUARANTEED different connection: this test file's own `pool`
+      // (a separate `pg.Pool` object entirely from the package's internal pool that withContext
+      // uses — declared near the top of this file), never a second checkout FROM that same
+      // internal pool. pg-reviewer round 4, finding 4: a second `internalPool`-based checkout
+      // (whether a bare `.connect()` or a second `withContext(...)` call) is very likely handed
+      // back the exact same idle physical connection pg-pool just released, which would still see
+      // its own just-committed write regardless of whether commit/visibility actually works —
+      // proving nothing. This test file's `pool` connects as the admin PGUSER (superuser), which
+      // both is certain to be a distinct physical connection and bypasses RLS outright, so it
+      // needs no RLS context to see the reference-table row.
+      const readBack: QueryResult<{ value: string }> = await pool.query(
+        'select value from platform.thresholds where key = $1',
+        [COMMIT_PROOF_THRESHOLD_KEY],
+      );
+      const readBackValue = readBack.rows[0]?.value;
       if (readBackValue === undefined) {
         throw new Error(`read-back of '${COMMIT_PROOF_THRESHOLD_KEY}' after commit returned no row`);
       }
       expect(readBackValue).toBe(newValue);
+
+      // Secondary check — the same value, read the way every real caller in this codebase reads
+      // (CLAUDE.md · ARCHITECTURE: "All DB access goes through withContext"). This does NOT by
+      // itself prove "different connection" (see the finding above), but it does prove withContext
+      // itself can see the committed row afterward, through the RLS path a real caller would use.
+      // `isInternal: true` alone satisfies platform.thresholds' `reference_read` policy (`using
+      // (platform.is_internal())`) — no permission needed for SELECT, unlike the UPDATE above.
+      let readBackValueViaWithContext: string | undefined;
+      await withContext(
+        { userId: randomUUID(), clientId: null, isInternal: true },
+        async (tx) => {
+          const result = await tx.execute(
+            sql`select value from platform.thresholds where key = ${COMMIT_PROOF_THRESHOLD_KEY}`,
+          );
+          const row = result.rows[0] as { value: string } | undefined;
+          readBackValueViaWithContext = row?.value;
+        },
+      );
+      expect(readBackValueViaWithContext).toBe(newValue);
     } finally {
       // Restore the original four columns no matter what happened above — mirrors WBS 0.10's
       // try/finally-then-verify pattern exactly, so this test never permanently corrupts a real

@@ -1,0 +1,10 @@
+# PG-EOS · gitleaks allowlist (WBS 0.6a).
+#
+# Each fingerprint below is a false positive: a fixture Idempotency-Key value, not a real secret —
+# harness.test.ts:41 is the literal 'fixture-idempotency-key-1', harness.test.ts:16 is a fixture
+# UUID, and doc 36:197 is a UUID in a quoted example request. All three were verified by the Master 2026-09-24
+# (WBS 0.6a) before being added here. Do not add a fingerprint to this file without the same
+# verification — this file is a blocking input to CI gate ⑥ (security scan).
+50055f8b0246c4d83c0c2c51c5adfb96fa5dc2eb:packages/contracts/tests/harness.test.ts:generic-api-key:41
+d8ccb7eec9cc6c8fd4116bf5ab3db65f952ca41a:packages/contracts/tests/harness.test.ts:generic-api-key:16
+bab005ae752561dc828f734b1f6649358e7c0f20:docs/package/36-Technical-Architecture-Audit.md:generic-api-key:197

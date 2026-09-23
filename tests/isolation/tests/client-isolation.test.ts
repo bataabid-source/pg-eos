@@ -95,6 +95,12 @@ import type { WithContextCtx } from '@pg-eos/db';
 //   already dropped.
 const ORIGINAL_PGUSER = process.env['PGUSER'];
 const ORIGINAL_PGPASSWORD = process.env['PGPASSWORD'];
+// Fix round 1, WBS 0.6a part 2 (D-133): packages/db/src/client.ts now prefers PG_APP_USER over
+// PGUSER (the binding design), so under CI (PG_APP_USER=pgeos_app) this file's PGUSER-only
+// mutation below no longer points the dynamically-imported '@pg-eos/db' pool at this file's own
+// throwaway ROLE — it kept reading PG_APP_USER=pgeos_app instead. Captured/restored the same way
+// as ORIGINAL_PGUSER/ORIGINAL_PGPASSWORD above.
+const ORIGINAL_PG_APP_USER = process.env['PG_APP_USER'];
 
 // Same PG* convention and defaults as packages/db/src/client.ts and
 // modules/platform/tests/integration/schema-invariants.test.ts.
@@ -149,6 +155,7 @@ const ADVISORY_LOCK_NAME = 'pgeos-rls-isolation-test-suite-fixture-lock';
 
 process.env['PGUSER'] = ROLE;
 process.env['PGPASSWORD'] = ROLE_PASSWORD;
+process.env['PG_APP_USER'] = ROLE;
 
 // Dynamic, and AFTER the mutation above — see "ORDERING" header comment.
 const { withContext } = await import('@pg-eos/db');
@@ -499,6 +506,11 @@ afterAll(async () => {
             delete process.env['PGPASSWORD'];
           } else {
             process.env['PGPASSWORD'] = ORIGINAL_PGPASSWORD;
+          }
+          if (ORIGINAL_PG_APP_USER === undefined) {
+            delete process.env['PG_APP_USER'];
+          } else {
+            process.env['PG_APP_USER'] = ORIGINAL_PG_APP_USER;
           }
         }
       }

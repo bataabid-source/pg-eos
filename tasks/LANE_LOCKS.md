@@ -3,6 +3,8 @@
 | module | lane | task | claimed_at | worktree |
 |---|---|---|---|---|
 
+None claimed. `packages/db + CI (.github)` (lane M, task 0.6a-2) released 2026-09-24 — 0.6a IN PROGRESS pending GM ruleset decision + first green CI run.
+
 ## Migrations issued
 
 Not a lock table — deliberately not a `|`-prefixed markdown table, since

@@ -211,6 +211,42 @@ beforeAll(async () => {
   }
   entityId = entityRow.id;
 
+  // WBS 0.6a part 2 (D-133): postMovement/postTransfer/reverseMovement/rebuildBalance now run
+  // through withContext as the non-superuser pgeos_app role, so wms.stock_movements' entity_scope
+  // policy (13B RLS auto-policy loop, `entity_id = any(platform.allowed_entities())`) actually
+  // applies, AND rebuildBalance's own scope guard (src/stock-ledger/rebuild-balance.ts
+  // `assertSeesWholeLedger`, pg-reviewer gate finding 9) refuses unless the caller's
+  // platform.allowed_entities() covers EVERY platform.entities row. `ctx.userId` (ctx above) needs
+  // a real identity.users row plus identity.user_entities rows for every entity — same pattern as
+  // modules/wms/tests/integration/rebuild-balance-scope-full.test.ts (the "positive control" for
+  // that same guard). Idempotent against a leftover row from a previously interrupted run reusing
+  // this file's fixed PERFORMED_BY_FIXTURE_UUID.
+  await pool.query(`delete from identity.user_entities where user_id = $1`, [
+    PERFORMED_BY_FIXTURE_UUID,
+  ]);
+  await pool.query(`delete from identity.users where id = $1`, [PERFORMED_BY_FIXTURE_UUID]);
+  await pool.query(
+    `insert into identity.users (id, email, full_name_ar, user_type)
+     values ($1, $2, $3, 'internal')`,
+    [
+      PERFORMED_BY_FIXTURE_UUID,
+      `_ledger_fixture_actor_${randomUUID()}@test.invalid`,
+      'ممثل اختبار دفتر المخزون — WBS 0.6a',
+    ],
+  );
+  const allEntitiesResult: QueryResult<{ id: string }> = await pool.query(
+    `select id from platform.entities`,
+  );
+  if (allEntitiesResult.rows.length === 0) {
+    throw new Error('expected at least one row in platform.entities');
+  }
+  for (const row of allEntitiesResult.rows) {
+    await pool.query(`insert into identity.user_entities (user_id, entity_id) values ($1, $2)`, [
+      PERFORMED_BY_FIXTURE_UUID,
+      row.id,
+    ]);
+  }
+
   const clientResult: QueryResult<{ id: string }> = await pool.query(
     `insert into sales.accounts (code, name_ar, account_type)
      values ($1, $2, 'client') returning id`,
@@ -274,6 +310,11 @@ afterAll(async () => {
   if (fixtureClientId) {
     await pool.query(`delete from sales.accounts where id = $1`, [fixtureClientId]);
   }
+  // WBS 0.6a part 2 (D-133) fixture teardown, FK order: user_entities before users.
+  await pool.query(`delete from identity.user_entities where user_id = $1`, [
+    PERFORMED_BY_FIXTURE_UUID,
+  ]);
+  await pool.query(`delete from identity.users where id = $1`, [PERFORMED_BY_FIXTURE_UUID]);
   await pool.end();
 });
 

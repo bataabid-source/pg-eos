@@ -20,21 +20,22 @@
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
 
-// KNOWN, CURRENTLY-ACCEPTED GAP (review round 2, finding 8): withContext's RLS-GUC mechanism
-// (app.user_id / app.client_id / app.is_internal) only has teeth once the runtime PGUSER
-// connects as a non-superuser application role with NOBYPASSRLS (the Postgres default for a
-// newly created role). Postgres superusers unconditionally bypass RLS regardless of any GUC being
-// set correctly — `force row level security` (13B:3047-3061) only binds the table OWNER, not a
-// superuser. Today, in local dev, PGUSER defaults to 'postgres', which IS a superuser, so RLS is
-// currently a no-op regardless of what withContext sets. There is no non-superuser application
-// role defined anywhere in database/schema/*.sql yet; creating one (with correctly scoped GRANTs)
-// is real schema/security design work and is out of scope for this slice per CLAUDE.md ·
-// AGENT CONSTRAINTS (G-01: no table, column, or business rule outside docs 01/13/13B/019/40 —
-// never invent). This is a Master-tracked follow-up, not solved here.
+// RESOLVED (WBS 0.6a, D-133): withContext's RLS-GUC mechanism (app.user_id / app.client_id /
+// app.is_internal) only has teeth once the runtime pool connects as a non-superuser application
+// role with NOBYPASSRLS (the Postgres default for a newly created role) — Postgres superusers
+// unconditionally bypass RLS regardless of any GUC being set correctly, and `force row level
+// security` (13B:3047-3061) only binds the table OWNER, not a superuser. Migration 0007
+// (database/migrations/0007_*.sql) created exactly that role: `pgeos_app`, no SUPERUSER, no
+// BYPASSRLS, no password (trust auth, Tier 0 only), scoped GRANTs, and the entity_scope
+// USING/WITH CHECK split. Setting PG_APP_USER=pgeos_app makes withContext's queries actually run
+// under RLS instead of silently bypassing it. CI (.github/workflows/ci.yml) sets
+// PG_APP_USER=pgeos_app for every job that touches the database, so gates ②③⑤ run under RLS.
+// Local dev is unchanged: PG_APP_USER is unset by default, so the pool falls back to PGUSER
+// (still 'postgres' locally) — no behaviour change for a developer who has not opted in.
 export const pool = new Pool({
   host: process.env['PGHOST'] ?? 'localhost',
   port: Number(process.env['PGPORT'] ?? '5432'),
-  user: process.env['PGUSER'] ?? 'postgres',
+  user: process.env['PG_APP_USER'] ?? process.env['PGUSER'] ?? 'postgres',
   database: process.env['PGDATABASE'] ?? 'pgeos',
 });
 
