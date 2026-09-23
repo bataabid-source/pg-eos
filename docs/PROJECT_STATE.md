@@ -6,7 +6,7 @@ Maintained by pg-scribe only, in the same commit as the task it records.
 | field | value |
 |---|---|
 | Phase | 0 — Foundation → 2 — Warehouse (2.1 started 2026-09-23) |
-| Current task | **X — apply GM decision sheet D-115 (0.2/7.10 DONE, ADR-0002 confirmed Accepted, 4 staged tasks admitted, restore rehearsal, BOOTSTRAP-v5 §9 erratum)** (previous task X — record GM decisions D-103…D-121 @ `1e4c5c2`). Governance/bookkeeping only — no code, schema, migration or test touched. Completion now 16/132 (0.2, 7.10 DONE; 0.17 mechanisms and 1.5 proof still excluded — ADR-0001). |
+| Current task | **X — D-122/123/124 (line-ending policy, SC-01 dep bound to 1.7, WBS 0.6 split drafted)** (previous task X — apply GM decision sheet D-115 @ `e58a098`). Governance/bookkeeping only — no code, schema, migration or test touched. Completion 16/132 unchanged. |
 | Golden slice (2.9) | not built · `.golden-slice-accepted` absent · `scripts/new-slice.sh` is a no-op. Depends on 2.4, 2.6, 2.8, 0.15 — **2.6 now DONE** (joins 2.8, 0.15 already DONE); 2.4 still TODO; **Phase-0 gate still open (0.2, 0.8) → 2.9 is no closer to starting.** **Acceptance gains a Phase-0 wiring line (GM 2026-09-22): the golden slice must wire up every part deferred from Phase-0 "mechanism only" tasks — starting with 0.17's login endpoints.** |
 | Deployment tier | Tier 0 (`docs/package/42-Oracle-Cloud-Deployment.md`) |
 | Schema | `database/schema/01 · 13 · 13B · 019` — the ONLY permitted schema (01 v1.1, 13B v4.4, migrations 0001–0006) · DB locale UTF8 / collate C / ctype C.UTF-8 · `apply.sh --recreate` **green on this machine 2026-09-23**: 175 tables/14 schemas, `wms.verify_wh1()` 21/21 pass (3,330 locations), G1–G13 = 0 (G6 blocking, 0 rows — WBS 0.16 complete), G18/G-SEED report-only = 0 |
@@ -22,11 +22,11 @@ None claimed.
 
 | task | commit |
 |---|---|
+| X — apply GM decision sheet D-115 (0.2/7.10 DONE, staged tasks admitted) | `e58a098` |
 | X — record GM decisions 2026-09-23 (D-103…D-121) | `1e4c5c2` |
 | 2.6 — wms.skus registration mechanism, cross-client SKU mix rejected (D-103) | `e38370e` |
 | X — GM decisions 2026-09-23 housekeeping (D-105…D-112) | `0260778` |
 | 1.5 — Customer accounts proof slice (ADR-0001) + SCR-TRGM-01 option A | `f790da7` |
-| 2.8 — Stock ledger + derived balance + verify_balance_integrity (fixes e5bff15 SCR-AUDIT-01, 787d9dc SCR-WMS-01) | `b5da282` |
 
 ## Blockers
 
@@ -44,12 +44,12 @@ None claimed.
 
 1. 2.7 Data gate M04 (SKUs) — dependency 2.6 met, GM decision sheet now read (D-115); still WAITING_GM (real scorecard action, lane A)
 2. 2.2 field survey → 2.3 → 2.4 (WAITING_GM, 7-day window per D-115)
-3. 0.6 CI (waits on 0.5)
+3. 0.6a CI gates ①–⑥ (drafted split, D-124; deps 0.4 only — READY once doc 38 is edited; 0.6b deploy-to-staging still waits on 0.5)
 
 ## Notes
 
 - WAITING_GM: Phase 0 lane A tasks (0.3, 0.5, 0.7, 0.8, 0.20 — 0.2 now DONE) plus the four Staged tasks (admitted, `tasks/backlog/`, blocked on real deps, not built).
-- See `docs/notes/2026-09-23-restore-rehearsal.md` for the local 0.8 mechanism rehearsal (passes, does not close 0.8).
+- See `docs/notes/2026-09-23-restore-rehearsal.md` (0.8 rehearsal) and `docs/notes/2026-09-23-38-wbs-0.6-split-draft.md` (0.6a/0.6b, D-124, not yet applied to doc 38). SC-01's "sales contracts slice" dependency bound to WBS 1.7 (D-123). `.gitattributes` added (D-122) — CRLF renormalized, zero content change.
 - Phase 0 gate: 0.18 isolation **DONE** (G7 = 0, D-002 applied) · 0.16 classification (G6 = 0) · 0.8 restore · 0.1 owners.
 - 0.9 closed at `aa46787` with two unmerged WIP branches (`0217e85`, `f127ab2`), catalogued in `docs/notes/0.9-abandoned-wip.md` — never merge, never delete.
 - Phase-0 policy (GM 2026-09-22): every task delivers mechanism-only (`packages/*`, tests), no modules/endpoints/screens. Deferred parts tracked here and in `MASTER_BACKLOG.md` (not docs/package/38).

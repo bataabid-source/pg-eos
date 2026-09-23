@@ -1,6 +1,6 @@
 # SC-01 — Sales commission activation (SCR-SC-01)
 
-**Status: TODO, admitted to `tasks/MASTER_BACKLOG.md` (D-115, GM 2026-09-23).** Structure approved per D-14 §8's recommendation: recurring model, `collected` basis, 24-month duration, no cap in year 1, half rate for 12 months on existing clients, SCR-SC-01 approved. Rates and the 0.5% manager share are approved provisionally for year 1, with a 6-month review. Still blocked on 4.9 (not built) and an unnamed "2.x sales contracts slice" dependency with no WBS id assigned — flagged for the GM.
+**Status: TODO, admitted to `tasks/MASTER_BACKLOG.md` (D-115, GM 2026-09-23).** Structure approved per D-14 §8's recommendation: recurring model, `collected` basis, 24-month duration, no cap in year 1, half rate for 12 months on existing clients, SCR-SC-01 approved. Rates and the 0.5% manager share are approved provisionally for year 1, with a 6-month review. Still blocked on 4.9 (not built) and WBS **1.7** ("M02: contracts, price annexes, SLA definitions, billing flags", CFO, lane 1) — bound as the "2.x sales contracts slice" dependency (D-123, grepped from `docs/package/38-WBS.md` line 68; not yet built).
 
 | field | value |
 |---|---|
@@ -22,7 +22,7 @@ Turn a collection, a credit note or a signed contract into a sales-commission en
 For a contract signed by one representative and later executed while the account belongs to another, the monthly run produces `hr.sales_commission_events` rows that split by `sales.account_ownership_history` exactly as D-14 §3 computes them, honour the cap and the minimum-margin rule, reverse correctly on a credit note, and expose the statement only to the representative, SALES_MGR, CFO and GM (`hr.commission.read_all`) — with G2, G11 and G14 green and no number written outside `platform.thresholds`.
 
 ## Dependencies
-4.9 (collections in the ledger) · 2.x sales contracts slice · **the GM's decision on the compensation model and its rates** (D-14 §8; listed in PROJECT-SETUP-GUIDE §10 as a pre-Phase-1 decision).
+4.9 (collections in the ledger) · **1.7** (contracts — D-123 binds this as "the sales contracts slice") · **the GM's decision on the compensation model and its rates** (D-14 §8; listed in PROJECT-SETUP-GUIDE §10 as a pre-Phase-1 decision) — now recorded, see the Status line above.
 
 ## Decision the GM owes before this starts
 D-14 §8: the model, the four family rates, the sign/execute split, the monthly cap and the dispute window. Until each is recorded in EXECUTION-MASTER-v4 Part 1, the provisional `platform.thresholds` values stand and this task stays WAITING_GM.

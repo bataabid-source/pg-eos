@@ -4,6 +4,16 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — GM decisions 2026-09-23: line-ending policy, WBS 0.6 split draft, SC-01 dependency bound (D-122, D-123, D-124) — DONE (2026-09-23)
+
+- **D-122** `.gitattributes` added (`* text=auto eol=lf` · `*.ps1 text eol=crlf`) to stop Windows Git Bash tooling (`sed -i`, some editors) from re-introducing CRLF into files this repo keeps as LF — CRLF had already leaked into two prior Task X commits and had to be hand-fixed each time. `git add --renormalize .` ran; `git diff -b --cached --stat` confirmed zero content change (line endings only) before committing. Files renormalized: the 15 module briefs, `SETUP-STATUS-AR.md`, two `docs/notes/*.md` files, `modules/platform/tests/integration/schema-invariants.test.ts`.
+- **D-123** SC-01's previously-unresolved "2.x sales contracts slice" dependency bound to WBS **1.7** (`docs/package/38-WBS.md` line 68, "M02: contracts, price annexes, SLA definitions, billing flags", CFO, lane 1) — found by grep, no doc-38 insertion needed. `tasks/backlog/SC-01-sales-commission.md` and its `tasks/MASTER_BACKLOG.md` row updated to `Depends on: 4.9, 1.7`.
+- **D-124** WBS 0.6 (CI pipeline, seven gates) split into **0.6a** (gates ①–⑥ on GitHub Actions, deps 0.4 only — READY the moment doc 38 is edited, since 0.4 is DONE) and **0.6b** (gate ⑦ build + staging deploy, deps 0.5 and 0.6a). Recorded as a **doc-38 insertion draft only** — `docs/notes/2026-09-23-38-wbs-0.6-split-draft.md` — not applied to `docs/package/38-WBS.md` itself (not explicitly delegated this time, unlike D-121's BOOTSTRAP-v5/PROJECT-SETUP-GUIDE delegation); doc-38 row 0.20's dependency becomes `0.6a, 0.6b, 0.8` once the edit lands. `tasks/MASTER_BACKLOG.md` row 0.6 left structurally unchanged (still the single doc-38-sourced row) with an annotation pointing at the draft — a hand-split row with no doc-38 source would break `gen-backlog.py --check`'s 132-row invariant and be silently dropped on the next regeneration.
+- **Verification:** `python scripts/gen-backlog.py --check` → 132 rows, header/X.1-X.6/0.19 agree; regeneration confirmed byte-identical (idempotent) against the hand-annotated file; `git diff -b --cached --stat` empty for the renormalize step.
+- Model: sonnet · Delegated: none (Master direct — single-file edits, no worker delegation needed) · Review: n/a (governance) · tokens: ≈ 40k (estimate)
+
+---
+
 ## X — apply GM decision sheet D-115 (0.2/7.10 DONE, restore rehearsal, 4 staged tasks admitted, BOOTSTRAP-v5 §9 erratum applied) — DONE (2026-09-23)
 
 - **DECISION_LOG.md working log:** appended D-115 (the GM's consolidated read-through of the decision sheet, covering its four letter-groups A/B/C/D) and D-120 (standing push policy — each Task X governance commit that verifies green pushes to `origin/main` in the same step, no separate confirmation, unless a future directive says otherwise). Source for both: GM (directive D-115, 2026-09-23). D-105–D-119, D-121 untouched (already had rows from the two earlier Task X passes).
