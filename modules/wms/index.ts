@@ -8,3 +8,8 @@
 // slice-briefs/_slice-2.8.brief.md, "Type of slice"). Re-exported here — the module's public barrel — per the
 // brief's Public surface block.
 export * from './src/stock-ledger/index.js';
+
+// WBS 2.6 is a mechanism slice (precedent WBS 2.8, WBS 0.17): the schema already delivers
+// wms.skus (01-Data-Model.sql); this re-exports the registration mechanism built flat under
+// src/sku-registration/ (brief docs/notes/slice-briefs/_slice-2.6.brief.md, "Type of slice").
+export * from './src/sku-registration/index.js';
