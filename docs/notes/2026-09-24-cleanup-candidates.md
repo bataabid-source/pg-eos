@@ -62,3 +62,23 @@ Kept on purpose (no action): the PLT-50 lines (`DECISION_LOG.md:72`, EXEC-v4:134
 | L1 | `docs/package/D-blueprints/12-Warehouse-Work-Orders-VAS.md` | 969 | "إمّا" (either) build the attendance and shifts container in 13B, "وإمّا" (or) measure productivity by active task time only and drop the three indicators | no owner named on the line. **Partly resolved by D-126** (the attendance carrier is now requested, SCR-HR-ATT-01). Shifts are still open. Proposed owner: GM |
 | L2 | `docs/package/D-blueprints/09-Gap-Register.md` | 13 | payroll: move it to 13B, or drop every payroll-automation promise | owner is implicitly the GM (the register holds the 22 GM decisions), but the line itself names none. Listed for completeness |
 | L3 | `docs/package/18-Warehouse-Layout-Audit.md` | 358 | approve R3 formally, or issue revision R4 | no owner on the line. **Effectively closed by 7.10** ("verified; drawing + licence on file"). Listed so the GM can mark it |
+
+## 4. Disposition under D-132 (2026-09-24) — "proposed action approved for every row; apply all"
+
+| # | Applied | How |
+|---|---|---|
+| G1, G2 | **Not applicable yet** | The proposed action needs "the GM-set retention for punch records"; D-131 resolves ADR-0003 item 5 by the text as written, which carries no value → carried (ADR "Resolution under D-131"). Lines 40:668 and 25:429 unchanged; no number invented |
+| G3 | **Not applied** | Regenerating `01-08.mmd/.svg` needs the diagram renderer (`D-blueprints/tools/render.py` → mermaid CLI), not installed on this machine; hand-editing the SVG would desync the layout. Open, owner Master, next session with the renderer |
+| G4 | **Applied — retired slot** | N-16 keeps its number as a retired slot; "22 alerts" count unchanged (SCR-HR-ATT-01 §6 item 5, ADR-0003 resolution table). The 13B seed row is removed by the next forward-only migration (G-01 approved with D-131), not in this commit |
+| G5 | **Kept** | 26-BCP paper attendance is the outage fallback, not a system requirement to build; under D-127 no field/human procedure is exercised before the pilot. No edit |
+| G6 | **Kept** | X.6 stays CONTINUOUS (the `--check` invariant); it is a human vendor action, so under D-127 it is not raised before the pilot system is complete. No edit |
+| G7 | **Applied** | 6.6 → `DEFERRED-POST-PILOT — D-134` (three synthetic pilot clients from seed 019; real clients Phase-7) |
+| G8 | **Applied** | 7.9 → `DEFERRED-POST-PILOT — D-127` |
+| G9 | **Applied** | 2.5 → `DEFERRED-POST-PILOT — D-127` (physical labels; 2.2 itself closed for the pilot by D-128) |
+| G10 | **Applied** | 7.5 → `DEFERRED-POST-PILOT — D-127` |
+| G11 | **Kept** | 3.21 is a ✅ verification of our own app on lane M; not a field/human item. No edit |
+| G12 | **Applied** | 1.1 and 4.1 → `DEFERRED-POST-PILOT — D-127` (human entry) |
+| G13 | **Applied — D-104 superseded** | D-129 (pilot Tier 0 = local Docker) and D-130 (0.8 pilot acceptance closes the Phase-0 gate) replace D-104's "2.9 waits for 0.2, 0.5, 0.6, 0.8"; 2.9 now waits for 0.8 (pilot acceptance) and its doc-38 deps 2.4, 2.6, 2.8, 0.15. Recorded in `docs/DECISION_LOG.md` D-132 (append-only log; the D-104 row itself is not edited) |
+| L1 | **Applied** | `D-blueprints/12` line 969: owner GM; attendance carrier via SCR-HR-ATT-01 (D-131); shifts post-pilot (D-127) |
+| L2 | **Applied** | `D-blueprints/09` line 13: owner GM; attendance part settled by ADR-0003 / SCR-HR-ATT-01; payroll, shifts, leaves post-pilot |
+| L3 | **Applied** | doc 18 line 358 marked closed by 7.10 (D-115); no R4 |

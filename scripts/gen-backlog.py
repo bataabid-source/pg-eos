@@ -7,16 +7,22 @@ verbatim — IDs, type markers, Depends on, Lane, Owner, Acceptance — and adds
 
 Usage:
     python3 scripts/gen-backlog.py            # (re)writes tasks/MASTER_BACKLOG.md, keeps existing statuses
-    python3 scripts/gen-backlog.py --check    # verifies 132 rows, the header line and the X / 0.19 statuses; writes nothing
+    python3 scripts/gen-backlog.py --check    # verifies 133 rows, the header line and the X / 0.19 statuses; writes nothing
 
 Status vocabulary (pg-scribe moves rows; nothing else edits this file):
     TODO · READY · ACTIVE · WAITING_GM · BLOCKED · DONE @ <hash> · SUPERSEDED — <ADR/decision>
+    · DEFERRED-POST-PILOT — <decision> (D-127: field data, human entry, sign-off, training, naming and
+      Tier-0 provisioning wait until the pilot system is complete; listed again under Phase 7)
 """
 import re, sys, pathlib
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-# Header wording fixed by the GM 2026-09-23 (D-111). The X-tasks and 0.19 are inside the 132 rows.
-HEADER = "**132 doc-38 tasks + X.1–X.6 CONTINUOUS + 0.19 DEFERRED** — eight phases (0–7) + cross-cutting X-tasks; X.1–X.6 and 0.19 are counted inside the 132. No 18-phase roadmap, no separate database phase (BOOTSTRAP-v4 §8)."
+# Header wording fixed by the GM 2026-09-23 (D-111); count 132 → 133 on 2026-09-24 (D-124 split of 0.6 into
+# 0.6a / 0.6b, applied to doc 38 v4.2 under directive D-127…D-134). The X-tasks and 0.19 are inside the 133 rows.
+HEADER = "**133 doc-38 tasks (v4.2: 0.6 → 0.6a / 0.6b, D-124) + X.1–X.6 CONTINUOUS + 0.19 DEFERRED + DEFERRED-POST-PILOT rows (D-127)** — eight phases (0–7) + cross-cutting X-tasks; X.1–X.6 and 0.19 are counted inside the 133. No 18-phase roadmap, no separate database phase (BOOTSTRAP-v4 §8)."
+EXPECTED_ROWS = 133
+ROW_ID = r"(\d+\.\d+[ab]?|X\.\d+)"
+DEFERRED_PP = "DEFERRED-POST-PILOT"
 WBS = ROOT / "docs" / "package" / "38-WBS.md"
 OUT = ROOT / "tasks" / "MASTER_BACKLOG.md"
 
@@ -28,7 +34,7 @@ def load_existing_status():
     status = {}
     if OUT.exists():
         for line in OUT.read_text(encoding="utf-8").splitlines():
-            if line.startswith("| ") and re.match(r"^\| (\d+\.\d+|X\.\d+) ", line):
+            if line.startswith("| ") and re.match(r"^\| " + ROW_ID + " ", line):
                 cells = split_row(line)
                 status[cells[0]] = cells[-1]
     return status
@@ -45,7 +51,7 @@ def parse():
             continue
         if line.startswith("**Phase gate:**"):
             current["gate"] = line.replace("**Phase gate:**", "").strip()
-        if re.match(r"^\| (\d+\.\d+|X\.\d+) \|", line):
+        if re.match(r"^\| " + ROW_ID + r" \|", line):
             current["rows"].append(split_row(line))
         if line.startswith("## Summary"):
             break
@@ -78,12 +84,14 @@ def render(phases, keep):
     out.append("| `ACTIVE` | claimed in `tasks/LANE_LOCKS.md`; one per lane |")
     out.append("| `WAITING_GM` | 🧑 / 🔧 lane-A task: runbook or script produced, waits for the GM; never blocks a code lane |")
     out.append("| `BLOCKED` | REAL BLOCKER recorded in `docs/PROJECT_STATE.md` |")
-    out.append("| `SUPERSEDED — <id>` | row kept for the 132 count; replaced by the named ADR / GM decision, never picked (D-125) |")
+    out.append("| `SUPERSEDED — <id>` | row kept for the 133 count; replaced by the named ADR / GM decision, never picked (D-125) |")
+    out.append("| `DEFERRED-POST-PILOT — <id>` | pilot-first rule (D-127): field data, human entry, sign-off, training, naming and Tier-0 provisioning wait until the pilot system is complete; the pilot runs on seed 019 + synthetic data only; the row keeps its phase and is listed again under Phase 7; never picked before the pilot |")
     out.append("| `DONE @ <hash>` | acceptance criterion passed, pg-reviewer PASS, gates green — written by pg-scribe in the same commit |")
     out.append("")
     out.append("Type: 🧑 human decision/data · 🤖 AI-buildable slice · 🔧 infra · ✅ verification. Lane: **A** GM/manual · **B · C · 1 · 2 · 3** parallel build lanes · **M** Master (serial). Deps govern over Lane.")
     out.append("")
     total = 0
+    deferred_pp = []                      # (id, task, owner, status) — every phase, in doc-38 order
     for ph in phases:
         out.append("---")
         out.append("")
@@ -100,9 +108,22 @@ def render(phases, keep):
             st = keep.get(tid) or initial_status(cells, ph["title"])
             out.append("| " + " | ".join(cells + [st]) + " |")
             total += 1
+            if st.startswith(DEFERRED_PP):
+                deferred_pp.append((tid, cells[1], cells[5] if len(cells) > 5 else cells[4], st))
         if ph["gate"]:
             out.append("")
             out.append(f"**Phase gate:** {ph['gate']}")
+        if ph["title"].startswith("Phase 7") and deferred_pp:
+            # D-127: every DEFERRED-POST-PILOT row is listed again here, under Phase 7, as a pilot-exit item.
+            # The rows keep their own phase above; this list is derived from their status and is not counted.
+            out.append("")
+            out.append("### Deferred post-pilot (D-127) — pilot-exit items, listed here from every phase (derived from status; not counted)")
+            out.append("")
+            out.append("| ID | Task | Owner | Status |")
+            out.append("|---|---|---|---|")
+            for tid, task, owner, st in deferred_pp:
+                # "↩ id" so these derived rows never match the `| id |` row pattern of --check / check-setup.sh
+                out.append(f"| ↩ {tid} | {task} | {owner} | {st} |")
         out.append("")
     out.append("---")
     out.append("")
@@ -115,7 +136,7 @@ def render(phases, keep):
     out.append("| 6.2b | Client store connectors (I-12) — `tasks/backlog/6.2b-store-connectors.md`, source D-11 | 🤖 | 6.1, 6.2 | **1** | SYSADMIN + SALES_MGR (shared, D-11 §7 ق-4) | A store order posted by the test connector appears as one PG-EOS order with the D-11 §5-2 minimum fields, idempotent under replay, a forced failure follows the D-11 §5-5 nine-field policy and shows in the integration monitor; client isolation holds (G14) | TODO — admitted 2026-09-23 (D-115): option ③ approved per D-11 §7 (B in Phase 3, A in Phase 6, C = 6.2b); blocked on 6.1, 6.2, neither built; D-11 §5-4 schema additions still need a G-01 filing once 6.2b starts |")
     out.append("| SC-01 | Sales commission activation (SCR-SC-01) — `tasks/backlog/SC-01-sales-commission.md`, source D-14 | 🤖 | 4.9, 1.7 | **2** | SALES_MGR | For a contract signed by one rep and later executed under another, the monthly run splits per `sales.account_ownership_history` exactly as D-14 §3, honours the cap and minimum-margin rule, reverses correctly on a credit note, exposes the statement only to the rep, SALES_MGR, CFO and GM; G2, G11, G14 green, no number written outside `platform.thresholds` | TODO — admitted 2026-09-23 (D-115); dependency on the \"sales contracts slice\" bound to WBS **1.7** (D-123, `docs/package/38-WBS.md` line 68); structure approved (recurring, `collected` basis, 24 months, no cap year 1, half rate 12 months for existing clients, SCR-SC-01 approved); rates and the 0.5% manager share approved provisionally for year 1 with a 6-month review; blocked on 4.9 and 1.7, neither built |")
     out.append("")
-    out.append(f"**Rows: {total}** (expected 132 — `--check` fails otherwise; the four Staged rows above are never part of this count).")
+    out.append(f"**Rows: {total}** (expected {EXPECTED_ROWS} — `--check` fails otherwise; the four Staged rows above are never part of this count).")
     return "\n".join(out) + "\n", total
 
 def check_existing(counts):
@@ -129,7 +150,7 @@ def check_existing(counts):
     xs = sorted(k for k in st if k.startswith("X."))
     if len(xs) != 6 or any(st[k] != "CONTINUOUS" for k in xs):
         errors.append(f"X-tasks must be X.1–X.6 CONTINUOUS, found {[(k, st[k]) for k in xs]}")
-    if not st.get("0.19", "").startswith("DEFERRED"):
+    if not st.get("0.19", "").startswith("DEFERRED →"):
         errors.append(f"0.19 must be DEFERRED, found {st.get('0.19')!r}")
     return errors
 
@@ -141,8 +162,8 @@ def main():
     for k, v in counts.items():
         print(f"{v:3d}  {k}")
     print(f"{total:3d}  TOTAL")
-    if total != 132:
-        print("ERROR: expected 132 rows", file=sys.stderr)
+    if total != EXPECTED_ROWS:
+        print(f"ERROR: expected {EXPECTED_ROWS} rows", file=sys.stderr)
         sys.exit(1)
     if check:
         errors = check_existing(counts)
@@ -150,10 +171,13 @@ def main():
             print(f"ERROR: {e}", file=sys.stderr)
         if errors:
             sys.exit(1)
+        waiting = sorted(k for k, v in load_existing_status().items() if v.startswith("WAITING_GM"))
+        if waiting:
+            print(f"note: WAITING_GM rows: {waiting} (D-127 pilot-first: expected none until the pilot is complete)")
         print("header · X.1–X.6 CONTINUOUS · 0.19 DEFERRED — agree with tasks/MASTER_BACKLOG.md")
     if not check:
         OUT.parent.mkdir(parents=True, exist_ok=True)
-        OUT.write_text(text, encoding="utf-8")
+        OUT.write_text(text, encoding="utf-8", newline="\n")   # LF on every platform (D-122 .gitattributes)
         print(f"wrote {OUT.relative_to(ROOT)}")
 
 if __name__ == "__main__":

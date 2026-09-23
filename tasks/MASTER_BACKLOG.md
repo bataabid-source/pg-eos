@@ -2,7 +2,7 @@
 
 **Generated from `docs/package/38-WBS.md` (Document 38 v4.0) by `scripts/gen-backlog.py` — IDs, type markers, dependencies, lanes, owners and acceptance criteria are copied verbatim; doc 38 governs on any difference.**
 
-**132 doc-38 tasks + X.1–X.6 CONTINUOUS + 0.19 DEFERRED** — eight phases (0–7) + cross-cutting X-tasks; X.1–X.6 and 0.19 are counted inside the 132. No 18-phase roadmap, no separate database phase (BOOTSTRAP-v4 §8).
+**133 doc-38 tasks (v4.2: 0.6 → 0.6a / 0.6b, D-124) + X.1–X.6 CONTINUOUS + 0.19 DEFERRED + DEFERRED-POST-PILOT rows (D-127)** — eight phases (0–7) + cross-cutting X-tasks; X.1–X.6 and 0.19 are counted inside the 133. No 18-phase roadmap, no separate database phase (BOOTSTRAP-v4 §8).
 
 | Status | Meaning |
 |---|---|
@@ -11,7 +11,8 @@
 | `ACTIVE` | claimed in `tasks/LANE_LOCKS.md`; one per lane |
 | `WAITING_GM` | 🧑 / 🔧 lane-A task: runbook or script produced, waits for the GM; never blocks a code lane |
 | `BLOCKED` | REAL BLOCKER recorded in `docs/PROJECT_STATE.md` |
-| `SUPERSEDED — <id>` | row kept for the 132 count; replaced by the named ADR / GM decision, never picked (D-125) |
+| `SUPERSEDED — <id>` | row kept for the 133 count; replaced by the named ADR / GM decision, never picked (D-125) |
+| `DEFERRED-POST-PILOT — <id>` | pilot-first rule (D-127): field data, human entry, sign-off, training, naming and Tier-0 provisioning wait until the pilot system is complete; the pilot runs on seed 019 + synthetic data only; the row keeps its phase and is listed again under Phase 7; never picked before the pilot |
 | `DONE @ <hash>` | acceptance criterion passed, pg-reviewer PASS, gates green — written by pg-scribe in the same commit |
 
 Type: 🧑 human decision/data · 🤖 AI-buildable slice · 🔧 infra · ✅ verification. Lane: **A** GM/manual · **B · C · 1 · 2 · 3** parallel build lanes · **M** Master (serial). Deps govern over Lane.
@@ -24,12 +25,13 @@ Type: 🧑 human decision/data · 🤖 AI-buildable slice · 🔧 infra · ✅ v
 |---|---|---|---|---|---|---|---|
 | 0.1 | ✅ **Done** — all domains owned by filled positions; SoD satisfied (CFO / PRO-collections / GM) | 🧑 | — | **A** | GM | — | DONE (pre-build, GM) |
 | 0.2 | ✅ Cloud decision **tiered**: Tier 0 Oracle Always Free (doc 42) → Tier 2 GCP Doha. **Decide: PAYG upgrade, region, Tunnel** (doc 42 §11) | 🧑 | — | **A** | GM | Three decisions recorded | DONE @ `<this commit>` — the three decisions were already recorded in doc 42 §11 (20 Sep 2026: PAYG · `me-jeddah-1` fallback `me-dubai-1` · Cloudflare Tunnel); confirmed by the GM (D-115, 2026-09-23) |
-| 0.3 | Oracle tenancy: account, MFA, compartment `premium-production`, IAM user `deployer`, break-glass | 🔧 | 0.2 | **A** | SYSADMIN | Break-glass credentials in physical safe; MFA on root | WAITING_GM |
+| 0.3 | Oracle tenancy: account, MFA, compartment `premium-production`, IAM user `deployer`, break-glass | 🔧 | 0.2 | **A** | SYSADMIN | Break-glass credentials in physical safe; MFA on root | DEFERRED-POST-PILOT — D-129 (Oracle tenancy after the pilot; pilot Tier 0 = local Docker postgres:16) |
 | 0.4 | Initialise monorepo (pnpm, Turborepo, TypeScript strict, ESLint boundaries) | 🔧 | — | **B** | SYSADMIN | `pnpm build` green; cross-module import fails lint | DONE @ 05674b5 |
-| 0.5 | VCN + NSG + A1.Flex VM (reserved IP) + Ubuntu hardening + Docker + `/opt/premium` layout + Cloudflare (Tunnel or Origin cert) — doc 42 §2–§5 | 🔧 | 0.3 | **A** | SYSADMIN | `docker compose up` serves `app/api/portal` over HTTPS; no public 5432/22 | WAITING_GM |
-| 0.6 | CI pipeline — **seven named gates ①–⑦ (doc 36 §4-3): STATIC · UNIT · INTEGRATION · ACCEPTANCE · GUARDS · SECURITY · BUILD** | 🔧 | 0.4, 0.5 | **M** | SYSADMIN | A deliberately failing test blocks deploy; gate ⑤ runs G1–G18 | TODO — split into 0.6a (gates ①–⑥, deps 0.4 only, READY once doc 38 is edited) / 0.6b (gate ⑦ + staging deploy, deps 0.5, 0.6a) approved D-124, draft `docs/notes/2026-09-23-38-wbs-0.6-split-draft.md`; this row is unchanged until the doc-38 edit lands |
-| 0.7 | Tier 0 monitoring: Netdata/node_exporter, postgres_exporter, Uptime Kuma, backup healthcheck, alerts to GM + `DEPUTY_SYSADMIN` — doc 42 §7. The per-module Grafana board required by doc 36 §4-1 is task X.3, built with each module | 🔧 | 0.5 | **A** | SYSADMIN | Disk > 80% and container restart alerts fire in test | WAITING_GM |
-| 0.8 | `backup.sh` to OCI Object Storage (14/8/6) + lifecycle rules + **first actual `restore.sh` test** — doc 42 §6 | 🔧 | 0.5 | **A** | SYSADMIN | Restore into `pgeos_restore`; guard functions return 0 | WAITING_GM |
+| 0.5 | VCN + NSG + A1.Flex VM (reserved IP) + Ubuntu hardening + Docker + `/opt/premium` layout + Cloudflare (Tunnel or Origin cert) — doc 42 §2–§5 | 🔧 | 0.3 | **A** | SYSADMIN | `docker compose up` serves `app/api/portal` over HTTPS; no public 5432/22 | DEFERRED-POST-PILOT — D-129 (Tier-0 host after the pilot; pilot Tier 0 = local Docker postgres:16) |
+| 0.6a | CI gates ①–⑥ on GitHub Actions — **STATIC · UNIT · INTEGRATION · ACCEPTANCE · GUARDS · SECURITY (doc 36 §4-3)** (split from 0.6, D-124) | 🔧 | 0.4 | **M** | SYSADMIN | Every PR runs lint + boundaries + types (STATIC), domain unit tests (UNIT), integration tests against an ephemeral Postgres 16 service container (INTEGRATION), the acceptance-scenario placeholder (ACCEPTANCE, real scenarios arrive with the golden slice), `pnpm guards:run` (GUARDS, gate ⑤ runs G1–G18), and a secret + dependency scan (SECURITY); a red step on any of the six blocks merge. **D-133:** CI and the integration tests connect as role `pgeos_app` (no superuser, no `BYPASSRLS`); `entity_scope` is split into `USING` / `WITH CHECK` — closes the 0.18 carried-forward item | READY — D-124 applied to doc 38 v4.2; dep 0.4 DONE @ 05674b5; acceptance carries D-133 (CI + integration tests as role pgeos_app, no superuser / BYPASSRLS; entity_scope split USING / WITH CHECK) |
+| 0.6b | Deploy to staging — **gate ⑦ BUILD (doc 36 §4-3) + automatic deploy to staging** (split from 0.6, D-124) | 🔧 | 0.5, 0.6a | **M** | SYSADMIN | Gate ⑦ builds images and runs migrations; a green 0.6a run on `main` deploys automatically to the Tier-0 staging host; smoke test + system-owner approval gate the promotion onward (doc 42, CLAUDE.md DEPLOYMENT PIPELINE) | DEFERRED-POST-PILOT — D-129 (follows 0.5) |
+| 0.7 | Tier 0 monitoring: Netdata/node_exporter, postgres_exporter, Uptime Kuma, backup healthcheck, alerts to GM + `DEPUTY_SYSADMIN` — doc 42 §7. The per-module Grafana board required by doc 36 §4-1 is task X.3, built with each module | 🔧 | 0.5 | **A** | SYSADMIN | Disk > 80% and container restart alerts fire in test | DEFERRED-POST-PILOT — D-129 (follows 0.5) |
+| 0.8 | `backup.sh` to OCI Object Storage (14/8/6) + lifecycle rules + **first actual `restore.sh` test** — doc 42 §6 | 🔧 | 0.5 | **A** | SYSADMIN | Restore into `pgeos_restore`; guard functions return 0 | READY — D-130 pilot acceptance: real backup.sh / restore.sh against the local Docker postgres:16 with a local file target, restore into pgeos_restore, guard functions return 0; the OCI Object Storage target is added with 0.5; passing this closes the Phase-0 gate (the doc-38 dep 0.5 applies to the OCI target — doc-38 row 0.8 wording is a GM follow-up, not delegated) |
 | 0.9 | `platform` schema from 01 + 13B: entities, settings, counters, `next_doc_no`, **`platform.outbox`** (`domain_events` dropped), **`platform.audit_log` partitioned monthly, PK `(id, occurred_at)`, with the eleven v4 columns of doc 40 §B2 and the `audit_hash_chain` trigger** | 🤖 | 0.4 | **B** | SYSADMIN | 100 concurrent `next_doc_no` calls → 100 unique numbers; `platform.verify_audit_chain()` returns zero rows and detects a deliberately tampered row | DONE @ aa46787 — two rival WIP branches from the same night (`0217e85` on `claude/postgresql-16-254336`, `f127ab2` on `claude/resume-4c8ecc`) are **unmerged and stay unmerged**; catalogued with their reusable assets (pgbench G13 governing form, `platform.doc_no_probe` migration, savepoint tamper test, 0.9 Gherkin) in `docs/notes/0.9-abandoned-wip.md` @ `1577a12`. Never merge, never delete. · **fix 2026-09-23 (SCR-AUDIT-01, ADR-0002, migration 0004):** chain ordered by chain_seq; G4 8×500 regression 0/0/0. |
 | 0.10 | `platform`: thresholds, feature flags, automation rules, decisions table | 🤖 | 0.9 | **B** | SYSADMIN | Threshold change takes effect without redeploy | DONE @ 8914f30 |
 | 0.11 | `packages/db`: Drizzle + `withContext()` + lint rule | 🤖 | 0.9 | **B** | SYSADMIN | `db.` outside `withContext()` fails build | DONE @ e138ba2 |
@@ -41,9 +43,9 @@ Type: 🧑 human decision/data · 🤖 AI-buildable slice · 🔧 infra · ✅ v
 | 0.17 | M01 Identity: OTP login, sessions (revocable), roles, permissions, `user_entities`, **structure editor (roles, permission matrix, domain owners, approval chains, delegations, SoD rules)** | 🤖 | 0.11 | **M** | SYSADMIN | Every role logs in and sees only its scope; SoD-violating role assignment rejected; structure editable without deploy | DONE (mechanisms) @ c90dd6e — OTP generation/verification, session issuance/verification/revocation, RBAC permission check, SoD-aware role assignment built and reviewed as packages/identity/ (@pg-eos/identity-mechanisms). Deferred → 2.9 / first slice after 2.9 (GM 2026-09-22, docs/notes/0.17-sequencing-decision-request.md): login API endpoints, admin "structure editor" UI (roles, permission matrix, domain owners, approval chains, delegations, SoD rules screen). **GM 2026-09-23:** excluded from the completion ratio (12/132); its acceptance criterion ("every role logs in and sees only its scope") is bound to WBS 0.19 and is verified when 0.19's deferral is lifted. |
 | 0.18 | **RLS enabled on every operational table in 01/13/13B/019** (the patterns in 01 §11 and 13B §12 generalised) + **client isolation test** (ID tampering) | ✅ | 0.17 | **M** | SYSADMIN | **G7 returns 0** · User A returns zero rows from B's data on direct ID substitution, with no error | DONE @ `f03e160` (phase 1 partial @ `428a565`). **Delivered:** `tests/isolation` workspace (`@pg-eos/isolation-tests`, 43/43), G14 runner wired into `scripts/guards-run.sh` + turbo, eslint scoped. **Phase 2 — D-002 (GM "نفذ الاصلاحات", 2026-09-23), migration `0003_M_rls-scr-01-02.sql`:** SCR-RLS-01 Option B — `entity_scope` becomes `platform.is_internal() and entity_id = any(platform.allowed_entities())` on billing.invoices · tms.delivery_tasks · wms.outbound_orders · wms.occupancy_snapshots · wms.space_allocations · wms.space_reservations · wms.work_orders (precondition refuses to overwrite a drifted predicate; re-runnable); Option C — `identity.enforce_client_users_hold_no_entities()` (SECURITY DEFINER, `search_path = pg_catalog, pg_temp`) + triggers `user_entities_reject_client_user` / `users_reject_client_with_entities`, SQLSTATE 23514. SCR-RLS-02 Option A — RLS + `entity_scope` on the `platform.audit_log` partitioned parent; Option B — G7 widened to `relkind in ('r','p')` in `guards.sql` · `apply.sh` · **doc 40 Part F row G7 and its prose**; Option C — 13B auto-policy loop `relkind in ('r','p')`. **Acceptance met:** G7 = 0 (widened) · zero rows on direct ID substitution, no error, including the dual-role user. **Carried forward (do not re-open here):** (1) `entity_scope` is `FOR ALL`/`USING`-only, so it also governs INSERT — under a non-superuser runtime a portal user's audited action is rejected, and every internal reader and writer of the seven tables must pass `isInternal: true` (`platform.is_internal()` is GUC-only, false when unset) → decide with the 0.5/0.6 role design; (2) Option B was NOT extended to `wms.inbound_orders` / `cc.tickets` / `13-Schema-Additions.sql:702-708` (not vulnerable today — no client policy — but a client policy added later re-opens the hole silently); (3) no guard detects the SCR-RLS-01 permissive-composition class — the SCR §1 enumeration query is the candidate; a new guard changes doc 40 Part F and needs its own G-01; (4) `identity.users.user_type` has no CHECK, so Option C only binds the literal `'client'`; (5) the SCR-RLS-02 test's audit fixture row is deleted only while it is the chain tail — a concurrent writer leaves a permanent `_rls_isolation_fixture` row (G8-safe, deliberately outside the prefix sweep); (6) 0.17 `identity.users` fixture leftover; (7) runtime still connects as superuser (0.5/0.6); (8) turbo `test` task caches DB-touching integration tests and is unhashed on `PG*`. |
 | 0.19 | Admin app shell: navigation, Decision Inbox, empty-state component, design system | 🤖 | 0.17 | **M** | SYSADMIN | Inbox renders; empty state shows "what's missing + owner" | DEFERRED → 2.9 (GM 2026-09-22, `docs/notes/0.17-sequencing-decision-request.md`: acceptance criterion is a rendered screen — no mechanism-only subset exists under the Phase-0 rule) |
-| 0.20 | Runbook v1 (deploy, rollback, restore, secrets rotation) — drafted as soon as 0.6 is green, sealed only after 0.8 restore succeeds | 🧑 (draft 🤖) | 0.6, 0.8 | **A** | SYSADMIN | Eight procedures written and tested once | WAITING_GM |
+| 0.20 | Runbook v1 (deploy, rollback, restore, secrets rotation) — drafted as soon as 0.6a is green, sealed only after 0.8 restore succeeds | 🧑 (draft 🤖) | 0.6a, 0.6b, 0.8 | **A** | SYSADMIN | Eight procedures written and tested once | TODO — deps 0.6a, 0.6b, 0.8 (doc 38 v4.2); drafted when 0.6a is green, sealed after 0.8; 0.6b is post-pilot (D-129) |
 
-**Phase gate:** 0.8 restore succeeded · 0.18 isolation test green (G7 = 0) · 0.16 classification complete (G6 = 0) · 0.1 owners named · 0.2 three cloud decisions recorded.
+**Phase gate:** 0.8 restore succeeded (pilot acceptance per D-130: real `backup.sh` / `restore.sh` against the local Docker `postgres:16` with a file target; the OCI Object Storage target is added with 0.5) · 0.18 isolation test green (G7 = 0) · 0.16 classification complete (G6 = 0) · 0.1 owners named · 0.2 three cloud decisions recorded.
 
 ---
 
@@ -51,16 +53,16 @@ Type: 🧑 human decision/data · 🤖 AI-buildable slice · 🔧 infra · ✅ v
 
 | ID | Task | Type | Depends on | Lane | Owner | Acceptance | Status |
 |---|---|---|---|---|---|---|---|
-| 1.1 | Enter entity legal data (CR, tax, address, logo) for PCC/PST/PDL/POR | 🧑 | 0.9 | **A** | Admin Mgr | Zero document with incomplete header | WAITING_GM — collect the data now, enter once the screen exists (D-115) |
+| 1.1 | Enter entity legal data (CR, tax, address, logo) for PCC/PST/PDL/POR | 🧑 | 0.9 | **A** | Admin Mgr | Zero document with incomplete header | DEFERRED-POST-PILOT — D-127 (human entry; the pilot runs on seed 019 + synthetic data) |
 | 1.2 | M03 `catalog`: categories, services (7 categories), segments, price lists, exceptions | 🤖 | 0.13 | **1** | CFO | Price below floor rejected from UI, API and import | READY |
-| 1.3 | **Data gate M03:** floor price + standard cost for every active service | 🧑 | 1.2 | **A** | CFO | Scorecard = 100% | WAITING_GM — proceed as planned, Phase-1 gate item (D-115) |
+| 1.3 | **Data gate M03:** floor price + standard cost for every active service | 🧑 | 1.2 | **A** | CFO | Scorecard = 100% | DEFERRED-POST-PILOT — D-127 (data gate; Phase-1 gate item after the pilot) |
 | 1.4 | Pricing engine: exception → contract → segment → list → pending | 🤖 | 1.2 | **1** | CFO | Tiered pricing matches manual calc on 3 cases; unpriced event stays pending | TODO |
 | 1.5 | M02 `sales`: accounts, contacts, leads, opportunities, activities | 🤖 | 0.13 | **1** | SALES_MGR | One account per client across entities; duplicate detection fires | DONE (proof) @ `f790da7` — ADR-0001; excluded from the completion ratio; full slice replicated from 2.9 later; SCR-TRGM-01 option A. |
 | 1.6 | M02: quotes with approval flow (rep → sales mgr → CFO → GM on exception) | 🤖 | 1.4, 1.5 | **1** | CFO | Sent quote is frozen; edit creates new version | TODO |
 | 1.7 | M02: contracts, price annexes, SLA definitions, billing flags (DL-11/12/13/14/18) | 🤖 | 1.6 | **1** | CFO | Order on expired contract rejected | TODO |
 | 1.8 | Group-level credit limit and hold | 🤖 | 1.5 | **1** | CFO | Hold blocks orders in all four entities | TODO |
 | 1.9 | Customer 360 screen | 🤖 | 1.7 | **1** | SALES_MGR | Shows contracts, readiness gaps with owners, finance, profitability placeholder | TODO |
-| 1.10 | **Data gate M02:** all current clients with CR and contact | 🧑 | 1.5 | **A** | CFO | Scorecard = 100% | WAITING_GM — proceed as planned, Phase-1 gate item (D-115) |
+| 1.10 | **Data gate M02:** all current clients with CR and contact | 🧑 | 1.5 | **A** | CFO | Scorecard = 100% | DEFERRED-POST-PILOT — D-127 (data gate; Phase-1 gate item after the pilot) |
 | 1.11 | Scenario S6 (multi-entity) and S10 (price exception) pass | ✅ | 1.8 | **M** | CFO | Playwright green | TODO |
 
 **Phase gate:** 1.3 and 1.10 gates met · 1.11 green.
@@ -72,12 +74,12 @@ Type: 🧑 human decision/data · 🤖 AI-buildable slice · 🔧 infra · ✅ v
 | ID | Task | Type | Depends on | Lane | Owner | Acceptance | Status |
 |---|---|---|---|---|---|---|---|
 | 2.1 | Register **WH1**, its zones and its **8 space blocks** — **doc 19 §4 + `019-Warehouse-WH1-Setup.sql`** (the file generates exactly what 19 §4 describes; nothing is entered by hand) | 🤖 | 0.9 | **2** | WH_MGR | Blocks are `P-A` 288 · `P-A1` 12 · `G-B` 906 · `G-C` 45 · `M-B` 906 · `M-C` 45 · `T-B` 906 · `T-C` 45; storage capacity 3,153; 3,301.641 m³ | DONE @ 0d546d5 — proof slice: modules/wms scaffold + wh1-setup.{feature,test.ts} 29/29 (blocks · zones · totals · verify_wh1 · whole-table WH1 check, all doc-19 literals with line cites, numeric equality). No schema change. Whole-table orphan check to be narrowed by the slice that registers a second warehouse. |
-| 2.2 | Field survey: aisles, positions per aisle, numbering direction | 🧑 | — | **A** | WH_MGR | Map sums to exactly 3,153 | WAITING_GM |
-| 2.3 | Generate the **3,330** codes: 3,153 storage + 30 operational + 147 structural (blocked, prefix `X-`), in the seven-character format of doc 19 §4 | 🤖 | 2.1, 2.2 | **2** | WH_MGR | Count = **3,153 storage locations (capacity)**. Sellable = capacity − the 7% operational buffer entered as `space_blocks_out_of_service` rows with reason `operational_buffer` = **2,932**. Structural blocked with reason | TODO |
+| 2.2 | Field survey: aisles, positions per aisle, numbering direction — **closed for the pilot (D-128): the seed 019 layout is authoritative; the physical survey is a Phase-7 acceptance item before go-live** | 🧑 | — | **A** | WH_MGR | Map sums to exactly 3,153, verified on site (Phase-7 acceptance item, D-128) | DEFERRED-POST-PILOT — D-128 (closed for the pilot; the seed 019 layout is authoritative; Phase-7 acceptance item: Map sums to 3,153, verified on site — before go-live) |
+| 2.3 | Generate the **3,330** codes: 3,153 storage + 30 operational + 147 structural (blocked, prefix `X-`), in the seven-character format of doc 19 §4 (layout from seed 019 — D-128) | 🤖 | 2.1 | **2** | WH_MGR | Count = **3,153 storage locations (capacity)**. Sellable = capacity − the 7% operational buffer entered as `space_blocks_out_of_service` rows with reason `operational_buffer` = **2,932**. Structural blocked with reason | READY — dep 2.2 removed by D-128 (doc 38 v4.2); dep 2.1 DONE @ 0d546d5 |
 | 2.4 | Set `max_weight_kg` (1,000 pallet / 750 shelf) and `max_volume_cbm` per location | 🤖 | 2.3 | **2** | WH_MGR | Over-weight put-away rejected | TODO |
-| 2.5 | Print and apply **3,330 labels** — 3,153 storage + 30 operational (white, section colour) + 147 structural (**black background, white text**, prefix `X-`); 5% random scan audit | 🧑 | 2.3 | **A** | WH_MGR | Audit ≥ 99% match | WAITING_GM — proceed as planned after 2.3 (D-115) |
+| 2.5 | Print and apply **3,330 labels** — 3,153 storage + 30 operational (white, section colour) + 147 structural (**black background, white text**, prefix `X-`); 5% random scan audit | 🧑 | 2.3 | **A** | WH_MGR | Audit ≥ 99% match | DEFERRED-POST-PILOT — D-127 (physical labels, field work; after 2.3, post-pilot) |
 | 2.6 | `wms.skus` with client ownership, dimensions, storage conditions, tracking policy | 🤖 | 1.5 | **2** | WH_MGR | Cross-client SKU mix rejected | DONE @ `e38370e` — mechanism slice, D-103 authorized (2026-09-23); `modules/wms/src/sku-registration` proves the acceptance criterion at two layers — application (CrossClientSkuError before any DB call, since the runtime DB connection is still superuser, 0.18 item 7) and database (ephemeral non-superuser NOBYPASSRLS role blocked by RLS policy `sku_client_scope`, SQLSTATE 42501, with a same-client positive control); no migration (table/RLS pre-existing); no outbox row (open G-01: `wms.skus` has no `entity_id` and doc 40 names no `wms.sku.*` event — audit_log only); review FAIL(9) → FAIL(1) → PASS(10 findings fixed). |
-| 2.7 | **Data gate M04 (SKUs):** ≥95% of active SKUs complete | 🧑 | 2.6 | **A** | WH_MGR | Scorecard ≥ 95% | WAITING_GM — proceed as planned, dependency 2.6 now met (D-119, D-115) |
+| 2.7 | **Data gate M04 (SKUs):** ≥95% of active SKUs complete | 🧑 | 2.6 | **A** | WH_MGR | Scorecard ≥ 95% | DEFERRED-POST-PILOT — D-127 (data gate; real scorecard after the pilot) |
 | 2.8 | Stock ledger + derived balance + `verify_balance_integrity()` | 🤖 | 0.12 | **2** | WH_MGR | Zero rows after 1,000 random movements; property test green | DONE @ `b5da282` — mechanism slice; fixes e5bff15 (SCR-AUDIT-01) and 787d9dc (SCR-WMS-01); modules/wms 85/85; review PASS. |
 | 2.9 | **GOLDEN SLICE — Receive inbound order** (PDA + state machine + ledger + event + GRN + billable events) | 🤖 | 2.4, 2.6, 2.8, 0.15 | **M** | WH_MGR + GM review | Full human review; becomes the template | TODO |
 | 2.10 | Put-away with automatic location suggestion (A2) | 🤖 | 2.9 | **1** | WH_MGR | Suggestion respects conditions, ABC, capacity, client assignment | TODO |
@@ -89,7 +91,7 @@ Type: 🧑 human decision/data · 🤖 AI-buildable slice · 🔧 infra · ✅ v
 | 2.16 | PDA app: nine screens, offline queue (**72 h**), sync, kiosk mode, shared-device PIN login (doc 40 §D4) | 🤖 | 2.9–2.13 | **M** | WH_MGR | Scan response ≤ 1.0 s; shift cannot close with queue > 0 | TODO |
 | 2.17 | Warehouse Grafana board | 🔧 | 2.16 | **M** | SYSADMIN | Board live | TODO |
 | 2.18 | Scenarios S1, S2, S18 pass | ✅ | 2.16 | **M** | WH_MGR | Playwright green | TODO |
-| 2.19 | Super-user sign-off + 90-min PDA training delivered | 🧑 | 2.18 | **A** | WH_MGR | Sign-off recorded | WAITING_GM — proceed as planned after 2.18 (D-115) |
+| 2.19 | Super-user sign-off + 90-min PDA training delivered | 🧑 | 2.18 | **A** | WH_MGR | Sign-off recorded | DEFERRED-POST-PILOT — D-127 (sign-off + training) |
 
 **Phase gate:** 2.5, 2.7 gates met · 2.18 green · 2.19 signed.
 
@@ -100,7 +102,7 @@ Type: 🧑 human decision/data · 🤖 AI-buildable slice · 🔧 infra · ✅ v
 | ID | Task | Type | Depends on | Lane | Owner | Acceptance | Status |
 |---|---|---|---|---|---|---|---|
 | 3.1 | `tms.vehicles`, documents, hard gate on expired docs | 🤖 | 0.9 | **1** | FLEET_MGR | Expired-doc vehicle cannot be assigned | READY |
-| 3.2 | **Data gate M09:** all vehicles with valid documents | 🧑 | 3.1 | **A** | FLEET_MGR | Scorecard = 100% | WAITING_GM — proceed as planned after 3.1 (D-115) |
+| 3.2 | **Data gate M09:** all vehicles with valid documents | 🧑 | 3.1 | **A** | FLEET_MGR | Scorecard = 100% | DEFERRED-POST-PILOT — D-127 (data gate) |
 | 3.3 | `hr.employees` (drivers), documents, hard gate | 🤖 | 0.9 | **2** | HR_MGR | Expired-doc driver cannot be assigned | READY |
 | 3.4 | Delivery tasks, routes, POD (GPS + signature/photo + server timestamp), exceptions | 🤖 | 2.12, 3.1 | **1** | DEL_MGR | POD without GPS rejected | TODO |
 | 3.5 | Failure-reason tree **7 parents × 25 children** with `counts_against_driver` and conditional auto-attribution — **exactly three reasons count against the driver** (`door_not_opened`, `building_not_found`, `shift_time_exhausted`); breakdown and accident never do | 🤖 | 3.4 | **1** | DEL_MGR | "No answer" without two logged contact attempts flagged; `tms.failure_reasons` holds 7 + 25 rows | TODO |
@@ -120,7 +122,7 @@ Type: 🧑 human decision/data · 🤖 AI-buildable slice · 🔧 infra · ✅ v
 | 3.19 | Weekly capacity report to iMile | 🤖 | 3.16 | **3** | GM | Auto-generated | TODO |
 | 3.20 | Scenarios S3, S4, S15, S16 pass | ✅ | 3.18 | **M** | DEL_MGR | Playwright green | TODO |
 | 3.21 | Driver app lab test (doc 34 protocol) — must beat iMile by ≥ 2 taps | ✅ | 3.10 | **M** | DEL_MGR | Median from 3 drivers recorded | TODO |
-| 3.22 | Driver training (60 min, 6 languages) + super-user sign-off | 🧑 | 3.21 | **A** | DEL_MGR | Sign-off recorded | WAITING_GM — proceed as planned after 3.21 (D-115) |
+| 3.22 | Driver training (60 min, 6 languages) + super-user sign-off | 🧑 | 3.21 | **A** | DEL_MGR | Sign-off recorded | DEFERRED-POST-PILOT — D-127 (training + sign-off) |
 
 **Phase gate:** 3.2 data gate (Lane A) · full station day from PG-EOS · zero audit problem > 24 h · 3.21 target met.
 
@@ -130,7 +132,7 @@ Type: 🧑 human decision/data · 🤖 AI-buildable slice · 🔧 infra · ✅ v
 
 | ID | Task | Type | Depends on | Lane | Owner | Acceptance | Status |
 |---|---|---|---|---|---|---|---|
-| 4.1 | Chart of accounts (uniform structure per entity) | 🧑 | 1.1 | **A** | CFO | Loaded for all four entities | WAITING_GM — collect the data now, enter once the screen exists (D-115) |
+| 4.1 | Chart of accounts (uniform structure per entity) | 🧑 | 1.1 | **A** | CFO | Loaded for all four entities | DEFERRED-POST-PILOT — D-127 (human entry) |
 | 4.2 | `billing.billable_events` with unique (source, service) index | 🤖 | 0.12, 1.4 | **M** | CFO | Same event cannot bill twice | TODO |
 | 4.3 | Billing subscribers: WMS, TMS, CC, iMile events → billable events | 🤖 | 4.2, 2.14, 3.4 | **M** | CFO | Every closed operation produces its events | TODO |
 | 4.4 | Invoice generation: monthly aggregation, `doc_no` only at approval (DB constraint) | 🤖 | 4.3, 0.15 | **M** | CFO | Draft has no number; approved cannot be edited | TODO |
@@ -171,7 +173,7 @@ Type: 🧑 human decision/data · 🤖 AI-buildable slice · 🔧 infra · ✅ v
 | 5.12 | Fleet: maintenance plans (km-based), orders, accidents, fuel ledger (I-03 import) | 🤖 | 3.1 | **3** | FLEET_MGR | Fuel entry without odometer rejected; anomaly > 20% flagged | TODO |
 | 5.13 | Alerts engine (**22 rules — N-01…N-18 plus N-19…N-22 from doc 23 §4**), report catalog (24), scheduled delivery | 🤖 | 0.10 | **M** | SYSADMIN | Alert without action link impossible; no alert targets an unfilled position | READY |
 | 5.14 | M13 Governance: budgets/variance, KPI tree, OKRs, risk register, NCR, policies, board pack, decisions | 🤖 | 4.11 | **3** | GM | Board pack generates from live data | TODO |
-| 5.15 | **Data gates M08, M09 (documents 100%)** | 🧑 | 5.3, 3.1 | **A** | HR_MGR, FLEET_MGR | Scorecards = 100% | WAITING_GM — proceed as planned (D-115) |
+| 5.15 | **Data gates M08, M09 (documents 100%)** | 🧑 | 5.3, 3.1 | **A** | HR_MGR, FLEET_MGR | Scorecards = 100% | DEFERRED-POST-PILOT — D-127 (data gates) |
 | 5.16 | Scenarios S13, S14, S17 pass | ✅ | 5.11 | **M** | HR_MGR | Playwright green | TODO |
 | 5.17 | **One full payroll month computed and reviewed** | ✅ | 5.6 | **M** | CFO | Signed | TODO |
 
@@ -188,7 +190,7 @@ Type: 🧑 human decision/data · 🤖 AI-buildable slice · 🔧 infra · ✅ v
 | 6.3 | Premium Decisions app: inbox, six KPI cards, search/trace, decide-from-notification | 🤖 | 0.19, 5.13 | **2** | GM | Decision resolved from push notification without opening app | TODO |
 | 6.4 | Trace screen (doc 31 §6): one input, unified timeline, causation tree, signed PDF export | 🤖 | 0.12 | **2** | SYSADMIN | Full trace ≤ 2 s | READY |
 | 6.5 | WhatsApp templates (5) + provider (I-05), SMS fallback (I-06) | 🤖 | 3.8 | **3** | SYSADMIN | Quiet hours enforced | TODO |
-| 6.6 | Three real clients onboarded and operating | 🧑 | 6.1 | **A** | GM | Client readiness checklists complete | WAITING_GM — names pending GM — human input, not delegable (D-115) |
+| 6.6 | Three real clients onboarded and operating | 🧑 | 6.1 | **A** | GM | Client readiness checklists complete | DEFERRED-POST-PILOT — D-134 (pilot: three synthetic clients from seed 019; real clients are a Phase-7 item) |
 | 6.7 | Scenarios S7, S9, S12 pass | ✅ | 6.3 | **M** | GM | Playwright green | TODO |
 
 **Phase gate:** 6.1 isolation · 6.6 three clients live (Lane A) · 6.7 green.
@@ -203,14 +205,39 @@ Type: 🧑 human decision/data · 🤖 AI-buildable slice · 🔧 infra · ✅ v
 | 7.2 | Load test on three-year seed volume against doc 25 SLOs — **on Tier 1 infrastructure** (Tier 0 RPO 24 h is not launch-grade; Tier ≥ 1 targets RPO ≤ 1 h / RTO ≤ 4 h) | ✅ | 6.7 | **M** | SYSADMIN | All SLOs met on Tier ≥ 1 | TODO |
 | 7.3 | Mutation testing ≥ 75% on `domain/` across all modules | ✅ | 6.7 | **M** | SYSADMIN | Stryker report | TODO |
 | 7.4 | All **20** scenarios (S1–S20) green in CI | ✅ | 6.7 | **M** | SYSADMIN | **20/20** | TODO |
-| 7.5 | Manual fallback kits in four locations; **one manual-mode drill executed** | 🧑 | 5.13 | **A** | OPS_DIR | Drill report | WAITING_GM — proceed as planned after 5.13 (D-115) |
-| 7.6 | Deputy system owner (`DEPUTY_SYSADMIN`) named and trained on the runbook | 🧑 | 0.20 | **A** | GM | Deputy executes a restore unassisted | WAITING_GM — names pending GM — human input, not delegable (D-115) |
+| 7.5 | Manual fallback kits in four locations; **one manual-mode drill executed** | 🧑 | 5.13 | **A** | OPS_DIR | Drill report | DEFERRED-POST-PILOT — D-127 (field drill) |
+| 7.6 | Deputy system owner (`DEPUTY_SYSADMIN`) named and trained on the runbook | 🧑 | 0.20 | **A** | GM | Deputy executes a restore unassisted | DEFERRED-POST-PILOT — D-134 (naming after the pilot) |
 | 7.7 | Legal holds: automatic on disputed photos before enabling 60-day deletion | 🤖 | 6.4 | **M** | SYSADMIN | Hold prevents deletion in test | TODO |
-| 7.8 | Penalty schedule submitted to labour authority; approval flag | 🧑 | 5.7 | **A** | PRO | Flag set only on written approval | WAITING_GM — proceed as planned after 5.7 (D-115) |
-| 7.9 | Data-residency legal review closed | 🧑 | — | **A** | GM | Written opinion on file | WAITING_GM — commission the review now, no dependency (D-115) |
+| 7.8 | Penalty schedule submitted to labour authority; approval flag | 🧑 | 5.7 | **A** | PRO | Flag set only on written approval | DEFERRED-POST-PILOT — D-127 (external sign-off) |
+| 7.9 | Data-residency legal review closed | 🧑 | — | **A** | GM | Written opinion on file | DEFERRED-POST-PILOT — D-127 (external legal sign-off; launch gate) |
 | 7.10 | ~~Structural verification~~ → **Closed (verified; drawing + licence on file)** | 🧑 | — | **A** | GM | ✅ | DONE @ `<this commit>` — closure confirmed by the GM (D-115, 2026-09-23) |
 | 7.11 | Adoption metrics live (weekly active 100%, screens unused 30 d) | 🤖 | 5.13 | **M** | GM | Report scheduled | TODO |
 | 7.12 | Launch checklist (doc 28 §11, 18 items) all ticked | ✅ | 7.1–7.11 | **M** | GM | Signed | TODO |
+
+### Deferred post-pilot (D-127) — pilot-exit items, listed here from every phase (derived from status; not counted)
+
+| ID | Task | Owner | Status |
+|---|---|---|---|
+| ↩ 0.3 | Oracle tenancy: account, MFA, compartment `premium-production`, IAM user `deployer`, break-glass | SYSADMIN | DEFERRED-POST-PILOT — D-129 (Oracle tenancy after the pilot; pilot Tier 0 = local Docker postgres:16) |
+| ↩ 0.5 | VCN + NSG + A1.Flex VM (reserved IP) + Ubuntu hardening + Docker + `/opt/premium` layout + Cloudflare (Tunnel or Origin cert) — doc 42 §2–§5 | SYSADMIN | DEFERRED-POST-PILOT — D-129 (Tier-0 host after the pilot; pilot Tier 0 = local Docker postgres:16) |
+| ↩ 0.6b | Deploy to staging — **gate ⑦ BUILD (doc 36 §4-3) + automatic deploy to staging** (split from 0.6, D-124) | SYSADMIN | DEFERRED-POST-PILOT — D-129 (follows 0.5) |
+| ↩ 0.7 | Tier 0 monitoring: Netdata/node_exporter, postgres_exporter, Uptime Kuma, backup healthcheck, alerts to GM + `DEPUTY_SYSADMIN` — doc 42 §7. The per-module Grafana board required by doc 36 §4-1 is task X.3, built with each module | SYSADMIN | DEFERRED-POST-PILOT — D-129 (follows 0.5) |
+| ↩ 1.1 | Enter entity legal data (CR, tax, address, logo) for PCC/PST/PDL/POR | Admin Mgr | DEFERRED-POST-PILOT — D-127 (human entry; the pilot runs on seed 019 + synthetic data) |
+| ↩ 1.3 | **Data gate M03:** floor price + standard cost for every active service | CFO | DEFERRED-POST-PILOT — D-127 (data gate; Phase-1 gate item after the pilot) |
+| ↩ 1.10 | **Data gate M02:** all current clients with CR and contact | CFO | DEFERRED-POST-PILOT — D-127 (data gate; Phase-1 gate item after the pilot) |
+| ↩ 2.2 | Field survey: aisles, positions per aisle, numbering direction — **closed for the pilot (D-128): the seed 019 layout is authoritative; the physical survey is a Phase-7 acceptance item before go-live** | WH_MGR | DEFERRED-POST-PILOT — D-128 (closed for the pilot; the seed 019 layout is authoritative; Phase-7 acceptance item: Map sums to 3,153, verified on site — before go-live) |
+| ↩ 2.5 | Print and apply **3,330 labels** — 3,153 storage + 30 operational (white, section colour) + 147 structural (**black background, white text**, prefix `X-`); 5% random scan audit | WH_MGR | DEFERRED-POST-PILOT — D-127 (physical labels, field work; after 2.3, post-pilot) |
+| ↩ 2.7 | **Data gate M04 (SKUs):** ≥95% of active SKUs complete | WH_MGR | DEFERRED-POST-PILOT — D-127 (data gate; real scorecard after the pilot) |
+| ↩ 2.19 | Super-user sign-off + 90-min PDA training delivered | WH_MGR | DEFERRED-POST-PILOT — D-127 (sign-off + training) |
+| ↩ 3.2 | **Data gate M09:** all vehicles with valid documents | FLEET_MGR | DEFERRED-POST-PILOT — D-127 (data gate) |
+| ↩ 3.22 | Driver training (60 min, 6 languages) + super-user sign-off | DEL_MGR | DEFERRED-POST-PILOT — D-127 (training + sign-off) |
+| ↩ 4.1 | Chart of accounts (uniform structure per entity) | CFO | DEFERRED-POST-PILOT — D-127 (human entry) |
+| ↩ 5.15 | **Data gates M08, M09 (documents 100%)** | HR_MGR, FLEET_MGR | DEFERRED-POST-PILOT — D-127 (data gates) |
+| ↩ 6.6 | Three real clients onboarded and operating | GM | DEFERRED-POST-PILOT — D-134 (pilot: three synthetic clients from seed 019; real clients are a Phase-7 item) |
+| ↩ 7.5 | Manual fallback kits in four locations; **one manual-mode drill executed** | OPS_DIR | DEFERRED-POST-PILOT — D-127 (field drill) |
+| ↩ 7.6 | Deputy system owner (`DEPUTY_SYSADMIN`) named and trained on the runbook | GM | DEFERRED-POST-PILOT — D-134 (naming after the pilot) |
+| ↩ 7.8 | Penalty schedule submitted to labour authority; approval flag | PRO | DEFERRED-POST-PILOT — D-127 (external sign-off) |
+| ↩ 7.9 | Data-residency legal review closed | GM | DEFERRED-POST-PILOT — D-127 (external legal sign-off; launch gate) |
 
 ---
 
@@ -236,4 +263,4 @@ Type: 🧑 human decision/data · 🤖 AI-buildable slice · 🔧 infra · ✅ v
 | 6.2b | Client store connectors (I-12) — `tasks/backlog/6.2b-store-connectors.md`, source D-11 | 🤖 | 6.1, 6.2 | **1** | SYSADMIN + SALES_MGR (shared, D-11 §7 ق-4) | A store order posted by the test connector appears as one PG-EOS order with the D-11 §5-2 minimum fields, idempotent under replay, a forced failure follows the D-11 §5-5 nine-field policy and shows in the integration monitor; client isolation holds (G14) | TODO — admitted 2026-09-23 (D-115): option ③ approved per D-11 §7 (B in Phase 3, A in Phase 6, C = 6.2b); blocked on 6.1, 6.2, neither built; D-11 §5-4 schema additions still need a G-01 filing once 6.2b starts |
 | SC-01 | Sales commission activation (SCR-SC-01) — `tasks/backlog/SC-01-sales-commission.md`, source D-14 | 🤖 | 4.9, 1.7 | **2** | SALES_MGR | For a contract signed by one rep and later executed under another, the monthly run splits per `sales.account_ownership_history` exactly as D-14 §3, honours the cap and minimum-margin rule, reverses correctly on a credit note, exposes the statement only to the rep, SALES_MGR, CFO and GM; G2, G11, G14 green, no number written outside `platform.thresholds` | TODO — admitted 2026-09-23 (D-115); dependency on the "sales contracts slice" bound to WBS **1.7** (D-123, `docs/package/38-WBS.md` line 68); structure approved (recurring, `collected` basis, 24 months, no cap year 1, half rate 12 months for existing clients, SCR-SC-01 approved); rates and the 0.5% manager share approved provisionally for year 1 with a 6-month review; blocked on 4.9 and 1.7, neither built |
 
-**Rows: 132** (expected 132 — `--check` fails otherwise; the four Staged rows above are never part of this count).
+**Rows: 133** (expected 133 — `--check` fails otherwise; the four Staged rows above are never part of this count).

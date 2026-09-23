@@ -1,11 +1,13 @@
 # PG-EOS — Work Breakdown Structure
-**Document 38 · Version 4.1 · 23 September 2026**
+**Document 38 · Version 4.2 · 24 September 2026**
+
+> **v4.2 (24 September 2026, GM directive D-127…D-134, edit delegated to the Master):** 0.6 split into 0.6a / 0.6b (D-124; 0.6a acceptance carries D-133) · 2.3 no longer depends on 2.2 (D-128 — seed 019 is the authoritative layout for the pilot; the physical survey is a Phase-7 acceptance item) · 0.20 depends on 0.6a, 0.6b, 0.8 · Phase-0 gate: 0.8 by its pilot acceptance (D-130) · counts 132 → **133**.
 
 > **v4 — Document status:** GOVERNING (the only task sequence, rank 5) · **Governs on conflict:** docs 40, 36, EXECUTION-MASTER-v4, 42 · **Corrections applied in v4:** GOV-03, GOV-12, GOV-13, GOV-21, GOV-22, GOV-23, GOV-24, GOV-25, GOV-26, GOV-27, GOV-28, GOV-29, GOV-30, GOV-34, GOV-43, GOV-44, GOV-50, ADM-04, OPS-33, PLT-20, PLT-23 · **Previously open decisions:** closed in EXECUTION-MASTER-v4 §1.
 
 **Basis:** doc 38 itself defines the phases (**eight phases, 0–7**; doc 29 §9 lists only 0–6 and is historical), doc 36 §5 (method), docs 05/12/40 Part E (acceptance).
 **Rule:** No dates. Sequencing by dependency only. A task is done when its acceptance criterion passes — not when its code is written.
-**Scope:** **132 tasks — 126 in eight phases (0–7) plus 6 cross-cutting.**
+**Scope:** **133 tasks — 127 in eight phases (0–7) plus 6 cross-cutting** (132 until v4.1; +1 from the 0.6 → 0.6a/0.6b split, D-124).
 
 ---
 
@@ -35,7 +37,8 @@
 | 0.3 | Oracle tenancy: account, MFA, compartment `premium-production`, IAM user `deployer`, break-glass | 🔧 | 0.2 | **A** | SYSADMIN | Break-glass credentials in physical safe; MFA on root |
 | 0.4 | Initialise monorepo (pnpm, Turborepo, TypeScript strict, ESLint boundaries) | 🔧 | — | **B** | SYSADMIN | `pnpm build` green; cross-module import fails lint |
 | 0.5 | VCN + NSG + A1.Flex VM (reserved IP) + Ubuntu hardening + Docker + `/opt/premium` layout + Cloudflare (Tunnel or Origin cert) — doc 42 §2–§5 | 🔧 | 0.3 | **A** | SYSADMIN | `docker compose up` serves `app/api/portal` over HTTPS; no public 5432/22 |
-| 0.6 | CI pipeline — **seven named gates ①–⑦ (doc 36 §4-3): STATIC · UNIT · INTEGRATION · ACCEPTANCE · GUARDS · SECURITY · BUILD** | 🔧 | 0.4, 0.5 | **M** | SYSADMIN | A deliberately failing test blocks deploy; gate ⑤ runs G1–G18 |
+| 0.6a | CI gates ①–⑥ on GitHub Actions — **STATIC · UNIT · INTEGRATION · ACCEPTANCE · GUARDS · SECURITY (doc 36 §4-3)** (split from 0.6, D-124) | 🔧 | 0.4 | **M** | SYSADMIN | Every PR runs lint + boundaries + types (STATIC), domain unit tests (UNIT), integration tests against an ephemeral Postgres 16 service container (INTEGRATION), the acceptance-scenario placeholder (ACCEPTANCE, real scenarios arrive with the golden slice), `pnpm guards:run` (GUARDS, gate ⑤ runs G1–G18), and a secret + dependency scan (SECURITY); a red step on any of the six blocks merge. **D-133:** CI and the integration tests connect as role `pgeos_app` (no superuser, no `BYPASSRLS`); `entity_scope` is split into `USING` / `WITH CHECK` — closes the 0.18 carried-forward item |
+| 0.6b | Deploy to staging — **gate ⑦ BUILD (doc 36 §4-3) + automatic deploy to staging** (split from 0.6, D-124) | 🔧 | 0.5, 0.6a | **M** | SYSADMIN | Gate ⑦ builds images and runs migrations; a green 0.6a run on `main` deploys automatically to the Tier-0 staging host; smoke test + system-owner approval gate the promotion onward (doc 42, CLAUDE.md DEPLOYMENT PIPELINE) |
 | 0.7 | Tier 0 monitoring: Netdata/node_exporter, postgres_exporter, Uptime Kuma, backup healthcheck, alerts to GM + `DEPUTY_SYSADMIN` — doc 42 §7. The per-module Grafana board required by doc 36 §4-1 is task X.3, built with each module | 🔧 | 0.5 | **A** | SYSADMIN | Disk > 80% and container restart alerts fire in test |
 | 0.8 | `backup.sh` to OCI Object Storage (14/8/6) + lifecycle rules + **first actual `restore.sh` test** — doc 42 §6 | 🔧 | 0.5 | **A** | SYSADMIN | Restore into `pgeos_restore`; guard functions return 0 |
 | 0.9 | `platform` schema from 01 + 13B: entities, settings, counters, `next_doc_no`, **`platform.outbox`** (`domain_events` dropped), **`platform.audit_log` partitioned monthly, PK `(id, occurred_at)`, with the eleven v4 columns of doc 40 §B2 and the `audit_hash_chain` trigger** | 🤖 | 0.4 | **B** | SYSADMIN | 100 concurrent `next_doc_no` calls → 100 unique numbers; `platform.verify_audit_chain()` returns zero rows and detects a deliberately tampered row |
@@ -49,9 +52,9 @@
 | 0.17 | M01 Identity: OTP login, sessions (revocable), roles, permissions, `user_entities`, **structure editor (roles, permission matrix, domain owners, approval chains, delegations, SoD rules)** | 🤖 | 0.11 | **M** | SYSADMIN | Every role logs in and sees only its scope; SoD-violating role assignment rejected; structure editable without deploy |
 | 0.18 | **RLS enabled on every operational table in 01/13/13B/019** (the patterns in 01 §11 and 13B §12 generalised) + **client isolation test** (ID tampering) | ✅ | 0.17 | **M** | SYSADMIN | **G7 returns 0** · User A returns zero rows from B's data on direct ID substitution, with no error |
 | 0.19 | Admin app shell: navigation, Decision Inbox, empty-state component, design system | 🤖 | 0.17 | **M** | SYSADMIN | Inbox renders; empty state shows "what's missing + owner" |
-| 0.20 | Runbook v1 (deploy, rollback, restore, secrets rotation) — drafted as soon as 0.6 is green, sealed only after 0.8 restore succeeds | 🧑 (draft 🤖) | 0.6, 0.8 | **A** | SYSADMIN | Eight procedures written and tested once |
+| 0.20 | Runbook v1 (deploy, rollback, restore, secrets rotation) — drafted as soon as 0.6a is green, sealed only after 0.8 restore succeeds | 🧑 (draft 🤖) | 0.6a, 0.6b, 0.8 | **A** | SYSADMIN | Eight procedures written and tested once |
 
-**Phase gate:** 0.8 restore succeeded · 0.18 isolation test green (G7 = 0) · 0.16 classification complete (G6 = 0) · 0.1 owners named · 0.2 three cloud decisions recorded.
+**Phase gate:** 0.8 restore succeeded (pilot acceptance per D-130: real `backup.sh` / `restore.sh` against the local Docker `postgres:16` with a file target; the OCI Object Storage target is added with 0.5) · 0.18 isolation test green (G7 = 0) · 0.16 classification complete (G6 = 0) · 0.1 owners named · 0.2 three cloud decisions recorded.
 
 ---
 
@@ -80,8 +83,8 @@
 | ID | Task | Type | Depends on | Lane | Owner | Acceptance |
 |---|---|---|---|---|---|---|
 | 2.1 | Register **WH1**, its zones and its **8 space blocks** — **doc 19 §4 + `019-Warehouse-WH1-Setup.sql`** (the file generates exactly what 19 §4 describes; nothing is entered by hand) | 🤖 | 0.9 | **2** | WH_MGR | Blocks are `P-A` 288 · `P-A1` 12 · `G-B` 906 · `G-C` 45 · `M-B` 906 · `M-C` 45 · `T-B` 906 · `T-C` 45; storage capacity 3,153; 3,301.641 m³ |
-| 2.2 | Field survey: aisles, positions per aisle, numbering direction | 🧑 | — | **A** | WH_MGR | Map sums to exactly 3,153 |
-| 2.3 | Generate the **3,330** codes: 3,153 storage + 30 operational + 147 structural (blocked, prefix `X-`), in the seven-character format of doc 19 §4 | 🤖 | 2.1, 2.2 | **2** | WH_MGR | Count = **3,153 storage locations (capacity)**. Sellable = capacity − the 7% operational buffer entered as `space_blocks_out_of_service` rows with reason `operational_buffer` = **2,932**. Structural blocked with reason |
+| 2.2 | Field survey: aisles, positions per aisle, numbering direction — **closed for the pilot (D-128): the seed 019 layout is authoritative; the physical survey is a Phase-7 acceptance item before go-live** | 🧑 | — | **A** | WH_MGR | Map sums to exactly 3,153, verified on site (Phase-7 acceptance item, D-128) |
+| 2.3 | Generate the **3,330** codes: 3,153 storage + 30 operational + 147 structural (blocked, prefix `X-`), in the seven-character format of doc 19 §4 (layout from seed 019 — D-128) | 🤖 | 2.1 | **2** | WH_MGR | Count = **3,153 storage locations (capacity)**. Sellable = capacity − the 7% operational buffer entered as `space_blocks_out_of_service` rows with reason `operational_buffer` = **2,932**. Structural blocked with reason |
 | 2.4 | Set `max_weight_kg` (1,000 pallet / 750 shelf) and `max_volume_cbm` per location | 🤖 | 2.3 | **2** | WH_MGR | Over-weight put-away rejected |
 | 2.5 | Print and apply **3,330 labels** — 3,153 storage + 30 operational (white, section colour) + 147 structural (**black background, white text**, prefix `X-`); 5% random scan audit | 🧑 | 2.3 | **A** | WH_MGR | Audit ≥ 99% match |
 | 2.6 | `wms.skus` with client ownership, dimensions, storage conditions, tracking policy | 🤖 | 1.5 | **2** | WH_MGR | Cross-client SKU mix rejected |
@@ -239,7 +242,7 @@
 
 | Phase | Tasks | AI slices 🤖 | Human/data 🧑 | Infra 🔧 | Verification ✅ |
 |---|---|---|---|---|---|
-| 0 Foundation | 20 | 10 | 3 | 6 | 1 |
+| 0 Foundation | 21 | 10 | 3 | 7 | 1 |
 | 1 Commercial | 11 | 7 | 3 | 0 | 1 |
 | 2 Warehouse | 19 | 13 | 4 | 1 | 1 |
 | 3 Delivery & iMile | 22 | 18 | 2 | 0 | 2 |
@@ -248,9 +251,9 @@
 | 6 Client & Manager | 7 | 5 | 1 | 0 | 1 |
 | 7 Hardening | 12 | 2 | 5 | 0 | 5 |
 | Cross-cutting | 6 | — | — | — | — |
-| **Total** | **132** | **83** | **21** | **7** | **15** |
+| **Total** | **133** | **83** | **21** | **8** | **15** |
 
-**126 phased tasks in eight phases (0–7) + 6 cross-cutting = 132. 83 AI-buildable slices — each copying the golden slice. 21 human tasks — and every phase gate depends on at least one of them.** *(Row counts govern over this summary.)*
+**127 phased tasks in eight phases (0–7) + 6 cross-cutting = 133 (v4.2, D-124). 83 AI-buildable slices — each copying the golden slice. 21 human tasks — and every phase gate depends on at least one of them.** *(Row counts govern over this summary.)*
 
 The Phase 0 and Phase 3 rows were re-counted in v4 from the task rows themselves and corrected (0: 11/2 → **10/3**; 3: 17/3 → **18/2**); the two errors were opposite in sign, which is why the totals were already right and remain unchanged.
 
@@ -264,5 +267,5 @@ The Phase 0 and Phase 3 rows were re-counted in v4 from the task rows themselves
 | **1** | Build lane 1 | 24 |
 | **2** | Build lane 2 | 19 |
 | **3** | Build lane 3 | 10 |
-| **M** | Master — serial, golden slice, CI, shared packages | 41 |
-| | **Total (phased)** | **126** |
+| **M** | Master — serial, golden slice, CI, shared packages | 42 |
+| | **Total (phased)** | **127** |

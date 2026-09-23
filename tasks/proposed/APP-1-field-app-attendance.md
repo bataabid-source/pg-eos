@@ -4,9 +4,9 @@
 AND its policy decisions; only then is the task moved to `tasks/backlog/` and given a row in the `tasks/MASTER_BACKLOG.md` Staged section).
 
 **Gated on:**
-- ADR-0003 moving to Accepted, with its open items 1–11 answered or explicitly carried.
-- SCR-HR-ATT-01 approved (G-01).
-- A numbered WBS ID issued by the GM. "APP-1" is D-126's name for the app, not a doc-38 ID, and the commit-msg hook accepts only
+- ~~ADR-0003 moving to Accepted, with its open items 1–11 answered or explicitly carried.~~ **Done — D-131 (2026-09-24); items 1, 3, 4a, 5, 6, 8, 9 carried (see the ADR's "Resolution under D-131").**
+- ~~SCR-HR-ATT-01 approved (G-01).~~ **Done — D-131.**
+- A numbered WBS ID issued by the GM (**still open** — D-131 issues none; under D-127 no naming before the pilot, so this file stays in `tasks/proposed/`). "APP-1" is D-126's name for the app, not a doc-38 ID, and the commit-msg hook accepts only
   `[0-7]\.[0-9]+` or `X`.
 
 | field | value |

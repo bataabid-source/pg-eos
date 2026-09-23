@@ -1,8 +1,8 @@
 # ADR-0003 — Native biometric attendance (no third-party device, no import)
 
-**Status:** Proposed
-**Date:** 2026-09-24 (the date the GM gave D-126; the repo clock at drafting read 2026-09-23)
-**Approved by:** — (GM decision **D-126**, dated by the GM 2026-09-24 and recorded in `docs/DECISION_LOG.md`, sets the content. The ADR takes effect only when the GM moves the status to Accepted)
+**Status:** Accepted — GM directive **D-131** (2026-09-24), with the D-126 text unchanged
+**Date:** 2026-09-24 (the date the GM gave D-126; the repo clock at drafting read 2026-09-23) · accepted 2026-09-24 (D-131)
+**Approved by:** GM — decision **D-126** sets the content; directive **D-131** moves the status to Accepted and resolves every open item by the agent recommendation as written (items with no written recommendation are explicitly carried — see "Resolution under D-131" below)
 **Reviewed & accepted: opus** — authored on opus. pg-reviewer (opus): round 1 FAIL (18 findings), round 2 FAIL (6), round 3 PASS. All 24 were fixed (`docs/CHANGELOG.md`)
 **References:** GM decision D-126 (verbatim in §Decision, recorded in `docs/DECISION_LOG.md`) · `docs/package/23-Integration-Register.md` I-04 (lines 17, 94–103, 166) ·
 `docs/package/38-WBS.md` 5.3, 5.4 (lines 170–171), 5.13 (line 180), 2.16 (line 97), 3.7 (line 116) · `docs/package/EXECUTION-MASTER-v4.md` §1.3 (line 134), §1.4 (line 142), §1.9 G-07 (line 204), Lane-A plan (line 340) ·
@@ -120,9 +120,29 @@ Owed to the GM, **not** marked here:
 
 `D-07` line 788 keeps its PLT-50 wording ("من البصمة", "from the fingerprint"): the gate is unchanged, and the source becomes the native punch.
 
+## Resolution under D-131 (2026-09-24)
+
+GM directive D-131: "ADR-0003 → Accepted with D-126 text. SCR-HR-ATT-01 approved. Every open item in ADR-0003 / SCR-HR-ATT-01 resolved by the agent recommendation as written." Applied literally — no value is invented here; an item whose text carries no recommendation is **carried**, as the open-items preamble allows.
+
+| Item | Resolution (as written) |
+|---|---|
+| 1 shared PDA | No written recommendation → **carried**; the PDA path stays blocked until answered. The field-app path (APP-1) is not affected |
+| 2 multi-enrolment | Mitigation as written in item 7 (keys invalidated on biometric-enrolment change); the residual risk is **carried** |
+| 3 routing of offline / out-of-geofence / unregistered punches | No written recommendation → **carried**; until answered only "unmatched/failed" routes to review (D-126 text) |
+| 4 approver and registry | (b) **one registry, in `identity`, bound to the G-07 signing key** — SCR-HR-ATT-01 §2.2 "does not propose a second registry beside G-07", approval request modelled on `platform.approval_chains`; (a) which approver rule governs for drivers → **carried** (D-126 says HR_MGR, G-07 says supervisor) |
+| 5 retention of punch records | No default exists in the text → **carried**; doc 40 line 668 and doc 25 line 429 stay as listed in `docs/notes/2026-09-24-cleanup-candidates.md` G1/G2 until the GM sets the value |
+| 6 geofence carrier and radius | Carrier (a)/(b) and the radius value → **carried**; the radius lives in `platform.thresholds` (SCR §2.5) |
+| 7 trust chain | **Accepted as build requirements** exactly as written (hardware-backed key + server nonce, server-verified attestation, no PIN/passcode fallback, key invalidation on enrolment change) |
+| 8 spoofing and clock | No written recommendation → **carried** |
+| 9 coverage / Touch ID | No written recommendation → **carried** |
+| 10 classification and monitoring | **No new alert** (SCR §3: a review-queue age alert is not requested; the "22 alerts" count is unchanged); GPS classification level → **carried** |
+| 11 separation of duties | **Requirement accepted** as written in SCR §2.6 (decider ≠ subject, approver ≠ subject); the enforcement mechanism → **carried** |
+| SCR §2.1 / §2.3 / §2.5 / §2.6 shapes | **Approved** as shapes; `decision` value list `approved · rejected` **confirmed** as proposed; threshold and flag values → **carried** (none written) |
+| SCR §4 N-16 | **Retired slot** — N-16 is disabled in the next forward-only migration and its number is not reused; the "22 alerts" count stays as written (EXEC-v4 line 142, doc 38 5.13). Chosen as the option consistent with D-125 "nothing deleted"; the GM may still order a renumbering |
+
 ## Status (الحالة)
 
-Proposed — 2026-09-24 (D-126).
+Accepted — 2026-09-24 (D-131). Proposed 2026-09-24 (D-126).
 
 ## Application / bookkeeping
 

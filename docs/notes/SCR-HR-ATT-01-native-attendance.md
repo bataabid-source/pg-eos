@@ -1,6 +1,6 @@
 # SCR-HR-ATT-01 — carriers for native biometric attendance (ADR-0003 / D-126)
 
-**Status: REQUESTED — WAITING_GM.** Filed under **EXECUTION-MASTER-v4 §1.11 (G-01)** on two criteria:
+**Status: APPROVED — GM directive D-131 (2026-09-24).** Every decision owed in §5 is resolved by the agent recommendation as written; where §2 records no recommendation the item is **explicitly carried** (see §6). Next step: the Master issues the migration number and pg-reviewer runs the pre-migration review before any DDL is written (no schema change under D-127…D-134). Originally filed under **EXECUTION-MASTER-v4 §1.11 (G-01)** on two criteria:
 - **(i) a real schema gap**
 - **(iii) a doc 40 requirement that is not modelled**: doc 40 line 414, where the driver app shows "profile/documents/**attendance**"; doc 38 5.3.
 
@@ -134,3 +134,18 @@ No schema table exists **only** for the I-04 import, so no table needs to be dro
 4. Choose (a) or (b) in §2.4.
 5. Decide N-16 (§4).
 6. Answer ADR-0003 items 3, 4 and 11, which change §2.2, §2.3 and §2.6.
+
+## 6. Resolution under D-131 (2026-09-24) — approved; carried items listed
+
+| §5 item | Resolution (the agent recommendation as written; no value invented) |
+|---|---|
+| 1 shapes §2.1, §2.3, §2.5, §2.6 | **Approved as shapes.** §2.6 restrictive own-row policy + `*.read_all` for HR_MGR / GM, no client or portal policy |
+| 2 registry placement §2.2 | **One registry in `identity`, bound to the G-07 signing key** (this request "does not propose a second registry beside G-07"); re-registration request modelled on `platform.approval_chains` |
+| 3 `decision` list §2.3 | **Confirmed:** `approved · rejected` |
+| 4 geofence carrier §2.4 | **Carried** — no recommendation is written for (a) vs (b); the radius value in `platform.thresholds` is also carried |
+| 5 N-16 §4 | **Retired slot:** disabled in the next forward-only migration, number not reused, "22 alerts" count unchanged (the option consistent with D-125 "nothing deleted"; a renumbering remains the GM's to order) |
+| 6 ADR items 3, 4, 11 | 3 carried (only "unmatched/failed" routes to review until answered) · 4 registry decided above, approver rule for drivers carried · 11 requirement accepted, mechanism carried — see ADR-0003 "Resolution under D-131" |
+
+**Carried (explicit, owner GM, post-pilot per D-127):** geofence carrier (a)/(b) and radius · punch-record retention (ADR item 5; doc 40:668, doc 25:429) · approver rule for driver devices (ADR item 4a) · routing of offline / out-of-geofence / unregistered punches (ADR item 3) · shared-PDA identity (ADR item 1, PDA path blocked) · SoD enforcement mechanism (ADR item 11) · GPS classification level (ADR item 10) · Touch ID / coverage (ADR item 9) · spoofing and clock (ADR item 8) · threshold and flag values (§2.5).
+
+**Next step (not under D-127…D-134, which is no-schema):** the Master issues the migration number; pg-reviewer's pre-migration review runs before any DDL is written (CLAUDE.md · SLICE SEQUENCE).

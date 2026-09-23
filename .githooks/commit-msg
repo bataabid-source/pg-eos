@@ -9,11 +9,11 @@ msg_file="$1"
 first="$(sed -n '1p' "$msg_file")"
 types='feat|fix|docs|chore|test|refactor|perf|build|ci|style|revert|wip'
 
-if [[ ! "$first" =~ ^(${types})\(([0-7]\.[0-9]+|X(\.[0-9]+)?)\):\ .+$ ]]; then
+if [[ ! "$first" =~ ^(${types})\(([0-7]\.[0-9]+[ab]?|X(\.[0-9]+)?)\):\ .+$ ]]; then
   {
     echo "commit-msg: REFUSED — first line must be 'type(WBS): description'"
     echo "  types : ${types//|/ }"
-    echo "  WBS   : an ID from docs/package/38-WBS.md (0.1 … 7.12, X.1 … X.6) or X"
+    echo "  WBS   : an ID from docs/package/38-WBS.md (0.1 … 7.12 incl. 0.6a/0.6b, X.1 … X.6) or X"
     echo "  got   : ${first}"
   } >&2
   exit 1

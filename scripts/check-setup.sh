@@ -51,7 +51,7 @@ need_file docs/CHANGELOG.md
 need_file docs/MODEL_ROUTING.md
 need_file docs/AGENT_WORKFLOW.md
 need_file tasks/MASTER_BACKLOG.md
-n=$(sed '/^## Staged/,$d' tasks/MASTER_BACKLOG.md 2>/dev/null | grep -cE '^\| ([0-9]+\.[0-9]+|X\.[0-9]+) \|' || true); [ "${n:-0}" -eq 132 ] && ok "MASTER_BACKLOG = 132 doc-38 rows" || miss "MASTER_BACKLOG rows = $n (expected 132 — run: python3 scripts/gen-backlog.py)"
+n=$(sed '/^## Staged/,$d' tasks/MASTER_BACKLOG.md 2>/dev/null | grep -cE '^\| ([0-9]+\.[0-9]+[ab]?|X\.[0-9]+) \|' || true); [ "${n:-0}" -eq 133 ] && ok "MASTER_BACKLOG = 133 doc-38 rows (v4.2, D-124)" || miss "MASTER_BACKLOG rows = $n (expected 133 — run: python3 scripts/gen-backlog.py)"
 need_file tasks/LANE_LOCKS.md
 for d in tasks/proposed tasks/backlog tasks/active tasks/completed tasks/blocked docs/notes; do need_dir "$d"; done
 

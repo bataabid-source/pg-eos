@@ -4,6 +4,19 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — D-127…D-134 pilot-first: all field/human items deferred post-pilot, 2.2 closed on seed, ADR-0003 accepted, D-125 applied, 0.6a READY — DONE (2026-09-24)
+
+- **D-127 pilot-first rule:** new status `DEFERRED-POST-PILOT — <id>` (legend + Phase-7 re-listing in `scripts/gen-backlog.py`); 20 rows moved: 1.1, 1.3, 1.10, 2.2, 2.5, 2.7, 2.19, 3.2, 3.22, 4.1, 5.15, 6.6, 7.5, 7.6, 7.8, 7.9 (D-127/D-128/D-134) + 0.3, 0.5, 0.7, 0.6b (D-129). **WAITING_GM count = 0.** 0.20 → TODO (deps 0.6a, 0.6b, 0.8).
+- **Doc 38 v4.1 → 4.2 (GM-delegated edit):** D-124 split applied — 0.6 → **0.6a READY** (deps 0.4 DONE; acceptance carries **D-133** `pgeos_app` role + `entity_scope` USING/WITH CHECK) and **0.6b** (deps 0.5, 0.6a); 0.20 deps `0.6a, 0.6b, 0.8`; **D-128** 2.3 deps `2.1` only (2.2 closed for the pilot, seed 019 authoritative, physical survey = Phase-7 acceptance item) → **2.3 READY**; Phase-0 gate line annotated with the **D-130** pilot acceptance of 0.8 → **0.8 READY** (doc-38 row 0.8 text/deps not edited — not delegated; GM follow-up). Counts 132 → **133** in doc 38, `gen-backlog.py` (`EXPECTED_ROWS`, `ROW_ID` accepts `0.6a/0.6b`, HEADER), `check-setup.sh`, `.githooks/commit-msg`, `README-KIT.md`; EXEC-v4 §2.3 Phase-0 lane plan annotated.
+- **D-131:** `docs/adr/ADR-0003-biometric-attendance.md` → **Accepted** with a "Resolution under D-131" table; `docs/notes/SCR-HR-ATT-01-native-attendance.md` → **APPROVED** + §6. Resolved as written: trust chain (item 7), one `identity` registry bound to the G-07 key (4b), no new alert (10), SoD requirement (11), §2 shapes, `decision` = `approved · rejected`, N-16 retired slot. Carried explicitly (no written recommendation, nothing invented): items 1, 3, 4a, 5 retention, 6, 8, 9, GPS classification, SoD mechanism, §2.5 values. APP-1 stays in `tasks/proposed/` (no WBS ID issued; D-127 no naming). No schema change.
+- **D-132:** `docs/notes/2026-09-24-cleanup-candidates.md` §4 disposition — G4 retired slot; G7/G8/G9/G10/G12 → DEFERRED-POST-PILOT; L1/L2/L3 marked in D-blueprints/12, D-blueprints/09, doc 18; **G13: D-104 superseded by D-129 + D-130**; G5/G6/G11 kept; G1/G2 not applicable (retention carried); G3 not applied (mermaid renderer not installed).
+- **D-134:** 6.6 → three synthetic pilot clients from seed 019 (real clients Phase-7); 7.6 naming post-pilot.
+- `docs/DECISION_LOG.md` D-127 … D-134 recorded verbatim; `docs/package/CHANGELOG-v4.md` §22.
+- Verification: `python scripts/gen-backlog.py` 133 rows written · `bash scripts/check-setup.sh` READY (133 rows) · `python scripts/gen-briefs.py --check` 15 briefs ok · `.githooks/commit-msg` accepts `feat(0.6a): …` · `docs/PROJECT_STATE.md` ≤ 60 lines. `gen-backlog.py --check` passed once mid-task (133 rows, header agree) and was then blocked by the session's tool-permission classifier — rerun locally: `python scripts/gen-backlog.py --check`.
+- Model: sonnet (directive) / executed on the fable-5-1 session · Delegated: pg-scribe per directive — the bookkeeping files were written directly by the Master in this session (tool-permission constraints) · Review: n/a (governance) · tokens ≈ 200k (estimate)
+
+---
+
 ## X — D-125 cleanup: external biometric import/sync retired, non-system field requirements listed, contested decisions superseded — DONE (2026-09-24)
 
 - 18 class-A package edits (docs/package/38-WBS.md, 23-Integration-Register.md, 25-Alerts-Reports-NFR.md, EXECUTION-MASTER-v4.md, 00-Master-Blueprint.md, D-blueprints 01/04/05/06/07/09/15) retire every external-biometric-device / credential-import / sync assumption per ADR-0003 (D-126); rows struck and marked `SUPERSEDED — <id>`, nothing deleted; WBS 5.4 SUPERSEDED (row kept, 132 count); N-16 13B seed removal filed as G-01 (SCR-HR-ATT-01 §4) — `database/schema/*` untouched, no import-only table exists to drop.

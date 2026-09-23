@@ -297,12 +297,14 @@ Derived from the `Lane` column of 38-WBS.md v4. If the two ever differ, 38 gover
 ```
 PHASE 0 — Foundation
   Lane A (GM, manual)      0.1 ✅ · 0.2 ✅ (recorded in 42 §11) → 0.3 → 0.5 → 0.7 · 0.8 → 0.20
-                                                      [WAITING_GM; never blocks a code lane]
+                                                      [never blocks a code lane; 0.3 · 0.5 · 0.7 DEFERRED-POST-PILOT (D-129);
+                                                       0.8 by its pilot acceptance against local Docker (D-130)]
   Lane B (pg-backend)      0.4 → 0.9 → 0.10 · 0.11 · 0.12       (0.10/0.11/0.12 in parallel after 0.9)
   Lane C (pg-backend)      0.13 · 0.14                          (need only 0.4)
-  Master                   0.6 (CI, seven gates — needs 0.4 AND 0.5; deploy gates require the host)
+  Master                   0.6a (CI gates ①–⑥ on GitHub Actions — needs 0.4 only; D-124, D-133 pgeos_app role)
+                           0.6b (gate ⑦ + staging deploy — needs 0.5 AND 0.6a; DEFERRED-POST-PILOT, D-129)
   Then serial (Master):    0.15 → 0.16 → 0.17 → 0.18 → 0.19
-  Note                     0.20 is drafted as soon as 0.6 is green and sealed only after 0.8 succeeds
+  Note                     0.20 is drafted as soon as 0.6a is green and sealed only after 0.8 succeeds
   GATE: 0.18 isolation green (G7 = 0) · 0.16 classification complete (G6 = 0)
         · 0.8 restore succeeded (when Lane A lands) · 0.1 owners named · 0.2 three decisions recorded
 
