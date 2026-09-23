@@ -4,6 +4,14 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — SCR-TMS-PICKUP-01 approved (D-137) — DONE (2026-09-24)
+
+- GM directive "بناء عليه تم اعتماد القرارات الخمس" (D-137). SCR status APPROVED, §7 resolution table: gap approved; pickup site `sales.account_sites`; unique source index folded in; timing post-pilot with WBS 3.7, migration number issued after the 0.6a commit; service code carried to the CFO with standing default "inside DL-01/02, catalog stays at 92".
+- No code, no schema, no migration, no WBS row, no brief change until Phase 3 opens. The running 0.6a session is untouched.
+- Model: Master session fable-5.1 · Delegated: none · Review: n/a (governance) · tokens ≈ 12k (estimate)
+
+---
+
 ## X — SCR-TMS-PICKUP-01 filed: pickup leg for the delivery-only client (D-136) — DONE (2026-09-24)
 
 - GM directive "سجل الطلب" (D-136). Filed `docs/notes/SCR-TMS-PICKUP-01-external-pickup-point.md` under EXECUTION-MASTER-v4 §1.11 (G-01): Gap-Register #61 (D-10 §6-2) as a formal request — `tms.delivery_tasks` gets no `collected` state, no `pickup_delivery` task type (and no check constraint on `task_type`), no pickup site, no `tms.proof_of_collection`, no `tms.task.collected` event, no catalog code for the collection leg. Shapes in §3, five GM decisions in §5, default DEFERRED-POST-PILOT (D-127). Gap-Register #61 row points to the SCR.

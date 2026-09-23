@@ -1,6 +1,6 @@
 # SCR-TMS-PICKUP-01 — pickup leg for the delivery-only client (external point of sale)
 
-**Status: FILED — awaiting GM decision.** Raised under **EXECUTION-MASTER-v4 §1.11 (G-01)** on two criteria:
+**Status: APPROVED — GM directive D-137 (2026-09-24), "بناء عليه تم اعتماد القرارات الخمس". Resolution in §7.** Originally filed under **EXECUTION-MASTER-v4 §1.11 (G-01)** on two criteria:
 - **(i) a real schema gap** — already on record as **Gap-Register #61** ("pickup from the client's warehouse has no status and no constrained `task_type`; the delivery-only scenario S3 starts in an undefined state" → "↷ SCR on 13B", D-10 §6-2).
 - **(iii) a doc 40 requirement that is not modelled** — doc 05 scenario 3 (SEG-B, client `SHOP`, "his goods are in his own warehouse") and doc 40 Part E `S3 B2C delivery with SLA` describe a client whose shipments never enter PST, yet the task state machine (doc 03 §0-7 · D-04 §5.1) begins at `created → assigned → out_for_delivery` as if the parcels were already in our custody.
 
@@ -67,3 +67,17 @@ Types follow existing precedent (`timestamptz`, coordinates `numeric(10,7)` as i
 ## 6. Cross-references
 
 Gap-Register #61 (D-10 §6-2) · doc 05 scenario 3 · doc 40 §C4 (INV-C4-2/3/4) and Part E S3 · doc 03 §0-7 · D-04 §5.1 · D-11 §2-3 rows 21–24 · doc 04 DL-01…DL-18 and decision 1 (92 closed) · 01 lines 860–890 · 13B `chk_delivery_tasks_status` · precedent SCR-HR-ATT-01 (D-131).
+
+## 7. Resolution under D-137 (GM, 2026-09-24)
+
+The five decisions of §5 are approved "as written" (precedent D-131: an item with a recommendation resolves to it; an item without one is carried, nothing invented).
+
+| # | Decision | Resolved |
+|---|---|---|
+| 1 | Gap as a schema change | **approved** — 3.1 (`pickup_delivery` + `task_type` check), 3.2 (`collected` state + `tms.task.collected`), 3.4 (`tms.proof_of_collection`) |
+| 2 | Pickup site shape | **3.3 (b) `sales.account_sites`** + `tms.delivery_tasks.pickup_site_id` (the recommendation) |
+| 3 | Service code | **no recommendation existed — carried to the CFO.** Standing default until then: **3.5 (a)**, the collection leg is priced inside DL-01 / DL-02 per contract; the catalog stays at 92. (b) `DL-19` is opened only by a recorded GM + CFO decision with `min_price` and `standard_cost` (doc 04 decision 1, M03 gate) |
+| 4 | Unique `(source_type, source_ref)` | **yes** — folded into the same migration (D-11 §2-3 row 23) |
+| 5 | Timing | **post-pilot, with WBS 3.7 (Phase 3, lane 1)** — D-127 default. The migration number is issued by the Master **after the 0.6a commit lands** (0007 is taken by 0.6a; this becomes the next free number at that time), pg-reviewer pre-migration review first. `packages/events/catalog.ts` (`tms.task.collected`) and `database/schema/*` are frozen paths → single-lane Master task merged before lane 1 resumes |
+
+Consequences, applied when Phase 3 opens (not now): the 3.7 brief (`.claude/briefs/tms.brief.md`) carries the `collected` state, the pickup screen delta to doc 35, and the S3 acceptance scenario gains a collection step; `identity.column_classification` rows for every new column; RLS on `sales.account_sites` and `tms.proof_of_collection` mirrors `sales.accounts` / `tms.proof_of_delivery`. Nothing in the pilot changes.
