@@ -20,6 +20,14 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — GM decision sheet 2: every open GM item as multiple choice — DONE (2026-09-24)
+
+- GM request (2026-09-24): "اسرد كل هذه النقاط التي تحتاج إلى إجابات على شكل تحديد إجابة من ضمن خيارات لأجاوبهم كلهم دفعة واحدة". Written: `docs/notes/2026-09-24-gm-decision-sheet-2.md` — 43 questions (Q1–Q43, with Q7a–h and Q30a–g sub-items) across commercial/pricing, warehouse operations, delivery/integration/boards, HR/legal/attendance, governance/platform. Sources: every ⏳ row of Gap-Register 09, D-11/12/13/14/15 decision tables, SCR-HR-ATT-01 carried items, SCR-TMS-PICKUP-01 item 3, ADR-0002 G8 anchor, CHANGELOG 2.3 batched questions. ★ marks only recommendations already written in the source; no option invented. WBS data tasks and seeds are listed at the end as deliberately excluded.
+- No code, no schema. Answers will be applied one D-number each.
+- Model: Master session fable-5.1 · Delegated: none · Review: n/a (governance) · tokens ≈ 60k (estimate)
+
+---
+
 ## X — Focus boards: no user customisation (D-15 D-1 = (أ), D-138) — DONE (2026-09-24)
 
 - GM answer to D-15 §8-2 D-1: **(أ) no customisation at all** (not the (ب) "collapse only" recommendation). Applied as annotations: D-15 D-1 row ✅, F-9 row superseded, §3(ب) note (collapse state is never saved; groups open expanded on every load), B-9 falls away; Gap-Register #79 closed.
