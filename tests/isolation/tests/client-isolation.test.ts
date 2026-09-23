@@ -1063,26 +1063,58 @@ describe('SCR-RLS-02 — platform.audit_log partitioned parent has RLS (Option A
       // beforeAll itself must have failed — nothing to clean up.
       return;
     }
-    // Chain-safe teardown only. `platform.verify_audit_chain()` (G8) orders by (occurred_at, id)
-    // and checks each row's prev_hash against the PREVIOUS row's row_hash — deleting the TAIL row
-    // is chain-safe, deleting a MIDDLE row breaks every later row's prev_hash link. Delete this
-    // fixture row only if it is STILL the tail (no row with a strictly greater (occurred_at, id)
-    // exists). If some other row was appended after it before teardown ran (a concurrent process,
-    // or another test inserting more audit rows), 0 rows are deleted here ON PURPOSE and the
-    // fixture row is left in place — it is a validly chained row, clearly marked as fixture data
-    // via `table_name = '_rls_isolation_fixture'`. Deliberately NOT added to
-    // sweepLeftoverFixtureRows (see that function's own scope comment): a prefix sweep against
-    // platform.audit_log could delete a MIDDLE row on some later run and break G8, which this
-    // targeted tail-only delete cannot.
-    await superuser.query(
-      `delete from platform.audit_log
-        where id = $1 and occurred_at = $2::timestamptz
-          and not exists (
-            select 1 from platform.audit_log a
-            where (a.occurred_at, a.id) > ($2::timestamptz, $1)
-          )`,
-      [fixtureRowId, fixtureOccurredAt],
-    );
+    // Chain-safe teardown only. `platform.verify_audit_chain()` (G8) orders by `chain_seq` (the
+    // gapless counter the trigger assigns under the advisory lock — SCR-AUDIT-01 §7.1) and checks
+    // each row's prev_hash against the PREVIOUS row's row_hash, and reports any chain_seq gap —
+    // deleting the TAIL row is chain-safe (the next writer reuses its number), deleting a MIDDLE
+    // row leaves a gap and breaks the next row's prev_hash link. Delete this fixture row only if it
+    // is STILL the tail (no row with a strictly greater chain_seq exists). If some other row was
+    // appended after it before teardown ran (a concurrent process, or another test inserting more
+    // audit rows), 0 rows are deleted here ON PURPOSE and the fixture row is left in place — it is
+    // a validly chained row, clearly marked as fixture data via `table_name =
+    // '_rls_isolation_fixture'`. Deliberately NOT added to sweepLeftoverFixtureRows (see that
+    // function's own scope comment): a prefix sweep against platform.audit_log could delete a
+    // MIDDLE row on some later run and break G8, which this targeted tail-only delete cannot.
+    //
+    // ONE transaction on a DEDICATED client, holding the trigger's own advisory lock (SCR-AUDIT-01
+    // §7.1, pg-reviewer finding 12): `begin; select pg_advisory_xact_lock(hashtext(
+    // 'platform.audit_log')); delete … ; commit;`. platform.audit_hash_chain() takes the same
+    // transaction-scoped lock before it reads the chain head, so while this transaction holds it no
+    // concurrent writer can read this fixture row as the head (and chain onto it) between the
+    // tail check and the delete; a writer that was already waiting reads the head only after this
+    // commit, when the row is gone. The lock is released by commit/rollback, never held across
+    // statements outside this block. A dedicated client, not `superuser`, so the transaction never
+    // shares a session with the suite-wide session-level advisory lock or any other fixture query.
+    // Rollback on any error (so the lock and the aborted transaction never outlive this hook), and
+    // the client is always closed.
+    const AUDIT_CHAIN_LOCK_KEY = 'platform.audit_log';
+    const teardownClient = new Client(SUPERUSER_CONNECTION);
+    await teardownClient.connect();
+    try {
+      await teardownClient.query('begin');
+      await teardownClient.query('select pg_advisory_xact_lock(hashtext($1))', [
+        AUDIT_CHAIN_LOCK_KEY,
+      ]);
+      await teardownClient.query(
+        `delete from platform.audit_log
+          where id = $1 and occurred_at = $2::timestamptz
+            and not exists (
+              select 1 from platform.audit_log a
+              where a.chain_seq > (
+                select chain_seq from platform.audit_log where id = $1 and occurred_at = $2::timestamptz
+              )
+            )`,
+        [fixtureRowId, fixtureOccurredAt],
+      );
+      await teardownClient.query('commit');
+    } catch (error: unknown) {
+      // The original error is the one reported. A rollback that itself fails is not re-raised over
+      // it: closing the connection below aborts the transaction (and releases the lock) server-side.
+      await teardownClient.query('rollback').catch(() => undefined);
+      throw error;
+    } finally {
+      await teardownClient.end();
+    }
   });
 
   it("a portal context with no entity access reads zero platform.audit_log rows with entity_id is not null, and the query does not throw", async () => {

@@ -9,6 +9,11 @@
 //
 // Connects to the already-running dev database (infra/docker/docker-compose.yml, `postgres`
 // service) via PG* env vars, defaulting to the documented local values.
+//
+// Exception to "no RED phase": the last two describe blocks (SCR-AUDIT-01 §7.1, GM condition 1,
+// pg-reviewer migration-gate finding 9; pg-reviewer round 2 definer rights) are written before the
+// approved migration and are RED until platform.audit_log.chain_seq, its per-partition unique index
+// and the SECURITY DEFINER, PUBLIC-revoked chain functions exist.
 
 import { randomUUID } from 'node:crypto';
 
@@ -170,5 +175,129 @@ describe('platform.verify_audit_chain — hash-chain correctness and tamper dete
       'select * from platform.verify_audit_chain()',
     );
     expect(restoredCheck.rows.some((row) => row.id === target.id)).toBe(false);
+  });
+});
+
+// SCR-AUDIT-01 §7.1, GM condition 1 (pg-reviewer migration-gate finding 9). The same property is
+// also pinned in audit-chain-seq.test.ts; GM condition 1 requires it here too. The index is found
+// by its pg_index PROPERTIES only — never by its name — so a correctly shaped index under any name
+// passes and a wrongly shaped index under the expected name fails.
+const AUDIT_LOG_TABLE = 'platform.audit_log';
+const AUDIT_LOG_DEFAULT_PARTITION = 'platform.audit_log_default';
+const CHAIN_SEQ_COLUMN = 'chain_seq';
+const PARTITION_MISSING_INDEX_PROBLEM = 'partition_missing_chain_seq_unique_index';
+
+describe('platform.audit_log — every partition carries a unique index on chain_seq (SCR-AUDIT-01 §7.1, GM condition 1)', () => {
+  it('every partition (pg_inherits, default included) has a unique, valid, predicate-free, expression-free single-column index on chain_seq, and verify_audit_chain() reports no partition_missing_chain_seq_unique_index row', async () => {
+    const partitions: QueryResult<{ partition: string; has_chain_seq_unique_index: boolean }> =
+      await pool.query(
+        `select c.oid::regclass::text as partition,
+                exists (
+                  select 1
+                    from pg_index x
+                   where x.indrelid = c.oid
+                     and x.indisunique
+                     and x.indisvalid
+                     and x.indpred is null
+                     and x.indexprs is null
+                     and x.indnatts = 1
+                     and x.indkey[0] = (
+                       select att.attnum
+                         from pg_attribute att
+                        where att.attrelid = c.oid
+                          and att.attname = $2
+                          and not att.attisdropped
+                     )
+                ) as has_chain_seq_unique_index
+           from pg_inherits i
+           join pg_class c on c.oid = i.inhrelid
+          where i.inhparent = $1::regclass
+          order by 1`,
+        [AUDIT_LOG_TABLE, CHAIN_SEQ_COLUMN],
+      );
+
+    const partitionNames = partitions.rows.map((row) => row.partition);
+    // Vacuity guard: an empty partition list would make "no offenders" trivially true.
+    expect(partitionNames, `partitions of ${AUDIT_LOG_TABLE} per pg_inherits`).toContain(
+      AUDIT_LOG_DEFAULT_PARTITION,
+    );
+
+    const offenders = partitions.rows
+      .filter((row) => !row.has_chain_seq_unique_index)
+      .map((row) => row.partition);
+    expect(
+      offenders,
+      `partitions of ${AUDIT_LOG_TABLE} with no index where indisunique and indisvalid and indpred ` +
+        `is null and indexprs is null and indnatts = 1 and indkey[0] = attnum(${CHAIN_SEQ_COLUMN}): ` +
+        offenders.join(', '),
+    ).toEqual([]);
+
+    const reported: QueryResult<Record<string, unknown>> = await pool.query(
+      'select * from platform.verify_audit_chain() where problem = $1',
+      [PARTITION_MISSING_INDEX_PROBLEM],
+    );
+    expect(reported.rows, JSON.stringify(reported.rows)).toEqual([]);
+  });
+});
+
+// SCR-AUDIT-01 §7.1 + §7.5 findings 1–2 (pg-reviewer round 2): both chain functions are SECURITY
+// DEFINER, owned by a role that bypasses RLS (superuser or BYPASSRLS — otherwise FORCE RLS on
+// platform.audit_log still applies to the owner and the head lookup forks the chain), and PUBLIC
+// cannot execute them. A NULL proacl means the default ACL, which grants EXECUTE to PUBLIC — so the
+// ACL is read through acldefault() when proacl is null, never through aclexplode(null) (vacuous).
+const CHAIN_FUNCTION_NAMES = ['audit_hash_chain', 'verify_audit_chain'] as const;
+const DEFINER_OWNER_PROBLEM = 'definer_owner_cannot_bypass_rls';
+// aclexplode(): grantee oid 0 is PUBLIC.
+const PUBLIC_GRANTEE_OID = 0;
+
+describe('platform.audit_hash_chain / platform.verify_audit_chain — definer rights (SCR-AUDIT-01 §7.1, pg-reviewer round 2)', () => {
+  it('both chain functions are SECURITY DEFINER, owned by a superuser or BYPASSRLS role, not executable by PUBLIC, and verify_audit_chain() reports no definer_owner_cannot_bypass_rls row', async () => {
+    const reported: QueryResult<Record<string, unknown>> = await pool.query(
+      'select * from platform.verify_audit_chain() where problem = $1',
+      [DEFINER_OWNER_PROBLEM],
+    );
+    expect(reported.rows, JSON.stringify(reported.rows)).toEqual([]);
+
+    const functions: QueryResult<{
+      signature: string;
+      proname: string;
+      prosecdef: boolean;
+      owner: string;
+      owner_bypasses_rls: boolean;
+      public_can_execute: boolean;
+    }> = await pool.query(
+      `select p.oid::regprocedure::text as signature,
+              p.proname::text as proname,
+              p.prosecdef,
+              r.rolname::text as owner,
+              (r.rolsuper or r.rolbypassrls) as owner_bypasses_rls,
+              exists (
+                select 1
+                  from aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) acl
+                 where acl.grantee = $2
+                   and acl.privilege_type = 'EXECUTE'
+              ) as public_can_execute
+         from pg_proc p
+         join pg_roles r on r.oid = p.proowner
+        where p.pronamespace = 'platform'::regnamespace
+          and p.proname = any($1::text[])
+        order by 1`,
+      [CHAIN_FUNCTION_NAMES, PUBLIC_GRANTEE_OID],
+    );
+
+    // Vacuity guard: both functions must be found, or "no offender" is trivially true.
+    expect([...new Set(functions.rows.map((row) => row.proname))].sort()).toEqual(
+      [...CHAIN_FUNCTION_NAMES].sort(),
+    );
+
+    const offenders = functions.rows
+      .filter((row) => !row.prosecdef || !row.owner_bypasses_rls || row.public_can_execute)
+      .map(
+        (row) =>
+          `${row.signature} (prosecdef=${String(row.prosecdef)}, owner=${row.owner}, ` +
+          `owner rolsuper or rolbypassrls=${String(row.owner_bypasses_rls)}, ` +
+          `PUBLIC EXECUTE=${String(row.public_can_execute)})`,
+      );
+    expect(offenders, offenders.join('; ')).toEqual([]);
   });
 });
