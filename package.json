@@ -9,6 +9,7 @@
   },
   "type": "module",
   "scripts": {
+    "prepare": "node scripts/install-hooks.mjs",
     "build": "turbo run build",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",

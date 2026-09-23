@@ -1,6 +1,6 @@
 -- ═══════════════════════════════════════════════════════════════════════════
 -- PG-EOS · 13B — توحيد المخطط المرجعي (Schema Reference Consolidation)
--- وثيقة 13B · PostgreSQL 16 · الإصدار 4.0 · 21/09/2026
+-- وثيقة 13B · PostgreSQL 16 · الإصدار 4.2 · 23/09/2026
 --
 -- > **v4 — حالة الوثيقة:** حاكمة · **الحاكم عند التعارض:** 40 · 36 ·
 -- > EXECUTION-MASTER-v4 · 22 · **التصحيحات المطبّقة في v4:** SCR-1…SCR-7 ·
@@ -1154,7 +1154,7 @@ create table tms.contact_log (
   read_at timestamptz,              -- ✓✓ واتساب
   provider_ref text,
   geo_lat numeric(10,7), geo_lng numeric(10,7),
-  cost numeric(10,4)
+  cost numeric(14,3)                -- د.ك — كل المبالغ numeric(14,3) (قرار GM 23/09/2026، B2)
 );
 create index on tms.contact_log (task_id, attempted_at);
 create index on tms.contact_log (driver_employee_id, attempted_at desc);

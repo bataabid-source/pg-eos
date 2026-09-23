@@ -1,5 +1,5 @@
 PREMIUM GROUP — PG-EOS · CLAUDE CODE MASTER AGENT BOOTSTRAP (v4)
-**Version 4.0 · 21 September 2026**
+**Version 4.1 · 23 September 2026**
 
 > **v4 — Document status:** Governing (operating instruction) · **Governs on conflict:** 40 · 36 ·
 > EXECUTION-MASTER-v4 · 42 · 38 · 22 · database/01·13·13B·019 (items 1–7 of §1) ·

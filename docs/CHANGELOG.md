@@ -4,6 +4,22 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — Governance and environment restoration — GM directive 2026-09-23, phases A + B (2026-09-23)
+
+- **Phase A:** environment restored — `pnpm install` (lockfile unchanged) recreated the missing `modules/wms/node_modules`. Build verification: `pnpm -w build --force` 9/9 green (domain-kit, wms, platform, db, events, identity-mechanisms, contracts, identity, documents packages); `pnpm -w test -- --force` 10/10 tasks green with per-package counts (domain-kit 87, wms 29, platform 5, db 11, events 8, identity-mechanisms 31, contracts 44, identity 15, documents 6 tests), no turbo cache used. PATH amended with pnpm executable location (user's `~/.bashrc` only, not repository). Session model deployed: fable (`claude-fable-5-1`, GM-specified).
+
+- **Phase B:** governance — (B1) ADR for the 1.5 proof slice **BLOCKED**: no ADR folder exists in the repo; draft held outside the repo until the GM names the folder. (B2) `database/schema/13B-Schema-Reference-Consolidation.sql`: `tms.contact_log.cost` `numeric(10,4)` → `numeric(14,3)` (GM: every monetary amount is numeric(14,3), KWD); schema file only, the migration is created by the owning task (3.8); 13B header → 4.2; `apply.sh --recreate` re-run green (175 tables, migrations 0001–0003, G1–G13/G18 = 0, G13 100/100) and the live column now reads numeric(14,3). (B3) CLAUDE.md GIT rule rewritten: no standalone "record the verified hash" commit; the task ↔ code link is `git log` with `type(WBS):`; the previous task's hash is recorded in PROJECT_STATE inside the next task's commit; DEFINITION OF DONE wording aligned. (B4) `.githooks/commit-msg` (versioned) refuses any first line not matching `type(WBS): description` with a WBS ID from 38-WBS or `X`; activated by `scripts/install-hooks.mjs` from the root `prepare` script; verified: refuses `bad message`, `feat(9.9): …`, `Revert "x"`; accepts `docs(X): …`, `feat(2.8): …`, `docs(X.3): …`. (B5) pg-scribe: MASTER_BACKLOG 1.2 1.5 2.8 3.1 3.3 3.14 5.13 6.4 TODO → READY; 0.17 note (excluded from ratio, acceptance bound to 0.19); PROJECT_STATE refreshed (12/132, Next 3 without 0.19, external WAITING_GM blockers 2.2 / 0.2→0.3→0.5→0.6 / 0.8, Phase-0 gate open, 55 lines); CHANGELOG-v4 §11 (retroactive: 8d62747 SCR-I18N-01 and f03e160 D-002) and §12 (B2, B3, B4, B7); version bumps 19 · 28 · 30 · 38 · BOOTSTRAP-v4 · EXECUTION-MASTER-v4 → 4.1, 40 → 4.2 (D-blueprints 03/06/15 carry no version field). (B6) branch/worktree cleanup is its own commit `chore(X)`.
+
+- **Phase C (deferred pending explicit GM approval):** WBS 2.8 — stock ledger + derived balance.
+
+- **Phase D (after C):** WBS 1.5 — proof slice (unblocks 2.6 → 2.9) — once ADR folder exists.
+
+- **B7 Confirmations:** `platform.test_probe` and `identity.test_probe` are not tables — string values (`aggregate_type` in `platform.outbox` seeded during test; permission code in `identity.permissions`), created and deleted within test boundaries (afterAll or per-test delete). **Accepted by GM.** `modules/wms` hand-scaffolded (documented WBS 0.16) — **accepted by GM.**
+
+- Model: fable (claude-fable-5-1, session model, reported verbatim) · Delegated: pg-scribe (haiku) · Review: n/a (no code, no schema semantics changed beyond one column type) · tokens: ≈ 40k (estimate: reading context facts, editing 11 files, verifying line counts, draft commit message)
+
+---
+
 ## 2.1 — Register WH1, its zones and its 8 space blocks — proof slice (2026-09-23)
 
 - **Delivered (acceptance criterion verbatim).** Blocks are `P-A` 288 · `P-A1` 12 · `G-B` 906 · `G-C` 45 · `M-B` 906 · `M-C` 45 · `T-B` 906 · `T-C` 45; storage capacity 3,153; 3,301.641 m³ — proven via `modules/wms/tests/integration/wh1-setup.test.ts` (29/29 green tests, independent verification of eight space blocks, eleven zones with their location counts, totals, and wms.verify_wh1() 21/21 passed). The test suite `wh1-setup.feature` (Gherkin, written first) specifies the acceptance criterion in executable form. No schema change; read-only proof (SELECT only, pool closed in afterAll).

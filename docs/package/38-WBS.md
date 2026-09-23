@@ -1,5 +1,5 @@
 # PG-EOS — Work Breakdown Structure
-**Document 38 · Version 4.0 · 21 September 2026**
+**Document 38 · Version 4.1 · 23 September 2026**
 
 > **v4 — Document status:** GOVERNING (the only task sequence, rank 5) · **Governs on conflict:** docs 40, 36, EXECUTION-MASTER-v4, 42 · **Corrections applied in v4:** GOV-03, GOV-12, GOV-13, GOV-21, GOV-22, GOV-23, GOV-24, GOV-25, GOV-26, GOV-27, GOV-28, GOV-29, GOV-30, GOV-34, GOV-43, GOV-44, GOV-50, ADM-04, OPS-33, PLT-20, PLT-23 · **Previously open decisions:** closed in EXECUTION-MASTER-v4 §1.
 

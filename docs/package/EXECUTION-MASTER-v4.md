@@ -1,5 +1,5 @@
 # PG-EOS — EXECUTION MASTER v4
-**Tier A · Governing · Version 4.0 · 21 September 2026**
+**Tier A · Governing · Version 4.1 · 23 September 2026**
 **Authority:** Full mandate delegated by the GM to the consulting architect for engineering, architecture, administrative structure, and all operational decisions.
 **Supersedes:** EXECUTION-MASTER v1 · DECISIONS-ADDENDUM · 43-Final-Project-Package · BOOTSTRAP-v3 (as a rule source) · doc 39 entirely · doc 37 · doc 41 Part 2.
 **Status:** This document and `BOOTSTRAP-v5.md` (supersedes v4 as operating instruction; kit in `claude-kit/`; setup in `PROJECT-SETUP-GUIDE.md`) are the only operating instructions. This document is the only register of GM decisions.

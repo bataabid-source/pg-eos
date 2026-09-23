@@ -61,3 +61,19 @@ pst-warehouse-3d: حارس three.js · الكود السباعي وكود الإ
 - `A-governing/BOOTSTRAP-v5.md` يحلّ محل v4 كتعليمات تشغيل: آلية توازٍ بلا تعارض (`tasks/LANE_LOCKS.md` · أرقام هجرات من الرئيسي · مسارات مجمَّدة · طابور دمج واحد) · انضباط الحصة (موجزات الموديولات بدل قراءة الحزمة · مهمة لكل جلسة · ميزانية رموز لكل نوع عمل) · السرعة والجودة (مولّد الشريحة الذهبية · اختبارات RED أولاً · بوابات ما قبل الالتزام ①–③ · CI ①–⑦) · D-blueprints مدخلات بناء ملزمة · المهام المقترحة في `tasks/proposed/`.
 - `A-governing/PROJECT-SETUP-GUIDE.md`: إعداد المستودع والقاعدة المحلية وأول جلسة والمسارات المتوازية ومشروع الدردشة للمدير العام وقواعد الحصة.
 - `A-governing/claude-kit/` (45 ملفاً جاهزاً للنسخ): CLAUDE.md · settings.json + hooks (حارس المسارات) · 5 وكلاء مثبّتون · 6 أوامر · 15 موجز موديول مولَّداً من القاعدة + المولّد · scripts (new-slice · guards-run) · LANE_LOCKS · 4 مهام مقترحة · PROJECT_STATE/MODEL_ROUTING/AGENT_WORKFLOW · docker-compose.
+
+## 11. قيد بأثر رجعي (23/09/2026) — تعديلان على الحزمة لم يُقيَّدا في وقتهما
+
+- **تعديل 8d62747 / SCR-I18N-01 / D-001 (21/09/2026):** الوثائق التالية عشر: `19-PST-Warehouse-Setup.md` (لافتات الممرات A5 بست لغات — الأمهرية `am` سادسةً؛ لوحة الإدارة تبقى ar/en)، `28-Adoption-Compliance-Launch.md`، `30-PDA-App.md`، `38-WBS.md` (الصف 3.22: "5 لغات" → "6 لغات")، `40-Build-Specification-EN.md` (ملاحظة الإغلاق: `am` في قائمة i18n)، `BOOTSTRAP-v4.md` (قيد الوكيل يكسب `am`)، `EXECUTION-MASTER-v4.md` (§1.4 صف مبدِّل اللغة: 6 لغات في تطبيقات الميدان، يشير إلى D-001؛ قيد i18n يكسب `am`)، `D-blueprints/03-Operations-Warehouse.md`، `D-blueprints/06-Administrative-HR-Housing.md`، `D-blueprints/15-Focus-Boards-UX.md`. الإصدارات المرفوعة: `19` · `28` · `30` · `38` · `BOOTSTRAP-v4` · `EXECUTION-MASTER-v4` من 4.0 → 4.1؛ الوثيقة `40` → 4.1 بهذا القيد ثم → 4.2 بالقيد التالي؛ `D-blueprints` 03/06/15 بلا حقل إصدار (لم تُرفع). التفصيل في `docs/notes/SCR-I18N-01-amharic.md`.
+
+- **تعديل f03e160 / D-002 / SCR-RLS-02 (23/09/2026):** الوثيقة 40 Part F صف G7 تُحدَّث من `relkind in ('r')` إلى `relkind in ('r','p')` (الجداول المُقسَّمة الأب، كالحالة `platform.audit_log`)، والنص الشارح يشمل الأب المُقسَّم. 13B الحلقة الآلية لإنشاء السياسات: `relkind in ('r','p')` + ملاحظة 13B-22. `database/schema/guards.sql` و`apply.sh` (G7) محدَّثة. الإصدارات: 40 → 4.2، 13B → 4.1.
+
+## 12. إضافة (23/09/2026) — توحيد نوع المبلغ وقواعد الالتزام
+
+- **13B `tms.contact_log.cost`:** من `numeric(10,4)` إلى `numeric(14,3)` (قرار GM: كل المبالغ النقدية `numeric(14,3)` بالدينار الكويتي د.ك). ملف المخطط فقط (لا ترحيل جديد) — ينتج ترحيل من المهمة المالكة للجدول (WBS 3.8، طبقة التواصل بتطبيق السائق). 13B → **4.2**.
+
+- **قاعدة GIT في CLAUDE.md (B3): استبدال قاعدة GIT الحالية:** لا تُنشأ التزام منفصل لـ"تسجيل الهاش المُتحقَّق منه"؛ الرابط الوحيد بين مهمة WBS وشيفرتها هو سجل الالتزام `git log` بنص نموذج `type(WBS): description` (حيث WBS معرّف من 38 أو `X`)؛ هاش المهمة السابقة يُسجَّل هنا في `PROJECT_STATE.md` ضمن التزام المهمة اللاحقة.
+
+- **قاعدة hook التزام (B4): `.githooks/commit-msg` نسخة مُصرَّحة:** يرفض أي رسالة أول سطر فيها لا يطابق `type(WBS): description` حيث WBS موجود في `docs/package/38-WBS.md` أو `X`. يُفعَّل عبر `git config core.hooksPath .githooks` بآلية البرنامج النصي `prepare` الجذري.
+
+- **تأكيدات B7:** `platform.test_probe` و`identity.test_probe` ليستا جداول — هما قيم نصية (`aggregate_type` في طلبات `platform.outbox` في اختبارات `packages/events`؛ رمز إذن في `identity.permissions` في اختبارات `packages/identity`)، تُنشآ وتُحذفان ضمن الاختبارات (`afterAll` أو اختبار فردي). مقبول من GM. `modules/wms` مبني يدويّاً مقبول (موثَّق منذ 0.16).

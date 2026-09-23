@@ -1,5 +1,5 @@
 # PG-EOS — Build Specification for AI Execution
-**Document 40 · Version 4.0 · 21 September 2026**
+**Document 40 · Version 4.2 · 23 September 2026**
 **Audience:** the AI coding agent executing the WBS (doc 38)
 
 > **v4 — Document status:** GOVERNING (technical contract, rank 1) · **Governs on conflict:** nothing above it; it governs every other document · **Corrections applied in v4:** GOV-04, GOV-05, GOV-06, GOV-07, GOV-08, GOV-09, GOV-10, GOV-35, GOV-36, GOV-40, GOV-43, GOV-44, GOV-48, GOV-49, GOV-50, GOV-54, ADM-04, ADM-09, ADM-14, ADM-31, ADM-37, OPS-20, OPS-32, OPS-33, OPS-35, OPS-54, OPS-69, OPS-70, PLT-03, PLT-04, PLT-05, PLT-08, PLT-17, PLT-22, SCH (13B) · **Previously open decisions:** closed in EXECUTION-MASTER-v4 §1.

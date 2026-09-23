@@ -39,8 +39,18 @@ TESTING (doc 36 §5-5)
 
 GIT
 - Conventional commits. Never commit secrets, .env, keys, dumps, backups. ONE commit per completed
-  task containing code + tests + state + backlog + CHANGELOG. Message references the WBS ID and
-  carries trailers:  Model: <tier>   Delegated: <agents>   Review: PASS(<n> findings fixed)
+  task containing code + tests + state + backlog + CHANGELOG. The first line of the message is
+  exactly `type(WBS): description` — WBS is an ID present in docs/package/38-WBS.md, or `X` for
+  cross-cutting/governance work — and the body carries trailers:
+  Model: <tier>   Delegated: <agents>   Review: PASS(<n> findings fixed)
+- Task ↔ code link (GM 2026-09-23, B3): the ONLY link between a task and its code is `git log` with
+  the `type(WBS):` message. The standalone "record the verified hash" commit is abolished. The
+  previous task's commit hash is recorded in PROJECT_STATE inside the NEXT task's commit.
+- commit-msg hook (GM 2026-09-23, B4): `.githooks/commit-msg` is versioned and activated by
+  `git config core.hooksPath .githooks` (run by `scripts/install-hooks.mjs` from the root `prepare`
+  script on every `pnpm install`). It refuses any message whose first line does not match
+  `type(WBS): description` with a WBS ID from 38-WBS or `X`. Types: feat fix docs chore test
+  refactor perf build ci style revert wip.
 - Migrations are forward-only. No state-only commits.
 
 DOCUMENTATION
@@ -84,7 +94,7 @@ DEPLOYMENT PIPELINE (doc 36 §4-3 — seven named gates ①–⑦)
 
 DEFINITION OF DONE — a WBS task is DONE only when its acceptance criterion (doc 38) passes, the
 10-point review is PASS, guards are green, state/backlog/CHANGELOG are updated in the SAME commit,
-and PROJECT_STATE.md records that commit hash.
+and PROJECT_STATE.md records that commit hash (inside the next task's commit — GIT rule).
 
 PARALLEL LANES — CONFLICT-FREE MECHANISM (v5)
 - `tasks/LANE_LOCKS.md` is the single ownership table: `module | lane | task | claimed_at | worktree`. A module appears at most once. A lane writes only inside its locked modules and `tests/`. Claiming and releasing is done by the Master (pg-scribe writes the file). A worker that needs a file outside its lock STOPS and reports.
