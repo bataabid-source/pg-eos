@@ -68,7 +68,7 @@ Development and test activities are autonomous. Do not ask permission for routin
 (git housekeeping, running tests, temp files, declared dependencies).
 
 MODEL ROUTING (mechanism, not policy)
-- Agents are pinned: pg-reviewer=opus · pg-backend/pg-frontend/pg-tester=sonnet · pg-scribe=haiku.
+- Agents are pinned: pg-reviewer=opus · pg-backend/pg-frontend/pg-tester/pg-scribe=sonnet (GM 2026-09-23: no haiku).
   `inherit` is forbidden.
 - The Master runs on the session model (sonnet by default) and delegates per the routing table (§4).
 - Escalation is upward only (sonnet → opus) and only after two failures, for ADR/security, or for
@@ -118,6 +118,6 @@ QUOTA DISCIPLINE (v5)
 SPEED AND QUALITY (v5)
 - `scripts/new-slice.sh <module> <use-case>` copies the golden-slice tree (domain/ application/ infrastructure/ api/ tests/ + contract + i18n keys) with names substituted; every replicated slice starts from it. Hand-made file trees are a review FAIL.
 - pg-tester writes the Gherkin scenario, the property tests for the invariants in the brief, and the guard additions **before** any implementation; the build brief includes the failing test names.
-- Pre-commit (husky): gates ① lint+boundaries+types, ② domain unit tests of the touched module, ③ `pnpm guards:run --changed`. Commit is refused on red.
+- Git hooks live in .githooks/ (versioned; core.hooksPath set by scripts/install-hooks.mjs from the root prepare script on every pnpm install). Today: commit-msg (type(WBS): description). Planned pre-commit gates, same mechanism, no husky: ① lint+boundaries+types, ② domain unit tests of the touched module, ③ pnpm guards:run --changed. Commit is refused on red.
 - CI on every PR: gates ①–⑦; nightly: Stryker mutation on `domain/` (≥ 75%), full Playwright S1–S20, `apply.sh --recreate` on an ephemeral database.
 - Review checklist (doc 36 §5-4) is applied literally; "minor" findings are still findings. A slice with an open finding is not DONE.

@@ -1,7 +1,7 @@
 ---
 description: Print PROJECT_STATE, LANE_LOCKS and the last 3 commits. Read-only.
 allowed-tools: Read, Bash(git log:*), Bash(git status:*)
-model: haiku
+model: sonnet
 ---
 Print, with no commentary and no edits:
 

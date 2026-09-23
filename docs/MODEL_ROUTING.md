@@ -13,7 +13,7 @@ trailer is missing or whose tier contradicts this table.
 | UI slice from contract + D-blueprint screen | pg-frontend    | sonnet  | ≤ 40k                                      |
 | Tests, guards, mutation                     | pg-tester      | sonnet  | ≤ 30k                                      |
 | Slice review                                | pg-reviewer    | opus    | ≤ 30k                                      |
-| State/backlog/CHANGELOG/i18n/renames        | pg-scribe      | haiku   | ≤ 10k                                      |
+| State/backlog/CHANGELOG/i18n/renames        | pg-scribe      | sonnet  | ≤ 10k                                      |
 | Single-file edit ≤ 30 lines, no new logic   | Master, direct | session | —                                          |
 | Planning, briefs, locks, merges, commits    | Master, direct | session | —                                          |
 | ADR / architecture / security design        | Master on opus | opus    | —                                          |
@@ -21,8 +21,8 @@ trailer is missing or whose tier contradicts this table.
 
 Budget is enforced by the brief: a brief whose "Read ONLY" list exceeds 12 files or 1,500 lines is split into two slices. pg-reviewer flags any delegation whose report shows reads outside the list.
 
-Agents are pinned in `.claude/agents/`: pg-reviewer=opus · pg-backend/pg-frontend/pg-tester=sonnet
-· pg-scribe=haiku. `inherit` is forbidden; an unsupported alias is REPORTED, never silently
+Agents are pinned in `.claude/agents/`: pg-reviewer=opus · pg-backend/pg-frontend/pg-tester/pg-scribe=sonnet.
+`inherit` is forbidden; an unsupported alias is REPORTED, never silently
 replaced. Escalation is upward only (sonnet → opus) and only after two failures, for an ADR or
 a security design, or for the WBS 2.9 session. Expected token distribution (EXECUTION-MASTER-v4
-Part 4): ~75% sonnet (workers) · ~10% haiku (scribe) · ~10% opus (review) · ~5% session.
+Part 4): ~85% sonnet (workers + scribe) · ~10% opus (review) · ~5% session.
