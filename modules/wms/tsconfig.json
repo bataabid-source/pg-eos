@@ -9,7 +9,8 @@
     "domain/**/*.ts",
     "application/**/*.ts",
     "infrastructure/**/*.ts",
-    "api/**/*.ts"
+    "api/**/*.ts",
+    "src/**/*.ts"
   ],
   "exclude": ["dist", "node_modules", "tests"]
 }
