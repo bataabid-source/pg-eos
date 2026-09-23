@@ -6,7 +6,7 @@ Maintained by pg-scribe only, in the same commit as the task it records.
 | field | value |
 |---|---|
 | Phase | 0 — Foundation → 2 — Warehouse (2.1 started 2026-09-23) |
-| Current task | **X — ADR-0003 native biometric attendance (Proposed, D-126) + G-01 SCR-HR-ATT-01 + doc-38 draft** (previous task X — CR-BIO-DSH pre-read @ `3750448`). Governance only — no code, schema, migration or test touched. Completion 16/132 unchanged. |
+| Current task | **X — D-125 cleanup (external biometric import retired, non-system requirements listed, contested decisions superseded)** (previous task X — ADR-0003 / SCR-HR-ATT-01 @ `e38c171`). Governance only. Completion 16/132 unchanged; 5.4 SUPERSEDED. |
 | Golden slice (2.9) | not built · `.golden-slice-accepted` absent · `scripts/new-slice.sh` is a no-op. Depends on 2.4, 2.6, 2.8, 0.15 — **2.6 now DONE** (joins 2.8, 0.15 already DONE); 2.4 still TODO; **Phase-0 gate still open (0.2, 0.8) → 2.9 is no closer to starting.** **Acceptance gains a Phase-0 wiring line (GM 2026-09-22): the golden slice must wire up every part deferred from Phase-0 "mechanism only" tasks — starting with 0.17's login endpoints.** |
 | Deployment tier | Tier 0 (`docs/package/42-Oracle-Cloud-Deployment.md`) |
 | Schema | `database/schema/01 · 13 · 13B · 019` — the ONLY permitted schema (01 v1.1, 13B v4.4, migrations 0001–0006) · DB locale UTF8 / collate C / ctype C.UTF-8 · `apply.sh --recreate` **green on this machine 2026-09-23**: 175 tables/14 schemas, `wms.verify_wh1()` 21/21 pass (3,330 locations), G1–G13 = 0 (G6 blocking, 0 rows — WBS 0.16 complete), G18/G-SEED report-only = 0 |
@@ -22,11 +22,11 @@ None claimed.
 
 | task | commit |
 |---|---|
+| X — ADR-0003 native attendance (Proposed, D-126) + SCR-HR-ATT-01 + doc-38 draft | `e38c171` |
 | X — CR-BIO-DSH pre-read; Part 0 D-122/123/124 re-verified | `3750448` |
 | X — D-122/123/124 (gitattributes, SC-01 dep, 0.6 split draft) | `f30baf8` |
 | X — apply GM decision sheet D-115 (0.2/7.10 DONE, staged tasks admitted) | `e58a098` |
 | X — record GM decisions 2026-09-23 (D-103…D-121) | `1e4c5c2` |
-| 2.6 — wms.skus registration mechanism, cross-client SKU mix rejected (D-103) | `e38370e` |
 
 ## Blockers
 
@@ -36,6 +36,7 @@ None claimed.
 - **0.2 DONE (D-115)** — no longer a blocker. **0.8** stays a blocker: a local `pg_dump`/`pg_restore` rehearsal passed in full (`docs/notes/2026-09-23-restore-rehearsal.md`) but does not close 0.8, which still needs the real Tier-0 `backup.sh`/`restore.sh` + OCI Object Storage.
 - **Phase-0 gate open** (0.8 only, 0.2 now DONE); **2.9 does not start before it closes**.
 - **WAITING_GM · ADR-0003 (Proposed) + SCR-HR-ATT-01 (G-01)** — 11 open items; APP-1 proposed (tasks/proposed/), numbered ID pending GM. CR-BIO-DSH-v3.md never arrived: BIO-3F, BIO-8, D15, D16, Appendix A KPIs undrafted.
+- **WAITING_GM · D-125 GM-confirm list** — 13 rows + 3 C(ii) in docs/notes/2026-09-24-cleanup-candidates.md §2–§3 (incl. D-104 vs lane-A rule, punch-record retention, N-16 renumbering).
 - (0.18 carried forward) `entity_scope` is `FOR ALL` with `USING` only on `platform.audit_log` and on seven tables, governs INSERT — portal user's audited action rejected; every internal reader/writer must pass `isInternal: true` (GUC-only, false when unset). SCR-RLS-01 §6, SCR-RLS-02 §7, D-002.
 - Concurrent external processes on this working directory can delete uncommitted work (incident `a901a04`).
 - Sessions must start inside `claude-kit/` (`.claude/agents` + lane-guard hook not registered otherwise).

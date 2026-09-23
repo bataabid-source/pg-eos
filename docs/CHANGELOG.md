@@ -4,6 +4,18 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — D-125 cleanup: external biometric import/sync retired, non-system field requirements listed, contested decisions superseded — DONE (2026-09-24)
+
+- 18 class-A package edits (docs/package/38-WBS.md, 23-Integration-Register.md, 25-Alerts-Reports-NFR.md, EXECUTION-MASTER-v4.md, 00-Master-Blueprint.md, D-blueprints 01/04/05/06/07/09/15) retire every external-biometric-device / credential-import / sync assumption per ADR-0003 (D-126); rows struck and marked `SUPERSEDED — <id>`, nothing deleted; WBS 5.4 SUPERSEDED (row kept, 132 count); N-16 13B seed removal filed as G-01 (SCR-HR-ATT-01 §4) — `database/schema/*` untouched, no import-only table exists to drop.
+- `tasks/MASTER_BACKLOG.md` regenerated from doc 38 (5.3 text, 5.4 status `SUPERSEDED — ADR-0003 (D-126), D-125`); `scripts/gen-backlog.py` status vocabulary + legend gain `SUPERSEDED — <id>`.
+- 5 class-C(i) supersessions (lines that reopened a settled GM decision, now marked in place, not deleted): EXECUTION-MASTER-v4 scribe-haiku ×2 (GM 2026-09-23 "no haiku", CHANGELOG-v4 §13), D-blueprints/01 and 36-Technical-Architecture-Audit "5 languages" (D-001), 35-Driver-App-v2 `contact_log.cost numeric(10,4)` (GM 23/09/2026 `numeric(14,3)`, CHANGELOG-v4 §12).
+- 13 class-B/C(i) rows listed for GM confirmation, not applied (ambiguous system-vs-non-system boundary or a conflict inside the governing package itself) and 3 class-C(ii) rows (two live options, no owner) listed, not deleted — full detail in `docs/notes/2026-09-24-cleanup-candidates.md` §2–§3.
+- D-125 recorded in `docs/DECISION_LOG.md`; `docs/package/CHANGELOG-v4.md` §21 added (Arabic, package-edit style matching §20).
+- Verification: `python scripts/gen-backlog.py --check` 132 rows ok · `python scripts/gen-briefs.py --check` 15 briefs ok · `bash scripts/check-setup.sh` READY · `docs/PROJECT_STATE.md` ≤ 60 lines.
+- Model: sonnet directive / executed on opus session · Delegated: pg-scribe · Review: n/a (governance) · tokens ≈ 120k (estimate)
+
+---
+
 ## X — ADR-0003 native biometric attendance (Proposed, D-126) + G-01 SCR-HR-ATT-01 + doc-38 draft; CR-BIO-DSH pre-read — DONE (2026-09-24)
 
 - Pre-read (commit 3750448, 2026-09-23): CR input docs/notes/CR-BIO-DSH-v3.md absent; docs/notes/2026-09-23-CR-BIO-DSH-preread.md records repo facts only; Part 0 D-122/123/124 re-verified already applied in f30baf8.

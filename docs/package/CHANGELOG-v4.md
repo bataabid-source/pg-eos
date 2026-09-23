@@ -39,6 +39,25 @@
 ## 5. الأدوات (C-tools/)
 pst-warehouse-3d: حارس three.js · الكود السباعي وكود الإنشائي `X-B101-1` (كان باگاً) · عرض 30 تشغيلية + 147 إنشائية · العدّ 3,330 مُعاد تنفيذه في Node. app-lab-instrument: الجلسات الست من 34 · المعايير 1–19 · يعمل بلا إنترنت. premium-apps-download: Premium WH كـPWA · حذف الشارات غير المسنَدة. 32/33/34: تاريخ الاطّلاع · 89.7 ميجا غير مسنَد · إعادة توجيه التعديلات من 16/21 إلى 35/40.
 
+## 21. إضافة (24/09/2026) — D-125 تنظيف (مهمة X) · D-126 / ADR-0003 البصمة الأصلية
+
+- **38-WBS.md:** 5.3 (سطر 170) نص الاعتماد الآلي على البصمة عُدِّل إلى الالتقاط الأصلي (ADR-0003، D-126 — لا استيراد I-04)؛ 5.4 (171) شُطب وعُلِّم SUPERSEDED — ADR-0003 (D-126)، الصف محفوظ بعدد 132.
+- **23-Integration-Register.md:** صف I-04 (17) شُطب وعُلِّم SUPERSEDED؛ عنوان §I-04 (94) عُلِّم SUPERSEDED مع ملاحظة ما تبقّى (طابور المراجعة وPLT-50)؛ صف مراقبة "فشل مزامنة البصمة → N-16" (166) شُطب وعُلِّم SUPERSEDED.
+- **25-Alerts-Reports-NFR.md:** صف تنبيه N-16 (59) شُطب وعُلِّم SUPERSEDED مع إحالة إلى SCR-HR-ATT-01 §4؛ تعليق SQL لـN-16 (206) عُلِّم SUPERSEDED مع إبقاء الاستعلام للسجل.
+- **EXECUTION-MASTER-v4.md:** صف خطة المسار A "5.4 [بيانات اعتماد البصمة …]" (340) عُدِّل إلى [SUPERSEDED — ADR-0003 · D-126 · D-125]؛ "scribe haiku" ×2 (439، 451) عُلِّمتا SUPERSEDED — GM 2026-09-23 "no haiku"، CHANGELOG-v4 §13؛ D-125.
+- **00-Master-Blueprint.md:** "البصمة" في قائمة التكاملات (168) شُطبت وعُلِّمت SUPERSEDED.
+- **35-Driver-App-v2.md:** `tms.contact_log.cost numeric(10,4)` (118) عُدِّل إلى `numeric(14,3)` مع تعليق SUPERSEDED — قرار GM 23/09/2026 (كل الأموال numeric(14,3)، CHANGELOG-v4 §12؛ 13B).
+- **36-Technical-Architecture-Audit.md:** تعليق شجرة i18n "٥ لغات" (550) عُدِّل إلى "٦ لغات (…am — D-001؛ SUPERSEDED)".
+- **D-blueprints/01-Enterprise-Map.md:** صف I-04 (443) شُطب وعُلِّم SUPERSEDED؛ تسمية عقدة Mermaid (466) عُدِّلت إلى "I-04 البصمة · SUPERSEDED ADR-0003"؛ "٥ لغات" (545) عُدِّلت إلى "~~٥~~ ٦ لغات … am [SUPERSEDED — D-001]".
+- **D-blueprints/04-Operations-Delivery-Fleet.md:** "التكامل I-04 للبصمة" في الفجوة #3 (1171) شُطب مع إحالة إلى ADR-0003 وSCR-HR-ATT-01.
+- **D-blueprints/05-Operations-iMile-CallCenter.md:** صف N-16 (981) شُطب وعُلِّم SUPERSEDED.
+- **D-blueprints/06-Administrative-HR-Housing.md:** صف N-16 (1086) شُطب وعُلِّم SUPERSEDED.
+- **D-blueprints/07-Governance-Control.md:** صف N-16 (955) شُطب وعُلِّم SUPERSEDED.
+- **D-blueprints/09-Gap-Register.md:** "التكامل I-04" في الفجوة #17 (52) شُطب مع إحالة إلى SCR-HR-ATT-01.
+- **D-blueprints/15-Focus-Boards-UX.md:** "N-16 مزامنة بصمة" في لوحة SYSADMIN (674) شُطبت وعُلِّمت SUPERSEDED.
+
+**الحالة:** لا حذف، الصفوف محفوظة بالشطب؛ لا تعديل على `database/schema/*`؛ بنود تحتاج قرار GM في `docs/notes/2026-09-24-cleanup-candidates.md` §2 (منها مدة حفظ «البصمات ١٢ شهراً» في 40:668 و25:429، وإعادة توليد مخطط 01-08، وعدد التنبيهات 22).
+
 ## 6. ما لم يتغيّر عمداً
 كتالوج الخدمات الـ92 وأسبقية السعر · بنود الجزاءات الـ77 نصاً · التحفّظ القانوني في 15 · الأرقام التنفيذية للسيناريوهات · قرارات 42 §11 الخمسة · ADR-27/28 بمعادلاتهما · حدود المصادقة · مصفوفة التوجيه · قائمة المراجعة العشر · هندسة الأداة ثلاثية الأبعاد · سطر «Premium Ops v123 لا يُمس».
 

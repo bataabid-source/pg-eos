@@ -56,7 +56,7 @@
 | N-13 | فرق جرد بلا تفسير | `WH_MGR` المستودع | فوري عند الإقفال | **٠ (بلا كبح)** | تُطبَّق | > ٢٤ س → **`WH_MGR`** (كان «مدير العمليات» — §1-2) |
 | N-14 | تذكرة تتجاوز ٨٠٪ من SLA | `CC_MGR` مشرف الكول سنتر | فوري | **٠ (بلا كبح)** | تُطبَّق | تجاوز → مدير الكول |
 | N-15 | معاملة حكومية متأخرة عن SLA | `PRO` المندوب | يومي | ٢٤ | تُطبَّق | +٥٠٪ → GM |
-| N-16 | مزامنة البصمة فاشلة يومين | `SYSADMIN` مالك النظام | فوري | ٢٤ | تُطبَّق | ٣ أيام → GM |
+| ~~N-16~~ | ~~مزامنة البصمة فاشلة يومين~~ **SUPERSEDED — ADR-0003 (D-126، 24/09/2026 · D-125)** — إزالة البذرة من 13B مطلوبة (SCR-HR-ATT-01 §4) | — | — | — | — | — |
 | N-17 | طلب اعتماد بلا بتّ > مهلته | المعتمِد (`approval_chains`) | يومي | ٢٤ | تُطبَّق | → المستوى الأعلى |
 | N-18 | **مجال بيانات تحت ٨٠٪ شهرين** | مالك المجال + GM | شهري | ٧٢٠ (شهري) | تُطبَّق | — |
 | **N-19** ✳ | **طابور المعالجة اليدوية > ٢٠ سجلاً أو عمر > ٤٨ س** | مالك التكامل (`integration_config.owner_role`) | فوري + بريد | ٦ | تُطبَّق | > ٧٢ س → `SYSADMIN` ثم GM |
@@ -203,7 +203,7 @@ select g.doc_no as entity_ref, g.transaction_type, g.authority, g.due_at
 from admin.gov_transactions g
 where g.completed_at is null and g.due_at is not null and g.due_at < now();
 
--- N-16 · مزامنة البصمة فاشلة يومين
+-- N-16 · مزامنة البصمة فاشلة يومين — SUPERSEDED (ADR-0003 · D-126 · D-125)؛ إزالة البذرة من 13B مطلوبة (SCR-HR-ATT-01 §4)
 select 'biometric' as entity_ref, max(r.finished_at) as last_success
 from platform.integration_runs r
 where r.integration = 'biometric' and r.status = 'success'

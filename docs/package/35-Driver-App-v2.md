@@ -115,7 +115,7 @@ create table tms.contact_log (
   read_at timestamptz,              -- ✓✓ واتساب
   provider_ref text,
   geo_lat numeric(10,7), geo_lng numeric(10,7),
-  cost numeric(10,4)
+  cost numeric(14,3)                -- كان numeric(10,4) — SUPERSEDED بقرار GM 23/09/2026 (كل المبالغ numeric(14,3)، CHANGELOG-v4 §12؛ 13B) · D-125
 );
 create index on tms.contact_log (task_id, attempted_at);
 create index on tms.contact_log (driver_employee_id, attempted_at desc);

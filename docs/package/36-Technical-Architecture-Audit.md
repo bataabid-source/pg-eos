@@ -547,7 +547,7 @@ pg-eos/
 │   ├── db/                    Drizzle + withContext (كود فقط — لا هجرات)
 │   ├── events/                الصندوق الصادر + الناقل + المشتركون
 │   ├── ui/                    مكوّنات shadcn المخصّصة RTL
-│   └── i18n/                  ٥ لغات
+│   └── i18n/                  ٦ لغات (ar en hi ur bn am — D-001؛ كان ٥، SUPERSEDED · D-125)
 ├── database/                  ← المخطط الوحيد المسموح
 │   ├── schema/                01 · 13 · 13B · 019 كما سُلِّمت
 │   ├── migrations/            ← **مكان الهجرات المرقّمة** (لا في packages/db)

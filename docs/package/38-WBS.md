@@ -167,8 +167,8 @@
 |---|---|---|---|---|---|---|
 | 5.1 | M06 Call center: queues, agents, calls, tickets, SLA, ticket ↔ shipment link | 🤖 | 3.4 | **1** | CC_MGR | Agent cannot see another queue's tickets (RLS) |
 | 5.2 | CC billing (internal transfer price, external package + overage) | 🤖 | 5.1, 4.3 | **1** | CFO | Scenario S5 green |
-| 5.3 | M08 HR: org units, teams, attendance from biometrics (I-04), leaves | 🤖 | 3.3 | **2** | HR_MGR | Attendance auto-imported; unmatched to manual queue |
-| 5.4 | Biometric credentials entered by GM; hourly sync | 🧑 | 5.3 | **A** | GM | Sync runs; **auto-absence disabled until data complete** |
+| 5.3 | M08 HR: org units, teams, attendance **captured natively (ADR-0003, D-126 — no I-04 import)**, leaves | 🤖 | 3.3 | **2** | HR_MGR | Attendance punches recorded natively; unmatched/failed to HR review queue (D-125) |
+| 5.4 | ~~Biometric credentials entered by GM; hourly sync~~ **SUPERSEDED — ADR-0003 (D-126, GM 2026-09-24; D-125): no third-party device, no credential import, no sync** | 🧑 | 5.3 | **A** | GM | — (superseded; the auto-absence gate PLT-50 stays, EXEC §1.3) |
 | 5.5 | Shifts and rest rotation (A3) | 🤖 | 5.3 | **2** | OPS_DIR | Rotation fair; exceptions logged |
 | 5.6 | Payroll ledger (auto-calc, CFO approval, month lock) | 🤖 | 5.3, 3.13 | **2** | CFO | Locked month immutable |
 | 5.7 | Penalty schedule (**77 items**, `is_fraud` flagged on CLI-02/03/04/06/09 · ATT-07/08 · WRK-08), Art. 35–41 guards, **hierarchical authority enforced by trigger on `hr.disciplinary_cases.signed_by` with `routed_to` recorded** (supervisor D1–D2, manager D1–D3, GM D1–D4, dismissal GM only), grievance to the level above the signer, hash-chained | 🤖 | 5.3 | **2** | GM | `select count(*) from hr.penalty_schedule` = 77; deduction without Art. 37 steps rejected; Art. 35 15-day limit enforced; 5-day cap enforced; signer outside authority auto-routed up, never silently rejected |

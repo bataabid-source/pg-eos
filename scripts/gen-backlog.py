@@ -10,7 +10,7 @@ Usage:
     python3 scripts/gen-backlog.py --check    # verifies 132 rows, the header line and the X / 0.19 statuses; writes nothing
 
 Status vocabulary (pg-scribe moves rows; nothing else edits this file):
-    TODO · READY · ACTIVE · WAITING_GM · BLOCKED · DONE @ <hash>
+    TODO · READY · ACTIVE · WAITING_GM · BLOCKED · DONE @ <hash> · SUPERSEDED — <ADR/decision>
 """
 import re, sys, pathlib
 
@@ -78,6 +78,7 @@ def render(phases, keep):
     out.append("| `ACTIVE` | claimed in `tasks/LANE_LOCKS.md`; one per lane |")
     out.append("| `WAITING_GM` | 🧑 / 🔧 lane-A task: runbook or script produced, waits for the GM; never blocks a code lane |")
     out.append("| `BLOCKED` | REAL BLOCKER recorded in `docs/PROJECT_STATE.md` |")
+    out.append("| `SUPERSEDED — <id>` | row kept for the 132 count; replaced by the named ADR / GM decision, never picked (D-125) |")
     out.append("| `DONE @ <hash>` | acceptance criterion passed, pg-reviewer PASS, gates green — written by pg-scribe in the same commit |")
     out.append("")
     out.append("Type: 🧑 human decision/data · 🤖 AI-buildable slice · 🔧 infra · ✅ verification. Lane: **A** GM/manual · **B · C · 1 · 2 · 3** parallel build lanes · **M** Master (serial). Deps govern over Lane.")

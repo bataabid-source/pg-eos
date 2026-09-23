@@ -337,7 +337,7 @@ PHASE 5 — six disjoint modules, three lanes
   Lane 1  5.1 → 5.2 (CC)  then 5.10 (Housing — waits for 5.3 in Lane 2)
   Lane 2  5.3 → 5.5 → 5.6 → 5.7 → 5.8 → 5.9 (HR)
   Lane 3  5.11 (Admin) → 5.12 (Fleet) → 5.14 (Governance)
-  Lane A (GM)  5.4  [biometric credentials; after 5.3; WAITING_GM] · 5.15 [data gates M08, M09]
+  Lane A (GM)  5.4  [SUPERSEDED — ADR-0003 · D-126 · D-125] · 5.15 [data gates M08, M09]
   Master  5.13 (22 alerts / 24 reports) · 5.16 · 5.17
   GATE: 5.15 gates · 5.17 signed
 
@@ -436,7 +436,7 @@ Oracle tenancy (doc 42 §1–§7) · the data gates and the field survey and the
 | Control | Where enforced |
 |---|---|
 | Session default sonnet; opus only for the WBS 2.9 session, ADRs, security, double failure | Operator instruction BOOTSTRAP-v4 §0 |
-| Agents pinned: reviewer opus · workers sonnet · scribe haiku; `inherit` forbidden | BOOTSTRAP-v4 §3, acceptance §9 |
+| Agents pinned: reviewer opus · workers sonnet · scribe ~~haiku~~ **sonnet** [SUPERSEDED — GM 2026-09-23 "no haiku" (CHANGELOG-v4 §13; CLAUDE.md MODEL ROUTING); D-125]; `inherit` forbidden | BOOTSTRAP-v4 §3, acceptance §9 |
 | Workers read only listed files | Brief format BOOTSTRAP-v4 §5; reviewer flags violations |
 | One commit per task with `Model:` `Delegated:` `Review:` trailers | CLAUDE.md GIT; reviewer flags missing trailers |
 | No state-only commits | CLAUDE.md GIT |
@@ -448,7 +448,7 @@ Oracle tenancy (doc 42 §1–§7) · the data gates and the field survey and the
 | DONE only with commit hash in PROJECT_STATE | DoD |
 | A blocker is only an un-runnable acceptance test or a money/permission/legal decision gap | CLAUDE.md |
 
-**Expected token distribution:** ~75% sonnet (workers) · ~10% haiku (scribe) · ~10% opus (review) · ~5% session. Calendar compression from parallel lanes: Phases 2, 3, 5 roughly halve; Phase 4 unchanged (ledgers are serial by nature).
+**Expected token distribution:** ~75% sonnet (workers) · ~10% ~~haiku~~ sonnet (scribe) [SUPERSEDED — GM 2026-09-23 "no haiku", CHANGELOG-v4 §13; D-125] · ~10% opus (review) · ~5% session. Calendar compression from parallel lanes: Phases 2, 3, 5 roughly halve; Phase 4 unchanged (ledgers are serial by nature).
 
 ---
 
