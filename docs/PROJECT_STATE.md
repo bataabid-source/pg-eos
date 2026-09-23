@@ -5,8 +5,8 @@ Maintained by pg-scribe only, in the same commit as the task it records.
 
 | field | value |
 |---|---|
-| Phase | 0 — Foundation |
-| Current task | **0.18 — DONE** @ `f03e160`. RLS client-isolation suite (`tests/isolation`, 43/43) + G14 runner in `guards.sql`/`guards-run.sh`. Both SCRs GM-approved ("نفذ الاصلاحات", 2026-09-23) and applied as **D-002** via `database/migrations/0003_M_rls-scr-01-02.sql`: SCR-RLS-01 B (entity_scope gated on `platform.is_internal()` on seven tables) + C (client users hold no `identity.user_entities`, two triggers); SCR-RLS-02 A (RLS + entity_scope on the `platform.audit_log` partitioned parent) + B (G7 → `relkind in ('r','p')`, doc 40 Part F row G7) + C (13B auto-policy loop). Acceptance met: G7 = 0 · zero rows on direct ID substitution, no error. |
+| Phase | 0 — Foundation → 2 — Warehouse (2.1 started 2026-09-23) |
+| Current task | **2.1 — DONE** @ `<pending>`. WH1 registered exactly as doc 19 §4: proof suite `modules/wms/tests/integration/wh1-setup.test.ts` 29/29 (8 blocks · 11 zones · 3,153 storage · 3,301.641 m³ · verify_wh1 21/21) — proof-only slice, no code; `modules/wms` scaffolded like platform/identity. Phase 2 begins. |
 | Golden slice (2.9) | not built · `.golden-slice-accepted` absent · `scripts/new-slice.sh` is a no-op. **Acceptance gains a Phase-0 wiring line (GM 2026-09-22): the golden slice must wire up every part deferred from Phase-0 "mechanism only" tasks — starting with 0.17's login endpoints.** |
 | Deployment tier | Tier 0 (`docs/package/42-Oracle-Cloud-Deployment.md`) |
 | Schema | `database/schema/01 · 13 · 13B · 019` — the ONLY permitted schema · `apply.sh --recreate` **green on this machine 2026-09-22**: 175 tables/14 schemas, `wms.verify_wh1()` 21/21 pass (3,330 locations), G1–G13 = 0 (G6 blocking, 0 rows — WBS 0.16 complete), G18/G-SEED report-only = 0 |
@@ -22,11 +22,11 @@ None claimed. Live table: `tasks/LANE_LOCKS.md` — Phase 0 and the golden slice
 
 | task | commit |
 |---|---|
+| 2.1 — WH1 zones + 8 space blocks proof (modules/wms scaffold) | `<pending>` |
 | 0.18 — RLS client-isolation suite (43/43) + G14 runner; SCRs 01/02 applied (D-002) | `f03e160` |
 | 0.17 — Identity mechanism (mechanisms only): OTP, sessions, RBAC/SoD evaluation — packages/identity/ | `c90dd6e` |
 | 0.16 — Column sensitivity classification: `identity.column_classification` + deploy guard | `a021126` |
 | 0.15 — Document engine: templates, bindings, Chromium PDF, bilingual RTL | `954ff3a` |
-| 0.12 — `packages/events`: outbox relay + subscriber registry | `4164eb0` |
 
 ## Blockers
 
@@ -37,9 +37,9 @@ None claimed. Live table: `tasks/LANE_LOCKS.md` — Phase 0 and the golden slice
 
 ## Next 3 tasks
 
-1. **0.19** — deferred in full (acceptance criterion IS a rendered screen).
-2. **0.20** — Runbook v1 (awaiting 0.6 green, lane A).
-3. **0.6** — CI pipeline, seven gates (lane M, TODO).
+1. **2.8** — stock ledger + derived balance + verify_balance_integrity() (lane 2; deps 0.12 DONE)
+2. **0.6** — CI pipeline (lane M; waits on 0.5 WAITING_GM)
+3. **0.19** — deferred → 2.9.
 
 ## Notes
 
