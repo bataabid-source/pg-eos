@@ -4,6 +4,15 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## 1.5 — ADR-0001 accepted: 1.5 as a proof slice ahead of 2.9 (2026-09-23)
+
+- **Decision (ADR-0001, GM directive 2026-09-23 B1):** WBS 1.5 is built as a limited proof slice in the 2.1 pattern — data model + seed only, no UI, no workflow, no public API — to unblock 2.6 → 2.9; the full 1.5 slice is replicated later from the golden slice 2.9; 1.5 becomes `DONE (proof)` and is excluded from the completion ratio. The ADR records that the schema holds no sales seed (seed = labelled test fixtures; a persistent seed file needs an SCR under G-01) and the INV-C2-3 `≥ 0.85` vs `sales.possible_duplicates` `> 0.85` discrepancy the proof must surface.
+- **`docs/adr/` created (GM directive 2026-09-23 E1):** `README.md` (purpose, opus authorship, `ADR-NNNN-<slug>.md` numbering, template Context · Decision · Alternatives rejected · Consequences · Status) and `ADR-0001-1.5-proof-slice.md`.
+- **CLAUDE.md BUILD METHOD:** one bullet pointing to `docs/adr/` and to ADR-0001; it also names the standing substitute for pre-2.9 proof/mechanism slices (0.9, 0.17, 0.18, 2.1, 2.8 — CHANGELOG 0.16 / 2.1) so the pointer does not contradict the slices already built (opus review note).
+- Model: opus (ADR review and acceptance) · Delegated: — · Review: PASS (ADR self-review, findings listed in the commit body) · tokens: ≈ 45k
+
+---
+
 ## X — Branch and worktree cleanup — GM directive 2026-09-23, B6 (2026-09-23)
 
 - **Rule applied:** no parallelism before 2.9 is accepted; delete only refs with zero commits unmerged into `main`; anything holding unmerged work stays and is listed.

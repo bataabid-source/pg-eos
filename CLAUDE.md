@@ -13,6 +13,9 @@ ARCHITECTURE (non-negotiable)
 BUILD METHOD (doc 36 §5) — every slice, in order, never skipping:
   scenario (Gherkin) → Zod contract → SQL migration with RLS → tests first (RED) → domain until
   unit green → application until integration green → UI until acceptance green → 10-point review.
+- ADRs live in docs/adr/ (template + numbering in docs/adr/README.md). ADR-0001 authorises WBS 1.5 as a proof slice
+  (data model + seed) ahead of the golden slice. Proof/mechanism slices before 2.9 (0.9, 0.17, 0.18, 2.1, 2.8) follow the
+  standing substitute recorded in CHANGELOG 0.16 / 2.1; every use-case slice replicates 2.9.
 - GOLDEN SLICE = WBS 2.9 "Receive inbound order." Built once with full human review. Every later
   slice replicates its file structure exactly. No file without a counterpart in the golden slice.
 - Code track and infra track are independent. Never block code on a manual infra task; develop on
