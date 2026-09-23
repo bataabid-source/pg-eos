@@ -1,10 +1,10 @@
-// modules/wms/tests/integration/stock-ledger.test.ts — WBS 2.8 (pg-tester), RED phase.
-//
+// modules/wms/tests/integration/stock-ledger.test.ts — WBS 2.8 (pg-tester), written RED-first on
+// 2026-09-23 against .claude/briefs/_slice-2.8.brief.md's "Public surface" block, ahead of
 // `modules/wms/src/stock-ledger/{domain,errors,post-movement,rebuild-balance,index}.ts` and the
-// re-export from `modules/wms/index.ts` do not exist yet — pg-backend builds them next, to exactly
-// the contract .claude/briefs/_slice-2.8.brief.md's "Public surface" block pins down. The import
-// below fails to resolve; same class of RED as modules/wms/tests/integration/wh1-setup.test.ts's
-// own precedent (WBS 2.1) and packages/identity/tests/rbac-sod.test.ts (WBS 0.17).
+// re-export from `modules/wms/index.ts` — same RED-first precedent as
+// modules/wms/tests/integration/wh1-setup.test.ts (WBS 2.1) and
+// packages/identity/tests/rbac-sod.test.ts (WBS 0.17). It is now the permanent DB-backed proof
+// suite for that surface.
 //
 // This file is the permanent DB-backed proof suite for doc 38 row 2.8's acceptance ("Zero rows
 // after 1,000 random movements; property test green") plus the GM directive 2026-09-23 phase C
@@ -19,13 +19,17 @@
 // brief's Public surface block specifies: `{ userId: <fixture uuid>, clientId: null, isInternal:
 // true }`.
 //
-// Master decision 11 default taken here (recorded as an open question in the pg-tester report):
-// `wms.verify_balance_integrity()` (01:1493) folds the ledger by (client_id, sku_id,
-// coalesce(to_location_id, from_location_id)) only — it does NOT include batch_no in its GROUP BY,
-// while `balanceKey`/`deriveBalances` (brief Public surface) key on
-// `${clientId}|${skuId}|${locationId}|${batchNo}`. Every ledger entry this suite posts uses
-// batchNo = '' (01:715-719's own stock_balance default), so the two folds can never disagree for
-// this suite's data — this is a scoping choice, not a fix to the discrepancy itself.
+// pg-reviewer migration-gate finding, SCR-WMS-01 (2026-09-23): `wms.verify_balance_integrity()`
+// (01 §wms.verify_balance_integrity (v1.1)) is keyed on (client_id, sku_id, location_id,
+// batch_no) — the SAME key `balanceKey`/`deriveBalances` (brief Public surface) use —
+// `${clientId}|${skuId}|${locationId}|${batchNo}` — and folds ledger batch_no as
+// `coalesce(stock_movements.batch_no, '')`, comparing in both directions (a stock_balance row with
+// no ledger rows is reported too). Decision 11's 1,000-movement property test below therefore
+// draws its batch_no from `LEDGER_BATCH_NOS` — '' plus two named batches — instead of only '', so
+// it actually exercises the batch_no key: it was RED (false deviations) on the v1.0 function; it
+// is GREEN on v1.1 (SCR-WMS-01, migration 0005). `LedgerEntry.batchNo` is a `string`, not
+// `string | null` (domain.ts) — null is not reachable through `postMovement`/`postTransfer`, so no
+// null-batch case is drawn here.
 
 import { randomUUID } from 'node:crypto';
 
@@ -37,7 +41,7 @@ import fc from 'fast-check';
 
 import { FixedClock, Quantity, SequentialIdGenerator } from '@pg-eos/domain-kit';
 
-// The module under test — does not exist yet. This is the RED.
+// The module under test, per the brief's Public surface block.
 import {
   InvalidQuantityError,
   MOVEMENT_TYPES,
@@ -83,9 +87,21 @@ const FIXTURE_LOCATION_COUNT = 5;
 // decision 11: "an explicit, printed seed ... so a failure is reproducible". Printed via the test
 // name below (no console.log — CLAUDE.md · AGENT CONSTRAINTS).
 const CONCURRENCY_SEED = 2_008_1000;
+// pg-reviewer finding, SCR-WMS-01 (2026-09-23): 1,000 movements in batches of
+// CONCURRENCY_BATCH_SIZE against a real database run ~10-12 s observed, well past vitest's 5 s
+// default `testTimeout` — an unbounded run risks the test being cut off mid-`Promise.allSettled`,
+// leaving in-flight inserts that race the suite's own `afterAll` cleanup. An explicit, generous
+// per-test timeout removes that race without touching vitest.config.ts (out of pg-tester's write
+// scope — CLAUDE.md WRITE SCOPE).
+const CONCURRENCY_TEST_TIMEOUT_MS = 60_000;
+// pg-reviewer finding, SCR-WMS-01 (2026-09-23): batch_no values the 1,000-movement property test
+// draws from, so it exercises wms.verify_balance_integrity()'s (client_id, sku_id, location_id,
+// batch_no) key instead of only the '' batch. See the header comment above.
+const LEDGER_BATCH_NOS = ['', 'LEDGER-BATCH-A', 'LEDGER-BATCH-B'] as const;
 
 // decision 10: "performed_by = a fixed uuid constant named in the test (no FK on that column,
-// 01:697)". Also used as ctx.userId per the brief's Public surface block's test-ctx line.
+// 01 wms.stock_movements.performed_by)". Also used as ctx.userId per the brief's Public surface
+// block's test-ctx line.
 const PERFORMED_BY_FIXTURE_UUID = '00000000-0000-4000-8000-0000000208a1';
 
 // Test ctx — brief Public surface block, verbatim: "{ userId: <fixture uuid>, clientId: null,
@@ -335,7 +351,10 @@ describe('Scenario: a receipt is written to the ledger and raises the balance at
 // --- Scenario: the ledger cannot be edited (append-only) — decision 6 --------------------------
 
 describe('Scenario: the ledger cannot be edited (append-only) — decision 6', () => {
-  const roleName = `pg_eos_2_8_proof_${randomUUID().replace(/-/g, '')}`;
+  // pg-reviewer finding, SCR-WMS-01 (2026-09-23): PostgreSQL reserves the `pg_` role-name prefix
+  // ("role name ... is reserved"); `create role pg_eos_2_8_proof_...` fails outright. `pgeos_t_`
+  // does not start with the literal `pg_` and is this suite's own test-fixture-role prefix.
+  const roleName = `pgeos_t_2_8_proof_${randomUUID().replace(/-/g, '')}`;
   const rolePassword = randomUUID();
   let rolePool: Pool;
   let receiptMovementId: string;
@@ -708,6 +727,7 @@ describe('Scenario: 1,000 random movements under concurrency leave zero rows —
     readonly locationIndexB: number;
     readonly movementType: MovementType;
     readonly qtyStr: string;
+    readonly batchNo: (typeof LEDGER_BATCH_NOS)[number];
     readonly isTransfer: boolean;
     readonly isInbound: boolean;
   }
@@ -721,6 +741,9 @@ describe('Scenario: 1,000 random movements under concurrency leave zero rows —
       qtyStr: fc
         .tuple(fc.nat({ max: 50 }), fc.integer({ min: 1, max: 999 }))
         .map(([intPart, fracPart]) => `${intPart}.${String(fracPart).padStart(3, '0')}`),
+      // pg-reviewer finding, SCR-WMS-01: several batches per location, including '' — see
+      // LEDGER_BATCH_NOS above and the header comment.
+      batchNo: fc.constantFrom(...LEDGER_BATCH_NOS),
       isTransfer: fc.boolean(),
       isInbound: fc.boolean(),
     });
@@ -739,7 +762,7 @@ describe('Scenario: 1,000 random movements under concurrency leave zero rows —
           entityId,
           correlationId,
           performedBy: PERFORMED_BY_FIXTURE_UUID,
-          base: { clientId: fixtureClientId, skuId, qty, batchNo: '', uom: 'EA' },
+          base: { clientId: fixtureClientId, skuId, qty, batchNo: descriptor.batchNo, uom: 'EA' },
           fromLocationId: locA,
           toLocationId: locB,
         },
@@ -753,7 +776,7 @@ describe('Scenario: 1,000 random movements under concurrency leave zero rows —
       fromLocationId: descriptor.isInbound ? null : locA,
       toLocationId: descriptor.isInbound ? locA : null,
       qty,
-      batchNo: '',
+      batchNo: descriptor.batchNo,
       movementType: descriptor.movementType,
       uom: 'EA',
     };
@@ -824,6 +847,7 @@ describe('Scenario: 1,000 random movements under concurrency leave zero rows —
         ).toBe(true);
       }
     },
+    CONCURRENCY_TEST_TIMEOUT_MS,
   );
 });
 

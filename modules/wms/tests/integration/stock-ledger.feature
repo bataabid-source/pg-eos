@@ -1,9 +1,9 @@
 # WBS 2.8 — Stock ledger + derived balance + wms.verify_balance_integrity()
 # Copied from .claude/briefs/_slice-2.8.brief.md "Scenario (Gherkin first)" section, verbatim,
-# split so every clause is its own step (Given/When/Then/And). This is the RED artefact pg-tester
-# writes before any implementation exists (BOOTSTRAP-v5 §5); pg-backend implements
-# modules/wms/src/stock-ledger/* until modules/wms/tests/integration/stock-ledger.test.ts is green
-# without touching either file.
+# split so every clause is its own step (Given/When/Then/And). Written RED-first by pg-tester on
+# 2026-09-23 (BOOTSTRAP-v5 §5), ahead of modules/wms/src/stock-ledger/*, which implements exactly
+# this feature; it is now the permanent scenario-by-scenario reference for
+# modules/wms/tests/integration/stock-ledger.test.ts.
 
 Feature: Stock ledger is append-only and the derived balance always equals the ledger
   # WBS 2.8; doc 40 P3 (append-only ledgers) / P4 (derived, rebuildable balances);

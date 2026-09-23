@@ -2961,7 +2961,7 @@ erDiagram
 | `wms.generate_locations` | `integer` | 19 §4 بند 5. الحارسان يمنعان كسر الصيغة السباعية قبل كتابة صفّ واحد. خريطة الممرات مدخَل بشري من المسح الميداني (19 §7 · §9 بند 4). |
 | `wms.space_availability` | `TABLE(block_code text, uom text, capacity numeric, out_of_service numeric, contracted numeric, reserved numeric, sellable numeric, occupied_now numeric, idle_contracted numeric)` | المساحة المتاحة في كتلة بعد الحجوزات والعازل |
 | `wms.trg_space_reservation_guard` | `trigger` | — |
-| `wms.verify_balance_integrity` | `TABLE(client_id uuid, sku_id uuid, location_id uuid, ledger_qty numeric, balance_qty numeric, diff numeric)` | يجب أن يعيد صفر صفوف. أي صف = يوقف النشر |
+| `wms.verify_balance_integrity` | `TABLE(client_id uuid, sku_id uuid, location_id uuid, batch_no text, ledger_qty numeric, balance_qty numeric, diff numeric)` | حارس G1 (40 Part F). صفر صفوف. المفتاح (client_id, sku_id, location_id, batch_no) والمقارنة في الاتجاهين (INV-C3-2) — 01 v1.1 · SCR-WMS-01 · 23/09/2026. صالحة فقط بدور يتجاوز RLS |
 | `wms.verify_wh1` | `TABLE(check_name text, expected numeric, actual numeric, passed boolean)` | الواحد والعشرون اختباراً يجب أن تمر كلها (19 §3-4). أي فشل = خطأ في التوليد أو تعديل غير مصرّح |
 | `wms.wo_rollup_qty_done` | `trigger` | — |
 
@@ -3002,7 +3002,7 @@ erDiagram
 | `imile.verify_no_orphan_ids` | حارس: يعيد هويات السائقين بلا موظف مرتبط |
 | `partners.verify_paid_matched` | حارس: يعيد كل مدفوع للشريك بلا مطابقة |
 | `platform.verify_audit_chain` | حارس G8 (40 Part F). يجب أن يعيد صفر صفوف. ترتيب `chain_seq` فقط؛ يكشف عدم تطابق التجزئة والتجزئة السابقة والتكرار والفجوات وقسماً بلا فهرس `chain_seq` الفريد ومالكاً لا يتجاوز RLS ونقطة ارتكاز فارغة أو غائبة (13B v4.3 · ADR-0002). أي صف → تنبيه GM + SYSADMIN (31 §3-3) |
-| `wms.verify_balance_integrity` | يجب أن يعيد صفر صفوف. أي صف = يوقف النشر |
+| `wms.verify_balance_integrity` | يجب أن يعيد صفر صفوف. أي صف = يوقف النشر (G1). يجمّع الدفتر بمفتاح `stock_balance` الكامل مع `batch_no`، ويبلّغ صف رصيد بلا حركات (01 v1.1 · SCR-WMS-01) |
 | `wms.verify_wh1` | الواحد والعشرون اختباراً يجب أن تمر كلها (19 §3-4). أي فشل = خطأ في التوليد أو تعديل غير مصرّح |
 
 ### 5.4 المناظير (Views)

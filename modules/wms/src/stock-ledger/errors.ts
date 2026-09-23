@@ -5,7 +5,7 @@
 // with name set") — an `Error` subclass does NOT get its constructor name for free at runtime.
 
 /** decision 1: an entry with both/neither of fromLocationId, toLocationId set, or a movementType
- *  outside MOVEMENT_TYPES (13B:3446-3449). Thrown by validateEntry before any DB call. */
+ *  outside MOVEMENT_TYPES (13B chk_stock_movements_type (§13B-24)). Thrown by validateEntry before any DB call. */
 export class InvalidLedgerEntryError extends Error {
   constructor(message: string) {
     super(message);
@@ -13,7 +13,7 @@ export class InvalidLedgerEntryError extends Error {
   }
 }
 
-/** decision 4: qty <= 0 (wms.stock_movements qty_not_zero, 01:700, plus decision 1's qty > 0).
+/** decision 4: qty <= 0 (01 wms.stock_movements constraint qty_not_zero, plus decision 1's qty > 0).
  *  Thrown by validateEntry before any DB call — never a racy pre-check against the ledger. */
 export class InvalidQuantityError extends Error {
   constructor(message: string) {
@@ -22,7 +22,7 @@ export class InvalidQuantityError extends Error {
   }
 }
 
-/** decision 3: wms.stock_balance's `no_negative_stock` check (01:720) rejected the posting. The
+/** decision 3: 01 wms.stock_balance constraint no_negative_stock rejected the posting. The
  *  transaction that raised it is rolled back by withContext before this is thrown, so no ledger
  *  row, outbox row or audit row survives for the attempt. */
 export class NegativeStockError extends Error {

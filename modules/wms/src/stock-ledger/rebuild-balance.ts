@@ -2,12 +2,14 @@
 //
 // decision 8 / doc 40 P4: balances are derived and rebuildable with zero diff.
 // rebuildBalance(ctx, { clientId, skuId }) recomputes qty_on_hand per (location_id, batch_no) from
-// the ledger with the SAME fold wms.verify_balance_integrity() uses (01:1493:
-// `sum(case when to_location_id is not null then qty else -qty end)`, grouped by
-// (client_id, sku_id, coalesce(to_location_id, from_location_id))) and overwrites wms.stock_balance
-// for that (client, sku) in one transaction: rows the ledger no longer has any movement for are
-// deleted; qty_allocated is preserved (not part of the `set` clause below, so an existing row's
-// value survives the upsert — 2.11's concern, not 2.8's).
+// the ledger with the SAME fold wms.verify_balance_integrity() uses
+// (01 §wms.verify_balance_integrity, v1.1, SCR-WMS-01):
+// `sum(case when to_location_id is not null then qty else -qty end)`, grouped by the full
+// stock_balance key (client_id, sku_id, coalesce(to_location_id, from_location_id),
+// coalesce(batch_no, '')) and overwrites wms.stock_balance for that (client, sku) in one
+// transaction: rows the ledger no longer has any movement for are deleted; qty_allocated is
+// preserved (not part of the `set` clause below, so an existing row's value survives the upsert —
+// 2.11's concern, not 2.8's).
 //
 // `last_movement_at` is set from the ledger's own last movement time for that (location, batch)
 // pair — the actual last time stock moved there — rather than "now the rebuild ran", which would

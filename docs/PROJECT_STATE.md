@@ -6,13 +6,13 @@ Maintained by pg-scribe only, in the same commit as the task it records.
 | field | value |
 |---|---|
 | Phase | 0 — Foundation → 2 — Warehouse (2.1 started 2026-09-23) |
-| Current task | **2.8 — ACTIVE** (lane M). Phase G done: SCR-AUDIT-01 fixed by `fix(0.9)` (ADR-0002, migration 0004 — this commit; G4 8×500 before 2008/2009/2004 → after 0/0/0). Next: H (SCR-WMS-01, migration 0005), then 2.8 close-out. Completion 12/132. |
+| Current task | **2.8 — ACTIVE** (lane M). G done (`e5bff15`); H done (SCR-WMS-01, migration 0005 — this commit). Next: 2.8 close-out. Completion 12/132. |
 | Golden slice (2.9) | not built · `.golden-slice-accepted` absent · `scripts/new-slice.sh` is a no-op. **Acceptance gains a Phase-0 wiring line (GM 2026-09-22): the golden slice must wire up every part deferred from Phase-0 "mechanism only" tasks — starting with 0.17's login endpoints.** |
 | Deployment tier | Tier 0 (`docs/package/42-Oracle-Cloud-Deployment.md`) |
-| Schema | `database/schema/01 · 13 · 13B · 019` — the ONLY permitted schema (13B v4.3, migrations 0001–0004) · `apply.sh --recreate` **green on this machine 2026-09-23**: 175 tables/14 schemas, `wms.verify_wh1()` 21/21 pass (3,330 locations), G1–G13 = 0 (G6 blocking, 0 rows — WBS 0.16 complete), G18/G-SEED report-only = 0 |
-| Session model | fable (`claude-fable-5-1`, GM-set — not one of the four `docs/MODEL_ROUTING.md` tier aliases, reported verbatim, never silently mapped). Reviews and security design run on opus per MODEL_ROUTING §4 · GM 2026-09-23: workers sonnet, reviews/ADR opus, pg-scribe repinned to sonnet, no haiku; the Master session itself still runs on the GM-set session model (changeable only from the model menu). |
+| Schema | `database/schema/01 · 13 · 13B · 019` — the ONLY permitted schema (01 v1.1, 13B v4.3, migrations 0001–0005) · `apply.sh --recreate` **green on this machine 2026-09-23**: 175 tables/14 schemas, `wms.verify_wh1()` 21/21 pass (3,330 locations), G1–G13 = 0 (G6 blocking, 0 rows — WBS 0.16 complete), G18/G-SEED report-only = 0 |
+| Session model | opus (`claude-opus-5-5`, set by the GM via /model on 2026-09-23 before phase F; earlier today fable `claude-fable-5-1`) · workers sonnet, reviews/ADR/security opus, pg-scribe sonnet, no haiku (GM 2026-09-23) |
 | Toolchain | pnpm 9.15.9 · Node 25.2.1 · Docker 29.0.1 · psql 16.15 installed · migrations auto-runner enabled (WBS 0.11) · **psql UTF-8 fix** (WBS 0.15: stdin redirect not `-f` to avoid multi-byte corruption; trade-off: error output loses line numbers — see `apply.sh` header for details) · TypeScript 5.9.3 ceiling `<6.1.0` |
-| Setup check | `scripts/check-setup.sh` → FILES READY · `scripts/check-boundaries.sh` → BOUNDARIES ENFORCED (A–F) · `apply.sh --recreate` GREEN 2026-09-23 (175 tables, migrations 0001–0003) · guards G1–G14/G18 GREEN (G15–G17 not yet run) · `pnpm -w build --force` 9/9 and `pnpm -w test -- --force` 10/10 GREEN 2026-09-23 (no turbo cache) · commit-msg hook `.githooks/commit-msg` active |
+| Setup check | `scripts/check-setup.sh` → FILES READY · `scripts/check-boundaries.sh` → BOUNDARIES ENFORCED (A–F) · `apply.sh --recreate` GREEN 2026-09-23 (175 tables, migrations 0001–0005) · guards G1–G14/G18 GREEN (G15–G17 not yet run) · `pnpm -w build --force` 9/9 and `pnpm -w test -- --force` 10/10 GREEN 2026-09-23 (no turbo cache) · commit-msg hook `.githooks/commit-msg` active |
 
 ## Lanes
 
@@ -32,7 +32,7 @@ wms claimed by lane M for 2.8 (tasks/LANE_LOCKS.md) — single lane, no parallel
 
 - **2.8 audit-row-last blocker (ADR-0002):** `modules/wms/src/stock-ledger/post-movement.ts` `postTransfer` writes the out-entry audit row before the in-entry `stock_balance` update, violating doc 40 §B2 "must write the audit row as the last statement before commit"; caused one deadlock in a shared-DB full run (chain stayed intact).
 - **Open G-01 item:** where the G8 anchor is stored before the first partition detach (≥ 2028-03).
-- **SCR-WMS-01 (GM-approved, phase H):** verify_balance_integrity() to fold by the full stock_balance key incl. batch_no — migration 0005, after G.
+- **2.8 close-out pending:** postTransfer audit-row-last (ADR-0002) · rebuildBalance under a partial RLS view (review finding 9) · opus close review.
 - WAITING_GM · **2.2** field survey — chain 2.2 → 2.3 → 2.4 → 2.9.
 - WAITING_GM · **0.2** three cloud decisions (doc 42 §11) → 0.3 → 0.5 → 0.6; and **0.8** restore test.
 - **Phase-0 gate open** (0.2, 0.8); **2.9 does not start before it closes**.
@@ -43,9 +43,9 @@ wms claimed by lane M for 2.8 (tasks/LANE_LOCKS.md) — single lane, no parallel
 
 ## Next 3 tasks
 
-1. H SCR-WMS-01 (migration 0005).
-2. 2.8 close-out (audit-row-last fix, role prefix, timeout, cleanup FK, skipped tests).
-3. 1.5 proof slice (ADR-0001; 13B:2135 → ≥ 0.85).
+1. 2.8 close-out.
+2. 1.5 proof slice (ADR-0001; 13B sales.possible_duplicates (§13B-19) '> 0.85' → '>= 0.85').
+3. 0.6 CI (waits on 0.5).
 
 ## Notes
 

@@ -4,19 +4,19 @@ Task: 2.8 — Stock ledger + derived balance + `wms.verify_balance_integrity()` 
 Lock: wms (tasks/LANE_LOCKS.md)      Owner: WH_MGR      Deps: 0.12 DONE (`4164eb0`)
 Model routing (GM 2026-09-23): pg-tester sonnet → pg-backend sonnet → pg-reviewer opus → pg-scribe sonnet. Master orchestrates only.
 Type of slice: **mechanism slice** (precedent WBS 0.17, `c90dd6e`): the schema ALREADY delivers the three artefacts —
-`wms.stock_movements` (append-only ledger, 01:681), `wms.stock_balance` (derived balance, 01:707) and
-`wms.verify_balance_integrity()` (01:1493, guard G1). What 2.8 builds is the **posting mechanism** that writes the
+`wms.stock_movements` (append-only ledger, 01 wms.stock_movements), `wms.stock_balance` (derived balance, 01 wms.stock_balance) and
+`wms.verify_balance_integrity()` (01 §wms.verify_balance_integrity (v1.1), guard G1). What 2.8 builds is the **posting mechanism** that writes the
 ledger and maintains the derived balance so that the guard stays at zero rows, plus the permanent proof suite.
 No endpoint, no UI, no XState machine (no state transitions exist in a ledger), no hexagonal tree — `scripts/new-slice.sh`
 is a no-op until 2.9 (standing substitute, CHANGELOG 0.16 / 2.1); the code lives flat under `modules/wms/src/stock-ledger/`.
 
 ## Read ONLY
 - CLAUDE.md · .claude/briefs/wms.brief.md (§2–§3; ignore the mojibake in obj_description)
-- database/schema/01-Data-Model.sql: 675-720 (skus tail, `stock_movements`, `stock_balance`), 1490-1512 (`verify_balance_integrity`),
+- database/schema/01-Data-Model.sql: 675-720 (skus tail, `stock_movements`, `stock_balance`), 01 §wms.verify_balance_integrity (v1.1),
   and the `sales.accounts` / `wms.skus` / `wms.locations` DDL (grep `create table sales.accounts`, `create table wms.skus`,
   `create table wms.locations`) — fixture columns only
-- database/schema/13B-Schema-Reference-Consolidation.sql: 3446-3449 (`chk_stock_movements_type` — the ONLY legal movement_type
-  list), 1947-1962 (`entered_offline` / `original_occurred_at` columns added to stock_movements), 178-233 (`platform.audit_log` DDL)
+- database/schema/13B-Schema-Reference-Consolidation.sql: `13B chk_stock_movements_type (§13B-24)` (the ONLY legal movement_type
+  list), the `entered_offline` loop (`entered_offline` / `original_occurred_at` columns added to stock_movements), `§13B-2 platform.audit_log` (DDL)
 - database/schema/guards.sql: 31-32 (G1 is exactly `select * from wms.verify_balance_integrity()`)
 - docs/package/40-Build-Specification-EN.md: 30-31 (P3 append-only ledgers · P4 derived balances rebuildable with zero diff),
   244-245 (INV-C3-1, INV-C3-2), 639 (G9: every outbox row has an audit_log row with the same correlation_id), 631 (G1)
@@ -50,7 +50,7 @@ movements, (c) `verify_balance_integrity()` detects any deviation, (d) edge case
 Gates: build 9/9 · `pnpm -w test -- --force` all green · `apply.sh --recreate` green with G1–G13 = 0.
 
 ## Master decisions that the workers copy (not re-derive)
-1. **Single-sided ledger rows.** `verify_balance_integrity()` (01:1493) attributes each row to `coalesce(to_location_id,
+1. **Single-sided ledger rows.** `verify_balance_integrity()` (01 §wms.verify_balance_integrity (v1.1)) attributes each row to `coalesce(to_location_id,
    from_location_id)` with sign `+` when `to_location_id` is set, else `−`. A row carrying BOTH sides would therefore count only
    the `to` side. To keep the guard at zero without touching the schema, every ledger row written by this mechanism has
    **exactly one** of `from_location_id` / `to_location_id` set, and `qty > 0` (direction comes from the side). A **transfer**
@@ -58,18 +58,18 @@ Gates: build 9/9 · `pnpm -w test -- --force` all green · `apply.sh --recreate`
    both `movement_type = 'transfer'`, sharing `ref_table/ref_id` and the outbox `correlation_id`. Recorded as an open question
    for the GM (a two-sided row is representable in 01 but not in the guard); no schema change is proposed here.
 2. **Balance key.** `wms.stock_balance` upsert key is `(client_id, sku_id, location_id, batch_no)` with `batch_no` default `''`
-   (01:715-719). The mechanism upserts `qty_on_hand = qty_on_hand ± qty` atomically (`on conflict … do update`) and sets
+   (01 wms.stock_balance.batch_no default ''). The mechanism upserts `qty_on_hand = qty_on_hand ± qty` atomically (`on conflict … do update`) and sets
    `last_movement_at` from the injected Clock. `qty_allocated` is NOT touched by 2.8 (allocation belongs to 2.11).
-3. **Negative stock.** `no_negative_stock` (01:720) is the authority. A movement that would drive `qty_on_hand` below zero is
+3. **Negative stock.** `no_negative_stock` (01 wms.stock_balance constraint no_negative_stock) is the authority. A movement that would drive `qty_on_hand` below zero is
    rejected by the constraint (SQLSTATE 23514); the transaction rolls back, so no ledger row, no outbox row, no audit row remain.
    The mechanism surfaces this as a typed `NegativeStockError`; it does not pre-check with a racy read.
-4. **Zero / negative quantity.** `qty_not_zero` (01:700) plus decision 1 (`qty > 0`): the domain rejects `qty <= 0` before any
+4. **Zero / negative quantity.** `qty_not_zero` (01 wms.stock_movements constraint qty_not_zero) plus decision 1 (`qty > 0`): the domain rejects `qty <= 0` before any
    DB call with a typed `InvalidQuantityError`. Quantity arithmetic uses `@pg-eos/domain-kit` `Quantity` (numeric(14,3)), never JS floats.
-5. **Reversal = counter-entry only** (01:705 comment "التصحيح بحركة تسوية مقابلة فقط"; doc 40 P3). `reverseMovement` posts one
+5. **Reversal = counter-entry only** (01 comment on wms.stock_movements "التصحيح بحركة تسوية مقابلة فقط"; doc 40 P3). `reverseMovement` posts one
    row with `movement_type = 'adjust'`, the opposite side, the same qty and batch, `ref_table = 'wms.stock_movements'`,
    `ref_id = <original id>`, `reason_code = 'reversal'`. The original row is never updated or deleted. Reversing a reversal is
    allowed (it is just another counter-entry). Reversing a non-existent id → typed `MovementNotFoundError`.
-6. **Append-only proof.** `revoke update, delete on wms.stock_movements from public` (01:704) does not bind a superuser, and
+6. **Append-only proof.** `revoke update, delete on wms.stock_movements from public` (01 revoke update, delete on wms.stock_movements) does not bind a superuser, and
    the runtime still connects as superuser (carried-forward 0.18 item 7). The proof therefore creates a temporary
    NOBYPASSRLS, non-superuser role with `select, insert` on the table (and `usage` on schema wms), attempts `update` and
    `delete` through it, and expects SQLSTATE 42501 with the row unchanged. The role is dropped in afterAll.
@@ -93,7 +93,7 @@ Gates: build 9/9 · `pnpm -w test -- --force` all green · `apply.sh --recreate`
     in beforeAll and deleted in afterAll together with the fixture `stock_balance` and `stock_movements` rows (the test pool is
     superuser, so it may delete ledger rows — production never does) and the fixture outbox rows (by `correlation_id`).
     Audit rows stay (hash chain; the 0.18 tail-only rule) — they reference fixture ids only. `performed_by` = a fixed uuid
-    constant named in the test (no FK on that column, 01:697).
+    constant named in the test (no FK on that column, 01 wms.stock_movements.performed_by).
 11. **Randomness in tests.** The 1,000-movement run uses fast-check with an explicit, printed seed (`fc.assert(..., { seed })`
     or a seeded generator) so a failure is reproducible; movements are drawn from decisions 1–5 (receipt/putaway/pick/transfer/
     adjust/count/damage/return/scrap/issue/pack/ship as the 13B list allows), against ≥ 3 SKUs × ≥ 5 locations, executed with
@@ -101,15 +101,17 @@ Gates: build 9/9 · `pnpm -w test -- --force` all green · `apply.sh --recreate`
     failures. At the end: `select * from wms.verify_balance_integrity()` returns **zero rows** (whole-table, the acceptance
     wording) and, for each fixture (client, sku, location), `qty_on_hand` equals the fold of the fixture's ledger rows.
 
+**SCR-WMS-01 (2026-09-23): the guard now keys by batch_no and compares both directions — decision 1's single-sided rows still hold.**
+
 ## Public surface pg-backend implements (the RED tests import exactly these names from `modules/wms/index.ts`)
 ```ts
 // domain.ts — pure, no I/O, no Date, no random
-export const MOVEMENT_TYPES = ['receipt','putaway','pick','pack','ship','issue','transfer','adjust','count','damage','return','scrap'] as const; // 13B:3448 verbatim
+export const MOVEMENT_TYPES = ['receipt','putaway','pick','pack','ship','issue','transfer','adjust','count','damage','return','scrap'] as const; // 13B chk_stock_movements_type (§13B-24) verbatim
 export type MovementType = (typeof MOVEMENT_TYPES)[number];
 export interface LedgerEntry { readonly clientId: string; readonly skuId: string; readonly fromLocationId: string | null;
   readonly toLocationId: string | null; readonly qty: Quantity; readonly batchNo: string; readonly movementType: MovementType; readonly uom: string; }
 export function validateEntry(entry: LedgerEntry): LedgerEntry;                 // throws InvalidLedgerEntryError | InvalidQuantityError
-export function deriveBalances(entries: readonly LedgerEntry[]): ReadonlyMap<string, Quantity>; // key `${clientId}|${skuId}|${locationId}|${batchNo}`, same fold as 01:1493
+export function deriveBalances(entries: readonly LedgerEntry[]): ReadonlyMap<string, Quantity>; // key `${clientId}|${skuId}|${locationId}|${batchNo}`, same fold as 01 §wms.verify_balance_integrity (v1.1)
 export function balanceKey(clientId: string, skuId: string, locationId: string, batchNo: string): string;
 export function planTransfer(base: Omit<LedgerEntry,'fromLocationId'|'toLocationId'|'movementType'>, from: string, to: string): readonly [LedgerEntry, LedgerEntry];
 export function planReversal(original: LedgerEntry): LedgerEntry;               // decision 5

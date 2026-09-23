@@ -1,9 +1,8 @@
-// modules/wms/tests/unit/stock-ledger.domain.test.ts — WBS 2.8 (pg-tester), RED phase.
-//
-// `modules/wms/src/stock-ledger/domain.ts` does not exist yet — pg-backend builds it next, to
-// exactly the contract the slice brief's "Public surface" block pins down
-// (.claude/briefs/_slice-2.8.brief.md). The import below fails to resolve; same class of RED as
-// packages/domain-kit's own WBS 0.14 suites and packages/identity's WBS 0.17 suite.
+// modules/wms/tests/unit/stock-ledger.domain.test.ts — WBS 2.8 (pg-tester), written RED-first on
+// 2026-09-23 against `modules/wms/src/stock-ledger/domain.ts`'s contract, exactly the "Public
+// surface" block pins down (.claude/briefs/_slice-2.8.brief.md) — same RED-first precedent as
+// packages/domain-kit's own WBS 0.14 suites and packages/identity's WBS 0.17 suite. It is now the
+// permanent unit + property proof suite for that surface.
 //
 // Pure domain only: no DB, no Date, no Math.random() (CLAUDE.md · AGENT CONSTRAINTS). Every
 // arbitrary is built from fast-check primitives or from `@pg-eos/domain-kit`'s `Quantity`, never
@@ -23,7 +22,7 @@ import { describe, expect, it } from 'vitest';
 
 import { Quantity } from '@pg-eos/domain-kit';
 
-// The module under test — does not exist yet. This is the RED.
+// The module under test, per the brief's Public surface block.
 import {
   MOVEMENT_TYPES,
   balanceKey,
@@ -43,7 +42,7 @@ const PROPERTY_SEED = 2_008_000; // WBS 2.8 — fixed, printed seed (test names 
 const NUM_RUNS = 1000; // doc 38 row 2.8 acceptance: "1,000 random movements" — the domain-side
 // analogue is 1,000 property runs per fast-check convention (packages/domain-kit precedent).
 
-// 13B:3446-3449 chk_stock_movements_type — the ONLY legal movement_type list. Copied from the
+// 13B chk_stock_movements_type (§13B-24) — the ONLY legal movement_type list. Copied from the
 // brief's Public surface block, which itself copies 13B verbatim; never re-typed independently
 // here so this suite cannot silently drift from MOVEMENT_TYPES's own export.
 const EXPECTED_MOVEMENT_TYPES = [
@@ -147,7 +146,7 @@ const mapsEqual = (
 
 // --- MOVEMENT_TYPES / balanceKey — smoke unit tests -------------------------------------------
 
-describe('MOVEMENT_TYPES (13B:3446-3449, chk_stock_movements_type)', () => {
+describe('MOVEMENT_TYPES (13B chk_stock_movements_type (§13B-24))', () => {
   it('is exactly the twelve legal movement types, no other', () => {
     expect([...MOVEMENT_TYPES].sort()).toEqual([...EXPECTED_MOVEMENT_TYPES].sort());
     expect(MOVEMENT_TYPES).toHaveLength(12);
@@ -159,7 +158,7 @@ describe('balanceKey (brief Public surface: `${clientId}|${skuId}|${locationId}|
     expect(balanceKey('c1', 's1', 'l1', 'B1')).toBe('c1|s1|l1|B1');
   });
 
-  it('preserves an empty batchNo (01:715-719 default) as a trailing empty segment', () => {
+  it("preserves an empty batchNo (01 wms.stock_balance.batch_no default '') as a trailing empty segment", () => {
     expect(balanceKey('c1', 's1', 'l1', '')).toBe('c1|s1|l1|');
   });
 });
@@ -247,7 +246,7 @@ describe('Property: validateEntry (decisions 1 and 4)', () => {
     );
   });
 
-  it('rejects qty <= 0 with InvalidQuantityError (decision 4, qty_not_zero 01:700 plus qty > 0)', () => {
+  it("rejects qty <= 0 with InvalidQuantityError (decision 4, 01 wms.stock_movements constraint qty_not_zero, plus decision 1's qty > 0)", () => {
     fc.assert(
       fc.property(
         validLedgerEntryArb(),
@@ -285,7 +284,7 @@ describe('Property: validateEntry (decisions 1 and 4)', () => {
     );
   });
 
-  it('rejects a movementType outside MOVEMENT_TYPES (13B:3446-3449)', () => {
+  it('rejects a movementType outside MOVEMENT_TYPES (13B chk_stock_movements_type (§13B-24))', () => {
     const invalidMovementTypeArb = fc
       .string({ minLength: 1, maxLength: 20 })
       .filter((s) => !(MOVEMENT_TYPES as readonly string[]).includes(s));

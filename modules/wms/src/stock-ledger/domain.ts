@@ -4,16 +4,18 @@
 // arithmetic goes through @pg-eos/domain-kit's Quantity (numeric(14,3), bigint-backed) — never a
 // raw JS number/float.
 //
-// The fold in deriveBalances is the SAME fold wms.verify_balance_integrity() uses (01:1493):
-// `sum(case when to_location_id is not null then qty else -qty end)`, grouped by
-// (client_id, sku_id, location) — decision 1 makes every entry single-sided (qty > 0, exactly one
-// of fromLocationId/toLocationId set), so "location" here is always the one side that is set.
+// The fold in deriveBalances is the SAME fold wms.verify_balance_integrity() uses
+// (01 §wms.verify_balance_integrity, v1.1, SCR-WMS-01):
+// `sum(case when to_location_id is not null then qty else -qty end)`, grouped by the full
+// stock_balance key (client_id, sku_id, location_id, coalesce(batch_no, '')) — decision 1 makes
+// every entry single-sided (qty > 0, exactly one of fromLocationId/toLocationId set), so
+// "location" here is always the one side that is set.
 
 import { Quantity } from '@pg-eos/domain-kit';
 
 import { InvalidLedgerEntryError, InvalidQuantityError } from './errors.js';
 
-// 13B:3446-3449 chk_stock_movements_type — the ONLY legal movement_type list, copied verbatim.
+// 13B chk_stock_movements_type (§13B-24) — the ONLY legal movement_type list, copied verbatim.
 export const MOVEMENT_TYPES = [
   'receipt',
   'putaway',
@@ -51,7 +53,7 @@ export interface LedgerEntry {
 export function validateEntry(entry: LedgerEntry): LedgerEntry {
   if (!entry.qty.isPositive()) {
     throw new InvalidQuantityError(
-      `qty must be > 0 (wms.stock_movements qty_not_zero, 01:700, plus decision 1's qty > 0); ` +
+      `qty must be > 0 (01 wms.stock_movements constraint qty_not_zero, plus decision 1's qty > 0); ` +
         `got "${entry.qty.toString()}"`,
     );
   }
@@ -68,7 +70,7 @@ export function validateEntry(entry: LedgerEntry): LedgerEntry {
   if (!MOVEMENT_TYPE_SET.has(entry.movementType)) {
     throw new InvalidLedgerEntryError(
       `movementType ${JSON.stringify(entry.movementType)} is not one of ` +
-        `${MOVEMENT_TYPES.join(', ')} (13B:3446-3449, chk_stock_movements_type)`,
+        `${MOVEMENT_TYPES.join(', ')} (13B chk_stock_movements_type (§13B-24))`,
     );
   }
 

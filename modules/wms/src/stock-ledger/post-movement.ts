@@ -8,7 +8,7 @@
 // Per posted ledger row, in the SAME transaction (decision 7, G9 doc 40:639):
 //   1. insert wms.stock_movements (single-sided, qty > 0 — decision 1)
 //   2. upsert wms.stock_balance: qty_on_hand = qty_on_hand +/- qty (decision 2); the
-//      no_negative_stock check (01:720, decision 3) is the only rejection authority — this
+//      01 wms.stock_balance constraint no_negative_stock (decision 3) is the only rejection authority — this
 //      mechanism never pre-checks with a racy read, it maps the constraint violation to a typed
 //      NegativeStockError instead.
 //   3. writeOutboxEvent (aggregateType 'wms.stock_movements', eventType 'wms.stock.moved')
@@ -34,9 +34,9 @@ import {
 import { MovementNotFoundError, NegativeStockError } from './errors.js';
 
 // decision 1: SQLSTATE for a CHECK constraint violation (Postgres error class 23 — integrity
-// constraint violation, code 23514) — the class the `no_negative_stock` check (01:720) raises.
+// constraint violation, code 23514) — the class 01 wms.stock_balance constraint no_negative_stock raises.
 const CHECK_VIOLATION_SQLSTATE = '23514';
-// wms.stock_balance's own constraint name (01:720) — matched together with the SQLSTATE so no
+// 01 wms.stock_balance constraint no_negative_stock — matched together with the SQLSTATE so no
 // OTHER check violation on the same table is ever mistaken for a negative-stock rejection.
 const NO_NEGATIVE_STOCK_CONSTRAINT = 'no_negative_stock';
 
@@ -234,7 +234,7 @@ async function applyLockedBalanceDelta(
     if (isNegativeStockViolation(error)) {
       throw new NegativeStockError(
         `movement would drive qty_on_hand negative at location ${locationId} ` +
-          `(wms.stock_balance no_negative_stock check, 01:720)`,
+          `(01 wms.stock_balance constraint no_negative_stock)`,
         { cause: error },
       );
     }
