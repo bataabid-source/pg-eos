@@ -6,7 +6,7 @@ Maintained by pg-scribe only, in the same commit as the task it records.
 | field | value |
 |---|---|
 | Phase | 0 — Foundation → 2 — Warehouse (2.1 started 2026-09-23) |
-| Current task | **2.1 — DONE** @ `<pending>`. WH1 registered exactly as doc 19 §4: proof suite `modules/wms/tests/integration/wh1-setup.test.ts` 29/29 (8 blocks · 11 zones · 3,153 storage · 3,301.641 m³ · verify_wh1 21/21) — proof-only slice, no code; `modules/wms` scaffolded like platform/identity. Phase 2 begins. |
+| Current task | **2.1 — DONE** @ `0d546d5`. WH1 registered exactly as doc 19 §4: proof suite `modules/wms/tests/integration/wh1-setup.test.ts` 29/29 (8 blocks · 11 zones · 3,153 storage · 3,301.641 m³ · verify_wh1 21/21) — proof-only slice, no code; `modules/wms` scaffolded like platform/identity. Phase 2 begins. |
 | Golden slice (2.9) | not built · `.golden-slice-accepted` absent · `scripts/new-slice.sh` is a no-op. **Acceptance gains a Phase-0 wiring line (GM 2026-09-22): the golden slice must wire up every part deferred from Phase-0 "mechanism only" tasks — starting with 0.17's login endpoints.** |
 | Deployment tier | Tier 0 (`docs/package/42-Oracle-Cloud-Deployment.md`) |
 | Schema | `database/schema/01 · 13 · 13B · 019` — the ONLY permitted schema · `apply.sh --recreate` **green on this machine 2026-09-22**: 175 tables/14 schemas, `wms.verify_wh1()` 21/21 pass (3,330 locations), G1–G13 = 0 (G6 blocking, 0 rows — WBS 0.16 complete), G18/G-SEED report-only = 0 |
@@ -22,7 +22,7 @@ None claimed. Live table: `tasks/LANE_LOCKS.md` — Phase 0 and the golden slice
 
 | task | commit |
 |---|---|
-| 2.1 — WH1 zones + 8 space blocks proof (modules/wms scaffold) | `<pending>` |
+| 2.1 — WH1 zones + 8 space blocks proof (modules/wms scaffold) | `0d546d5` |
 | 0.18 — RLS client-isolation suite (43/43) + G14 runner; SCRs 01/02 applied (D-002) | `f03e160` |
 | 0.17 — Identity mechanism (mechanisms only): OTP, sessions, RBAC/SoD evaluation — packages/identity/ | `c90dd6e` |
 | 0.16 — Column sensitivity classification: `identity.column_classification` + deploy guard | `a021126` |
