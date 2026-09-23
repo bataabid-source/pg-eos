@@ -88,6 +88,42 @@ where t.relkind in ('r','p')
   and n.nspname in ('platform','identity','catalog','sales','wms','tms','cc',
                     'billing','hr','partners','admin','housing','imile','governance')
   and not t.relrowsecurity
+union all
+-- D-133 (WBS 0.6a-1, fix round 1): سياسة entity_scope بلا WITH CHECK — يُبلَّغ هنا أيضاً، تحت
+-- الراية نفسها G7، دون راية جديدة. (الصيغة الأولى — «جدول فيه entity_id بلا سياسة entity_scope
+-- أصلاً» — كانت خطأ تصميم: D-133 لا يطلبها، وتُبلِّغ عن 9 جداول مرجعية/ذات سياسة خاصة بتصميم 13B
+-- نفسه؛ أُزيلت.)
+select 'G7' as guard, n.nspname as schema_name, c.relname as table_name
+from pg_policy p
+join pg_class c on c.oid = p.polrelid
+join pg_namespace n on n.oid = c.relnamespace
+where p.polname = 'entity_scope'
+  and n.nspname in ('platform','identity','catalog','sales','wms','tms','cc',
+                    'billing','hr','partners','admin','housing','imile','governance')
+  and p.polwithcheck is null
+union all
+-- D-133: عرض بلا security_invoker=true ما زال pgeos_app يملك عليه صلاحية — اللوحة اللينة لا تُعدّل
+-- العروض، فتُبلَّغ فقط الحالة التي بقيت فيها صلاحية فعلية لا وجود عرض بلا security_invoker وحده.
+select 'G7' as guard, n.nspname as schema_name, c.relname as table_name
+from pg_class c
+join pg_namespace n on n.oid = c.relnamespace
+where c.relkind = 'v'
+  and n.nspname in ('platform','identity','catalog','sales','wms','tms','cc',
+                    'billing','hr','partners','admin','housing','imile','governance')
+  and not (coalesce(c.reloptions, array[]::text[]) @> array['security_invoker=true'])
+  and has_table_privilege('pgeos_app', c.oid, 'SELECT,INSERT,UPDATE,DELETE')
+union all
+-- D-133 (fix round 2, pg-reviewer finding 2): أي قسم (partition) في المخططات الأربعة عشر ما زال
+-- pgeos_app يملك عليه أي صلاحية — الجدول الأب هو المُخوَّل، لا أقسامه، وإلا انكسر مبدأ «لا تعديل
+-- ولا حذف» على الدفاتر المقسَّمة.
+select 'G7' as guard, n.nspname as schema_name, c.relname as table_name
+from pg_class c
+join pg_namespace n on n.oid = c.relnamespace
+where c.relkind = 'r'
+  and c.relispartition
+  and n.nspname in ('platform','identity','catalog','sales','wms','tms','cc',
+                    'billing','hr','partners','admin','housing','imile','governance')
+  and has_table_privilege('pgeos_app', c.oid, 'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')
 order by 1,2;
 
 -- ───────────────────────────────────────────────────────────────────────────

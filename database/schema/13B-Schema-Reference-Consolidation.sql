@@ -3127,12 +3127,14 @@ begin
       if coalesce(v_nullable, false) then
         execute format(
           'create policy entity_scope on %I.%I for all using '
-          '(entity_id is null or entity_id = any(platform.allowed_entities()))',
+          '(entity_id is null or entity_id = any(platform.allowed_entities())) '
+          'with check (entity_id is null or entity_id = any(platform.allowed_entities()))',
           r.sch, r.tab);
       else
         execute format(
           'create policy entity_scope on %I.%I for all using '
-          '(entity_id = any(platform.allowed_entities()))',
+          '(entity_id = any(platform.allowed_entities())) '
+          'with check (entity_id = any(platform.allowed_entities()))',
           r.sch, r.tab);
       end if;
     else
@@ -4045,12 +4047,14 @@ begin
       if coalesce(v_nullable, false) then
         execute format(
           'create policy entity_scope on %I.%I for all using '
-          '(entity_id is null or entity_id = any(platform.allowed_entities()))',
+          '(entity_id is null or entity_id = any(platform.allowed_entities())) '
+          'with check (entity_id is null or entity_id = any(platform.allowed_entities()))',
           r.sch, r.tab);
       else
         execute format(
           'create policy entity_scope on %I.%I for all using '
-          '(entity_id = any(platform.allowed_entities()))',
+          '(entity_id = any(platform.allowed_entities())) '
+          'with check (entity_id = any(platform.allowed_entities()))',
           r.sch, r.tab);
       end if;
     else
@@ -4524,12 +4528,14 @@ begin
       if coalesce(v_nullable, false) then
         execute format(
           'create policy entity_scope on %I.%I for all using '
-          '(entity_id is null or entity_id = any(platform.allowed_entities()))',
+          '(entity_id is null or entity_id = any(platform.allowed_entities())) '
+          'with check (entity_id is null or entity_id = any(platform.allowed_entities()))',
           r.sch, r.tab);
       else
         execute format(
           'create policy entity_scope on %I.%I for all using '
-          '(entity_id = any(platform.allowed_entities()))',
+          '(entity_id = any(platform.allowed_entities())) '
+          'with check (entity_id = any(platform.allowed_entities()))',
           r.sch, r.tab);
       end if;
     else
