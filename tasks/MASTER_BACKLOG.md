@@ -22,7 +22,7 @@ Type: 🧑 human decision/data · 🤖 AI-buildable slice · 🔧 infra · ✅ v
 | ID | Task | Type | Depends on | Lane | Owner | Acceptance | Status |
 |---|---|---|---|---|---|---|---|
 | 0.1 | ✅ **Done** — all domains owned by filled positions; SoD satisfied (CFO / PRO-collections / GM) | 🧑 | — | **A** | GM | — | DONE (pre-build, GM) |
-| 0.2 | ✅ Cloud decision **tiered**: Tier 0 Oracle Always Free (doc 42) → Tier 2 GCP Doha. **Decide: PAYG upgrade, region, Tunnel** (doc 42 §11) | 🧑 | — | **A** | GM | Three decisions recorded | WAITING_GM |
+| 0.2 | ✅ Cloud decision **tiered**: Tier 0 Oracle Always Free (doc 42) → Tier 2 GCP Doha. **Decide: PAYG upgrade, region, Tunnel** (doc 42 §11) | 🧑 | — | **A** | GM | Three decisions recorded | DONE @ `<this commit>` — the three decisions were already recorded in doc 42 §11 (20 Sep 2026: PAYG · `me-jeddah-1` fallback `me-dubai-1` · Cloudflare Tunnel); confirmed by the GM (D-115, 2026-09-23) |
 | 0.3 | Oracle tenancy: account, MFA, compartment `premium-production`, IAM user `deployer`, break-glass | 🔧 | 0.2 | **A** | SYSADMIN | Break-glass credentials in physical safe; MFA on root | WAITING_GM |
 | 0.4 | Initialise monorepo (pnpm, Turborepo, TypeScript strict, ESLint boundaries) | 🔧 | — | **B** | SYSADMIN | `pnpm build` green; cross-module import fails lint | DONE @ 05674b5 |
 | 0.5 | VCN + NSG + A1.Flex VM (reserved IP) + Ubuntu hardening + Docker + `/opt/premium` layout + Cloudflare (Tunnel or Origin cert) — doc 42 §2–§5 | 🔧 | 0.3 | **A** | SYSADMIN | `docker compose up` serves `app/api/portal` over HTTPS; no public 5432/22 | WAITING_GM |
@@ -50,16 +50,16 @@ Type: 🧑 human decision/data · 🤖 AI-buildable slice · 🔧 infra · ✅ v
 
 | ID | Task | Type | Depends on | Lane | Owner | Acceptance | Status |
 |---|---|---|---|---|---|---|---|
-| 1.1 | Enter entity legal data (CR, tax, address, logo) for PCC/PST/PDL/POR | 🧑 | 0.9 | **A** | Admin Mgr | Zero document with incomplete header | WAITING_GM |
+| 1.1 | Enter entity legal data (CR, tax, address, logo) for PCC/PST/PDL/POR | 🧑 | 0.9 | **A** | Admin Mgr | Zero document with incomplete header | WAITING_GM — collect the data now, enter once the screen exists (D-115) |
 | 1.2 | M03 `catalog`: categories, services (7 categories), segments, price lists, exceptions | 🤖 | 0.13 | **1** | CFO | Price below floor rejected from UI, API and import | READY |
-| 1.3 | **Data gate M03:** floor price + standard cost for every active service | 🧑 | 1.2 | **A** | CFO | Scorecard = 100% | WAITING_GM |
+| 1.3 | **Data gate M03:** floor price + standard cost for every active service | 🧑 | 1.2 | **A** | CFO | Scorecard = 100% | WAITING_GM — proceed as planned, Phase-1 gate item (D-115) |
 | 1.4 | Pricing engine: exception → contract → segment → list → pending | 🤖 | 1.2 | **1** | CFO | Tiered pricing matches manual calc on 3 cases; unpriced event stays pending | TODO |
 | 1.5 | M02 `sales`: accounts, contacts, leads, opportunities, activities | 🤖 | 0.13 | **1** | SALES_MGR | One account per client across entities; duplicate detection fires | DONE (proof) @ `f790da7` — ADR-0001; excluded from the completion ratio; full slice replicated from 2.9 later; SCR-TRGM-01 option A. |
 | 1.6 | M02: quotes with approval flow (rep → sales mgr → CFO → GM on exception) | 🤖 | 1.4, 1.5 | **1** | CFO | Sent quote is frozen; edit creates new version | TODO |
 | 1.7 | M02: contracts, price annexes, SLA definitions, billing flags (DL-11/12/13/14/18) | 🤖 | 1.6 | **1** | CFO | Order on expired contract rejected | TODO |
 | 1.8 | Group-level credit limit and hold | 🤖 | 1.5 | **1** | CFO | Hold blocks orders in all four entities | TODO |
 | 1.9 | Customer 360 screen | 🤖 | 1.7 | **1** | SALES_MGR | Shows contracts, readiness gaps with owners, finance, profitability placeholder | TODO |
-| 1.10 | **Data gate M02:** all current clients with CR and contact | 🧑 | 1.5 | **A** | CFO | Scorecard = 100% | WAITING_GM |
+| 1.10 | **Data gate M02:** all current clients with CR and contact | 🧑 | 1.5 | **A** | CFO | Scorecard = 100% | WAITING_GM — proceed as planned, Phase-1 gate item (D-115) |
 | 1.11 | Scenario S6 (multi-entity) and S10 (price exception) pass | ✅ | 1.8 | **M** | CFO | Playwright green | TODO |
 
 **Phase gate:** 1.3 and 1.10 gates met · 1.11 green.
@@ -74,9 +74,9 @@ Type: 🧑 human decision/data · 🤖 AI-buildable slice · 🔧 infra · ✅ v
 | 2.2 | Field survey: aisles, positions per aisle, numbering direction | 🧑 | — | **A** | WH_MGR | Map sums to exactly 3,153 | WAITING_GM |
 | 2.3 | Generate the **3,330** codes: 3,153 storage + 30 operational + 147 structural (blocked, prefix `X-`), in the seven-character format of doc 19 §4 | 🤖 | 2.1, 2.2 | **2** | WH_MGR | Count = **3,153 storage locations (capacity)**. Sellable = capacity − the 7% operational buffer entered as `space_blocks_out_of_service` rows with reason `operational_buffer` = **2,932**. Structural blocked with reason | TODO |
 | 2.4 | Set `max_weight_kg` (1,000 pallet / 750 shelf) and `max_volume_cbm` per location | 🤖 | 2.3 | **2** | WH_MGR | Over-weight put-away rejected | TODO |
-| 2.5 | Print and apply **3,330 labels** — 3,153 storage + 30 operational (white, section colour) + 147 structural (**black background, white text**, prefix `X-`); 5% random scan audit | 🧑 | 2.3 | **A** | WH_MGR | Audit ≥ 99% match | WAITING_GM |
+| 2.5 | Print and apply **3,330 labels** — 3,153 storage + 30 operational (white, section colour) + 147 structural (**black background, white text**, prefix `X-`); 5% random scan audit | 🧑 | 2.3 | **A** | WH_MGR | Audit ≥ 99% match | WAITING_GM — proceed as planned after 2.3 (D-115) |
 | 2.6 | `wms.skus` with client ownership, dimensions, storage conditions, tracking policy | 🤖 | 1.5 | **2** | WH_MGR | Cross-client SKU mix rejected | DONE @ `e38370e` — mechanism slice, D-103 authorized (2026-09-23); `modules/wms/src/sku-registration` proves the acceptance criterion at two layers — application (CrossClientSkuError before any DB call, since the runtime DB connection is still superuser, 0.18 item 7) and database (ephemeral non-superuser NOBYPASSRLS role blocked by RLS policy `sku_client_scope`, SQLSTATE 42501, with a same-client positive control); no migration (table/RLS pre-existing); no outbox row (open G-01: `wms.skus` has no `entity_id` and doc 40 names no `wms.sku.*` event — audit_log only); review FAIL(9) → FAIL(1) → PASS(10 findings fixed). |
-| 2.7 | **Data gate M04 (SKUs):** ≥95% of active SKUs complete | 🧑 | 2.6 | **A** | WH_MGR | Scorecard ≥ 95% | WAITING_GM |
+| 2.7 | **Data gate M04 (SKUs):** ≥95% of active SKUs complete | 🧑 | 2.6 | **A** | WH_MGR | Scorecard ≥ 95% | WAITING_GM — proceed as planned, dependency 2.6 now met (D-119, D-115) |
 | 2.8 | Stock ledger + derived balance + `verify_balance_integrity()` | 🤖 | 0.12 | **2** | WH_MGR | Zero rows after 1,000 random movements; property test green | DONE @ `b5da282` — mechanism slice; fixes e5bff15 (SCR-AUDIT-01) and 787d9dc (SCR-WMS-01); modules/wms 85/85; review PASS. |
 | 2.9 | **GOLDEN SLICE — Receive inbound order** (PDA + state machine + ledger + event + GRN + billable events) | 🤖 | 2.4, 2.6, 2.8, 0.15 | **M** | WH_MGR + GM review | Full human review; becomes the template | TODO |
 | 2.10 | Put-away with automatic location suggestion (A2) | 🤖 | 2.9 | **1** | WH_MGR | Suggestion respects conditions, ABC, capacity, client assignment | TODO |
@@ -88,7 +88,7 @@ Type: 🧑 human decision/data · 🤖 AI-buildable slice · 🔧 infra · ✅ v
 | 2.16 | PDA app: nine screens, offline queue (**72 h**), sync, kiosk mode, shared-device PIN login (doc 40 §D4) | 🤖 | 2.9–2.13 | **M** | WH_MGR | Scan response ≤ 1.0 s; shift cannot close with queue > 0 | TODO |
 | 2.17 | Warehouse Grafana board | 🔧 | 2.16 | **M** | SYSADMIN | Board live | TODO |
 | 2.18 | Scenarios S1, S2, S18 pass | ✅ | 2.16 | **M** | WH_MGR | Playwright green | TODO |
-| 2.19 | Super-user sign-off + 90-min PDA training delivered | 🧑 | 2.18 | **A** | WH_MGR | Sign-off recorded | WAITING_GM |
+| 2.19 | Super-user sign-off + 90-min PDA training delivered | 🧑 | 2.18 | **A** | WH_MGR | Sign-off recorded | WAITING_GM — proceed as planned after 2.18 (D-115) |
 
 **Phase gate:** 2.5, 2.7 gates met · 2.18 green · 2.19 signed.
 
@@ -99,7 +99,7 @@ Type: 🧑 human decision/data · 🤖 AI-buildable slice · 🔧 infra · ✅ v
 | ID | Task | Type | Depends on | Lane | Owner | Acceptance | Status |
 |---|---|---|---|---|---|---|---|
 | 3.1 | `tms.vehicles`, documents, hard gate on expired docs | 🤖 | 0.9 | **1** | FLEET_MGR | Expired-doc vehicle cannot be assigned | READY |
-| 3.2 | **Data gate M09:** all vehicles with valid documents | 🧑 | 3.1 | **A** | FLEET_MGR | Scorecard = 100% | WAITING_GM |
+| 3.2 | **Data gate M09:** all vehicles with valid documents | 🧑 | 3.1 | **A** | FLEET_MGR | Scorecard = 100% | WAITING_GM — proceed as planned after 3.1 (D-115) |
 | 3.3 | `hr.employees` (drivers), documents, hard gate | 🤖 | 0.9 | **2** | HR_MGR | Expired-doc driver cannot be assigned | READY |
 | 3.4 | Delivery tasks, routes, POD (GPS + signature/photo + server timestamp), exceptions | 🤖 | 2.12, 3.1 | **1** | DEL_MGR | POD without GPS rejected | TODO |
 | 3.5 | Failure-reason tree **7 parents × 25 children** with `counts_against_driver` and conditional auto-attribution — **exactly three reasons count against the driver** (`door_not_opened`, `building_not_found`, `shift_time_exhausted`); breakdown and accident never do | 🤖 | 3.4 | **1** | DEL_MGR | "No answer" without two logged contact attempts flagged; `tms.failure_reasons` holds 7 + 25 rows | TODO |
@@ -119,7 +119,7 @@ Type: 🧑 human decision/data · 🤖 AI-buildable slice · 🔧 infra · ✅ v
 | 3.19 | Weekly capacity report to iMile | 🤖 | 3.16 | **3** | GM | Auto-generated | TODO |
 | 3.20 | Scenarios S3, S4, S15, S16 pass | ✅ | 3.18 | **M** | DEL_MGR | Playwright green | TODO |
 | 3.21 | Driver app lab test (doc 34 protocol) — must beat iMile by ≥ 2 taps | ✅ | 3.10 | **M** | DEL_MGR | Median from 3 drivers recorded | TODO |
-| 3.22 | Driver training (60 min, 6 languages) + super-user sign-off | 🧑 | 3.21 | **A** | DEL_MGR | Sign-off recorded | WAITING_GM |
+| 3.22 | Driver training (60 min, 6 languages) + super-user sign-off | 🧑 | 3.21 | **A** | DEL_MGR | Sign-off recorded | WAITING_GM — proceed as planned after 3.21 (D-115) |
 
 **Phase gate:** 3.2 data gate (Lane A) · full station day from PG-EOS · zero audit problem > 24 h · 3.21 target met.
 
@@ -129,7 +129,7 @@ Type: 🧑 human decision/data · 🤖 AI-buildable slice · 🔧 infra · ✅ v
 
 | ID | Task | Type | Depends on | Lane | Owner | Acceptance | Status |
 |---|---|---|---|---|---|---|---|
-| 4.1 | Chart of accounts (uniform structure per entity) | 🧑 | 1.1 | **A** | CFO | Loaded for all four entities | WAITING_GM |
+| 4.1 | Chart of accounts (uniform structure per entity) | 🧑 | 1.1 | **A** | CFO | Loaded for all four entities | WAITING_GM — collect the data now, enter once the screen exists (D-115) |
 | 4.2 | `billing.billable_events` with unique (source, service) index | 🤖 | 0.12, 1.4 | **M** | CFO | Same event cannot bill twice | TODO |
 | 4.3 | Billing subscribers: WMS, TMS, CC, iMile events → billable events | 🤖 | 4.2, 2.14, 3.4 | **M** | CFO | Every closed operation produces its events | TODO |
 | 4.4 | Invoice generation: monthly aggregation, `doc_no` only at approval (DB constraint) | 🤖 | 4.3, 0.15 | **M** | CFO | Draft has no number; approved cannot be edited | TODO |
@@ -159,7 +159,7 @@ Type: 🧑 human decision/data · 🤖 AI-buildable slice · 🔧 infra · ✅ v
 | 5.1 | M06 Call center: queues, agents, calls, tickets, SLA, ticket ↔ shipment link | 🤖 | 3.4 | **1** | CC_MGR | Agent cannot see another queue's tickets (RLS) | TODO |
 | 5.2 | CC billing (internal transfer price, external package + overage) | 🤖 | 5.1, 4.3 | **1** | CFO | Scenario S5 green | TODO |
 | 5.3 | M08 HR: org units, teams, attendance from biometrics (I-04), leaves | 🤖 | 3.3 | **2** | HR_MGR | Attendance auto-imported; unmatched to manual queue | TODO |
-| 5.4 | Biometric credentials entered by GM; hourly sync | 🧑 | 5.3 | **A** | GM | Sync runs; **auto-absence disabled until data complete** | WAITING_GM |
+| 5.4 | Biometric credentials entered by GM; hourly sync | 🧑 | 5.3 | **A** | GM | Sync runs; **auto-absence disabled until data complete** | WAITING_GM — proceed as planned after 5.3, entered by the GM in person (D-115) |
 | 5.5 | Shifts and rest rotation (A3) | 🤖 | 5.3 | **2** | OPS_DIR | Rotation fair; exceptions logged | TODO |
 | 5.6 | Payroll ledger (auto-calc, CFO approval, month lock) | 🤖 | 5.3, 3.13 | **2** | CFO | Locked month immutable | TODO |
 | 5.7 | Penalty schedule (**77 items**, `is_fraud` flagged on CLI-02/03/04/06/09 · ATT-07/08 · WRK-08), Art. 35–41 guards, **hierarchical authority enforced by trigger on `hr.disciplinary_cases.signed_by` with `routed_to` recorded** (supervisor D1–D2, manager D1–D3, GM D1–D4, dismissal GM only), grievance to the level above the signer, hash-chained | 🤖 | 5.3 | **2** | GM | `select count(*) from hr.penalty_schedule` = 77; deduction without Art. 37 steps rejected; Art. 35 15-day limit enforced; 5-day cap enforced; signer outside authority auto-routed up, never silently rejected | TODO |
@@ -170,7 +170,7 @@ Type: 🧑 human decision/data · 🤖 AI-buildable slice · 🔧 infra · ✅ v
 | 5.12 | Fleet: maintenance plans (km-based), orders, accidents, fuel ledger (I-03 import) | 🤖 | 3.1 | **3** | FLEET_MGR | Fuel entry without odometer rejected; anomaly > 20% flagged | TODO |
 | 5.13 | Alerts engine (**22 rules — N-01…N-18 plus N-19…N-22 from doc 23 §4**), report catalog (24), scheduled delivery | 🤖 | 0.10 | **M** | SYSADMIN | Alert without action link impossible; no alert targets an unfilled position | READY |
 | 5.14 | M13 Governance: budgets/variance, KPI tree, OKRs, risk register, NCR, policies, board pack, decisions | 🤖 | 4.11 | **3** | GM | Board pack generates from live data | TODO |
-| 5.15 | **Data gates M08, M09 (documents 100%)** | 🧑 | 5.3, 3.1 | **A** | HR_MGR, FLEET_MGR | Scorecards = 100% | WAITING_GM |
+| 5.15 | **Data gates M08, M09 (documents 100%)** | 🧑 | 5.3, 3.1 | **A** | HR_MGR, FLEET_MGR | Scorecards = 100% | WAITING_GM — proceed as planned (D-115) |
 | 5.16 | Scenarios S13, S14, S17 pass | ✅ | 5.11 | **M** | HR_MGR | Playwright green | TODO |
 | 5.17 | **One full payroll month computed and reviewed** | ✅ | 5.6 | **M** | CFO | Signed | TODO |
 
@@ -187,7 +187,7 @@ Type: 🧑 human decision/data · 🤖 AI-buildable slice · 🔧 infra · ✅ v
 | 6.3 | Premium Decisions app: inbox, six KPI cards, search/trace, decide-from-notification | 🤖 | 0.19, 5.13 | **2** | GM | Decision resolved from push notification without opening app | TODO |
 | 6.4 | Trace screen (doc 31 §6): one input, unified timeline, causation tree, signed PDF export | 🤖 | 0.12 | **2** | SYSADMIN | Full trace ≤ 2 s | READY |
 | 6.5 | WhatsApp templates (5) + provider (I-05), SMS fallback (I-06) | 🤖 | 3.8 | **3** | SYSADMIN | Quiet hours enforced | TODO |
-| 6.6 | Three real clients onboarded and operating | 🧑 | 6.1 | **A** | GM | Client readiness checklists complete | WAITING_GM |
+| 6.6 | Three real clients onboarded and operating | 🧑 | 6.1 | **A** | GM | Client readiness checklists complete | WAITING_GM — names pending GM — human input, not delegable (D-115) |
 | 6.7 | Scenarios S7, S9, S12 pass | ✅ | 6.3 | **M** | GM | Playwright green | TODO |
 
 **Phase gate:** 6.1 isolation · 6.6 three clients live (Lane A) · 6.7 green.
@@ -202,12 +202,12 @@ Type: 🧑 human decision/data · 🤖 AI-buildable slice · 🔧 infra · ✅ v
 | 7.2 | Load test on three-year seed volume against doc 25 SLOs — **on Tier 1 infrastructure** (Tier 0 RPO 24 h is not launch-grade; Tier ≥ 1 targets RPO ≤ 1 h / RTO ≤ 4 h) | ✅ | 6.7 | **M** | SYSADMIN | All SLOs met on Tier ≥ 1 | TODO |
 | 7.3 | Mutation testing ≥ 75% on `domain/` across all modules | ✅ | 6.7 | **M** | SYSADMIN | Stryker report | TODO |
 | 7.4 | All **20** scenarios (S1–S20) green in CI | ✅ | 6.7 | **M** | SYSADMIN | **20/20** | TODO |
-| 7.5 | Manual fallback kits in four locations; **one manual-mode drill executed** | 🧑 | 5.13 | **A** | OPS_DIR | Drill report | WAITING_GM |
-| 7.6 | Deputy system owner (`DEPUTY_SYSADMIN`) named and trained on the runbook | 🧑 | 0.20 | **A** | GM | Deputy executes a restore unassisted | WAITING_GM |
+| 7.5 | Manual fallback kits in four locations; **one manual-mode drill executed** | 🧑 | 5.13 | **A** | OPS_DIR | Drill report | WAITING_GM — proceed as planned after 5.13 (D-115) |
+| 7.6 | Deputy system owner (`DEPUTY_SYSADMIN`) named and trained on the runbook | 🧑 | 0.20 | **A** | GM | Deputy executes a restore unassisted | WAITING_GM — names pending GM — human input, not delegable (D-115) |
 | 7.7 | Legal holds: automatic on disputed photos before enabling 60-day deletion | 🤖 | 6.4 | **M** | SYSADMIN | Hold prevents deletion in test | TODO |
-| 7.8 | Penalty schedule submitted to labour authority; approval flag | 🧑 | 5.7 | **A** | PRO | Flag set only on written approval | WAITING_GM |
-| 7.9 | Data-residency legal review closed | 🧑 | — | **A** | GM | Written opinion on file | WAITING_GM |
-| 7.10 | ~~Structural verification~~ → **Closed (verified; drawing + licence on file)** | 🧑 | — | **A** | GM | ✅ | WAITING_GM |
+| 7.8 | Penalty schedule submitted to labour authority; approval flag | 🧑 | 5.7 | **A** | PRO | Flag set only on written approval | WAITING_GM — proceed as planned after 5.7 (D-115) |
+| 7.9 | Data-residency legal review closed | 🧑 | — | **A** | GM | Written opinion on file | WAITING_GM — commission the review now, no dependency (D-115) |
+| 7.10 | ~~Structural verification~~ → **Closed (verified; drawing + licence on file)** | 🧑 | — | **A** | GM | ✅ | DONE @ `<this commit>` — closure confirmed by the GM (D-115, 2026-09-23) |
 | 7.11 | Adoption metrics live (weekly active 100%, screens unused 30 d) | 🤖 | 5.13 | **M** | GM | Report scheduled | TODO |
 | 7.12 | Launch checklist (doc 28 §11, 18 items) all ticked | ✅ | 7.1–7.11 | **M** | GM | Signed | TODO |
 
@@ -226,13 +226,13 @@ Type: 🧑 human decision/data · 🤖 AI-buildable slice · 🔧 infra · ✅ v
 
 ---
 
-## Staged (not in doc 38 — enter this file only after GM approval)
+## Staged — not in doc 38, admitted here once the GM approves the task AND its policy decisions (BOOTSTRAP-v5 §1 item 4). Never counted in the 132.
 
-| ID | Task | Source | File | Status |
-|---|---|---|---|---|
-| 2.20 | Warehouse work orders & VAS (SCR-WO-01) | D-12 | `tasks/proposed/2.20-work-orders.md` | WAITING_GM |
-| 5.18 | Focus boards on `platform.my_work` (SCR-FB-01) | D-15 | `tasks/proposed/5.18-focus-boards.md` | WAITING_GM |
-| 6.2b | Client store connectors (I-12) | D-11 | `tasks/proposed/6.2b-store-connectors.md` | WAITING_GM (option choice) |
-| SC-01 | Sales commission activation (SCR-SC-01) | D-14 | `tasks/proposed/SC-01-sales-commission.md` | WAITING_GM (model + rates) |
+| ID | Task | Type | Depends on | Lane | Owner | Acceptance | Status |
+|---|---|---|---|---|---|---|---|
+| 2.20 | Warehouse work orders & VAS (SCR-WO-01) — `tasks/backlog/2.20-work-orders.md`, source D-12 | 🤖 | 2.9, 2.13 | **1** | WH_MGR | A work order from an outbound line, split into two tasks, assigned to two workers on the PDA, completed with one exception: `qty_done` sums correctly, a complete `work_order_events` timeline, one outbox event per state change in the same transaction, exactly one billing event priced on `qty_done`; G1, G9, G11, G18 green | TODO — admitted 2026-09-23 (D-115): `wo.sla.*` values approved for year 1, mandatory review after 90 operating days; blocked on 2.9 (golden slice) and 2.13 (PDA slice), neither built |
+| 5.18 | Focus boards on `platform.my_work` (SCR-FB-01) — `tasks/backlog/5.18-focus-boards.md`, source D-15 | 🤖 | 5.13 | **M** | SYSADMIN | For a user holding three roles, `platform.my_work` returns every open item that user owns across the fourteen groups and nothing owned by anyone else (RLS-verified); ar/en render with a real empty state; ordering per D-15 §3; first paint meets the D-15 §6 target; G7, G14 green | TODO — admitted 2026-09-23 (D-115): approved as written; blocked on 5.13 (alerts engine), not built |
+| 6.2b | Client store connectors (I-12) — `tasks/backlog/6.2b-store-connectors.md`, source D-11 | 🤖 | 6.1, 6.2 | **1** | SYSADMIN + SALES_MGR (shared, D-11 §7 ق-4) | A store order posted by the test connector appears as one PG-EOS order with the D-11 §5-2 minimum fields, idempotent under replay, a forced failure follows the D-11 §5-5 nine-field policy and shows in the integration monitor; client isolation holds (G14) | TODO — admitted 2026-09-23 (D-115): option ③ approved per D-11 §7 (B in Phase 3, A in Phase 6, C = 6.2b); blocked on 6.1, 6.2, neither built; D-11 §5-4 schema additions still need a G-01 filing once 6.2b starts |
+| SC-01 | Sales commission activation (SCR-SC-01) — `tasks/backlog/SC-01-sales-commission.md`, source D-14 | 🤖 | 4.9, sales contracts slice (no WBS id assigned yet) | **2** | SALES_MGR | For a contract signed by one rep and later executed under another, the monthly run splits per `sales.account_ownership_history` exactly as D-14 §3, honours the cap and minimum-margin rule, reverses correctly on a credit note, exposes the statement only to the rep, SALES_MGR, CFO and GM; G2, G11, G14 green, no number written outside `platform.thresholds` | TODO — admitted 2026-09-23 (D-115): structure approved (recurring, `collected` basis, 24 months, no cap year 1, half rate 12 months for existing clients, SCR-SC-01 approved); rates and the 0.5% manager share approved provisionally for year 1 with a 6-month review; blocked on 4.9 (not built) and an unnamed "2.x sales contracts slice" dependency with no WBS id — flagged for the GM |
 
-**Rows: 132** (expected 132 — `--check` fails otherwise).
+**Rows: 132** (expected 132 — `--check` fails otherwise; the four Staged rows above are never part of this count).

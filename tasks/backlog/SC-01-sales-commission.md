@@ -1,6 +1,6 @@
 # SC-01 — Sales commission activation (SCR-SC-01)
 
-**Status: WAITING_GM** — staged task, not in doc 38 v4.0. The model and rates are the GM's decision (BOOTSTRAP-v5 §1 item 4; PROJECT-SETUP-GUIDE §10).
+**Status: TODO, admitted to `tasks/MASTER_BACKLOG.md` (D-115, GM 2026-09-23).** Structure approved per D-14 §8's recommendation: recurring model, `collected` basis, 24-month duration, no cap in year 1, half rate for 12 months on existing clients, SCR-SC-01 approved. Rates and the 0.5% manager share are approved provisionally for year 1, with a 6-month review. Still blocked on 4.9 (not built) and an unnamed "2.x sales contracts slice" dependency with no WBS id assigned — flagged for the GM.
 
 | field | value |
 |---|---|

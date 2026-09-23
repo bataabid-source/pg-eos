@@ -1,7 +1,7 @@
 # PG-EOS — Project Setup Guide (how to stand up the build environment)
 **Version 5.1 · 21 September 2026 · companion to BOOTSTRAP-v5.md and EXECUTION-MASTER-v4 Part 3**
 
-> **بالعربية (ملخص):** هذا الدليل يشرح خطوة بخطوة كيف تُنشئ مشروع التنفيذ: مستودع Git واحد، تنسخ فيه الحزمة v4 كاملة (بما فيها الأطلس D-blueprints والمخطط)، تثبّت Claude Code، تنسخ «عدة التشغيل» الجاهزة (`claude-kit/`) إلى جذر المستودع، ثم تشغّل جلسة واحدة بأمر البوتستراب. بعدها كل جلسة = مهمة واحدة بأمر `/resume`، والمسارات المتوازية = جلسة لكل مسار في worktree مستقل بأمر `/lane`. القسم 7 يشرح ما تُلصقه في مشروع Claude (الدردشة) لتستخدمه أنت كمدير عام.
+> **بالعربية (ملخص):** هذا الدليل يشرح خطوة بخطوة كيف تُنشئ مشروع التنفيذ: مستودع Git واحد، تنسخ فيه الحزمة v4 كاملة (بما فيها الأطلس D-blueprints والمخطط)، تثبّت Claude Code، تنسخ «عدة التشغيل» الجاهزة (`claude-kit/`) إلى جذر المستودع، ثم تشغّل جلسة واحدة بأمر البوتستراب. بعدها كل جلسة = مهمة واحدة بأمر `/pg-resume`، والمسارات المتوازية = جلسة لكل مسار في worktree مستقل بأمر `/lane`. القسم 7 يشرح ما تُلصقه في مشروع Claude (الدردشة) لتستخدمه أنت كمدير عام.
 
 ---
 
@@ -48,7 +48,7 @@ git add -A && git commit -m "chore: SETUP-000 import package v4 + kit"
 ```
 Result: `docs/package/` holds the complete package (A + B + C + D), `database/schema/` the four governing SQL files + guards + apply script, and the repo root already has `CLAUDE.md`, `.claude/`, `tasks/` (with `MASTER_BACKLOG.md`), `docs/` (with `DECISION_LOG.md`, `CHANGELOG.md`, `PROJECT_STATE.md`), `scripts/` from the kit. On Windows, the kit's `.claude/` folder may arrive as `dot-claude/` — rename it before anything else.
 
-**What `/resume` needs and where it now is:** `docs/package/38-WBS.md` · `40` · `EXECUTION-MASTER-v4` → `docs/package/`; `01 · 13 · 13B · 019 · guards.sql · apply.sh` → `database/schema/`; `tasks/MASTER_BACKLOG.md` → generated; `.git` → initialised. If any of these is reported missing again, run `scripts/check-setup.sh` and fix the MISS lines — do not let the bootstrap session re-derive them.
+**What `/pg-resume` needs and where it now is:** `docs/package/38-WBS.md` · `40` · `EXECUTION-MASTER-v4` → `docs/package/`; `01 · 13 · 13B · 019 · guards.sql · apply.sh` → `database/schema/`; `tasks/MASTER_BACKLOG.md` → generated; `.git` → initialised. If any of these is reported missing again, run `scripts/check-setup.sh` and fix the MISS lines — do not let the bootstrap session re-derive them.
 
 ## 3. Local database (proves the schema before any code)
 ```bash
@@ -77,8 +77,9 @@ Accept only if (from EXECUTION-MASTER-v4 §3.2, extended): cross-module import f
 ```bash
 claude
 /model sonnet
-/resume
+/pg-resume
 ```
+(D-121, GM 2026-09-23: `/resume` renamed `/pg-resume` to avoid a possible clash with Claude Code's own built-in commands; `/state` and `/review` likewise renamed `/pg-state` and `/pg-review`.)
 The Master reads state, picks the next runnable task, and runs the `/slice` loop. When it reports DONE with a commit hash, **end the session**. Never start a second task in the same session.
 
 **Golden slice (WBS 2.9) — the one opus session:**
@@ -91,7 +92,7 @@ Review the file tree, tests and the generated `scripts/new-slice.sh` template pe
 ## 6. Parallel lanes (Phase 2 onward) — three terminals, zero conflicts
 ```bash
 # Master terminal (repo root)
-claude → /model sonnet → /resume            # Master claims Phase-2 locks and issues migration numbers
+claude → /model sonnet → /pg-resume         # Master claims Phase-2 locks and issues migration numbers
 
 # Lane terminals
 git worktree add ../pg-eos-lane-1 -b lane/1 && cd ../pg-eos-lane-1 && claude → /model sonnet → /lane 1

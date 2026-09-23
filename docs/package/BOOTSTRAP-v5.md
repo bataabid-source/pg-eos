@@ -14,7 +14,7 @@ PREMIUM GROUP — PG-EOS · CLAUDE CODE MASTER AGENT BOOTSTRAP (v5)
 - Start every build session with `/model sonnet`. Switch to `/model opus` only for: the whole WBS 2.9 golden-slice session · an ADR · a security review · a task that failed twice on sonnet.
 - **One WBS task (or one lane batch) per session.** When the task is DONE and committed, end the session. Do not "continue while we're here".
 - Never paste package documents into the prompt. The package is in the repository; the agent reads paths.
-- Use the commands in `.claude/commands/` (`/resume`, `/slice`, `/lane`, `/gate`, `/state`) instead of free-text instructions — they carry the exact brief format and cost fewer tokens.
+- Use the commands in `.claude/commands/` (`/pg-resume`, `/slice`, `/lane`, `/gate`, `/pg-state`) instead of free-text instructions — they carry the exact brief format and cost fewer tokens. (D-121, GM 2026-09-23: `resume`/`state`/`review` renamed `pg-resume`/`pg-state`/`pg-review` to avoid a possible clash with Claude Code's own built-in commands; `slice`/`lane`/`gate` are unchanged.)
 
 ==================================================
 1. SOURCE OF TRUTH — PRECEDENCE (unchanged from v4)
@@ -180,12 +180,12 @@ Module → default lane owner (Phases 2–6, from 38 v4):
 ==================================================
 10. COMMANDS — "Resume Premium Development" and the others
 ==================================================
-/resume    Read CLAUDE.md → PROJECT_STATE → LANE_LOCKS → pick the next runnable task → /slice.
+/pg-resume Read CLAUDE.md → PROJECT_STATE → LANE_LOCKS → pick the next runnable task → /slice. (D-121: renamed from /resume, 2026-09-23)
 /slice <id>   Write the brief from the template → claim lock → pg-tester RED → build → review → scribe → commit → release. Stops at DONE.
 /lane <id>    In a worktree session: load the lane's task list from 38 `Lane` column, run /slice for each in dependency order, never touch frozen paths, request migration numbers from the Master by writing `tasks/backlog/MIGRATION-REQUEST-<lane>.md`.
 /gate      Run gates ①–⑤ locally and print a one-table verdict.
-/state     Print PROJECT_STATE + LANE_LOCKS + last 3 commits; no edits.
-/review <path>   Run pg-reviewer on a slice without a build (used after manual fixes).
+/pg-state  Print PROJECT_STATE + LANE_LOCKS + last 3 commits; no edits. (D-121: renamed from /state, 2026-09-23)
+/pg-review <path>   Run pg-reviewer on a slice without a build (used after manual fixes). (D-121: renamed from /review, 2026-09-23)
 🧑 and 🔧 tasks: produce the runbook/script, mark WAITING_GM, continue.
 
 ==================================================
