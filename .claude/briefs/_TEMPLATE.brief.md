@@ -27,9 +27,11 @@ Stop-and-ask if: any table/column/rule not in 01 / 13 / 13B / 019 / 40.
 Rules that go with it, and are not repeated inside it:
 
 - The agent and its tier come from `docs/MODEL_ROUTING.md`; the Master records both.
-- **Budget is enforced by the brief.** A "Read ONLY" list over **12 files or 1,500 lines** is split
-  into two slices (BOOTSTRAP-v5 §4). pg-reviewer flags any delegation whose REPORT shows a read
-  outside the list.
+- **Budget is enforced by the brief — hard limit, not a guideline (D-118, GM 2026-09-23).** A "Read
+  ONLY" list over **12 files or 1,500 lines** MUST be split into two slices (BOOTSTRAP-v5 §4) before
+  any worker is delegated to — never fixed retroactively once a slice has started. pg-reviewer flags
+  any delegation whose REPORT shows a read outside the list, and any brief that was over budget when
+  written.
 - `Migration number` is issued by the Master only. A lane asks in
   `tasks/backlog/MIGRATION-REQUEST-<lane>.md` and waits; it never picks a number.
 - pg-tester gets the brief first and returns RED test names; the build brief then quotes them.

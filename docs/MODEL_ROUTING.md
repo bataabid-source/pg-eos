@@ -26,3 +26,13 @@ Agents are pinned in `.claude/agents/`: pg-reviewer=opus · pg-backend/pg-fronte
 replaced. Escalation is upward only (sonnet → opus) and only after two failures, for an ADR or
 a security design, or for the WBS 2.9 session. Expected token distribution (EXECUTION-MASTER-v4
 Part 4): ~85% sonnet (workers + scribe) · ~10% opus (review) · ~5% session.
+
+**D-117 (GM, 2026-09-23) — standing permission for the two-failures escalation.** When a slice's
+review FAILs twice on the same worker (max 2 rounds, CLAUDE.md · BUILD METHOD), the Master switches
+its own session to `/model opus` for the fix step only, then returns to whatever model tier the
+session was on before — no question asked each time this happens, this permission is standing. If
+the Master's session was already on a tier other than opus by explicit user instruction (e.g. the
+user ran `/model claude-sonnet-5` for the session), that instruction governs unless the Master
+actually switches per this standing permission; a fix made without switching is recorded honestly,
+not misreported as opus. (WBS 2.6's round-3 fix ran on sonnet, not opus, because the switch was not
+made in that session — accepted as recorded in `docs/CHANGELOG.md`, not redone.)

@@ -7,7 +7,7 @@
 | Status | Meaning |
 |---|---|
 | `TODO` | dependencies not all DONE |
-| `READY` | every dependency DONE with a hash; lane free → `/resume` may pick it |
+| `READY` | every dependency DONE with a hash; lane free → `/pg-resume` may pick it |
 | `ACTIVE` | claimed in `tasks/LANE_LOCKS.md`; one per lane |
 | `WAITING_GM` | 🧑 / 🔧 lane-A task: runbook or script produced, waits for the GM; never blocks a code lane |
 | `BLOCKED` | REAL BLOCKER recorded in `docs/PROJECT_STATE.md` |
@@ -42,7 +42,7 @@ Type: 🧑 human decision/data · 🤖 AI-buildable slice · 🔧 infra · ✅ v
 | 0.19 | Admin app shell: navigation, Decision Inbox, empty-state component, design system | 🤖 | 0.17 | **M** | SYSADMIN | Inbox renders; empty state shows "what's missing + owner" | DEFERRED → 2.9 (GM 2026-09-22, `docs/notes/0.17-sequencing-decision-request.md`: acceptance criterion is a rendered screen — no mechanism-only subset exists under the Phase-0 rule) |
 | 0.20 | Runbook v1 (deploy, rollback, restore, secrets rotation) — drafted as soon as 0.6 is green, sealed only after 0.8 restore succeeds | 🧑 (draft 🤖) | 0.6, 0.8 | **A** | SYSADMIN | Eight procedures written and tested once | WAITING_GM |
 
-**Phase gate:** 0.8 restore succeeded · 0.18 isolation **DONE** (G7 = 0, D-002 applied) · 0.16 classification complete (G6 = 0) · 0.1 owners named · 0.2 three cloud decisions recorded.
+**Phase gate:** 0.8 restore succeeded · 0.18 isolation test green (G7 = 0) · 0.16 classification complete (G6 = 0) · 0.1 owners named · 0.2 three cloud decisions recorded.
 
 ---
 
@@ -75,7 +75,7 @@ Type: 🧑 human decision/data · 🤖 AI-buildable slice · 🔧 infra · ✅ v
 | 2.3 | Generate the **3,330** codes: 3,153 storage + 30 operational + 147 structural (blocked, prefix `X-`), in the seven-character format of doc 19 §4 | 🤖 | 2.1, 2.2 | **2** | WH_MGR | Count = **3,153 storage locations (capacity)**. Sellable = capacity − the 7% operational buffer entered as `space_blocks_out_of_service` rows with reason `operational_buffer` = **2,932**. Structural blocked with reason | TODO |
 | 2.4 | Set `max_weight_kg` (1,000 pallet / 750 shelf) and `max_volume_cbm` per location | 🤖 | 2.3 | **2** | WH_MGR | Over-weight put-away rejected | TODO |
 | 2.5 | Print and apply **3,330 labels** — 3,153 storage + 30 operational (white, section colour) + 147 structural (**black background, white text**, prefix `X-`); 5% random scan audit | 🧑 | 2.3 | **A** | WH_MGR | Audit ≥ 99% match | WAITING_GM |
-| 2.6 | `wms.skus` with client ownership, dimensions, storage conditions, tracking policy | 🤖 | 1.5 | **2** | WH_MGR | Cross-client SKU mix rejected | DONE @ `<this commit>` — mechanism slice, D-103 authorized (2026-09-23); `modules/wms/src/sku-registration` proves the acceptance criterion at two layers — application (CrossClientSkuError before any DB call, since the runtime DB connection is still superuser, 0.18 item 7) and database (ephemeral non-superuser NOBYPASSRLS role blocked by RLS policy `sku_client_scope`, SQLSTATE 42501, with a same-client positive control); no migration (table/RLS pre-existing); no outbox row (open G-01: `wms.skus` has no `entity_id` and doc 40 names no `wms.sku.*` event — audit_log only); review FAIL(9) → FAIL(1) → PASS(10 findings fixed). |
+| 2.6 | `wms.skus` with client ownership, dimensions, storage conditions, tracking policy | 🤖 | 1.5 | **2** | WH_MGR | Cross-client SKU mix rejected | DONE @ `e38370e` — mechanism slice, D-103 authorized (2026-09-23); `modules/wms/src/sku-registration` proves the acceptance criterion at two layers — application (CrossClientSkuError before any DB call, since the runtime DB connection is still superuser, 0.18 item 7) and database (ephemeral non-superuser NOBYPASSRLS role blocked by RLS policy `sku_client_scope`, SQLSTATE 42501, with a same-client positive control); no migration (table/RLS pre-existing); no outbox row (open G-01: `wms.skus` has no `entity_id` and doc 40 names no `wms.sku.*` event — audit_log only); review FAIL(9) → FAIL(1) → PASS(10 findings fixed). |
 | 2.7 | **Data gate M04 (SKUs):** ≥95% of active SKUs complete | 🧑 | 2.6 | **A** | WH_MGR | Scorecard ≥ 95% | WAITING_GM |
 | 2.8 | Stock ledger + derived balance + `verify_balance_integrity()` | 🤖 | 0.12 | **2** | WH_MGR | Zero rows after 1,000 random movements; property test green | DONE @ `b5da282` — mechanism slice; fixes e5bff15 (SCR-AUDIT-01) and 787d9dc (SCR-WMS-01); modules/wms 85/85; review PASS. |
 | 2.9 | **GOLDEN SLICE — Receive inbound order** (PDA + state machine + ledger + event + GRN + billable events) | 🤖 | 2.4, 2.6, 2.8, 0.15 | **M** | WH_MGR + GM review | Full human review; becomes the template | TODO |

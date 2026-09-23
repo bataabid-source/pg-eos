@@ -1,9 +1,11 @@
-# GM decision sheet — 2026-09-23
+# GM decision sheet — 2026-09-23 (refreshed after WBS 2.6 and Task X D-113…D-121)
 
 Source: `tasks/MASTER_BACKLOG.md` (every row whose status is `WAITING_GM`), ADR-0002 (open G-01), `docs/PROJECT_STATE.md` blockers.
 Blocks = direct dependants in the doc-38 `Depends on` column, plus the phase gate that names the row. Recommendations are the agent's; nothing here is decided.
 
-**Row count:** the directive expected 26 `WAITING_GM` rows; the backlog holds **28** — 24 doc-38 rows + 4 staged rows (2.20 · 5.18 · 6.2b · SC-01). All 28 are listed.
+**Row count:** the directive expected 26 `WAITING_GM` rows; the backlog holds **28** — 24 doc-38 rows + 4 staged rows (2.20 · 5.18 · 6.2b · SC-01). All 28 are listed. Unchanged since the first version of this sheet — no `WAITING_GM` row was resolved by 2.6 or Task X D-113…D-121, though 2.6's completion satisfies 2.7's dependency (2.7 stays `WAITING_GM` — D-119, 2026-09-23 — pending the GM's own read of this sheet).
+
+**G-01 items — one closed since the first version of this sheet.** A second item was raised during WBS 2.6 (`wms.skus` has no `entity_id`, so a registration event cannot legally carry one under `outbox_business_needs_entity`) and closed the same day by **D-116 (GM, 2026-09-23): no `entity_id` added to `wms.skus`, the outbox constraint is not weakened; the `platform.audit_log` row this slice writes is the correct and final behaviour; any future SKU-related event is published by the entity-owning context (inventory/warehouse), never by the SKU aggregate.** It is not listed as an open row below — it is resolved, not pending. The G8-anchor item (§A) is the only G-01 item still open.
 
 ## A. Blockers named in PROJECT_STATE
 

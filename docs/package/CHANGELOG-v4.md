@@ -117,3 +117,8 @@ pst-warehouse-3d: حارس three.js · الكود السباعي وكود الإ
 
 - **D-105:** الصورة المعتمدة `postgres:16` (Debian/glibc) للتطوير وللمستوى 0 — **`42-Oracle-Cloud-Deployment.md` 4.1 → 4.2** (§4.2 الصورة والفحص السلوكي، §9 التكافؤ محسوم، `nginx:1.27`)؛ **`40-Build-Specification-EN.md` 4.3 → 4.4** (سطر المستوى 0).
 - **D-106 … D-112:** إعداد المستودع فقط (موجزات الشرائح إلى `docs/notes/slice-briefs/`، `turbo.json`، `docker-compose.yml` و`.env.example`، ملاحظة `identity`، ترويسة `MASTER_BACKLOG`، مزامنة الوثائق) — التفصيل في `docs/CHANGELOG.md`.
+
+## 19. إضافة (23/09/2026) — قرارات GM ‏D-113 … D-121 (مهمة X، حوكمة وتسمية)
+
+- **D-121، تصحيح (erratum) على BOOTSTRAP-v5 §9:** أوامر الطقم أُعيدت تسميتها لتفادي تعارض محتمل مع أوامر Claude Code المدمجة: `.claude/commands/resume.md → pg-resume.md`، `state.md → pg-state.md`، `review.md → pg-review.md` — الأمر يصبح `/pg-resume` و`/pg-state` و`/pg-review` (لا تغيير على `/slice` و`/lane` و`/gate`). **هذا المستند (BOOTSTRAP-v5) وPROJECT-SETUP-GUIDE.md لم يُعدَّلا في مهمة X** (مستندا حزمة، تحريرهما لمدير عام فقط) — الأسطر 183/187/188 هنا (`§9`) وPROJECT-SETUP-GUIDE.md الأسطر 80/94 ما زالت تسمّي `/resume`/`/state`/`/review`؛ بانتظار تحرير حزمة صريح. كل مرجع خارج docs/package محدَّث في نفس مهمة X (`README-KIT.md`، `SETUP-STATUS-AR.md`، `docs/notes/*`، `scripts/gen-backlog.py`، `tasks/MASTER_BACKLOG.md`).
+- **D-113 … D-120:** حوكمة فقط، بلا تغيير مخطط أو ترحيل — التفصيل في `docs/DECISION_LOG.md` و`docs/CHANGELOG.md` (مهمة X).

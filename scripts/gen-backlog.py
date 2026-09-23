@@ -60,7 +60,7 @@ def initial_status(cells, phase_title):
     if lane == "A":
         return "WAITING_GM"          # GM / manual lane — never blocks a code lane
     if deps in ("—", "-", ""):
-        return "READY"               # no dependency: /resume may pick it
+        return "READY"               # no dependency: /pg-resume may pick it
     return "TODO"
 
 def render(phases, keep):
@@ -74,7 +74,7 @@ def render(phases, keep):
     out.append("| Status | Meaning |")
     out.append("|---|---|")
     out.append("| `TODO` | dependencies not all DONE |")
-    out.append("| `READY` | every dependency DONE with a hash; lane free → `/resume` may pick it |")
+    out.append("| `READY` | every dependency DONE with a hash; lane free → `/pg-resume` may pick it |")
     out.append("| `ACTIVE` | claimed in `tasks/LANE_LOCKS.md`; one per lane |")
     out.append("| `WAITING_GM` | 🧑 / 🔧 lane-A task: runbook or script produced, waits for the GM; never blocks a code lane |")
     out.append("| `BLOCKED` | REAL BLOCKER recorded in `docs/PROJECT_STATE.md` |")

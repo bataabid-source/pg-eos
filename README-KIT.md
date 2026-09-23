@@ -54,12 +54,12 @@ BOOTSTRAP-v5 ever differ, BOOTSTRAP-v5 governs.
 | `agents/pg-frontend.md` | sonnet · React/TanStack/shadcn, React Native/Expo, PDA PWA. RTL default, i18n ar/en/hi/ur/bn. Builds from the Zod contract and the D-blueprint screen spec. |
 | `agents/pg-tester.md` | sonnet · Gherkin → Playwright, property tests, guards G1–G18, mutation. Writes tests FIRST and reports RED. |
 | `agents/pg-scribe.md` | sonnet (GM 2026-09-23: no haiku) · PROJECT_STATE · MASTER_BACKLOG · CHANGELOG · LANE_LOCKS release · commit message · i18n · renames. No logic, no schema. |
-| `commands/resume.md` | `/resume` — read state, pick the next runnable task, hand it to `/slice`. |
+| `commands/pg-resume.md` | `/pg-resume` — read state, pick the next runnable task, hand it to `/slice`. |
 | `commands/slice.md` | `/slice <id>` — carries the BRIEF template (§5) and the twelve-step loop (§2). |
 | `commands/lane.md` | `/lane <id>` — a worktree session: the lane's doc-38 task list, its locks, its migration requests. |
 | `commands/gate.md` | `/gate` — gates ①–⑤ locally, one verdict table. |
-| `commands/state.md` | `/state` — PROJECT_STATE + LANE_LOCKS + the last 3 commits. Read-only. |
-| `commands/review.md` | `/review <path>` — pg-reviewer on a slice with no build, after manual fixes. |
+| `commands/pg-state.md` | `/pg-state` — PROJECT_STATE + LANE_LOCKS + the last 3 commits. Read-only. |
+| `commands/pg-review.md` | `/pg-review <path>` — pg-reviewer on a slice with no build, after manual fixes. |
 | `briefs/_TEMPLATE.brief.md` | Both brief formats: the SLICE BRIEF skeleton (§5) and the field list every module brief carries (CLAUDE.md · QUOTA DISCIPLINE (v5)). |
 | `briefs/<module>.brief.md` | Fifteen generated module briefs — `identity platform catalog sales wms tms cc billing hr fleet housing partners admin imile governance`, each ≤ 120 lines. **Generated, never hand-edited.** `fleet` has no schema of its own: its tables live in schema `tms`, and both briefs say so. One-off slice briefs (e.g. `_slice-0.17`, `_slice-1.5`, `_slice-2.1`, `_slice-2.8`, `0.18-isolation`) live in `docs/notes/slice-briefs/`, not here (D-106, GM 2026-09-23). |
 
@@ -70,7 +70,7 @@ BOOTSTRAP-v5 ever differ, BOOTSTRAP-v5 governs.
 | `gen-briefs.py` | The brief generator: `psql` → the fifteen briefs. Rerunnable and idempotent. `python3 scripts/gen-briefs.py` rewrites them all; `--check` verifies the 120-line limit without writing. Run it whenever the schema changes under G-01. |
 | `new-slice.sh` | The golden-slice generator. **A no-op that prints "golden slice not accepted yet" until the committed file `.golden-slice-accepted` exists**; after that it copies `modules/wms/*/receive-inbound` with sed renames (kebab · snake · camel · pascal · const · schema · import paths) plus the contract and the i18n keys. Its intended behaviour is documented in its own header comments. |
 | `gen-backlog.py` | Generates `tasks/MASTER_BACKLOG.md` from `docs/package/38-WBS.md`: 132 rows, IDs · type markers · deps · lane · owner · acceptance copied verbatim + a `Status` column (TODO · READY · ACTIVE · WAITING_GM · BLOCKED · DONE @ hash). Rerunnable — existing statuses are preserved; `--check` verifies the count without writing. |
-| `check-setup.sh` | Read-only pre-flight for `/resume`: package files, schema files, kit files, state files, 132 backlog rows, `.git`, and the tools of PROJECT-SETUP-GUIDE §1 (git · node · pnpm · docker · psql · claude). Exit 1 on any MISS. |
+| `check-setup.sh` | Read-only pre-flight for `/pg-resume`: package files, schema files, kit files, state files, 132 backlog rows, `.git`, and the tools of PROJECT-SETUP-GUIDE §1 (git · node · pnpm · docker · psql · claude). Exit 1 on any MISS. |
 | `guards-run.sh` | Runs `database/schema/guards.sql` against `$PGDATABASE` and turns rows into an exit code: non-zero if any of **G1–G13** returned a row, with **G6 a warning only** (non-blocking until WBS 0.16) and **G18 / G-SEED report-only**. G14–G17 are not SQL and are named, not run. |
 
 ### `tasks/`

@@ -4,6 +4,27 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — GM decisions 2026-09-23: D-103…D-121 (governance, command rename, docs sync) — DONE (2026-09-23)
+
+- **DECISION_LOG.md working log:** appended D-103, D-104, D-110, D-113, D-114, D-116, D-117, D-118, D-119, D-121 (D-115, D-120 not issued — numbering gap, same pattern as the earlier D-110-not-issued gap noted in the prior Task X entry). D-105–D-109, D-111, D-112 already had rows from an earlier pg-scribe pass (added 2026-09-23) recording decisions the Master had already executed in commit `0260778` — not duplicated here.
+- **D-103** WBS 2.6 (`wms.skus`) authorized ahead of 1.2 (blocked — no apps/API for its acceptance) and 3.x (no TMS/HR assignment path). Executed @ `e38370e` — now logged.
+- **D-104** Phase-0 gate stays open; 2.9 does not start before 0.2, 0.5, 0.6, 0.8 all close; no NestJS/XState/pg-boss before 0.8.
+- **D-110** historic commits without a `type(WBS):` first line are not rewritten.
+- **D-113** the 0.18 carried-forward item (runtime still superuser; `entity_scope` `FOR ALL`/`USING` only) is resolved inside WBS 0.5 (app role `pgeos_app`, no `BYPASSRLS`, `USING`/`WITH CHECK` split) — deferred, no action now.
+- **D-114** guards G15–G17 are built with WBS 0.6 — deferred, no action now.
+- **D-116** the WBS 2.6 G-01 item (`wms.skus` has no `entity_id`) is **CLOSED, verbatim**: no `entity_id` added, `outbox_business_needs_entity` not weakened; the `platform.audit_log` row this slice writes is the correct, final behaviour; any future SKU-related event is published by the entity-owning context (inventory/warehouse), never by the SKU aggregate. `docs/PROJECT_STATE.md` blockers line updated from "open" to "CLOSED by D-116".
+- **D-117** standing permission — after two review FAILs the Master switches to `/model opus` for the fix step only, then returns; recorded in `docs/MODEL_ROUTING.md`. Honesty note: 2.6's round-3 fix ran on sonnet (session was on an explicit user-set `/model claude-sonnet-5`, no switch made) — accepted as already recorded in this file's 2.6 entry, not redone.
+- **D-118** a slice brief's Read-ONLY list over 12 files is a hard split requirement, enforced before delegation, never fixed retroactively once a slice has started; reworded into `.claude/briefs/_TEMPLATE.brief.md`. 2.6's 21-file brief is not fixed retroactively.
+- **D-119** WBS 2.7 stays `WAITING_GM` until the GM has read the decision sheet (`docs/notes/2026-09-23-gm-decision-sheet.md`).
+- **D-121** kit commands renamed to avoid a possible clash with Claude Code's own built-ins: `resume.md`→`pg-resume.md`, `state.md`→`pg-state.md`, `review.md`→`pg-review.md` (`git mv`); every reference outside `docs/package/` updated (README-KIT.md, SETUP-STATUS-AR.md, `docs/notes/2026-09-23-repo-audit.md`, `docs/notes/0.17-sequencing-decision-request.md`, `scripts/gen-backlog.py` + regenerated `tasks/MASTER_BACKLOG.md`). `docs/package/BOOTSTRAP-v5.md` §9 and `PROJECT-SETUP-GUIDE.md` still name the old commands — flagged as a package-edit erratum in `docs/package/CHANGELOG-v4.md` §19, not edited directly (governing package, GM-only edits).
+- **Deliberately not touched:** `docs/notes/0.9-abandoned-wip.md`, `tasks/completed/0.4-monorepo-skeleton.md` (historical narrative, same principle as D-110); `docs/notes/2026-09-23-gm-decision-sheet.md` (refreshed by the Master this session, header note + G-01 closure note for D-116, row count unchanged at 28) — not touched further, no inaccuracy found.
+- **Part 4 verification, GREEN (2026-09-23):** `bash scripts/check-setup.sh` → READY · `pnpm lint` → clean · `pnpm lint:boundaries` → BOUNDARIES ENFORCED (A-F) · `pnpm typecheck` → 14/14 (cached, full turbo) · `PGUSER=postgres pnpm guards:run` → G1-G14+G18+G-SEED = 0 rows, all blocking guards green (G15-G17 not run, known) · `gen-briefs.py --check` → all 15 briefs ok, ≤120 lines, 175 tables/14 schemas · `gen-backlog.py --check` → 132 rows, header/X.1-X.6/0.19 agree.
+- **Bookkeeping:** `docs/PROJECT_STATE.md` current task → X (D-103…D-121), previous task 2.6 @ `e38370e` resolved into Last-5-DONE (was `<this commit>`); blockers line for 2.6's G-01 item replaced with its D-116 closure note; setup-check row refreshed with Part-4 results; Next-3-tasks confirmed unchanged (2.7 WAITING_GM per D-119, 2.2 field survey, 0.6 CI). `tasks/MASTER_BACKLOG.md` 2.6 row's `<this commit>` placeholder resolved to `e38370e`; no other row changes (Task X is not itself a WBS row — X.1–X.6 are the CONTINUOUS rows, unaffected). `SETUP-STATUS-AR.md` X row (D-105…D-112) marked done @ `0260778`, 2.6 row added (✅, `e38370e`), new X row added in-progress with the `<هذا الالتزام>` commit-later convention. `README-KIT.md` command rows spot-checked — already correct, no change needed. `tasks/LANE_LOCKS.md` confirmed empty, nothing to release.
+- Previous-task hash recorded: 2.6 @ `e38370e`.
+- Model: sonnet · Delegated: pg-scribe · Review: n/a (governance) · tokens: ≈ 60k (estimate)
+
+---
+
 ## 2.6 — wms.skus registration mechanism (cross-client rejection) — DONE (2026-09-23)
 
 - **D-103 authorization (GM, 2026-09-23):** 2.6 approved to start now despite its "out of scope of current directive" note in MASTER_BACKLOG, because 1.2 is blocked (no apps/API for its acceptance) and 3.x lack a TMS/HR assignment path. Phase-0 gate stayed open throughout: verified `git status`/`git diff --stat` show nothing under `modules/wms/{domain,application,infrastructure,api}/`, no NestJS/XState/pg-boss dependency added to any `package.json`.
