@@ -6,7 +6,7 @@ Maintained by pg-scribe only, in the same commit as the task it records.
 | field | value |
 |---|---|
 | Phase | 0 — Foundation → 2 — Warehouse (2.1 started 2026-09-23) |
-| Current task | **2.8 — ACTIVE, STOPPED (BLOCKED)** on lane M. Implementation green except the concurrency gate: SCR-AUDIT-01 (audit hash-chain order race, 13B frozen path) needs a GM decision — see Blockers. Completion still 12/132. Phase E of the GM directive done (`1a9335b` ADR-0001 · `dc3cc1b` archive + pinning); phase D waits on phase-C gates. |
+| Current task | **2.8 — ACTIVE, STOPPED.** SCR-AUDIT-01 decision A received; G2 stopped on two PostgreSQL conflicts (UNIQUE on a partitioned table; sequence gaps on rollback) — GM word needed on the resolution in the SCR note §6. F done (`6fa64ff`); G4 regression RED (2008/2009 broken rows). Completion 12/132. |
 | Golden slice (2.9) | not built · `.golden-slice-accepted` absent · `scripts/new-slice.sh` is a no-op. **Acceptance gains a Phase-0 wiring line (GM 2026-09-22): the golden slice must wire up every part deferred from Phase-0 "mechanism only" tasks — starting with 0.17's login endpoints.** |
 | Deployment tier | Tier 0 (`docs/package/42-Oracle-Cloud-Deployment.md`) |
 | Schema | `database/schema/01 · 13 · 13B · 019` — the ONLY permitted schema · `apply.sh --recreate` **green on this machine 2026-09-23 (13B v4.2)**: 175 tables/14 schemas, `wms.verify_wh1()` 21/21 pass (3,330 locations), G1–G13 = 0 (G6 blocking, 0 rows — WBS 0.16 complete), G18/G-SEED report-only = 0 |
@@ -30,8 +30,8 @@ wms claimed by lane M for 2.8 (tasks/LANE_LOCKS.md) — single lane, no parallel
 
 ## Blockers
 
-- **SCR-AUDIT-01 (G-01, GM decision):** `platform.audit_hash_chain()` chains in lock order, `verify_audit_chain()` verifies in (occurred_at, id) order → concurrent audit writers break the chain (2.8 concurrency run: ~700 / ~3,500+ broken rows, G8/G14 red until recreate). Options A/B/C in docs/notes/SCR-AUDIT-01-hash-chain-order-race.md; Master recommends B. Blocks 2.8 close-out and phase D.
-- **SCR candidate (2.8):** `wms.verify_balance_integrity()` ignores `batch_no` while `stock_balance` is keyed with it — false positives with several batches per location; 2.8 uses batch_no '' only.
+- **SCR-AUDIT-01 (G-01, GM decision):** GM directive 2026-09-23 (#3) chose option A. Phase F done at `6fa64ff` (package docs pin pg-scribe to sonnet: BOOTSTRAP-v5 → 5.1, 41 → 4.1, CHANGELOG-v4 §13; worktree resume-d2f142 archived as tag `archive/wt/resume-d2f142` = fab7e5f, directory deleted). Phase G STOPPED at G2 before any schema edit: two literal conflicts on PostgreSQL 16 — (1) `UNIQUE (chain_seq)` is refused on the partitioned `platform.audit_log` (unique constraints must include partition key `occurred_at`); (2) a dedicated sequence leaves gaps on rollback, so "verifier detects gaps" would report false failures. Master's recommended resolution (gapless chain_seq = previous + 1 under the advisory lock, per-partition unique index + verifier duplicate check) is in docs/notes/SCR-AUDIT-01-hash-chain-order-race.md §6 — GM word required. G4 regression test written (opus) and RED on the current schema: modules/platform/tests/integration/audit-chain-concurrency.test.ts, 8 writers × 500 → verify_audit_chain() = 2008 and 2009 broken rows on two fresh databases; database left clean. H, C close-out and D wait for the GM's answer.
+- **SCR-WMS-01 (GM-approved, phase H):** verify_balance_integrity() to fold by the full stock_balance key incl. batch_no — migration 0005, after G.
 - WAITING_GM · **2.2** field survey — chain 2.2 → 2.3 → 2.4 → 2.9.
 - WAITING_GM · **0.2** three cloud decisions (doc 42 §11) → 0.3 → 0.5 → 0.6; and **0.8** restore test.
 - **Phase-0 gate open** (0.2, 0.8); **2.9 does not start before it closes**.
@@ -42,9 +42,9 @@ wms claimed by lane M for 2.8 (tasks/LANE_LOCKS.md) — single lane, no parallel
 
 ## Next 3 tasks
 
-1. GM decision on SCR-AUDIT-01 → migration 0004 (Master, single lane) → 2.8 close-out (pg-tester fixes role prefix + timeout, re-run gates, opus review).
-2. 1.5 proof slice (ADR-0001) — after 2.8 gates green.
-3. 0.6 CI pipeline (waits on 0.5 WAITING_GM)
+1. GM word on SCR-AUDIT-01 §6 → G (ADR-0002, 13B, migration 0004, G8 prose) → H (SCR-WMS-01, migration 0005) → 2.8 close-out.
+2. 1.5 proof slice (ADR-0001; 13B:2135 → ≥ 0.85 inside D).
+3. 0.6 CI pipeline (waits on 0.5).
 
 ## Notes
 

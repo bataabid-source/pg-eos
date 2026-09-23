@@ -61,3 +61,34 @@ re-derived) inside one transaction, and `verify_audit_chain()` must return 0 imm
 - Phase D (WBS 1.5) — start condition "every phase-C gate green" not met.
 - Carried-forward from 2.8 for the same decision meeting: `wms.verify_balance_integrity()` folds without `batch_no` while
   `wms.stock_balance` is keyed with it (false positives once a location holds several batches); 2.8 uses `batch_no = ''` only.
+
+## 6. GM decision 2026-09-23: option A — two literal conflicts found before implementation (STOP)
+
+The GM chose option A with this wording (directive item G2): *"`chain_seq bigint NOT NULL UNIQUE` … allocated inside the trigger
+after `pg_advisory_xact_lock` from a dedicated sequence … `verify_audit_chain()` orders by `chain_seq` only and detects gaps and
+duplicates."* Two parts cannot hold together on PostgreSQL 16 as written. Both were reproduced on the local server (16.15) before
+any schema edit:
+
+| # | Wording | What PostgreSQL does | Evidence |
+|---|---|---|---|
+| 1 | `UNIQUE` on `chain_seq` | `platform.audit_log` is partitioned by `occurred_at`; a unique constraint on a partitioned table must include every partition-key column. `unique (chain_seq)` is refused; `unique (chain_seq, occurred_at)` is accepted but does not make `chain_seq` unique. | `ERROR: unique constraint on partitioned table must include all partitioning columns — DETAIL: UNIQUE constraint on table … lacks column "occurred_at"` |
+| 2 | "from a dedicated sequence" + "detects gaps" | A sequence value taken by a transaction that later rolls back is never returned. Any audited transaction that fails after its audit insert (a later constraint, an outbox error, a client disconnect) leaves a permanent hole, which the verifier would then report as a chain failure. | `begin; nextval → 1; rollback;` then `nextval → 2` |
+
+### Resolution the Master recommends (needs the GM's word — not implemented)
+
+- **Numbering:** `chain_seq` = previous row's `chain_seq + 1`, read in the same trigger query that already fetches the previous
+  `row_hash`, after `pg_advisory_xact_lock`. The lock is held until commit or rollback, so writers are strictly serialised: no two
+  rows can get the same number, and a rolled-back row releases its number to the next writer. The numbering is gapless, so a
+  gap then really means a deleted row — which is the tamper signal the gap check is meant to catch. No sequence object is needed.
+- **Uniqueness:** a unique index on `chain_seq` **per partition**, created by the migration and by the monthly partition job, plus
+  the verifier's duplicate check across all partitions. Global uniqueness is guaranteed by the lock, not by a constraint, since
+  PostgreSQL cannot declare one on this table.
+- **Verifier:** orders by `chain_seq` only; reports hash mismatches, `prev_hash` mismatches, duplicate `chain_seq` values, and gaps
+  (`chain_seq - lag(chain_seq) <> 1`, first row = 1).
+- **Assumption kept from today's design:** audited writes run under READ COMMITTED (the default and what `withContext` uses), so the
+  trigger's query sees the row committed by the previous lock holder. REPEATABLE READ / SERIALIZABLE writers would need a
+  retry; ADR-0002 would state this.
+
+Alternatives if the GM prefers to keep the wording: (i) keep the sequence and report gaps as information, not failures (the gap
+check then says nothing about tampering); (ii) add a non-partitioned side table keyed by `chain_seq` for a true global unique
+constraint (a new table, which needs its own G-01 approval).
