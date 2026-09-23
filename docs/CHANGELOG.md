@@ -4,6 +4,15 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — Focus boards: no user customisation (D-15 D-1 = (أ), D-138) — DONE (2026-09-24)
+
+- GM answer to D-15 §8-2 D-1: **(أ) no customisation at all** (not the (ب) "collapse only" recommendation). Applied as annotations: D-15 D-1 row ✅, F-9 row superseded, §3(ب) note (collapse state is never saved; groups open expanded on every load), B-9 falls away; Gap-Register #79 closed.
+- Default taken: in-session collapse stays possible, forgotten on reload. D-2…D-6 remain open (not answered).
+- No code (0.19 admin shell not built yet — the rule lands in its brief when 0.19 starts). Running 0.6a session untouched.
+- Model: Master session fable-5.1 · Delegated: none · Review: n/a (governance) · tokens ≈ 10k (estimate)
+
+---
+
 ## X — SCR-TMS-PICKUP-01 approved (D-137) — DONE (2026-09-24)
 
 - GM directive "بناء عليه تم اعتماد القرارات الخمس" (D-137). SCR status APPROVED, §7 resolution table: gap approved; pickup site `sales.account_sites`; unique source index folded in; timing post-pilot with WBS 3.7, migration number issued after the 0.6a commit; service code carried to the CFO with standing default "inside DL-01/02, catalog stays at 92".
