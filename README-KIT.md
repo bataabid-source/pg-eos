@@ -53,7 +53,7 @@ BOOTSTRAP-v5 ever differ, BOOTSTRAP-v5 governs.
 | `agents/pg-backend.md` | sonnet · NestJS · Drizzle · XState · outbox · pg-boss · migrations. Replicates the golden slice via `scripts/new-slice.sh`. |
 | `agents/pg-frontend.md` | sonnet · React/TanStack/shadcn, React Native/Expo, PDA PWA. RTL default, i18n ar/en/hi/ur/bn. Builds from the Zod contract and the D-blueprint screen spec. |
 | `agents/pg-tester.md` | sonnet · Gherkin → Playwright, property tests, guards G1–G18, mutation. Writes tests FIRST and reports RED. |
-| `agents/pg-scribe.md` | haiku · PROJECT_STATE · MASTER_BACKLOG · CHANGELOG · LANE_LOCKS release · commit message · i18n · renames. No logic, no schema. |
+| `agents/pg-scribe.md` | sonnet (GM 2026-09-23: no haiku) · PROJECT_STATE · MASTER_BACKLOG · CHANGELOG · LANE_LOCKS release · commit message · i18n · renames. No logic, no schema. |
 | `commands/resume.md` | `/resume` — read state, pick the next runnable task, hand it to `/slice`. |
 | `commands/slice.md` | `/slice <id>` — carries the BRIEF template (§5) and the twelve-step loop (§2). |
 | `commands/lane.md` | `/lane <id>` — a worktree session: the lane's doc-38 task list, its locks, its migration requests. |
@@ -61,7 +61,7 @@ BOOTSTRAP-v5 ever differ, BOOTSTRAP-v5 governs.
 | `commands/state.md` | `/state` — PROJECT_STATE + LANE_LOCKS + the last 3 commits. Read-only. |
 | `commands/review.md` | `/review <path>` — pg-reviewer on a slice with no build, after manual fixes. |
 | `briefs/_TEMPLATE.brief.md` | Both brief formats: the SLICE BRIEF skeleton (§5) and the field list every module brief carries (CLAUDE.md · QUOTA DISCIPLINE (v5)). |
-| `briefs/<module>.brief.md` | Fifteen generated module briefs — `identity platform catalog sales wms tms cc billing hr fleet housing partners admin imile governance`, each ≤ 120 lines. **Generated, never hand-edited.** `fleet` has no schema of its own: its tables live in schema `tms`, and both briefs say so. |
+| `briefs/<module>.brief.md` | Fifteen generated module briefs — `identity platform catalog sales wms tms cc billing hr fleet housing partners admin imile governance`, each ≤ 120 lines. **Generated, never hand-edited.** `fleet` has no schema of its own: its tables live in schema `tms`, and both briefs say so. One-off slice briefs (e.g. `_slice-0.17`, `_slice-1.5`, `_slice-2.1`, `_slice-2.8`, `0.18-isolation`) live in `docs/notes/slice-briefs/`, not here (D-106, GM 2026-09-23). |
 
 ### `scripts/`
 
@@ -92,7 +92,7 @@ its acceptance criterion, its dependencies, and the decision the GM owes. None o
 
 | file | what it is |
 |---|---|
-| `PROJECT_STATE.md` | The ≤ 60-line state file, initialised per BOOTSTRAP-v4 §8: Current Task **BOOTSTRAP-001 → 0.4**, empty lane table, Tier 0, golden slice not built, environment blockers listed. pg-scribe maintains it. |
+| `PROJECT_STATE.md` | The ≤ 60-line state file, initialised per BOOTSTRAP-v4 §8 with Current Task **BOOTSTRAP-001 → 0.4**, empty lane table, Tier 0, golden slice not built, environment blockers listed. Maintained by pg-scribe only, in the same commit as the task it records; the current task shown in the file itself now reflects the latest completed/active WBS item, not the bootstrap value above. |
 | `DECISION_LOG.md` | Seeded verbatim from EXECUTION-MASTER-v4 Part 1 (§1.1–§1.16) + an append-only working log (D-000 = setup). Zero open-decision markers. |
 | `CHANGELOG.md` | One entry per completed task, newest first; starts with SETUP-000. |
 | `package/` | The complete package v4: A-governing (9) · B-reference (26) · root docs (3) · `tools/` (C-tools) · `D-blueprints/` (16 docs + `diagrams/` mmd+svg + `tools/`). Read-only for agents; edited only by the GM. |
@@ -103,7 +103,7 @@ its acceptance criterion, its dependencies, and the decision the GM owes. None o
 
 | file | what it is |
 |---|---|
-| `docker/docker-compose.yml` | Postgres 16 (`pgeos`, trust auth for local loopback connections only, port 5432, named volume) and an optional pgAdmin behind the `tools` profile. Nothing else — other services arrive with their own WBS tasks. |
+| `docker/docker-compose.yml` | `postgres:16` (Debian/glibc — D-105, GM 2026-09-23) as `pgeos`, trust auth for local loopback connections only, port 5432, named volume; optional pgAdmin behind the `tools` profile, password `${PGADMIN_PASSWORD:-pgadmin-dev}` — override via `PGADMIN_PASSWORD` or `infra/docker/.env` (see `infra/docker/.env.example`). Nothing else — other services arrive with their own WBS tasks. |
 
 ---
 

@@ -1,6 +1,6 @@
 // WBS 2.1 (pg-tester). `wms.warehouses`, `wms.zones`, `wms.space_blocks` and `wms.locations` for
 // WH1 are ALREADY DELIVERED by database/schema/019-Warehouse-WH1-Setup.sql (frozen file; see
-// .claude/briefs/_slice-2.1.brief.md and .claude/briefs/wms.brief.md — "the file generates
+// docs/notes/slice-briefs/_slice-2.1.brief.md and .claude/briefs/wms.brief.md — "the file generates
 // exactly what 19 §4 describes; nothing is entered by hand"). There is no domain/application code
 // to build for this task: this file is the permanent, re-runnable proof that doc 38 row 2.1's
 // acceptance numbers hold against a live Postgres instance. Read-only — no INSERT/UPDATE/DELETE.

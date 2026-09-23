@@ -7,7 +7,7 @@ verbatim — IDs, type markers, Depends on, Lane, Owner, Acceptance — and adds
 
 Usage:
     python3 scripts/gen-backlog.py            # (re)writes tasks/MASTER_BACKLOG.md, keeps existing statuses
-    python3 scripts/gen-backlog.py --check    # verifies 132 rows and prints the phase counts, writes nothing
+    python3 scripts/gen-backlog.py --check    # verifies 132 rows, the header line and the X / 0.19 statuses; writes nothing
 
 Status vocabulary (pg-scribe moves rows; nothing else edits this file):
     TODO · READY · ACTIVE · WAITING_GM · BLOCKED · DONE @ <hash>
@@ -15,6 +15,8 @@ Status vocabulary (pg-scribe moves rows; nothing else edits this file):
 import re, sys, pathlib
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
+# Header wording fixed by the GM 2026-09-23 (D-111). The X-tasks and 0.19 are inside the 132 rows.
+HEADER = "**132 doc-38 tasks + X.1–X.6 CONTINUOUS + 0.19 DEFERRED** — eight phases (0–7) + cross-cutting X-tasks; X.1–X.6 and 0.19 are counted inside the 132. No 18-phase roadmap, no separate database phase (BOOTSTRAP-v4 §8)."
 WBS = ROOT / "docs" / "package" / "38-WBS.md"
 OUT = ROOT / "tasks" / "MASTER_BACKLOG.md"
 
@@ -67,7 +69,7 @@ def render(phases, keep):
     out.append("")
     out.append("**Generated from `docs/package/38-WBS.md` (Document 38 v4.0) by `scripts/gen-backlog.py` — IDs, type markers, dependencies, lanes, owners and acceptance criteria are copied verbatim; doc 38 governs on any difference.**")
     out.append("")
-    out.append("Eight phases (0–7) + cross-cutting X-tasks = **132 tasks**. No 18-phase roadmap, no separate database phase (BOOTSTRAP-v4 §8).")
+    out.append(HEADER)
     out.append("")
     out.append("| Status | Meaning |")
     out.append("|---|---|")
@@ -115,6 +117,21 @@ def render(phases, keep):
     out.append(f"**Rows: {total}** (expected 132 — `--check` fails otherwise).")
     return "\n".join(out) + "\n", total
 
+def check_existing(counts):
+    """--check: the committed file must carry the D-111 header and the statuses it names."""
+    if not OUT.exists():
+        return [f"{OUT.relative_to(ROOT)} missing"]
+    errors = []
+    if HEADER not in OUT.read_text(encoding="utf-8").splitlines():
+        errors.append("MASTER_BACKLOG header differs from gen-backlog.py HEADER (D-111)")
+    st = load_existing_status()
+    xs = sorted(k for k in st if k.startswith("X."))
+    if len(xs) != 6 or any(st[k] != "CONTINUOUS" for k in xs):
+        errors.append(f"X-tasks must be X.1–X.6 CONTINUOUS, found {[(k, st[k]) for k in xs]}")
+    if not st.get("0.19", "").startswith("DEFERRED"):
+        errors.append(f"0.19 must be DEFERRED, found {st.get('0.19')!r}")
+    return errors
+
 def main():
     check = "--check" in sys.argv
     phases = parse()
@@ -126,6 +143,13 @@ def main():
     if total != 132:
         print("ERROR: expected 132 rows", file=sys.stderr)
         sys.exit(1)
+    if check:
+        errors = check_existing(counts)
+        for e in errors:
+            print(f"ERROR: {e}", file=sys.stderr)
+        if errors:
+            sys.exit(1)
+        print("header · X.1–X.6 CONTINUOUS · 0.19 DEFERRED — agree with tasks/MASTER_BACKLOG.md")
     if not check:
         OUT.parent.mkdir(parents=True, exist_ok=True)
         OUT.write_text(text, encoding="utf-8")

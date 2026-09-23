@@ -4,7 +4,7 @@
 // from the golden slice (WBS 2.9) by scripts/new-slice.sh — never hand-made (CLAUDE.md).
 //
 // WBS 2.8 is a mechanism slice (precedent 0.17): no endpoint/UI/XState exists yet, so its code
-// lives flat under src/stock-ledger/ instead of a hexagonal tree (brief .claude/briefs/
-// _slice-2.8.brief.md, "Type of slice"). Re-exported here — the module's public barrel — per the
+// lives flat under src/stock-ledger/ instead of a hexagonal tree (brief docs/notes/
+// slice-briefs/_slice-2.8.brief.md, "Type of slice"). Re-exported here — the module's public barrel — per the
 // brief's Public surface block.
 export * from './src/stock-ledger/index.js';

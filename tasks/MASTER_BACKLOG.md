@@ -2,7 +2,7 @@
 
 **Generated from `docs/package/38-WBS.md` (Document 38 v4.0) by `scripts/gen-backlog.py` — IDs, type markers, dependencies, lanes, owners and acceptance criteria are copied verbatim; doc 38 governs on any difference.**
 
-Eight phases (0–7) + cross-cutting X-tasks = **132 tasks**. No 18-phase roadmap, no separate database phase (BOOTSTRAP-v4 §8).
+**132 doc-38 tasks + X.1–X.6 CONTINUOUS + 0.19 DEFERRED** — eight phases (0–7) + cross-cutting X-tasks; X.1–X.6 and 0.19 are counted inside the 132. No 18-phase roadmap, no separate database phase (BOOTSTRAP-v4 §8).
 
 | Status | Meaning |
 |---|---|
@@ -54,7 +54,7 @@ Type: 🧑 human decision/data · 🤖 AI-buildable slice · 🔧 infra · ✅ v
 | 1.2 | M03 `catalog`: categories, services (7 categories), segments, price lists, exceptions | 🤖 | 0.13 | **1** | CFO | Price below floor rejected from UI, API and import | READY |
 | 1.3 | **Data gate M03:** floor price + standard cost for every active service | 🧑 | 1.2 | **A** | CFO | Scorecard = 100% | WAITING_GM |
 | 1.4 | Pricing engine: exception → contract → segment → list → pending | 🤖 | 1.2 | **1** | CFO | Tiered pricing matches manual calc on 3 cases; unpriced event stays pending | TODO |
-| 1.5 | M02 `sales`: accounts, contacts, leads, opportunities, activities | 🤖 | 0.13 | **1** | SALES_MGR | One account per client across entities; duplicate detection fires | DONE (proof) @ <this commit> — ADR-0001; excluded from the completion ratio; full slice replicated from 2.9 later; SCR-TRGM-01 option A. |
+| 1.5 | M02 `sales`: accounts, contacts, leads, opportunities, activities | 🤖 | 0.13 | **1** | SALES_MGR | One account per client across entities; duplicate detection fires | DONE (proof) @ `f790da7` — ADR-0001; excluded from the completion ratio; full slice replicated from 2.9 later; SCR-TRGM-01 option A. |
 | 1.6 | M02: quotes with approval flow (rep → sales mgr → CFO → GM on exception) | 🤖 | 1.4, 1.5 | **1** | CFO | Sent quote is frozen; edit creates new version | TODO |
 | 1.7 | M02: contracts, price annexes, SLA definitions, billing flags (DL-11/12/13/14/18) | 🤖 | 1.6 | **1** | CFO | Order on expired contract rejected | TODO |
 | 1.8 | Group-level credit limit and hold | 🤖 | 1.5 | **1** | CFO | Hold blocks orders in all four entities | TODO |

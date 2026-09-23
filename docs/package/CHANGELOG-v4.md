@@ -112,3 +112,8 @@ pst-warehouse-3d: حارس three.js · الكود السباعي وكود الإ
 - **`13B` 4.3 → 4.4 · الترحيل `0006_M_possible-duplicates-ge.sql`:** `sales.possible_duplicates` من `> 0.85` إلى `>= 0.85` (40 §C2 INV-C2-3)، ومؤشر فهرس SCR-7 صُحِّح إلى 13B-19. قياس: `similarity()` تُرجع `real` فكان الزوج عند 0.85 بالضبط يُبلَّغ أصلاً مع `>` (float4(0.85) = 0.8500000238)؛ التصحيح مطابقة نصية.
 - **`22-Master-Data-Governance.md` 4.0 → 4.1:** نص العرض في §5 منسوخ من 13B v4.4 وملاحظة الملكية مصحَّحة (العرض معرَّف في 13B §13B-19 منذ v4) مع الشرط المسبق للغة القاعدة.
 - **ADR-0001:** سطر حلّ مؤرَّخ تحت «Known discrepancy».
+
+## 18. إضافة (23/09/2026) — قرارات GM ‏D-105 … D-112 (مهمة X، تنظيف)
+
+- **D-105:** الصورة المعتمدة `postgres:16` (Debian/glibc) للتطوير وللمستوى 0 — **`42-Oracle-Cloud-Deployment.md` 4.1 → 4.2** (§4.2 الصورة والفحص السلوكي، §9 التكافؤ محسوم، `nginx:1.27`)؛ **`40-Build-Specification-EN.md` 4.3 → 4.4** (سطر المستوى 0).
+- **D-106 … D-112:** إعداد المستودع فقط (موجزات الشرائح إلى `docs/notes/slice-briefs/`، `turbo.json`، `docker-compose.yml` و`.env.example`، ملاحظة `identity`، ترويسة `MASTER_BACKLOG`، مزامنة الوثائق) — التفصيل في `docs/CHANGELOG.md`.

@@ -1,5 +1,5 @@
 // modules/wms/tests/integration/stock-ledger.test.ts — WBS 2.8 (pg-tester), written RED-first on
-// 2026-09-23 against .claude/briefs/_slice-2.8.brief.md's "Public surface" block, ahead of
+// 2026-09-23 against docs/notes/slice-briefs/_slice-2.8.brief.md's "Public surface" block, ahead of
 // `modules/wms/src/stock-ledger/{domain,errors,post-movement,rebuild-balance,index}.ts` and the
 // re-export from `modules/wms/index.ts` — same RED-first precedent as
 // modules/wms/tests/integration/wh1-setup.test.ts (WBS 2.1) and

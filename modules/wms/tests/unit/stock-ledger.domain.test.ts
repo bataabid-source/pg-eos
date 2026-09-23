@@ -1,6 +1,6 @@
 // modules/wms/tests/unit/stock-ledger.domain.test.ts — WBS 2.8 (pg-tester), written RED-first on
 // 2026-09-23 against `modules/wms/src/stock-ledger/domain.ts`'s contract, exactly the "Public
-// surface" block pins down (.claude/briefs/_slice-2.8.brief.md) — same RED-first precedent as
+// surface" block pins down (docs/notes/slice-briefs/_slice-2.8.brief.md) — same RED-first precedent as
 // packages/domain-kit's own WBS 0.14 suites and packages/identity's WBS 0.17 suite. It is now the
 // permanent unit + property proof suite for that surface.
 //

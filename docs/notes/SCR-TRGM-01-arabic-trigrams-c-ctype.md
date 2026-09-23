@@ -40,7 +40,7 @@ Master recommendation: **A** (smallest change; the collation, and so every order
 
 ## 4. Resolution (2026-09-23)
 
-- `apply.sh --recreate` creates the database from `template0` with UTF8 / collate C / ctype C.UTF-8 and refuses any database created otherwise; the local compose initialises new clusters the same way; doc 42 v4.1 adds the same settings to the Tier-0 compose and to `restore.sh`, plus a behaviour check at WBS 0.5 and 0.8 (musl accepts any locale name, so the name alone proves nothing).
+- `apply.sh --recreate` creates the database from `template0` with UTF8 / collate C / ctype C.UTF-8 and refuses any database created otherwise; the local compose initialises new clusters the same way; doc 42 v4.1 adds the same settings to the Tier-0 compose and to `restore.sh`, plus a behaviour check at WBS 0.5 and 0.8 (the locale name alone proves nothing).
 - Measured after the rebuild: `pgeos` = C.UTF-8|C; Arabic trigrams present; the 1.5 proof runs every name scenario on Arabic names.
 - Every environment must be rebuilt with `apply.sh --recreate` (no production data exists yet).
-- Flagged to the GM, not decided: dev image `postgres:16` (glibc) vs Tier-0 `postgres:16-alpine` (musl) — verified by behaviour, see doc 42 §9.
+- Image parity decided by the GM 2026-09-23 (D-105): `postgres:16` (Debian/glibc) is canonical for dev and Tier 0 — doc 42 v4.2 §4.2 / §9.

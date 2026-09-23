@@ -2,6 +2,8 @@
 
 Generated 2026-09-22 by `scripts/gen-briefs.py` from the live schema (`175` tables, 14 schemas). **Do not hand-edit** — change the schema under G-01, then re-run the script.
 Schema `identity` · tables in this module: 11 · default lane: M (doc 38 `Lane` column governs).
+> **Two identity packages, no rename (GM 2026-09-23, D-109).** `@pg-eos/identity` = `modules/identity/` — the identity module (schema `identity` use cases; scaffold today).
+> `@pg-eos/identity-mechanisms` = `packages/identity/` — the shared WBS 0.17 mechanisms (OTP, sessions, RBAC/SoD evaluation), no endpoint.
 
 ## 1. Where the rules are
 - Build spec (governs on conflict): `docs/package/40-Build-Specification-EN.md` — Part B §B1 Identity (+ §B2 Audit) — doc 40 has no Part C section for identity

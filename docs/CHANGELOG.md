@@ -4,6 +4,23 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — GM decisions 2026-09-23: image parity, briefs, turbo env, compose defaults, docs sync — DONE (2026-09-23)
+
+- **D-105** canonical image `postgres:16` (Debian/glibc) for dev and Tier 0 — removes the glibc/musl divergence in Arabic character classification for `pg_trgm` (SCR-TRGM-01): doc 42 v4.1 → v4.2 (§4.2 image + behaviour-check wording, §9 parity decided), `nginx:1.27`; doc 40 v4.3 → v4.4 (Tier-0 line); `CHANGELOG-v4.md` §18; SCR-TRGM-01 note line; repo-audit note line.
+- **D-106** moved `.claude/briefs/_slice-0.17.brief.md`, `_slice-1.5.brief.md`, `_slice-2.1.brief.md`, `_slice-2.8.brief.md` and `0.18-isolation.brief.md` to `docs/notes/slice-briefs/` (`git mv`); reference paths fixed in `modules/wms/index.ts` and in seven test/feature comment lines (`modules/platform`, `modules/sales`, `modules/wms` tests, `tests/isolation/client-isolation.feature`) — comment-only path edits, done by the Master. `.claude/briefs/` now holds the 15 module briefs + `_TEMPLATE`, all ≤ 120 lines.
+- **D-107** `turbo.json`: `PGHOST`/`PGPORT`/`PGDATABASE`/`PGUSER`/`PGPASSWORD` moved from `globalPassThroughEnv` to `globalEnv`; `cache: false` on `@pg-eos/db#test`, `@pg-eos/platform#test`, `@pg-eos/wms#test`, `@pg-eos/sales#test` (`@pg-eos/isolation-tests` already `cache: false` via `test:isolation` only).
+- **D-108** `infra/docker/docker-compose.yml` pgAdmin password → `${PGADMIN_PASSWORD:-pgadmin-dev}` (tools profile only); new `infra/docker/.env.example`.
+- **D-109** no rename; two-line note added to `.claude/briefs/identity.brief.md` and the same lines in `scripts/gen-briefs.py` so regeneration keeps them.
+- **D-111** `MASTER_BACKLOG.md` header line now begins "**132 doc-38 tasks + X.1–X.6 CONTINUOUS + 0.19 DEFERRED**"; `scripts/gen-backlog.py` `HEADER` constant + `--check` now verify the header, X.1–X.6 CONTINUOUS and 0.19 DEFERRED — passes. Pre-existing drift noticed, **not fixed**: the Phase 0 gate line in `MASTER_BACKLOG.md` differs from what the generator renders from doc 38.
+- **D-110** not issued by the GM in this batch (numbering skips it).
+- Claude Code CLI installed globally (`npm -g`) so `check-setup.sh`'s tool list is complete.
+- **Verification results (actual, 2026-09-23):** `bash scripts/check-setup.sh` final line = "READY — all files present, all tools installed. Next: PROJECT-SETUP-GUIDE §3 (local DB) then §4 (bootstrap session)." · `pnpm lint` green · `pnpm typecheck` 14/14 (0 cached) · `pnpm guards:run`: G1–G14 + G18 + G-SEED = 0 rows, "all blocking guards green" (G15–G17 not run) · `python scripts/gen-backlog.py --check` rc=0.
+- **Bookkeeping (D-112):** `docs/PROJECT_STATE.md` current task updated to X with previous task 1.5 @ `f790da7`; `tasks/MASTER_BACKLOG.md` 1.5 row `<this commit>` replaced with `f790da7`; `SETUP-STATUS-AR.md` and `README-KIT.md` synced to reality (model tiers, image, briefs location, compose defaults, current task).
+- Previous-task hash recorded: 1.5 @ `f790da7`.
+- Model: sonnet (task tier; Master session ran on opus `claude-opus-5-5`) · Delegated: pg-scribe · Review: n/a · tokens: ≈ 150k (estimate)
+
+---
+
 ## 1.5 — Customer accounts proof slice (ADR-0001) + SCR-TRGM-01 option A — DONE (proof) (2026-09-23)
 
 - **WBS 1.5 built as a proof slice** per `docs/adr/ADR-0001-1.5-proof-slice.md`: data model + labelled fixtures only, no UI/workflow/public API; the full slice is replicated later from the golden slice 2.9.

@@ -1,5 +1,5 @@
 # PG-EOS — Build Specification for AI Execution
-**Document 40 · Version 4.3 · 23 September 2026**
+**Document 40 · Version 4.4 · 23 September 2026**
 **Audience:** the AI coding agent executing the WBS (doc 38)
 
 > **v4 — Document status:** GOVERNING (technical contract, rank 1) · **Governs on conflict:** nothing above it; it governs every other document · **Corrections applied in v4:** GOV-04, GOV-05, GOV-06, GOV-07, GOV-08, GOV-09, GOV-10, GOV-35, GOV-36, GOV-40, GOV-43, GOV-44, GOV-48, GOV-49, GOV-50, GOV-54, ADM-04, ADM-09, ADM-14, ADM-31, ADM-37, OPS-20, OPS-32, OPS-33, OPS-35, OPS-54, OPS-69, OPS-70, PLT-03, PLT-04, PLT-05, PLT-08, PLT-17, PLT-22, SCH (13B) · **Previously open decisions:** closed in EXECUTION-MASTER-v4 §1.
@@ -682,7 +682,7 @@ Every guard below is a **copy-and-paste-runnable** line. G1–G13 and G18 are SQ
 
 **Tier 1/2 trigger:** before Phase 4 · or more than 40 concurrent users · or a p95 SLO breach sustained for seven days.
 
-Cloud (tiered, doc 42): **Tier 0 — Oracle Always Free**, single `VM.Standard.A1.Flex` (4 OCPU / 24 GB, arm64), Docker Compose (`postgres:16-alpine`, `api`, `admin`, `portal`, `nginx`), **Cloudflare Tunnel, zero inbound ports**, backups to OCI Object Storage 14/8/6. **Tier 2 — Google Cloud `me-central1`**: Cloud Run · Cloud SQL 16 + read replica · GCS · Secret Manager · Terraform. All images `linux/arm64`-compatible. No Redis (pg-boss).
+Cloud (tiered, doc 42): **Tier 0 — Oracle Always Free**, single `VM.Standard.A1.Flex` (4 OCPU / 24 GB, arm64), Docker Compose (`postgres:16` Debian/glibc — D-105, `api`, `admin`, `portal`, `nginx`), **Cloudflare Tunnel, zero inbound ports**, backups to OCI Object Storage 14/8/6. **Tier 2 — Google Cloud `me-central1`**: Cloud Run · Cloud SQL 16 + read replica · GCS · Secret Manager · Terraform. All images `linux/arm64`-compatible. No Redis (pg-boss).
 
 ---
 

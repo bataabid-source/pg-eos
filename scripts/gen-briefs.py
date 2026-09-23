@@ -301,6 +301,9 @@ def render(module: str, facts: dict, table_cap: int, status_cap: int) -> list[st
         a("> **`fleet` has no schema of its own — its tables live in schema `tms`.** "
           "Lane 3 owns `fleet`, lane 2 owns `tms` delivery; both write inside schema `tms`, "
           "so a migration touching either is requested from the Master (BOOTSTRAP-v5 §6).")
+    if module == "identity":
+        a('> **Two identity packages, no rename (GM 2026-09-23, D-109).** `@pg-eos/identity` = `modules/identity/` — the identity module (schema `identity` use cases; scaffold today).')
+        a('> `@pg-eos/identity-mechanisms` = `packages/identity/` — the shared WBS 0.17 mechanisms (OTP, sessions, RBAC/SoD evaluation), no endpoint.')
     if module == "tms":
         a("> **Schema `tms` also holds the `fleet` module's tables** "
           "(vehicles · vehicle_documents · maintenance_orders · maintenance_plans · "

@@ -1,5 +1,5 @@
 # PG-EOS — Oracle Cloud Infrastructure Deployment (Tier 0)
-**Document 42 · Version 4.1 · 23 September 2026**
+**Document 42 · Version 4.2 · 23 September 2026**
 
 > **v4 — Document status:** Governing · **Governs on conflict:** 40, 36, EXECUTION-MASTER-v4 · **Corrections applied in v4:** GOV-02, GOV-11, GOV-33, GOV-37, GOV-38, PLT-17, PLT-18, PLT-19, PLT-22, PLT-42 · **Previously open decisions:** closed in EXECUTION-MASTER-v4 §1.
 
@@ -165,7 +165,7 @@ There is no `nginx/certs/` directory at Tier 0: TLS terminates at Cloudflare and
 name: premium
 services:
   postgres:
-    image: postgres:16-alpine
+    image: postgres:16   # Debian/glibc — canonical for dev and Tier 0 (GM 2026-09-23, D-105)
     platform: linux/arm64
     restart: unless-stopped
     environment:
@@ -214,7 +214,7 @@ services:
     # NO ports:
 
   nginx:
-    image: nginx:1.27-alpine
+    image: nginx:1.27
     platform: linux/arm64
     restart: unless-stopped
     # Loopback binding ONLY — nothing is published to the public interface.
@@ -235,7 +235,7 @@ networks:
 
 **Database locale (v4.1 · SCR-TRGM-01, GM 2026-09-23).** Every PG-EOS database is created with encoding UTF8, `lc_collate = C`, `lc_ctype = C.UTF-8`. Under `lc_ctype = C` pg_trgm keeps no Arabic letter and `similarity()` of two identical Arabic names is 0, so the duplicate detection of doc 40 §C2 INV-C2-3 never fires on `name_ar`. `POSTGRES_INITDB_ARGS` only applies when `./data/postgres` is empty; on an already-initialised volume the image default (`LANG en_US.utf8`) stays, so the volume is re-initialised — or the database is recreated from `template0` with the locale above — before the first `apply.sh`. `database/schema/apply.sh` creates the database with these settings on `--recreate` and refuses any database created otherwise.
 
-**Behaviour check, not a name check (WBS 0.5 at provisioning, WBS 0.8 at every restore).** This image is Alpine (musl); musl accepts any locale name, so `datctype = 'C.UTF-8'` proves nothing by itself. Run on the Tier-0 database: `show_trgm('مخزن')` is not empty; `similarity('اختبار','اختبار') = 1`; the boundary pair `اختبارمكررتجريبي` / `اختبارمكررتجريبي كو` gives `similarity()::numeric(10,6) = 0.850000`; and the sales proof suite and the platform environment test pass in full against it. A failure is a deployment blocker.
+**Behaviour check, not a name check (WBS 0.5 at provisioning, WBS 0.8 at every restore).** The image is `postgres:16` (Debian/glibc), the same as development (v4.2 · D-105); the check still runs because `datctype = 'C.UTF-8'` alone does not prove Arabic trigrams work. Run on the Tier-0 database: `show_trgm('مخزن')` is not empty; `similarity('اختبار','اختبار') = 1`; the boundary pair `اختبارمكررتجريبي` / `اختبارمكررتجريبي كو` gives `similarity()::numeric(10,6) = 0.850000`; and the sales proof suite and the platform environment test pass in full against it. A failure is a deployment blocker.
 
 **Check after `up -d`:** `ss -ltnp` must show the only listeners as `127.0.0.1:8080` (nginx) and `127.0.0.1:22` (sshd). Anything bound to `0.0.0.0` is a defect.
 
@@ -514,9 +514,8 @@ docker compose run --rm api pnpm test:scenarios    # acceptance scenarios (G15)
 | Deployment procedure | `docs/runbook.md` §1 | deputy executes unassisted |
 | Server setup | this document §2–§5 | **quarterly rebuild drill on a fresh VM** |
 
-**Database locale parity (v4.1 · SCR-TRGM-01).** Development runs `postgres:16` (glibc, `infra/docker/docker-compose.yml`) and Tier 0 runs
-`postgres:16-alpine` (musl): Arabic character classification now depends on each libc's Unicode tables, so both are verified by the
-behaviour check of §4.2, not assumed equal. Whether to align the two images is a GM decision (flagged 2026-09-23, not decided here).
+**Database locale parity (v4.2 · SCR-TRGM-01, D-105).** Development (`infra/docker/docker-compose.yml`) and Tier 0 (§4.2) run the
+same canonical image `postgres:16` (Debian/glibc) — GM decision 2026-09-23 (D-105). Both are still verified by the behaviour check of §4.2.
 The Tier-2 managed database must be created with the same encoding / `lc_collate C` / `lc_ctype C.UTF-8` — still to be verified.
 
 **Move procedure (any target):** provision host → install Docker → clone repo → copy `.env` → `restore.sh` latest dump → `deploy.sh` → switch DNS. **Target: ≤ 2 hours.**

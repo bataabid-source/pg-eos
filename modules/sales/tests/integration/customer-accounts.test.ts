@@ -1,6 +1,6 @@
 // modules/sales/tests/integration/customer-accounts.test.ts — WBS 1.5 (pg-tester), proof slice
 // (ADR-0001: docs/adr/ADR-0001-1.5-proof-slice.md). Governed by
-// .claude/briefs/_slice-1.5.brief.md — read that file for the eight Master decisions this suite
+// docs/notes/slice-briefs/_slice-1.5.brief.md — read that file for the eight Master decisions this suite
 // implements one-to-one.
 //
 // WHY THIS IS A PROOF SUITE, NOT A UNIT/DOMAIN SUITE (ADR-0001 Decision): the M02 sales data

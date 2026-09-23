@@ -1,6 +1,6 @@
 # tests/isolation/client-isolation.feature — WBS 0.18 (pg-tester).
 #
-# Source: .claude/briefs/0.18-isolation.brief.md — "Acceptance criterion (doc 38 row 0.18 / doc 40
+# Source: docs/notes/slice-briefs/0.18-isolation.brief.md — "Acceptance criterion (doc 38 row 0.18 / doc 40
 # Part F G14)": G7 returns 0 (RLS enabled on every operational table — already true on the applied
 # schema, this proves it) AND "User A returns zero rows from B's data on direct ID substitution,
 # with no error." doc 40 Part F, row G14 (docs/package/40-Build-Specification-EN.md:627-652):

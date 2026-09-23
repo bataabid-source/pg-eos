@@ -303,7 +303,7 @@ describe('platform.audit_hash_chain / platform.verify_audit_chain — definer ri
 });
 
 // SCR-TRGM-01 (environment-wide, not sales-specific) — GM-approved option A, 2026-09-23
-// (.claude/briefs/_slice-1.5.brief.md decision 7): databases are created with lc_ctype C.UTF-8,
+// (docs/notes/slice-briefs/_slice-1.5.brief.md decision 7): databases are created with lc_ctype C.UTF-8,
 // lc_collate C, so that pg_trgm produces real trigrams for Arabic (and other non-ASCII) text.
 // Under the old plain-C ctype, show_trgm() returns an empty array for any non-ASCII input — this
 // describe block is the permanent, re-runnable proof that this database's ctype/collate actually

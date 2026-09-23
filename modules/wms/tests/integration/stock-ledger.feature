@@ -1,5 +1,5 @@
 # WBS 2.8 — Stock ledger + derived balance + wms.verify_balance_integrity()
-# Copied from .claude/briefs/_slice-2.8.brief.md "Scenario (Gherkin first)" section, verbatim,
+# Copied from docs/notes/slice-briefs/_slice-2.8.brief.md "Scenario (Gherkin first)" section, verbatim,
 # split so every clause is its own step (Given/When/Then/And). Written RED-first by pg-tester on
 # 2026-09-23 (BOOTSTRAP-v5 §5), ahead of modules/wms/src/stock-ledger/*, which implements exactly
 # this feature; it is now the permanent scenario-by-scenario reference for
