@@ -4,6 +4,16 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — Branch and worktree cleanup — GM directive 2026-09-23, B6 (2026-09-23)
+
+- **Rule applied:** no parallelism before 2.9 is accepted; delete only refs with zero commits unmerged into `main`; anything holding unmerged work stays and is listed.
+- **Deleted (0 unique commits each):** worktree `.claude/worktrees/upbeat-wu-e2c00c` + branch `lane/2` (tip `bc0062a` = main); worktree `.claude/worktrees/whats-next-3659bf` (detached `a8f4899`, in main); branches `claude/document-abandoned-branches-verify-tests-79245f` (`3218aa6`), `claude/project-state-backlog-review-7d0a77` (`a8f4899`), `claude/upbeat-wu-e2c00c` (`d734508`), `claude/wbs-0-18-rls-client-isolation-839a72` (`f9a2bc6`), `claude/whats-next-3659bf` (`a8f4899`). `git worktree prune` run.
+- **Kept (unmerged work, 1 unique commit each):** `claude/postgresql-16-254336` (`0217e85`, "wip(0.9): platform doc_no_probe + real G13/G8 guard proofs — paused mid-review") and `claude/resume-4c8ecc` (`f127ab2`, "wip(0.9): checkpoint — doc_no_probe fixture, G13/G8 governing-form guard tests") — the two 0.9 WIP branches of `docs/notes/0.9-abandoned-wip.md`, never merge, never delete; the registered worktree `.claude/worktrees/resume-4c8ecc` (detached at `f127ab2`) stays with it; `claude/project-setup-guide-a57502` (`2b5dbb2`, "docs: PROJECT-SETUP-GUIDE clarifies brief regeneration as its own commit"); `claude/resume-d2f142` (`d8ccb7e`, "test(0.13): RED tests for packages/contracts registry/harness/openapi").
+- **Left on disk, not git worktrees (excluded via `.git/info/exclude`):** `.claude/worktrees/project-setup-guide-a57502` and `.claude/worktrees/resume-d2f142` — plain directories with no `.git` link, so their content cannot be verified as merged; not deleted. `.claude/worktrees/upbeat-wu-e2c00c` is now an **empty** directory that Windows reports as in use by another process — remove by hand.
+- Model: fable (claude-fable-5-1) · Delegated: none · Review: n/a · tokens: ≈ 15k.
+
+---
+
 ## X — Governance and environment restoration — GM directive 2026-09-23, phases A + B (2026-09-23)
 
 - **Phase A:** environment restored — `pnpm install` (lockfile unchanged) recreated the missing `modules/wms/node_modules`. Build verification: `pnpm -w build --force` 9/9 green (domain-kit, wms, platform, db, events, identity-mechanisms, contracts, identity, documents packages); `pnpm -w test -- --force` 10/10 tasks green with per-package counts (domain-kit 87, wms 29, platform 5, db 11, events 8, identity-mechanisms 31, contracts 44, identity 15, documents 6 tests), no turbo cache used. PATH amended with pnpm executable location (user's `~/.bashrc` only, not repository). Session model deployed: fable (`claude-fable-5-1`, GM-specified).
