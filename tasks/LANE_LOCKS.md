@@ -2,7 +2,6 @@
 
 | module | lane | task | claimed_at | worktree |
 |---|---|---|---|---|
-| wms | M | 2.8 | 2026-09-23 | (main — single lane, GM directive 2026-09-23) |
 
 ## Migrations issued
 

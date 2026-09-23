@@ -77,6 +77,25 @@ export function validateEntry(entry: LedgerEntry): LedgerEntry {
   return entry;
 }
 
+// pg-reviewer slice-close round 2 finding 1 (doc 40 P4 / INV-C3-2): prefix for the advisory-lock
+// key a posting (postMovement/postTransfer/reverseMovement) takes in SHARED mode and a rebuild
+// (rebuildBalance) takes in EXCLUSIVE mode, per (client, sku) — see post-movement.ts's
+// lockRebuildKeysShared and rebuild-balance.ts's exclusive-lock call for the full protocol: shared
+// locks never block each other (postings run concurrently against each other), but the SAME key's
+// exclusive mode waits for every in-flight shared holder and then blocks new shared holders until
+// it commits (a rebuild excludes postings; postings exclude a concurrent rebuild).
+const REBUILD_LOCK_KEY_PREFIX = 'wms.stock_balance.rebuild|';
+
+/**
+ * pg-reviewer slice-close round 2 finding 1: the single source of the rebuild-lock key text for a
+ * (client, sku) pair. Pure text construction only — the caller is responsible for actually taking
+ * `pg_advisory_xact_lock_shared`/`pg_advisory_xact_lock` on `hashtextextended(key, 0)` inside its
+ * own open transaction.
+ */
+export function balanceRebuildLockKey(clientId: string, skuId: string): string {
+  return REBUILD_LOCK_KEY_PREFIX + clientId + '|' + skuId;
+}
+
 /** brief Public surface, verbatim: `${clientId}|${skuId}|${locationId}|${batchNo}`. */
 export function balanceKey(
   clientId: string,

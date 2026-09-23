@@ -34,6 +34,7 @@ is a no-op until 2.9 (standing substitute, CHANGELOG 0.16 / 2.1); the code lives
 - pg-tester: modules/wms/tests/integration/stock-ledger.feature · modules/wms/tests/integration/stock-ledger.test.ts ·
   modules/wms/tests/unit/stock-ledger.domain.test.ts (fast-check property tests) · modules/wms/vitest.config.ts (only to widen
   `include` to `tests/**/*.test.ts`) · modules/wms/package.json (only to add the `fast-check` devDependency, then `pnpm install`)
+  · modules/wms/tests/integration/{rebuild-balance-scope, rebuild-balance-scope-full, rebuild-balance-lock, balance-integrity-batch}.{feature,test.ts}
 - pg-backend: modules/wms/src/stock-ledger/{domain.ts, errors.ts, post-movement.ts, rebuild-balance.ts, index.ts} ·
   modules/wms/index.ts (re-export the public surface) · modules/wms/package.json (workspace deps `@pg-eos/db`, `@pg-eos/events`,
   `@pg-eos/domain-kit`; then `pnpm install`) · modules/wms/tsconfig.json (only if `src/` must be added to `include`)
@@ -101,6 +102,11 @@ Gates: build 9/9 · `pnpm -w test -- --force` all green · `apply.sh --recreate`
     failures. At the end: `select * from wms.verify_balance_integrity()` returns **zero rows** (whole-table, the acceptance
     wording) and, for each fixture (client, sku, location), `qty_on_hand` equals the fold of the fixture's ledger rows.
 
+12. **Rebuild scope (review finding 9, 2026-09-23).** rebuildBalance first checks, in its transaction, `select (r.rolsuper or r.rolbypassrls) as bypass, platform.is_internal() as internal, not exists (select 1 from platform.entities e where not (e.id = any(platform.allowed_entities()))) as all_entities from pg_roles r where r.rolname = current_user`; allowed = bypass OR (internal AND all_entities); otherwise RebuildScopeError and nothing is read or written.
+13. **Rebuild/posting serialisation (review finding 1, 2026-09-23).** Every posting takes `pg_advisory_xact_lock_shared(hashtextextended(balanceRebuildLockKey(client, sku), 0))` before its per-balance-key locks; rebuildBalance takes the exclusive `pg_advisory_xact_lock` on the same key before folding. Postings never block each other on it; a rebuild waits for in-flight postings and blocks new ones until it commits.
+
+Runner config: modules/wms/vitest.config.ts `fileParallelism: false` — Master direct (shared DB, grant/revoke catalog contention, global audit-chain lock).
+
 **SCR-WMS-01 (2026-09-23): the guard now keys by batch_no and compares both directions — decision 1's single-sided rows still hold.**
 
 ## Public surface pg-backend implements (the RED tests import exactly these names from `modules/wms/index.ts`)
@@ -128,6 +134,10 @@ export function postTransfer(ctx: WithContextCtx, input: Omit<PostMovementInput,
 export function reverseMovement(ctx: WithContextCtx, input: { readonly movementId: string; readonly correlationId: string; readonly performedBy: string }, deps: LedgerDeps): Promise<PostedMovement>;
 // rebuild-balance.ts
 export function rebuildBalance(ctx: WithContextCtx, input: { readonly clientId: string; readonly skuId: string }, deps: LedgerDeps): Promise<{ readonly rowsWritten: number }>;
+// errors.ts (review finding 8)
+export class RebuildScopeError extends Error {}
+// domain.ts (review finding 8)
+export function balanceRebuildLockKey(clientId: string, skuId: string): string; // returns 'wms.stock_balance.rebuild|' + clientId + '|' + skuId
 ```
 All DB access inside `withContext(ctx, tx => …)`; SQL via drizzle `sql` tags on `tx.execute` (the 0.12/0.17 style). Test ctx:
 `{ userId: <fixture uuid>, clientId: null, isInternal: true }`.

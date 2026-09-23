@@ -99,6 +99,17 @@ const CONCURRENCY_TEST_TIMEOUT_MS = 60_000;
 // batch_no) key instead of only the '' batch. See the header comment above.
 const LEDGER_BATCH_NOS = ['', 'LEDGER-BATCH-A', 'LEDGER-BATCH-B'] as const;
 
+// pg-reviewer slice-close round 2 finding 5: these four bounds only shape the RANGE of synthetic
+// quantities the 1,000-movement property test draws — test-data ranges, not business numbers (no
+// schema constraint or platform.thresholds value is being encoded here) — named so no bare literal
+// in the arbitrary below reads as if it were one. QTY_FRACTION_PAD_WIDTH matches the qty column's
+// numeric(..., 3) scale (3 decimal places), the same width every fixture literal in this file uses
+// (e.g. RECEIPT_QTY = '12.500').
+const QTY_INTEGER_PART_MAX = 50;
+const QTY_FRACTION_PART_MIN = 1;
+const QTY_FRACTION_PART_MAX = 999;
+const QTY_FRACTION_PAD_WIDTH = 3;
+
 // decision 10: "performed_by = a fixed uuid constant named in the test (no FK on that column,
 // 01 wms.stock_movements.performed_by)". Also used as ctx.userId per the brief's Public surface
 // block's test-ctx line.
@@ -739,8 +750,14 @@ describe('Scenario: 1,000 random movements under concurrency leave zero rows —
       locationIndexB: fc.nat({ max: FIXTURE_LOCATION_COUNT - 1 }),
       movementType: fc.constantFrom(...MOVEMENT_TYPES),
       qtyStr: fc
-        .tuple(fc.nat({ max: 50 }), fc.integer({ min: 1, max: 999 }))
-        .map(([intPart, fracPart]) => `${intPart}.${String(fracPart).padStart(3, '0')}`),
+        .tuple(
+          fc.nat({ max: QTY_INTEGER_PART_MAX }),
+          fc.integer({ min: QTY_FRACTION_PART_MIN, max: QTY_FRACTION_PART_MAX }),
+        )
+        .map(
+          ([intPart, fracPart]) =>
+            `${intPart}.${String(fracPart).padStart(QTY_FRACTION_PAD_WIDTH, '0')}`,
+        ),
       // pg-reviewer finding, SCR-WMS-01: several batches per location, including '' — see
       // LEDGER_BATCH_NOS above and the header comment.
       batchNo: fc.constantFrom(...LEDGER_BATCH_NOS),
@@ -796,6 +813,7 @@ describe('Scenario: 1,000 random movements under concurrency leave zero rows —
       });
       expect(descriptors).toHaveLength(CONCURRENCY_MOVEMENT_COUNT);
 
+      let accepted = 0;
       let rejectedAsNegativeStock = 0;
       const unexpectedErrors: unknown[] = [];
 
@@ -811,12 +829,21 @@ describe('Scenario: 1,000 random movements under concurrency leave zero rows —
             } else {
               unexpectedErrors.push(result.reason);
             }
+          } else {
+            accepted += 1;
           }
         }
       }
 
       expect(unexpectedErrors).toEqual([]);
-      expect(rejectedAsNegativeStock).toBeGreaterThanOrEqual(0);
+      // pg-reviewer slice-close round 2 finding 4: `rejectedAsNegativeStock >= 0` is vacuous (a
+      // count can never be negative) — the real invariant is that every one of the
+      // CONCURRENCY_MOVEMENT_COUNT descriptors landed in exactly one of the two known outcomes
+      // (accepted or rejected-as-negative-stock — `unexpectedErrors` is already asserted empty
+      // above), and that at least one of these 1,000 random movements actually posted (a suite that
+      // rejected everything would trivially satisfy the sum check without proving anything).
+      expect(accepted + rejectedAsNegativeStock).toBe(CONCURRENCY_MOVEMENT_COUNT);
+      expect(accepted).toBeGreaterThan(0);
 
       const guardResult: QueryResult<Record<string, unknown>> = await pool.query(
         `select * from wms.verify_balance_integrity() where client_id = $1 and sku_id = any($2::uuid[])`,

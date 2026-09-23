@@ -25,6 +25,7 @@ import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 
 import {
   balanceKey,
+  balanceRebuildLockKey,
   planReversal,
   planTransfer,
   validateEntry,
@@ -187,6 +188,27 @@ async function lockBalanceRow(tx: NodePgDatabase, balanceKeyText: string): Promi
 }
 
 /**
+ * pg-reviewer slice-close round 2 finding 1 (doc 40 P4 / INV-C3-2): every posting (postMovement,
+ * postTransfer, reverseMovement) takes THIS key's advisory lock in SHARED mode, for every distinct
+ * (client, sku) pair it touches, BEFORE the existing per-balance-key locks (lockBalanceRow) below —
+ * shared locks never block each other, so concurrent postings still run concurrently. rebuildBalance
+ * takes the SAME key in EXCLUSIVE mode (rebuild-balance.ts) before folding the ledger: that waits
+ * for every posting already in flight for the pair to commit, and blocks any new posting (this
+ * function) from starting until the rebuild itself commits or rolls back — so a rebuild's fold can
+ * never be torn against an in-flight posting. Distinct pairs are locked in SORTED order, same
+ * deadlock-avoidance principle as lockBalanceRow's own "acquire in a fixed order" contract.
+ */
+async function lockRebuildKeysShared(
+  tx: NodePgDatabase,
+  pairs: ReadonlyArray<{ readonly clientId: string; readonly skuId: string }>,
+): Promise<void> {
+  const keys = [...new Set(pairs.map((pair) => balanceRebuildLockKey(pair.clientId, pair.skuId)))].sort();
+  for (const key of keys) {
+    await tx.execute(sql`select pg_advisory_xact_lock_shared(hashtextextended(${key}, 0))`);
+  }
+}
+
+/**
  * decision 2/3: NOT `insert … on conflict (…) do update` (the brief's suggested SQL shape) — that
  * shape is provably broken for a delta that can be negative against a CHECK constraint like
  * `no_negative_stock`: Postgres validates the INSERT branch's OWN candidate row (the raw,
@@ -234,7 +256,8 @@ async function applyLockedBalanceDelta(
     if (isNegativeStockViolation(error)) {
       throw new NegativeStockError(
         `movement would drive qty_on_hand negative at location ${locationId} ` +
-          `(01 wms.stock_balance constraint no_negative_stock)`,
+          `(01 wms.stock_balance constraint no_negative_stock). Allowed: a movement that leaves ` +
+          `qty_on_hand >= 0 at that location/batch.`,
         { cause: error },
       );
     }
@@ -254,13 +277,12 @@ async function lockAndApplyBalanceDelta(
   await applyLockedBalanceDelta(tx, entry, occurredAt);
 }
 
-/** decision 7: one outbox row + one audit_log row per posted movement, same correlationId (G9). */
-async function writeMovementEventAndAudit(
+/** decision 7 / G9: one outbox row for a posted movement, same correlationId as its audit row. */
+async function writeMovementOutboxEvent(
   tx: NodePgDatabase,
   params: {
     readonly entityId: string;
     readonly movementRow: StoredMovementRow;
-    readonly occurredAt: Date;
     readonly correlationId: string;
     readonly actorId: string | null;
   },
@@ -274,7 +296,25 @@ async function writeMovementEventAndAudit(
     correlationId: params.correlationId,
     actorId: params.actorId,
   });
+}
 
+/**
+ * decision 7 / G9: one audit_log row for a posted movement, same correlationId as its outbox row.
+ * ADR-0002 / doc 40 §B2: the audit row must be the LAST statement before commit — the caller is
+ * responsible for calling this only after every ledger insert and balance-delta statement in the
+ * same transaction has already run, so the global audit-chain advisory lock this insert takes is
+ * never held while another row lock is still being acquired (the deadlock ADR-0002 fixes).
+ */
+async function writeMovementAuditRow(
+  tx: NodePgDatabase,
+  params: {
+    readonly entityId: string;
+    readonly movementRow: StoredMovementRow;
+    readonly occurredAt: Date;
+    readonly correlationId: string;
+    readonly actorId: string | null;
+  },
+): Promise<void> {
   const actorType = params.actorId === null ? AUDIT_ACTOR_TYPE_SYSTEM : AUDIT_ACTOR_TYPE_USER;
   await tx.execute(sql`
     insert into platform.audit_log
@@ -288,6 +328,25 @@ async function writeMovementEventAndAudit(
   `);
 }
 
+/** decision 7: one outbox row + one audit_log row per posted movement, same correlationId (G9).
+ *  Used by postMovement/reverseMovement, where there is only ever one entry in the transaction —
+ *  ledger insert and balance delta have already run before this is called, so outbox-then-audit
+ *  here already satisfies ADR-0002's "audit row last" rule (the audit insert IS the last
+ *  statement). postTransfer (two entries) does NOT use this helper — see its own comment. */
+async function writeMovementEventAndAudit(
+  tx: NodePgDatabase,
+  params: {
+    readonly entityId: string;
+    readonly movementRow: StoredMovementRow;
+    readonly occurredAt: Date;
+    readonly correlationId: string;
+    readonly actorId: string | null;
+  },
+): Promise<void> {
+  await writeMovementOutboxEvent(tx, params);
+  await writeMovementAuditRow(tx, params);
+}
+
 /** Posts one ledger row for `input.entry`. Throws before any DB call for an invalid entry. */
 export async function postMovement(
   ctx: WithContextCtx,
@@ -297,6 +356,10 @@ export async function postMovement(
   validateEntry(input.entry);
 
   return withContext(ctx, async (tx) => {
+    // pg-reviewer slice-close round 2 finding 1: shared rebuild-key lock FIRST, before any of this
+    // transaction's per-balance-key locks (see lockRebuildKeysShared's own comment for the protocol).
+    await lockRebuildKeysShared(tx, [{ clientId: input.entry.clientId, skuId: input.entry.skuId }]);
+
     const occurredAt = deps.clock.now();
     const row = await insertMovementRow(tx, {
       entityId: input.entityId,
@@ -341,8 +404,17 @@ export async function postTransfer(
   validateEntry(inEntry);
 
   return withContext(ctx, async (tx) => {
+    // pg-reviewer slice-close round 2 finding 1: shared rebuild-key lock FIRST, before any of this
+    // transaction's per-balance-key locks below (see lockRebuildKeysShared's own comment for the
+    // protocol). decision 1: both entries share the same client/sku, so this is a single key —
+    // written as a pair list (and deduplicated by lockRebuildKeysShared) so it stays correct if a
+    // transfer ever spans SKUs.
+    await lockRebuildKeysShared(tx, [
+      { clientId: outEntry.clientId, skuId: outEntry.skuId },
+      { clientId: inEntry.clientId, skuId: inEntry.skuId },
+    ]);
+
     const occurredAt = deps.clock.now();
-    const movementIds: string[] = [];
 
     // Both entries' balance locks are acquired up front, in SORTED key order (lockBalanceRow's own
     // contract) — never in "out row, then in row" order, which would let a concurrent transfer in
@@ -354,6 +426,16 @@ export async function postTransfer(
       await lockBalanceRow(tx, key);
     }
 
+    // ADR-0002 / doc 40 §B2: the audit row must be the LAST statement before commit. Writing the
+    // out-entry's ledger+balance+outbox+audit, THEN the in-entry's balance update, would take the
+    // global audit-chain advisory lock (the out-entry's audit insert) and only afterwards try to
+    // acquire the in-entry's balance row lock — exactly the lock-order inversion ADR-0002 forbids
+    // (observed as a live deadlock in a shared-DB full run). Instead: every ledger insert and
+    // balance-delta statement for BOTH entries runs first; only once all of them have completed do
+    // the outbox events get written (outbox before audit is fine — it takes no chain-wide lock),
+    // and the audit_log rows are written last of all, so no row lock is ever acquired after the
+    // audit-chain lock is taken.
+    const rows: StoredMovementRow[] = [];
     for (const entry of [outEntry, inEntry]) {
       const row = await insertMovementRow(tx, {
         entityId: input.entityId,
@@ -367,18 +449,29 @@ export async function postTransfer(
       });
 
       await applyLockedBalanceDelta(tx, entry, occurredAt);
-      await writeMovementEventAndAudit(tx, {
+      rows.push(row);
+    }
+
+    for (const row of rows) {
+      await writeMovementOutboxEvent(tx, {
+        entityId: input.entityId,
+        movementRow: row,
+        correlationId: input.correlationId,
+        actorId: ctx.userId,
+      });
+    }
+
+    for (const row of rows) {
+      await writeMovementAuditRow(tx, {
         entityId: input.entityId,
         movementRow: row,
         occurredAt,
         correlationId: input.correlationId,
         actorId: ctx.userId,
       });
-
-      movementIds.push(row.id);
     }
 
-    return { movementIds, correlationId: input.correlationId };
+    return { movementIds: rows.map((row) => row.id), correlationId: input.correlationId };
   });
 }
 
@@ -433,6 +526,13 @@ export async function reverseMovement(
     };
     const reversalEntry = planReversal(originalEntry);
     validateEntry(reversalEntry);
+
+    // pg-reviewer slice-close round 2 finding 1: shared rebuild-key lock FIRST, before the
+    // per-balance-key lock below (see lockRebuildKeysShared's own comment for the protocol) — taken
+    // only now because the (client, sku) pair isn't known until the original row above is read.
+    await lockRebuildKeysShared(tx, [
+      { clientId: reversalEntry.clientId, skuId: reversalEntry.skuId },
+    ]);
 
     const occurredAt = deps.clock.now();
     const row = await insertMovementRow(tx, {

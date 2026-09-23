@@ -5,6 +5,7 @@
 export {
   MOVEMENT_TYPES,
   balanceKey,
+  balanceRebuildLockKey,
   deriveBalances,
   planReversal,
   planTransfer,
@@ -18,6 +19,7 @@ export {
   InvalidQuantityError,
   MovementNotFoundError,
   NegativeStockError,
+  RebuildScopeError,
 } from './errors.js';
 
 export {

@@ -35,7 +35,33 @@ export class NegativeStockError extends Error {
 /** decision 5: reverseMovement was asked to reverse an id with no wms.stock_movements row. */
 export class MovementNotFoundError extends Error {
   constructor(movementId: string) {
-    super(`no wms.stock_movements row with id ${movementId}`);
+    super(
+      `no wms.stock_movements row with id ${movementId} ` +
+        `(Allowed: the id of an existing wms.stock_movements row)`,
+    );
     this.name = 'MovementNotFoundError';
+  }
+}
+
+/**
+ * pg-reviewer gate finding 9 / doc 40 P4: rebuildBalance recomputes wms.stock_balance from the
+ * FULL wms.stock_movements ledger for a (client, sku) pair. Under RLS, wms.stock_balance's policy
+ * (internal_only) lets an internal caller see every balance row, but wms.stock_movements' policy
+ * (entity_scope: `entity_id = any(platform.allowed_entities())`) restricts that same caller to only
+ * the rows of the entities they belong to. A caller who cannot see every platform.entities row
+ * would fold a PARTIAL ledger and overwrite balances built from the full one — corrupting them,
+ * the opposite of doc 40 P4's "rebuildable with zero diff". Thrown before any read or write of the
+ * ledger unless allowed = bypass OR (platform.is_internal() AND all_entities) — i.e. the caller's
+ * role is superuser/BYPASSRLS, or the caller is internal (platform.is_internal()) AND
+ * platform.allowed_entities() already covers every platform.entities row (pg-reviewer slice-close
+ * round 2 finding 2: internal_only's own `wms.stock_balance` policy already requires
+ * platform.is_internal() for the write this mechanism is about to make, so the scope check must
+ * require it too, ahead of any read or write, rather than let a non-internal caller fail later on
+ * that policy's own WITH CHECK).
+ */
+export class RebuildScopeError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'RebuildScopeError';
   }
 }
