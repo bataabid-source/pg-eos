@@ -2951,7 +2951,7 @@ erDiagram
 | `platform.next_doc_no` | `text` | ترقيم ذرّي داخل معاملة. UPDATE..RETURNING يقفل الصف فلا يتكرر رقم عند التزامن |
 | `platform.sanitize_audit` | `jsonb` | ينقّي حمولة التدقيق من الأعمدة الحساسة |
 | `platform.set_stage_due_at` | `trigger` | مشغّل: يحسب تاريخ استحقاق المرحلة من SLA المرحلة |
-| `platform.verify_audit_chain` | `TABLE(id bigint, occurred_at timestamp with time zone, expected_hash text, actual_hash text)` | حارس G8 (40 Part F). يجب أن يعيد صفر صفوف. أي صف = كسر في سلسلة التجزئة → تنبيه GM + SYSADMIN (31 §4) |
+| `platform.verify_audit_chain(p_anchor_seq bigint default 1, p_anchor_prev_hash text default null)` | `TABLE(chain_seq bigint, id bigint, occurred_at timestamp with time zone, problem text, detail text, expected_hash text, actual_hash text)` | حارس G8 (40 Part F). يجب أن يعيد صفر صفوف. ترتيب `chain_seq` فقط؛ `problem` ∈ `hash_mismatch` · `prev_hash_mismatch` · `duplicate_chain_seq` · `chain_seq_gap` · `partition_missing_chain_seq_unique_index` · `definer_owner_cannot_bypass_rls` · `anchor_invalid` · `anchor_not_found` (13B v4.3 · ADR-0002 · 23/09/2026). أي صف → تنبيه GM + SYSADMIN (31 §3-3) |
 | `tms.raise_legal_hold` | `trigger` | 31 §8-1: أي نزاع أو شكوى أو جزاء مرتبط بمهمة يرفع legal_hold على إثبات تسليمها تلقائياً |
 | `wms.check_location_limits` | `void` | حاجز صلب (19 §3-3) — لا تنبيه. رافدة النوع A عند 100% من المصنَّف بلا هامش |
 | `wms.check_space_available` | `void` | يمنع تخصيصاً أو حجزاً يتجاوز المتاح |
@@ -3001,7 +3001,7 @@ erDiagram
 | `imile.verify_attribution` | حارس: يتحقق من نسبة كل شحنة إلى سائق/هوية صحيحة |
 | `imile.verify_no_orphan_ids` | حارس: يعيد هويات السائقين بلا موظف مرتبط |
 | `partners.verify_paid_matched` | حارس: يعيد كل مدفوع للشريك بلا مطابقة |
-| `platform.verify_audit_chain` | حارس G8 (40 Part F). يجب أن يعيد صفر صفوف. أي صف = كسر في سلسلة التجزئة → تنبيه GM + SYSADMIN (31 §4) |
+| `platform.verify_audit_chain` | حارس G8 (40 Part F). يجب أن يعيد صفر صفوف. ترتيب `chain_seq` فقط؛ يكشف عدم تطابق التجزئة والتجزئة السابقة والتكرار والفجوات وقسماً بلا فهرس `chain_seq` الفريد ومالكاً لا يتجاوز RLS ونقطة ارتكاز فارغة أو غائبة (13B v4.3 · ADR-0002). أي صف → تنبيه GM + SYSADMIN (31 §3-3) |
 | `wms.verify_balance_integrity` | يجب أن يعيد صفر صفوف. أي صف = يوقف النشر |
 | `wms.verify_wh1` | الواحد والعشرون اختباراً يجب أن تمر كلها (19 §3-4). أي فشل = خطأ في التوليد أو تعديل غير مصرّح |
 

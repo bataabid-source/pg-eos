@@ -1,5 +1,5 @@
 # السجل والتتبّع — لكل معاملة
-**وثيقة 31 · PG-EOS · الإصدار 4.0 · 21/09/2026**
+**وثيقة 31 · PG-EOS · الإصدار 4.1 · 23/09/2026**
 
 > **v4 — حالة الوثيقة:** مرجعية (**تصميم — بلا DDL تنفيذي**) · **الحاكم عند التعارض:** 40 (§B2 · §B3 · Part F · Part G) · 36 (§3-1) · **13B هو المخطط الوحيد** لكل ما في هذه الوثيقة · **التصحيحات المطبّقة في v4:** PLT-01, PLT-02, PLT-03, PLT-04, PLT-05, PLT-28 · **القرارات المفتوحة سابقاً:** مُغلقة في EXECUTION-MASTER-v4 §1.
 
@@ -130,20 +130,38 @@ $$;
 
 > كانت الصيغة مذكورة **في تعليق SQL فقط** بلا دالة ولا مشغّل ولا ضابط تزامن — فالحارس G8 «Audit hash chain breaks = 0» كان غير قابل للتنفيذ. **13B-2 ينفّذها.**
 
-**المشغّل — يملأ `prev_hash`/`row_hash` قبل كل إدراج:**
+> **v4.1 (23/09/2026) · SCR-AUDIT-01 · ADR-0002:** ترتيب السلسلة صار **`chain_seq`** — رقم يُحسب داخل المشغّل **بعد** القفل الاستشاري = السابق + 1. الترتيب القديم `(occurred_at, id)` كان يُحسب قبل القفل فكسر السلسلة تحت التزامن (8 كتّاب × 500: 2008 · 2009 · 2004 صفاً مكسوراً قبل الإصلاح؛ 0 · 0 · 0 بعده). النص الكامل للمشغّل ودالة التحقق في `13B-2` (الإصدار 4.3) والترحيل `0004_M_audit-chain-seq.sql`.
+
+**المشغّل — يملأ `chain_seq`/`prev_hash`/`row_hash` قبل كل إدراج:**
 
 ```sql
--- اقتباس من 13B-2
+-- اقتباس من 13B-2 (v4.3)
 create or replace function platform.audit_hash_chain()
-returns trigger language plpgsql as $$
-declare v_prev text;
+returns trigger
+language plpgsql
+security definer
+set search_path = pg_catalog, pg_temp
+set timezone = 'UTC'
+set datestyle = 'ISO, YMD'
+as $$
+declare
+  v_prev text;
+  v_seq  bigint;
 begin
-  perform pg_advisory_xact_lock(hashtext('platform.audit_log'));
-  select a.row_hash into v_prev
-  from platform.audit_log a
-  order by a.occurred_at desc, a.id desc
-  limit 1;
+  if current_setting('transaction_isolation') <> 'read committed' then
+    raise exception 'platform.audit_hash_chain: audited writes must run under READ COMMITTED (current: %)',
+      current_setting('transaction_isolation')
+      using errcode = '25001';
+  end if;
 
+  perform pg_advisory_xact_lock(hashtext('platform.audit_log'));
+  select a.chain_seq, a.row_hash
+    into v_seq, v_prev
+    from platform.audit_log a
+   order by a.chain_seq desc
+   limit 1;
+
+  new.chain_seq := coalesce(v_seq, 0) + 1;
   new.prev_hash := v_prev;
   new.row_hash  := encode(sha256(convert_to(
       coalesce(v_prev,'')
@@ -154,6 +172,7 @@ begin
       || coalesce(new.operation,''), 'UTF8')), 'hex');
   return new;
 end $$;
+revoke all on function platform.audit_hash_chain() from public;
 
 create trigger trg_audit_hash_chain before insert on platform.audit_log
   for each row execute function platform.audit_hash_chain();
@@ -161,35 +180,31 @@ create trigger trg_audit_hash_chain before insert on platform.audit_log
 
 | البند | كيف حُسم |
 |---|---|
-| **الصيغة** | `row_hash = sha256(prev_hash ‖ occurred_at ‖ user_id ‖ table_name ‖ record_id ‖ operation)` بترميز `hex`، و`coalesce(…, '')` على كل حقل حتى لا تُنتج القيمة العدمية تجزئة مختلفة. الدالة `sha256()` المدمجة في PostgreSQL 16 — **لا حاجة لـ`pgcrypto`**. |
-| **التزامن** | `pg_advisory_xact_lock` على مفتاح الجدول: كاتبان متزامنان لا يقرآن نفس `prev_hash` فلا تنشأ **شوكة صامتة**. القفل يُحرَّر بانتهاء المعاملة، والإدراج قصير فالتنازع محدود. |
-| **مدى السلسلة** | **سلسلة واحدة عالمية** عبر كل الأقسام — الترتيب `(occurred_at, id)` لا يتأثر بحدود التقسيم الشهري. |
+| **الصيغة** | `row_hash = sha256(prev_hash ‖ occurred_at ‖ user_id ‖ table_name ‖ record_id ‖ operation)` بترميز `hex`، و`coalesce(…,'')` لكل حقل — **دون تغيير**. **التمثيل النصّي القانوني لـ`occurred_at`** في الصيغة: `TimeZone = UTC` و`DateStyle = ISO, YMD` (مثبّتان على الدالتين) — من يعيد الحساب خارج النظام يستعمل التمثيل نفسه. |
+| **الترتيب** | **`chain_seq`** = السابق + 1، يُحسب بعد القفل في الاستعلام نفسه الذي يجلب `row_hash` السابق. بلا كائن تسلسل: المعاملة المتراجعة تعيد رقمها، فالترقيم **بلا فجوات**، وأي فجوة تعني صفاً محذوفاً. |
+| **التزامن** | `pg_advisory_xact_lock` على مفتاح الجدول **محجوز حتى الالتزام أو التراجع** — كل كتابات التدقيق في النظام متسلسلة. القاعدة: **صف التدقيق آخر أمر قبل الالتزام**، والمعاملة المدقَّقة قصيرة (ADR-0002). المعاملة تحت REPEATABLE READ/SERIALIZABLE تُرفض (لا ترى صف حامل القفل السابق). |
+| **مدى السلسلة** | **سلسلة واحدة عالمية** عبر كل الأقسام. فهرس فريد `<القسم>_chain_seq_key` على كل قسم (الافتراضي ضمناً) — لا قيد فريداً ممكناً على الأب المقسَّم. |
+| **الصلاحية** | الدالتان `security definer` بمالك superuser أو BYPASSRLS: الجدول تحت FORCE RLS و`entity_scope` (D-002)، فرأس السلسلة والتحقق يقرآن الجدول كاملاً لا بحسب ما يراه الكاتب. لا صلاحية EXECUTE لـPUBLIC. |
 
 **دالة التحقق — هي حرفياً الحارس G8:**
 
 ```sql
--- اقتباس من 13B-2
-create or replace function platform.verify_audit_chain()
-returns table (id bigint, occurred_at timestamptz, expected_hash text, actual_hash text)
-language sql stable as $$
-  with ordered as (
-    select a.id, a.occurred_at, a.user_id, a.table_name, a.record_id,
-           a.operation, a.prev_hash, a.row_hash,
-           lag(a.row_hash) over (order by a.occurred_at, a.id) as chain_prev
-    from platform.audit_log a
-  )
-  select o.id, o.occurred_at,
-         encode(sha256(convert_to( coalesce(o.chain_prev,'') || … , 'UTF8')), 'hex'),
-         o.row_hash
-  from ordered o
-  where o.row_hash is distinct from encode(sha256(convert_to( coalesce(o.chain_prev,'') || … , 'UTF8')), 'hex')
-     or o.prev_hash is distinct from o.chain_prev
-$$;
+-- اقتباس من 13B-2 (v4.3) — الرأس؛ الجسم الكامل في 13B-2
+create or replace function platform.verify_audit_chain(
+  p_anchor_seq       bigint default 1,
+  p_anchor_prev_hash text   default null)
+returns table (chain_seq bigint, id bigint, occurred_at timestamptz, problem text, detail text,
+               expected_hash text, actual_hash text)
+language sql stable security definer
+set search_path = pg_catalog, pg_temp
+set timezone = 'UTC'
+set datestyle = 'ISO, YMD'
+as $$ … $$;
 ```
 
-**كيف تعمل:** تعيد ترتيب السجل كله بـ`(occurred_at, id)`، وتأخذ لكل صف **تجزئة الصف الذي يسبقه فعلياً** (`lag`) ثم تعيد حساب `row_hash` منه. تُرجع الصف في حالتين: (أ) `row_hash` المخزَّن لا يطابق المُعاد حسابه — **الصف عُدِّل**؛ (ب) `prev_hash` المخزَّن لا يطابق تجزئة سابقه — **صف حُذف من بين الصفين**. `stable` فتُستدعى داخل الاستعلامات بحرية.
+**كيف تعمل:** ترتّب السجل بـ`chain_seq` **فقط**، وتأخذ لكل صف تجزئة الصف السابق (`lag`) ثم تعيد حساب `row_hash`. تُرجع صفاً بعمود `problem` في كل حالة من: `hash_mismatch` (الصف عُدِّل) · `prev_hash_mismatch` (السلسلة أُعيد ترتيبها أو حُذف ما قبله) · `duplicate_chain_seq` · `chain_seq_gap` (صف محذوف) · `partition_missing_chain_seq_unique_index` (قسم بلا الفهرس الفريد — يُفحص بخصائص `pg_index`) · `definer_owner_cannot_bypass_rls` · `anchor_invalid` / `anchor_not_found`. **نقطة الارتكاز** بعد فصل أقسام قديمة أو أرشفتها: أول `chain_seq` محتفَظ به مع `prev_hash` الخاص به (ADR-0002؛ مكان حفظها بند G-01 مفتوح لدى GM).
 
-> **الشرط:** `select * from platform.verify_audit_chain();` يجب أن يعيد **صفر صفوف**. أي صف = كسر في السلسلة → تنبيه فوري لـGM و`SYSADMIN`. *اختُبرت حيّاً في وكيل المخطط: السلسلة سليمة (0)، وبعد عبث متعمَّد بصفٍّ واحد كُشف الكسر (1).*
+> **الشرط:** `select * from platform.verify_audit_chain();` يجب أن يعيد **صفر صفوف**. أي صف = كسر في السلسلة → تنبيه فوري لـGM و`SYSADMIN`. *اختُبرت حيّاً: السلسلة سليمة (0)، وبعد عبث متعمَّد بصفٍّ واحد كُشف الكسر؛ ومع 8 كتّاب متزامنين × 500 إدراج: 0 في ثلاثة تشغيلات متتالية.* **الاستعادة:** `pg_restore --disable-triggers` (أو `session_replication_role = replica`) بدور ذي صلاحية، ثم G8 — وإلا أعاد المشغّل تسلسل البيانات ومحا الدليل.
 
 **هذا يحوّل السجل من «قابل للثقة» إلى «قابل للإثبات» — وهو الفرق عند النزاع.**
 

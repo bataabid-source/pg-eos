@@ -4,6 +4,19 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## 0.9 (fix) — SCR-AUDIT-01: audit hash chain ordered by chain_seq — ADR-0002, migration 0004 (2026-09-23)
+
+- **Decision (ADR-0002, phase G of GM directive 2026-09-23, decision #4):** `platform.audit_log` gains `chain_seq bigint not null`, assigned by the trigger after the advisory lock as previous + 1 (no sequence); unique index `<partition>_chain_seq_key` on every partition incl. default; trigger and verifier `SECURITY DEFINER` (owner superuser/BYPASSRLS), `TimeZone` UTC / `DateStyle` ISO,YMD pinned, `READ COMMITTED` required. Verifier `platform.verify_audit_chain(p_anchor_seq bigint default 1, p_anchor_prev_hash text default null)` returns `(chain_seq, id, occurred_at, problem, detail, expected_hash, actual_hash)`, `problem` ∈ `hash_mismatch · prev_hash_mismatch · duplicate_chain_seq · chain_seq_gap · partition_missing_chain_seq_unique_index · definer_owner_cannot_bypass_rls · anchor_invalid · anchor_not_found`; `EXECUTE` revoked from `PUBLIC` on both.
+- **Files/versions:** 13B v4.2 → v4.3; migration `database/migrations/0004_M_audit-chain-seq.sql` (re-runnable; one-time rebuild refused without `pgeos.audit_chain_rebuild=allow`); doc 40 → v4.3 (§B2 + Part F G8 + anchor); doc 31 → v4.1 (§3-3); `D-blueprints/08-Data-Model-Maps.md` two rows; `CHANGELOG-v4.md` §15; `modules/platform/vitest.config.ts` `fileParallelism` false.
+- **Tests:** audit-chain-concurrency (G4), audit-chain-seq (15), schema-invariants (+2), isolation teardown.
+- **Results — G4 8 writers × 500:** before `2008 · 2009 · 2004` broken rows; after `0 · 0 · 0` (repo build). `platform` 23/23 ×3, isolation 43/43, `guards:run` G1–G14 + G18 + G-SEED green, build 9/9. Head lookup on 24 partitions: Merge Append, 1.2 ms.
+- **Review rounds:** migration gate FAIL(14) → FAIL(4) → PASS; close review FAIL(4) (doc 40 "should"→"must" audit-row-last, doc 31 §4→§3-3 citations, D-08 problem list, LANE_LOCKS "applied") → fixed. Total findings fixed: 22.
+- **2.8 close-out blocker found by pg-tester verify:** `modules/wms/src/stock-ledger/post-movement.ts` `postTransfer` writes the audit row for the out-entry before the in-entry `stock_balance` update → violates ADR-0002 / doc 40 §B2 "must write the audit row as the last statement before commit"; produced one deadlock in a shared-DB full run (platform writers chosen as victims; chain stayed intact). Plus known 2.8 test items: 5 s timeout on the 1,000-movement test, reserved `pg_` fixture role name (3 skipped), cleanup FK error (delete `wms.skus` vs `stock_movements_sku_id_fkey`).
+- **Open G-01 item for the GM:** where the G8 anchor is stored before the first partition detach (≥ 2028-03).
+- Model: opus · Delegated: pg-tester (opus — escalation for ADR/security design, GM directive 2026-09-23), pg-reviewer (opus), pg-scribe (sonnet) · Review: PASS(22 findings fixed) · tokens: ≈ 900k (Master ≈ 250k, pg-tester ≈ 380k, pg-reviewer ≈ 480k — estimate)
+
+---
+
 ## X — Agent write-scopes + fixed slice sequence — GM directive 2026-09-23 (2026-09-23)
 
 - **pg-tester** writes only test files (`tests/**`, `**/tests/**`, `*.test.*`, `*.spec.*`, `features/**`, `*.feature`); runner config and `package.json` changes are requested from the Master. Called twice per slice: RED first, then VERIFY after the build.

@@ -88,3 +88,13 @@ pst-warehouse-3d: حارس three.js · الكود السباعي وكود الإ
 - **`A-governing/BOOTSTRAP-v5.md` 5.1 → 5.2:** §2 الخطوات 6–13 (أُعيد ترقيمها: خطوة تحقق pg-tester وبوابة المراجع قبل الترحيل)، §3 أسطر أدوار pg-reviewer وpg-backend وpg-tester، §6 كتلة SPEED AND QUALITY (بند SLICE SEQUENCE مطابق حرفياً لـCLAUDE.md). **§4 (جدول التوجيه) لم يتغيّر** — التسلسل والأدوار في §2 و§3 لا في §4.
 - **`41-Cloud-and-AI-Efficiency.md` §1:** لا تعديل — لا يصف نطاقات الكتابة ولا تسلسل الشريحة.
 - خارج الحزمة (بلا إصدار): `CLAUDE.md` BUILD METHOD · `.claude/agents/pg-{tester,backend,reviewer}.md` · `.claude/commands/slice.md` · `docs/AGENT_WORKFLOW.md`.
+
+## 15. إضافة (23/09/2026) — SCR-AUDIT-01: ترتيب سلسلة التدقيق بـ`chain_seq` (ADR-0002)
+
+- **قرار GM 23/09/2026 (الخيار A بحلّ §6):** `chain_seq` = السابق + 1 يُحسب داخل المشغّل بعد القفل الاستشاري في استعلام جلب التجزئة السابقة، بلا كائن تسلسل؛ فهرس فريد على `chain_seq` في كل قسم (الافتراضي ضمناً)؛ `verify_audit_chain()` ترتّب بـ`chain_seq` فقط وتكشف عدم تطابق التجزئة والتكرار والفجوات وقسماً بلا الفهرس. مراجعة بوابة الترحيل (pg-reviewer، opus): FAIL(14) → FAIL(4) → **PASS**.
+- **`13B-Schema-Reference-Consolidation.sql` 4.2 → 4.3:** عمود `chain_seq bigint not null` · خمسة فهارس `<القسم>_chain_seq_key` · المشغّل والتحقق `security definer` مع `search_path` و`TimeZone = UTC` و`DateStyle = ISO, YMD` مثبّتة · رفض غير READ COMMITTED · معاملات ارتكاز `(p_anchor_seq, p_anchor_prev_hash)` · سحب EXECUTE من PUBLIC · ملاحظتا مهمة القسم الشهري (الفهرس + RLS + التصنيف). الصيغة (31) دون تغيير.
+- **ترحيل `0004_M_audit-chain-seq.sql`** (قابل لإعادة التشغيل؛ إعادة بناء السلسلة لمرة واحدة ممنوعة إلا بتفعيل صريح `pgeos.audit_chain_rebuild=allow`).
+- **`40-Build-Specification-EN.md` 4.2 → 4.3:** §B2 (ترتيب `chain_seq`، الصلاحية، التمثيل الزمني، READ COMMITTED، مهمة القسم الشهري) · Part F صف G8 ونص الارتكاز.
+- **`31-Audit-and-Traceability.md` 4.0 → 4.1:** §3-3 — اقتباس المشغّل الجديد ورأس دالة التحقق، والتمثيل القانوني لـ`occurred_at` في الصيغة، وإجراء الاستعادة.
+- **`D-blueprints/08-Data-Model-Maps.md`:** صفّا توقيع `verify_audit_chain` (بلا حقل إصدار — لم يُرفع).
+- **النتائج:** اختبار 8 كتّاب × 500 — قبل: 2008 · 2009 · 2004 صفاً مكسوراً؛ بعد: 0 · 0 · 0. بند G-01 مفتوح لدى GM: مكان حفظ نقطة الارتكاز قبل أول فصل لقسم (≥ 03/2028).

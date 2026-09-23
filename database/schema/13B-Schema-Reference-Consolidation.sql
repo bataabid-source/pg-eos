@@ -1,6 +1,6 @@
 -- ═══════════════════════════════════════════════════════════════════════════
 -- PG-EOS · 13B — توحيد المخطط المرجعي (Schema Reference Consolidation)
--- وثيقة 13B · PostgreSQL 16 · الإصدار 4.2 · 23/09/2026
+-- وثيقة 13B · PostgreSQL 16 · الإصدار 4.3 · 23/09/2026
 --
 -- > **v4 — حالة الوثيقة:** حاكمة · **الحاكم عند التعارض:** 40 · 36 ·
 -- > EXECUTION-MASTER-v4 · 22 · **التصحيحات المطبّقة في v4:** SCR-1…SCR-7 ·
@@ -202,9 +202,11 @@ create table platform.audit_log (
   session_id    uuid,
   request_id    uuid,                            -- يربط كل ما جرى في طلب واحد
   correlation_id uuid,                           -- يربط عملية أعمال كاملة عبر عدة طلبات
-  -- المصدر: وثيقة 31 §4 — سلسلة التجزئة
+  -- المصدر: وثيقة 31 §3-3 — سلسلة التجزئة
   prev_hash     text,
   row_hash      text,
+  -- v4.3 · SCR-AUDIT-01 / ADR-0002: ترتيب السلسلة — يملؤه المشغّل وحده (السابق + 1 تحت القفل)؛ أي قيمة من المستدعي تُستبدل.
+  chain_seq     bigint not null,
   -- v4: المفتاح الأساسي في جدول مقسَّم يجب أن يتضمّن مفتاح التقسيم؛
   --     31 كتب `id bigserial primary key` وهو غير صالح على جدول مقسَّم.
   primary key (id, occurred_at)
@@ -232,20 +234,53 @@ create table platform.audit_log_2026_12 partition of platform.audit_log
   for values from ('2026-12-01') to ('2027-01-01');
 create table platform.audit_log_default partition of platform.audit_log default;
 
--- المصدر: وثيقة 31 §4 — row_hash = sha256(prev_hash || occurred_at || user_id
---                        || table_name || record_id || operation)
--- v4: الوثيقة تذكر الصيغة تعليقاً بلا مشغّل؛ هذا هو المشغّل الذي ينفّذها.
---     القفل الاستشاري يمنع كسر السلسلة عند التزامن (كاتبان في آنٍ واحد).
-create or replace function platform.audit_hash_chain()
-returns trigger language plpgsql as $$
-declare v_prev text;
-begin
-  perform pg_advisory_xact_lock(hashtext('platform.audit_log'));
-  select a.row_hash into v_prev
-  from platform.audit_log a
-  order by a.occurred_at desc, a.id desc
-  limit 1;
+-- v4.3 · SCR-AUDIT-01 / ADR-0002 (قرار GM 23/09/2026): فهرس فريد على chain_seq في كل قسم — الافتراضي ضمناً.
+--   لا قيد فريداً ممكناً على الأب المقسَّم (يجب أن يتضمّن occurred_at). التفرّد الكلي يضمنه القفل الاستشاري،
+--   والتكرار عبر الأقسام تكشفه verify_audit_chain(). كل قسم جديد يحمل هذا الفهرس، وG8 يفشل إن غاب.
+create unique index audit_log_2026_09_chain_seq_key on platform.audit_log_2026_09 (chain_seq);
+create unique index audit_log_2026_10_chain_seq_key on platform.audit_log_2026_10 (chain_seq);
+create unique index audit_log_2026_11_chain_seq_key on platform.audit_log_2026_11 (chain_seq);
+create unique index audit_log_2026_12_chain_seq_key on platform.audit_log_2026_12 (chain_seq);
+create unique index audit_log_default_chain_seq_key on platform.audit_log_default (chain_seq);
 
+-- v4.3: الدالة القديمة بلا معاملات تُحذف قبل إنشاء النسخة ذات معاملات الارتكاز — وإلا صار
+--       الاستدعاء بلا معاملات ملتبساً عند إعادة تطبيق 13B على قاعدة قائمة.
+drop function if exists platform.verify_audit_chain();
+
+-- المصدر: وثيقة 31 §3-3 — row_hash = sha256(prev_hash || occurred_at || user_id || table_name || record_id || operation)
+-- v4.3 · SCR-AUDIT-01 / ADR-0002 (قرار GM 23/09/2026): ترتيب السلسلة = chain_seq = السابق + 1، يُحسب هنا بعد
+--   القفل الاستشاري في الاستعلام نفسه الذي يجلب التجزئة السابقة (بلا كائن تسلسل؛ التراجع لا يترك فجوة).
+--   · القفل محجوز حتى الالتزام أو التراجع ⇒ كل كتابات التدقيق متسلسلة (ADR-0002 §الأثر).
+--   · security definer: audit_log تحت FORCE RLS وentity_scope على الأب (D-002) — الرأس يُقرأ كاملاً.
+--     يشترط أن يكون مالك الدالة superuser أو BYPASSRLS (يتحقق الترحيل 0004 من ذلك).
+--   · READ COMMITTED فقط: تحت REPEATABLE READ/SERIALIZABLE لا يرى الاستعلام صف حامل القفل السابق فيتكرر الرقم.
+--   · timezone/datestyle مثبّتان: تمثيل occurred_at::text في الصيغة لا يتبع إعدادات جلسة الكاتب.
+create or replace function platform.audit_hash_chain()
+returns trigger
+language plpgsql
+security definer
+set search_path = pg_catalog, pg_temp
+set timezone = 'UTC'
+set datestyle = 'ISO, YMD'
+as $$
+declare
+  v_prev text;
+  v_seq  bigint;
+begin
+  if current_setting('transaction_isolation') <> 'read committed' then
+    raise exception 'platform.audit_hash_chain: audited writes must run under READ COMMITTED (current: %)',
+      current_setting('transaction_isolation')
+      using errcode = '25001';
+  end if;
+
+  perform pg_advisory_xact_lock(hashtext('platform.audit_log'));
+  select a.chain_seq, a.row_hash
+    into v_seq, v_prev
+    from platform.audit_log a
+   order by a.chain_seq desc
+   limit 1;
+
+  new.chain_seq := coalesce(v_seq, 0) + 1;
   new.prev_hash := v_prev;
   new.row_hash  := encode(sha256(convert_to(
       coalesce(v_prev,'')
@@ -257,41 +292,106 @@ begin
   return new;
 end $$;
 
+-- G8 (40 Part F): يجب أن تعيد صفر صفوف. ترتّب بـ chain_seq فقط. نقطة الارتكاز (ADR-0002): بعد فصل أقسام
+-- قديمة أو أرشفتها تُستدعى بأول chain_seq محتفَظ به وبتجزئته السابقة. security definer للسبب نفسه أعلاه:
+-- مستدعٍ لا يتجاوز RLS سيرى جزءاً من السلسلة فتظهر فجوات زائفة.
+create or replace function platform.verify_audit_chain(
+  p_anchor_seq       bigint default 1,
+  p_anchor_prev_hash text   default null)
+returns table (chain_seq bigint, id bigint, occurred_at timestamptz, problem text, detail text,
+               expected_hash text, actual_hash text)
+language sql
+stable
+security definer
+set search_path = pg_catalog, pg_temp
+set timezone = 'UTC'
+set datestyle = 'ISO, YMD'
+as $$
+  with ordered as (
+    select a.chain_seq, a.id, a.occurred_at, a.user_id, a.table_name, a.record_id, a.operation,
+           a.prev_hash, a.row_hash,
+           row_number()     over w as rn,
+           lag(a.chain_seq) over w as seq_prev,
+           lag(a.row_hash)  over w as hash_prev
+      from platform.audit_log a
+     where a.chain_seq >= p_anchor_seq
+    window w as (order by a.chain_seq, a.id)
+  ), checked as (
+    select o.*,
+           case when o.rn = 1 then p_anchor_prev_hash else o.hash_prev    end as expected_prev,
+           case when o.rn = 1 then p_anchor_seq       else o.seq_prev + 1 end as expected_seq,
+           (o.rn > 1 and o.chain_seq = o.seq_prev)                           as is_duplicate
+      from ordered o
+  ), hashed as (
+    select c.*,
+           encode(sha256(convert_to(
+             coalesce(c.expected_prev,'')
+             || coalesce(c.occurred_at::text,'')
+             || coalesce(c.user_id::text,'')
+             || coalesce(c.table_name,'')
+             || coalesce(c.record_id::text,'')
+             || coalesce(c.operation,''), 'UTF8')), 'hex') as expected_row_hash
+      from checked c
+  )
+  select h.chain_seq, h.id, h.occurred_at, p.problem, p.detail, p.expected, p.actual
+    from hashed h
+   cross join lateral (values
+     ('duplicate_chain_seq', 'chain_seq repeated', null::text, null::text,
+        h.is_duplicate),
+     ('chain_seq_gap', 'expected chain_seq ' || h.expected_seq, null, null,
+        h.chain_seq <> h.expected_seq and not h.is_duplicate),
+     ('prev_hash_mismatch', 'expected/actual are prev_hash values', h.expected_prev, h.prev_hash,
+        h.prev_hash is distinct from h.expected_prev),
+     ('hash_mismatch', 'expected/actual are row_hash values', h.expected_row_hash, h.row_hash,
+        h.row_hash is distinct from h.expected_row_hash)
+   ) as p(problem, detail, expected, actual, failed)
+   where p.failed
+  union all
+  -- نقطة ارتكاز فارغة أو أعلى من رأس السلسلة لا تُرجع «سليم» بصمت (مراجعة الجولة 2، الملاحظة 3).
+  select null, null, null, 'anchor_invalid', 'p_anchor_seq is null', null, null
+   where p_anchor_seq is null
+  union all
+  select null, null, null, 'anchor_not_found', 'no row with chain_seq >= ' || p_anchor_seq, null, null
+   where p_anchor_seq is not null
+     and exists (select 1 from platform.audit_log)
+     and not exists (select 1 from platform.audit_log a where a.chain_seq >= p_anchor_seq)
+  union all
+  -- الدالتان security definer: مالكهما يجب أن يتجاوز FORCE RLS، وإلا رأت الدالتان جزءاً من السلسلة
+  -- وأعاد G8 «صفر» على سلسلة مكسورة. يُفحص في كل تشغيل لا عند الترحيل فقط (الملاحظة 2).
+  select null, null, null, 'definer_owner_cannot_bypass_rls', 'platform.' || p.proname || ' owned by ' || r.rolname, null, null
+    from pg_catalog.pg_proc p
+    join pg_catalog.pg_roles r on r.oid = p.proowner
+   where p.pronamespace = 'platform'::regnamespace
+     and p.proname in ('audit_hash_chain', 'verify_audit_chain')
+     and not (r.rolsuper or r.rolbypassrls)
+  union all
+  -- شرط GM (1): كل قسم — الافتراضي ضمناً — يحمل فهرساً فريداً صالحاً، بلا شرط ولا تعبير، مفتاحه chain_seq وحده.
+  -- الفحص بخصائص pg_index لا باسم الفهرس.
+  select null, null, null, 'partition_missing_chain_seq_unique_index', n.nspname || '.' || c.relname, null, null
+    from pg_catalog.pg_inherits i
+    join pg_catalog.pg_class c     on c.oid = i.inhrelid
+    join pg_catalog.pg_namespace n on n.oid = c.relnamespace
+   where i.inhparent = 'platform.audit_log'::regclass
+     and not exists (
+       select 1
+         from pg_catalog.pg_index x
+         join pg_catalog.pg_attribute att
+           on att.attrelid = c.oid and att.attname = 'chain_seq' and att.attnum = x.indkey[0]
+        where x.indrelid = c.oid
+          and x.indisunique and x.indisvalid
+          and x.indpred is null and x.indexprs is null
+          and x.indnatts = 1)
+$$;
+
+comment on function platform.verify_audit_chain(bigint, text) is
+  'G8 (40 Part F): صفر صفوف. ترتيب chain_seq فقط؛ يكشف عدم تطابق row_hash وprev_hash والتكرار والفجوات وقسماً بلا فهرس chain_seq الفريد ونقطة ارتكاز فارغة أو غائبة ومالكاً لا يتجاوز RLS. الارتكاز بعد فصل الأقسام: ADR-0002.';
+revoke all on function platform.verify_audit_chain(bigint, text) from public;
+-- الملاحظة 1: دالة المشغّل security definer — لا تُتاح لأي دور لإلحاقها بجدول آخر. المشغّل القائم يعمل
+-- لأن صلاحية EXECUTE تُفحص عند create trigger فقط.
+revoke all on function platform.audit_hash_chain() from public;
+
 create trigger trg_audit_hash_chain before insert on platform.audit_log
   for each row execute function platform.audit_hash_chain();
-
--- v4: حارس G8 "Audit hash chain breaks = 0" مذكور في 40 Part F بلا تعريف دالة.
---     هذه الدالة تعيد الصفوف التي انكسرت سلسلتها — يجب أن تعيد صفر صفوف.
-create or replace function platform.verify_audit_chain()
-returns table (id bigint, occurred_at timestamptz, expected_hash text, actual_hash text)
-language sql stable as $$
-  with ordered as (
-    select a.id, a.occurred_at, a.user_id, a.table_name, a.record_id,
-           a.operation, a.prev_hash, a.row_hash,
-           lag(a.row_hash) over (order by a.occurred_at, a.id) as chain_prev
-    from platform.audit_log a
-  )
-  select o.id, o.occurred_at,
-         encode(sha256(convert_to(
-           coalesce(o.chain_prev,'')
-           || coalesce(o.occurred_at::text,'')
-           || coalesce(o.user_id::text,'')
-           || coalesce(o.table_name,'')
-           || coalesce(o.record_id::text,'')
-           || coalesce(o.operation,''), 'UTF8')), 'hex'),
-         o.row_hash
-  from ordered o
-  where o.row_hash is distinct from encode(sha256(convert_to(
-           coalesce(o.chain_prev,'')
-           || coalesce(o.occurred_at::text,'')
-           || coalesce(o.user_id::text,'')
-           || coalesce(o.table_name,'')
-           || coalesce(o.record_id::text,'')
-           || coalesce(o.operation,''), 'UTF8')), 'hex')
-     or o.prev_hash is distinct from o.chain_prev
-$$;
-comment on function platform.verify_audit_chain is
-  'حارس G8 (40 Part F). يجب أن يعيد صفر صفوف. أي صف = كسر في سلسلة التجزئة → تنبيه GM + SYSADMIN (31 §4)';
 
 -- المصدر: وثيقة 31 §3-2 — المعقِّم
 create or replace function platform.sanitize_audit(p_schema text, p_table text, p_data jsonb)
@@ -1441,7 +1541,10 @@ commit;
 --   5. بذر بنود hr.penalty_schedule من وثيقة 15 §2..§5.
 --   6. بذر 18 قاعدة تنبيه (platform.alert_rules) من وثيقة 25 §2،
 --      وسجل التكاملات (platform.integration_config) من وثيقة 23 §1.
---   7. مهمة مجدولة تنشئ قسم audit_log الشهري المقبل قبل بدايته.
+--   7. مهمة مجدولة تنشئ قسم audit_log الشهري المقبل قبل بدايته — ومعه (v4.3 · ADR-0002):
+--      create unique index <القسم>_chain_seq_key on platform.<القسم> (chain_seq)؛
+--      enable + force row level security وسياسة entity_scope كالأقسام القائمة (G7)؛
+--      صفوف identity.column_classification لكل أعمدة القسم (G6). غياب الفهرس يُسقط G8.
 -- ═══════════════════════════════════════════════════════════════════════════
 
 -- ╔═════════════════════════════════════════════════════════════════════════╗
@@ -3097,7 +3200,8 @@ commit;
 --   ·     · بذر platform.integration_config بـ I-01…I-11 من 23 §1 (PLT N-5)
 --          — الأعمدة جاهزة، والقائمة بيانات مرجعية لا DDL.
 --   ·     · بذر imile.coverage_areas ميدانياً (07 §10 بند 6) — لا تُخترع مناطق.
---   ·     · مهمة مجدولة تنشئ قسم audit_log الشهري المقبل قبل بدايته.
+--   ·     · مهمة مجدولة تنشئ قسم audit_log الشهري المقبل قبل بدايته — مع فهرس chain_seq الفريد
+--          وRLS (enable + force + entity_scope) وتصنيف الأعمدة (v4.3 · ADR-0002؛ G6 · G7 · G8).
 -- ═══════════════════════════════════════════════════════════════════════════
 
 -- ╔═════════════════════════════════════════════════════════════════════════╗

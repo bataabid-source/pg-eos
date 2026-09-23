@@ -25,6 +25,8 @@ Schema `platform` · tables in this module: 26 · default lane: M (doc 38 `Lane`
 | `audit_log_2026_12` | — | yes | entity_scope |
 | `audit_log_default` | — | yes | entity_scope |
 | `automation_rules` | — | no | reference_read · reference_write |
+
+`audit_log` (parent + partitions incl. default) — ADR-0002 (13B v4.3, migration `0004_M_audit-chain-seq.sql`): adds `chain_seq bigint not null`, assigned by the trigger after the advisory lock as previous + 1 (no sequence); unique index `<partition>_chain_seq_key` on every partition incl. default; trigger and verifier `SECURITY DEFINER` (owner superuser/BYPASSRLS), `TimeZone` UTC / `DateStyle` ISO,YMD pinned, `READ COMMITTED` required.
 | `counters` | — | yes | reference_read · reference_write |
 | `decisions` | — | yes | entity_scope |
 | `document_bindings` | ط¸â€‍ط·آ§ ط·ع¾ط·آ¨ط¸ث†ط¸ظ¹ط·آ¨ ط¸â€ ط¸â€¦ط·آ§ط·آ°ط·آ¬. ط¸… | no | reference_read · reference_write |
@@ -65,6 +67,7 @@ Sequences in `platform` owned by this module: `alert_log_id_seq` · `audit_log_i
 
 - Views: `platform.mdm_scorecard` · `platform.my_work`
 - Functions: `allowed_entities()` · `audit_hash_chain()` · `current_client_id()` · `current_user_id()` · `has_perm()` · `is_internal()` · `is_reference_table()` · `my_employee_id()` · `my_roles()` · `next_doc_no()` · `sanitize_audit()` · `set_stage_due_at()` · `verify_audit_chain()`
+- `platform.verify_audit_chain(p_anchor_seq bigint default 1, p_anchor_prev_hash text default null)` returns `(chain_seq, id, occurred_at, problem, detail, expected_hash, actual_hash)` (doc 40 Part F G8); `problem` ∈ `hash_mismatch · prev_hash_mismatch · duplicate_chain_seq · chain_seq_gap · partition_missing_chain_seq_unique_index · definer_owner_cannot_bypass_rls · anchor_invalid · anchor_not_found`. `EXECUTE` revoked from `PUBLIC` on `audit_hash_chain()` and `verify_audit_chain()`.
 
 ## 6. Golden-slice counterpart paths
 

@@ -1,5 +1,5 @@
 # PG-EOS — Build Specification for AI Execution
-**Document 40 · Version 4.2 · 23 September 2026**
+**Document 40 · Version 4.3 · 23 September 2026**
 **Audience:** the AI coding agent executing the WBS (doc 38)
 
 > **v4 — Document status:** GOVERNING (technical contract, rank 1) · **Governs on conflict:** nothing above it; it governs every other document · **Corrections applied in v4:** GOV-04, GOV-05, GOV-06, GOV-07, GOV-08, GOV-09, GOV-10, GOV-35, GOV-36, GOV-40, GOV-43, GOV-44, GOV-48, GOV-49, GOV-50, GOV-54, ADM-04, ADM-09, ADM-14, ADM-31, ADM-37, OPS-20, OPS-32, OPS-33, OPS-35, OPS-54, OPS-69, OPS-70, PLT-03, PLT-04, PLT-05, PLT-08, PLT-17, PLT-22, SCH (13B) · **Previously open decisions:** closed in EXECUTION-MASTER-v4 §1.
@@ -140,7 +140,7 @@ Base columns: `id`, `occurred_at`, `user_id`, `actor_type` (`user · agent · sy
 
 - Monthly partitions (+ a default partition as a safety net; creating next month's partition is a scheduled job). Retention: operational 18 months; financial/approvals 10 years.
 - Sanitizer (`platform.sanitize_audit`): columns classified `payroll commercial secret personal` are stored as `"•••"` markers.
-- The chain is written by trigger `platform.audit_hash_chain()` under an advisory lock (concurrent writers cannot fork the chain) and verified by `platform.verify_audit_chain()`. Monthly job runs it; any break → alert GM + SYSADMIN.
+- The chain is written by trigger `platform.audit_hash_chain()` under an advisory lock held until commit, and **ordered by `chain_seq`** — assigned by the trigger after the lock as previous + 1 (no sequence object; gapless), with a unique index on `chain_seq` in every partition, the default included (SCR-AUDIT-01 / ADR-0002, 2026-09-23). Both functions are `SECURITY DEFINER` (owner superuser or BYPASSRLS) and pin `TimeZone = UTC`, `DateStyle = ISO, YMD` for the hashed text; audited writes must run under READ COMMITTED and **must write the audit row as the last statement before commit** (ADR-0002, rule for every slice). Verified by `platform.verify_audit_chain()`. Monthly job runs it; any break → alert GM + SYSADMIN. The job that creates next month's partition also creates its `chain_seq` unique index, RLS (enable + force + `entity_scope`) and column classification.
 - `REVOKE UPDATE, DELETE` on the table.
 
 ### B3. Events & Outbox
@@ -635,7 +635,7 @@ Every guard below is a **copy-and-paste-runnable** line. G1–G13 and G18 are SQ
 | G5 | `select count(*) from partners.verify_paid_matched();` | `0` | yes |
 | G6 | `select count(*) from information_schema.columns c where c.table_schema in ('platform','identity','catalog','sales','wms','tms','cc','billing','hr','partners','admin','housing','imile','governance') and not exists (select 1 from identity.column_classification k where k.schema_name = c.table_schema and k.table_name = c.table_name and k.column_name = c.column_name);` | `0` | yes |
 | G7 | `select count(*) from pg_class t join pg_namespace n on n.oid = t.relnamespace where t.relkind in ('r','p') and n.nspname in ('platform','identity','catalog','sales','wms','tms','cc','billing','hr','partners','admin','housing','imile','governance') and not t.relrowsecurity;` | `0` | yes |
-| G8 | `select * from platform.verify_audit_chain();` | `0 rows` | yes |
+| G8 | `select * from platform.verify_audit_chain();` — orders by `chain_seq` only; reports hash / `prev_hash` mismatch, duplicate or missing `chain_seq`, a partition without its `chain_seq` unique index, a definer owner that cannot bypass RLS, and an invalid anchor; regression: 8 concurrent writers × 500 inserts leave 0 rows | `0 rows` | yes |
 | G9 | `with w as (select * from platform.outbox order by id desc limit 1000) select count(*) from w where not exists (select 1 from platform.audit_log a where a.correlation_id = w.correlation_id);` | `0` | yes |
 | G10 | `select count(*) from platform.audit_log where operation in ('reject','void') and (reason is null or btrim(reason) = '');` | `0` | yes |
 | G11 | `select count(*) from billing.invoice_lines l where not exists (select 1 from billing.billable_events e where e.invoice_line_id = l.id);` | `0` | yes |
@@ -648,6 +648,8 @@ Every guard below is a **copy-and-paste-runnable** line. G1–G13 and G18 are SQ
 | G18 | `select count(*) from billing.verify_unpriced_events();` | reported, not enforced | **no — report only** |
 
 `deploy.sh` and `pnpm guards:run` execute **G1–G18**. A single blocking failure stops merge *and* deploy. There is no "deploy and fix".
+
+**G8 anchor (ADR-0002).** After old partitions are detached or archived, G8 runs `platform.verify_audit_chain(<first retained chain_seq>, <its prev_hash>)`; where that anchor is stored is an open G-01 item for the GM, due before the first detach.
 
 **"Operational table" for G7** means any base table in the fourteen business schemas listed above, **including a partitioned parent (`relkind = 'p'`)** — a policy on the parent is what governs reads through it, so a parent with RLS off exposes every partition regardless of the partitions' own policies (D-002 / SCR-RLS-02, 2026-09-23; `platform.audit_log` was the case). Fixed reference tables and system logs are not exempt by category: where a table has no `entity_id`, RLS is still enabled and the policy is written against the access rule that applies to it (internal-only, owner-role-only, or unrestricted read). Enabling RLS on every remaining table in 01/13/13B is WBS task 0.18; classifying every column for G6 is WBS task 0.16.
 

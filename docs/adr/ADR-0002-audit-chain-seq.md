@@ -30,7 +30,7 @@ As approved by the GM (SCR note §6, decision #4):
 - `verify_audit_chain()` **orders by `chain_seq` only** and reports hash mismatch, `prev_hash` mismatch, **duplicates** and
   **gaps**, and — condition (1) — any partition without a valid single-column unique index on `chain_seq`
   (`problem = 'partition_missing_chain_seq_unique_index'`, checked by `pg_index` properties, not by name).
-- The formula of doc 31 §4 is unchanged: `row_hash = sha256(prev_hash ‖ occurred_at ‖ user_id ‖ table_name ‖ record_id ‖ operation)`.
+- The formula of doc 31 §3-3 is unchanged: `row_hash = sha256(prev_hash ‖ occurred_at ‖ user_id ‖ table_name ‖ record_id ‖ operation)`.
 
 Implementation details required by the migration-gate review (SCR note §7.5), which do not change the decision:
 
@@ -57,8 +57,14 @@ Implementation details required by the migration-gate review (SCR note §7.5), w
 
 ## Consequences (الأثر)
 
-**Results after the fix (G4 regression, 8 × 500, three consecutive runs): 0 · 0 · 0 broken rows** — condition of decision #4.
-The final numbers from the repository run are recorded in `docs/CHANGELOG.md` under `fix(0.9)`.
+**Before / after — G4 regression, 8 writers × 500 single-row transactions (condition of decision #4):**
+
+| Schema | Run 1 | Run 2 | Run 3 |
+|---|---|---|---|
+| 13B v4.2 (before, fresh database each run) | 2008 | 2009 | 2004 |
+| 13B v4.3 + migration 0004 (after, repository build, 2026-09-23) | 0 | 0 | 0 |
+
+After the three runs: `modules/platform` 23/23, `pnpm guards:run` G1–G14 and G18 = 0.
 
 **Serialisation (condition 4).** The advisory lock is taken when the audit row is inserted and is held **until commit or
 rollback**. Every audited write in the whole system therefore passes through one lock, one transaction at a time:
@@ -68,8 +74,8 @@ rollback**. Every audited write in the whole system therefore passes through one
 - Lock order: taking row locks after the audit insert while another transaction holds those rows and waits for the audit lock
   deadlocks. Writing the audit row last also removes that ordering.
 - Throughput measured on the local server: 12,000 single-statement audited inserts in 10.08 s (≈ 0.84 ms per row, trigger
-  included). This is the ceiling for audited writes per second on one database; it is far above the Tier-0 load (doc 42) and is
-  recorded so a later load test (WBS 7.2) can watch it.
+  included). This is the ceiling for audited writes per second on one database; no target for it exists in the package, so it
+  is recorded for the load test (WBS 7.2) to measure against the doc 25 SLOs.
 
 **Chain head on 24 partitions (condition 2).** Measured inside a rolled-back transaction on a scratch database with 24 partitions
 (23 monthly + default), 23,506 rows, each partition with its `chain_seq` unique index:
@@ -103,6 +109,11 @@ would re-chain the data in dump order and erase the evidence. Restores of `platf
 audit data exists yet. It refuses to run unless `pgeos.audit_chain_rebuild = allow` is set explicitly; a database built with
 `apply.sh --recreate` never reaches it (13B v4.3 creates the column). A database holding production audit data needs a separate
 GM-approved procedure (CLAUDE.md HUMAN APPROVAL).
+
+**Who may run the verifier.** `EXECUTE` on both functions is revoked from PUBLIC. Today every caller (`apply.sh`, `guards.sql`,
+`pnpm guards:run`, the test suites) connects as `postgres`. A future guard runner or the monthly alert job that connects as another
+role needs an explicit `grant execute on function platform.verify_audit_chain(bigint, text) to <role>` — to be written with the
+0.5/0.6 role design. A role without it gets SQLSTATE 42501, never a silent 0.
 
 **Unchanged.** The doc 31 formula, the lock key, `id`, `occurred_at`, the partition key and G8's command and pass condition.
 
