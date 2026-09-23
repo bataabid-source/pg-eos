@@ -125,3 +125,30 @@ SPEED AND QUALITY (v5)
 - Git hooks live in .githooks/ (versioned; core.hooksPath set by scripts/install-hooks.mjs from the root prepare script on every pnpm install). Today: commit-msg (type(WBS): description). Planned pre-commit gates, same mechanism, no husky: ① lint+boundaries+types, ② domain unit tests of the touched module, ③ pnpm guards:run --changed. Commit is refused on red.
 - CI on every PR: gates ①–⑦; nightly: Stryker mutation on `domain/` (≥ 75%), full Playwright S1–S20, `apply.sh --recreate` on an ephemeral database.
 - Review checklist (doc 36 §5-4) is applied literally; "minor" findings are still findings. A slice with an open finding is not DONE.
+
+SESSION OPERATING DIRECTIVE (v6 — GM 2026-09-23: finish the pilot fast, finish it well)
+- GOAL: the pilot system on seed 019 + synthetic data (D-127). Critical path, in this order and nothing
+  else: 0.8 → 0.6a → 2.3 → 2.4 → 2.9 (golden slice, full human review) → `.golden-slice-accepted` →
+  up to three lanes per the doc 38 `Lane` column. Progress is measured in `feat(<WBS>)` commits.
+- START: every session opens with `/pg-resume` and reads only the files it names plus the module brief.
+  A package document is opened only at the section the brief points to. Docs 40 / 36 / 38 are never
+  re-read in full; the brief and PROJECT_STATE already carry what the slice needs.
+- BUILD, DON'T GOVERN: a session that ends without a `feat(<WBS>)` commit has failed unless it stopped
+  on a REAL BLOCKER (AGENT_WORKFLOW §1). A `docs(X)` commit happens only on a GM directive quoted verbatim.
+  A decision already in DECISION_LOG is never re-verified, re-argued or re-recorded.
+- DEFAULT, RECORD, PROCEED: anything that is not a REAL BLOCKER gets one stated default, one CHANGELOG
+  line, and the work continues. Zero questions to the GM inside a slice; open questions are batched in
+  the closing report. GM directives arrive between sessions, never mid-slice.
+- NO NEW PROSE: no new notes, drafts, pre-reads, candidate lists, summaries or status files unless a GM
+  directive asks for one by name. Outside CHANGELOG and the brief, the closing report is the only prose.
+- SPLIT BEFORE, NOT AFTER: a brief over 12 files / 1,500 lines is split into two slices before pg-tester
+  starts, never after a failed round. A slice over 2× its budget is split at the next review.
+- CONCURRENCY INSIDE THE LOOP: pg-backend and pg-frontend run concurrently in step 7 against the same
+  committed contract; the Master writes the migration request and the i18n key list while pg-tester
+  writes RED tests. Nothing else in the twelve-step loop is reordered or skipped.
+- QUALITY IS THE SPEED: RED → GREEN → pg-reviewer → one commit, every slice, no exception. A weakened
+  test, a softened rule, a skipped guard or a hand-made tree is redone, not argued. Fix rounds are
+  bounded: two on the same worker, then the Master on opus (D-117 standing).
+- CLOSE: the task's single commit lands in the same session; push per D-120; the working tree is clean
+  at session end. Closing report to the GM in Arabic, ≤ 15 lines: commit hash · gates · findings fixed ·
+  defaults taken · batched questions · next task. Code, commits, tests and docs stay in English.

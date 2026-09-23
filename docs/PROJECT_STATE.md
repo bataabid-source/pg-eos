@@ -6,7 +6,7 @@ Maintained by pg-scribe only, in the same commit as the task it records.
 | field | value |
 |---|---|
 | Phase | 0 — Foundation → 2 — Warehouse · **pilot-first (D-127, GM 2026-09-24): the pilot runs on seed 019 + synthetic data; every field/human/sign-off/training/naming item and Tier-0 provisioning is DEFERRED-POST-PILOT** |
-| Current task | **X — D-127…D-134 pilot-first directive** (previous task X — D-125 cleanup @ `92d0dd9`). Governance only. Completion 16/133 (doc 38 v4.2: 0.6 → 0.6a/0.6b, D-124; 0.17 mechanisms and 1.5 proof excluded — ADR-0001). |
+| Current task | **X — D-135 session operating directive v6 in CLAUDE.md** (previous task X — D-127…D-134 @ `1f5027f`). Governance only. Completion 16/133 (doc 38 v4.2: 0.6 → 0.6a/0.6b, D-124; 0.17 mechanisms and 1.5 proof excluded — ADR-0001). |
 | Golden slice (2.9) | not built · `.golden-slice-accepted` absent · `scripts/new-slice.sh` is a no-op. Deps 2.4, 2.6, 2.8, 0.15 — 2.6, 2.8, 0.15 DONE; **2.3 → 2.4 now unblocked (D-128)**. **Phase-0 gate: closes on 0.8 (D-130)** — pilot acceptance against local Docker. Acceptance also wires every Phase-0 "mechanism only" deferral (GM 2026-09-22), starting with 0.17's login endpoints. |
 | Deployment tier | **Pilot Tier 0 = local Docker `postgres:16` (D-129)**; Oracle Tier 0 (`docs/package/42-Oracle-Cloud-Deployment.md`) after the pilot (0.3, 0.5, 0.7, 0.6b DEFERRED-POST-PILOT) |
 | Schema | `database/schema/01 · 13 · 13B · 019` — the ONLY permitted schema (01 v1.1, 13B v4.4, migrations 0001–0006) · DB locale UTF8 / collate C / ctype C.UTF-8 · `apply.sh --recreate` green 2026-09-23: 175 tables/14 schemas, `wms.verify_wh1()` 21/21, G1–G13 = 0, G18/G-SEED = 0 · **SCR-HR-ATT-01 APPROVED (D-131)** — migration number not yet issued; pg-reviewer pre-migration review before any DDL |
@@ -22,11 +22,11 @@ None claimed.
 
 | task | commit |
 |---|---|
+| X — D-127…D-134 pilot-first (2.2 closed on seed, ADR-0003 accepted, 0.6a READY) | `1f5027f` |
 | X — D-125 cleanup (biometric import retired, GM-confirm list) | `92d0dd9` |
 | X — ADR-0003 native attendance (Proposed, D-126) + SCR-HR-ATT-01 + doc-38 draft | `e38c171` |
 | X — CR-BIO-DSH pre-read; Part 0 D-122/123/124 re-verified | `3750448` |
 | X — D-122/123/124 (gitattributes, SC-01 dep, 0.6 split draft) | `f30baf8` |
-| X — apply GM decision sheet D-115 (0.2/7.10 DONE, staged tasks admitted) | `e58a098` |
 
 ## Blockers
 

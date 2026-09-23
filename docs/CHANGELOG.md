@@ -4,6 +4,16 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — Session operating directive v6 appended to CLAUDE.md (speed + quality, D-135) — DONE (2026-09-23)
+
+- `CLAUDE.md` gains one appended block, "SESSION OPERATING DIRECTIVE (v6 — GM 2026-09-23)" (127 → 154 lines); nothing above it is paraphrased or trimmed. Content: the critical path 0.8 → 0.6a → 2.3 → 2.4 → 2.9 → `.golden-slice-accepted` → lanes; `/pg-resume`-only session start (no full re-read of docs 40 / 36 / 38); "build, don't govern" (a session without a `feat(<WBS>)` commit has failed unless on a REAL BLOCKER; `docs(X)` only on a verbatim GM directive); default-record-proceed with zero mid-slice questions (batched in the closing report); no new prose files without a named GM request; split-before-not-after (12 files / 1,500 lines · 2× budget); pg-backend ∥ pg-frontend in step 7 only; RED → GREEN → review → one commit unchanged, fix rounds bounded per D-117; close with commit + push (D-120) + Arabic report ≤ 15 lines.
+- Why: 16/133 tasks DONE and the last eight commits are all `docs(X)`; the golden slice is not built. The block turns the existing rules into a session-level operating rhythm without softening any of them.
+- `docs/DECISION_LOG.md` D-135 recorded (GM request verbatim). `docs/PROJECT_STATE.md` current task updated, ≤ 60 lines.
+- Verification: `wc -l CLAUDE.md` = 154 · `wc -l docs/PROJECT_STATE.md` ≤ 60 · `bash scripts/check-setup.sh` (see commit body).
+- Model: fable-5-1 session (Master, direct — single-file governance edit) · Delegated: none · Review: n/a (governance) · tokens ≈ 60k (estimate)
+
+---
+
 ## X — D-127…D-134 pilot-first: all field/human items deferred post-pilot, 2.2 closed on seed, ADR-0003 accepted, D-125 applied, 0.6a READY — DONE (2026-09-24)
 
 - **D-127 pilot-first rule:** new status `DEFERRED-POST-PILOT — <id>` (legend + Phase-7 re-listing in `scripts/gen-backlog.py`); 20 rows moved: 1.1, 1.3, 1.10, 2.2, 2.5, 2.7, 2.19, 3.2, 3.22, 4.1, 5.15, 6.6, 7.5, 7.6, 7.8, 7.9 (D-127/D-128/D-134) + 0.3, 0.5, 0.7, 0.6b (D-129). **WAITING_GM count = 0.** 0.20 → TODO (deps 0.6a, 0.6b, 0.8).
