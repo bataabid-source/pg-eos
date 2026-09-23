@@ -4,6 +4,18 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — ADR-0003 native biometric attendance (Proposed, D-126) + G-01 SCR-HR-ATT-01 + doc-38 draft; CR-BIO-DSH pre-read — DONE (2026-09-24)
+
+- Pre-read (commit 3750448, 2026-09-23): CR input docs/notes/CR-BIO-DSH-v3.md absent; docs/notes/2026-09-23-CR-BIO-DSH-preread.md records repo facts only; Part 0 D-122/123/124 re-verified already applied in f30baf8.
+- D-126 recorded (DECISION_LOG). docs/adr/ADR-0003-biometric-attendance.md drafted, status Proposed, 11 open items for the GM (shared PDA identity, multi-enrolment, offline/geofence/unregistered routing, approver + single device registry bound to G-07 key, punch-record retention, geofence carrier, trust chain: hardware key signing server nonce + server-verified attestation + no PIN fallback, GPS/clock spoofing, device coverage/Touch ID, GPS classification + review-queue monitor, SoD).
+- G-01 docs/notes/SCR-HR-ATT-01-native-attendance.md (WAITING_GM): the hr brief has no attendance table, so D-126's "reuse hr attendance tables" has nothing to reuse; requests hr.attendance_punches (append-only), hr.attendance_punch_reviews (append-only), one device registry (placement for GM), site geofence (option a/b for GM), threshold + feature-flag seeds, restrictive own-row RLS per 13B ق-44/ق-45, SoD requirement; removal of the N-16 seed (13B 2977–2983, 5345). database/schema/* untouched.
+- Doc-38 insertion draft docs/notes/2026-09-24-38-wbs-bio-attendance-draft.md (not applied): overlaps folded (5.3 amend, 5.4 superseded, 5.13 alert count, 2.16, 3.7, 5.5, 5.7); APP-1 filed as tasks/proposed/APP-1-field-app-attendance.md — WAITING_GM, not admitted, numbered WBS ID pending GM; counts stay 132 (126 + 6).
+- Not drafted: BIO-3F, BIO-8, D15, D16, Appendix A KPIs — defined only in the absent CR; no D15/D16 CHANGELOG record possible.
+- Review: pg-reviewer (opus) round 1 FAIL (18 findings) → round 2 FAIL (6) → round 3 PASS; 24 findings fixed.
+- Model: opus · Delegated: pg-reviewer, pg-scribe · Review: PASS(24 findings fixed) · tokens: ≈ 300k (estimate)
+
+---
+
 ## X — GM decisions 2026-09-23: line-ending policy, WBS 0.6 split draft, SC-01 dependency bound (D-122, D-123, D-124) — DONE (2026-09-23)
 
 - **D-122** `.gitattributes` added (`* text=auto eol=lf` · `*.ps1 text eol=crlf`) to stop Windows Git Bash tooling (`sed -i`, some editors) from re-introducing CRLF into files this repo keeps as LF — CRLF had already leaked into two prior Task X commits and had to be hand-fixed each time. `git add --renormalize .` ran; `git diff -b --cached --stat` confirmed zero content change (line endings only) before committing. Files renormalized: the 15 module briefs, `SETUP-STATUS-AR.md`, two `docs/notes/*.md` files, `modules/platform/tests/integration/schema-invariants.test.ts`.

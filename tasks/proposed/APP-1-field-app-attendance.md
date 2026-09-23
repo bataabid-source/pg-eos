@@ -1,0 +1,40 @@
+# APP-1 — Field app: native attendance capture (ADR-0003)
+
+**Status: WAITING_GM — proposed, not admitted** (BOOTSTRAP-v5 line 175: staged tasks sit in `tasks/proposed/` until the GM approves the task
+AND its policy decisions; only then is the task moved to `tasks/backlog/` and given a row in the `tasks/MASTER_BACKLOG.md` Staged section).
+
+**Gated on:**
+- ADR-0003 moving to Accepted, with its open items 1–11 answered or explicitly carried.
+- SCR-HR-ATT-01 approved (G-01).
+- A numbered WBS ID issued by the GM. "APP-1" is D-126's name for the app, not a doc-38 ID, and the commit-msg hook accepts only
+  `[0-7]\.[0-9]+` or `X`.
+
+| field | value |
+|---|---|
+| Proposed WBS id | pending GM |
+| Source | GM decision D-126 (`docs/DECISION_LOG.md`) · ADR-0003 · draft `docs/notes/2026-09-24-38-wbs-bio-attendance-draft.md` §2 |
+| Module / lock | `apps/` field app + calls into `hr` (5.3 API). Lane is for the GM to confirm |
+| Default lane | 2 (copied from 5.3; GM confirm) |
+| Owner | HR_MGR (copied from 5.3) |
+| Type | 🤖 |
+| Depends on | 5.3 |
+
+## Objective
+
+Capture attendance on the employee's own registered phone. The app:
+- Registers the device: one active device per employee. Re-registration needs approval, with the approver per ADR-0003 item 4, and is audited.
+- Runs the OS biometric check, bound to a hardware key that signs a server-issued nonce. No PIN or passcode fallback is allowed.
+- Sends device attestation, which the server verifies.
+- Records GPS and the geofence result.
+- Sends the punch through the 5.3 API with an Idempotency-Key.
+
+## Acceptance (proposed)
+
+- Registering a second device while one is active is rejected until the registration is approved.
+- A punch sends only the OS result, the signed nonce, the attestation, the timestamp and GPS. A network capture shows no image and no template.
+- A PIN-only unlock cannot produce a punch.
+- The app renders in the six field languages (ar, en, hi, ur, bn, am).
+
+## Schema already present?
+
+**No.** Every carrier is requested in `docs/notes/SCR-HR-ATT-01-native-attendance.md`.
