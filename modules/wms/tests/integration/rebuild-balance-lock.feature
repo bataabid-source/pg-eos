@@ -1,9 +1,9 @@
 # modules/wms/tests/integration/rebuild-balance-lock.feature — pg-reviewer slice-close round 2
-# finding 1: postMovement/postTransfer/reverseMovement do not yet coordinate with rebuildBalance at
-# all — a rebuild can run concurrently with a posting against the SAME (client, sku) and race it
-# (partial fold vs. a fold started before/after the posting's own balance write; doc 40 P4:
-# balances are derived and rebuildable with zero diff, which a torn read of the ledger cannot
-# guarantee). The fix (pg-backend, this slice): every posting takes
+# finding 1: before this slice, postMovement/postTransfer/reverseMovement did not coordinate with
+# rebuildBalance at all — a rebuild could run concurrently with a posting against the SAME (client,
+# sku) and race it (partial fold vs. a fold started before/after the posting's own balance write;
+# doc 40 P4: balances are derived and rebuildable with zero diff, which a torn read of the ledger
+# cannot guarantee). The fix (pg-backend, this slice): every posting takes
 # `pg_advisory_xact_lock_shared(hashtextextended(<key>, 0))` for each (client, sku) it touches
 # BEFORE its existing per-balance-key locks; rebuildBalance takes the SAME key's lock in EXCLUSIVE
 # mode (`pg_advisory_xact_lock`) before folding the ledger — so postings and postings never block

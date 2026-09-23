@@ -14,10 +14,10 @@
 // connects as the restricted role. Fixture setup/teardown uses a separate superuser pool built
 // with explicit credentials captured before the mutation.
 //
-// Per the GM directive, this file may currently be RED only because of the missing
+// Per the GM directive, this file was RED-before-the-fix only because of the missing
 // `RebuildScopeError` export (checked here for the same import-shape reason as the other file) or
-// a grant gap — never because the caller is wrongly refused (today's code has no scope check at
-// all, so it would already let this caller through).
+// a grant gap — never because the caller was wrongly refused (the pre-fix code had no scope check
+// at all, so it already let this caller through).
 
 import { randomUUID } from 'node:crypto';
 
@@ -324,11 +324,11 @@ describe('Scenario: rebuildBalance proceeds for a caller scoped to every entity'
   // pg-reviewer slice-close round 2 finding 2: the Master's tightened scope rule requires a
   // non-bypass caller to ALSO satisfy platform.is_internal() — a caller scoped, via
   // identity.user_entities, to every platform.entities row (proven above) must still be refused
-  // when ctx.isInternal is false. Today's assertSeesWholeLedger (rebuild-balance.ts) never checks
-  // platform.is_internal() at all, so it lets this caller past its own scope check and proceeds
-  // to the fold/write. Confirmed RED reason (pg-tester, run against the live database): the write
-  // itself then fails, but NOT with a typed RebuildScopeError thrown "before any read or write" as
-  // the brief requires — instead a raw Postgres error surfaces mid-transaction, SQLSTATE 42501
+  // when ctx.isInternal is false. Before the fix, assertSeesWholeLedger (rebuild-balance.ts) never
+  // checked platform.is_internal() at all, so it let this caller past its own scope check and
+  // proceeded to the fold/write. Confirmed RED reason (pg-tester, run against the live database):
+  // the write itself then failed, but NOT with a typed RebuildScopeError thrown "before any read or
+  // write" as the brief requires — instead a raw Postgres error surfaces mid-transaction, SQLSTATE 42501
   // ("new row violates row-level security policy for table \"stock_balance\""), because
   // wms.stock_balance's internal_only policy (13B §RLS auto-policy loop, pattern ②, `for all using
   // (platform.is_internal())` with no separate WITH CHECK — so the USING expression doubles as the

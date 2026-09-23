@@ -30,7 +30,6 @@ None claimed.
 
 ## Blockers
 
-- **2.8 audit-row-last blocker (ADR-0002):** `modules/wms/src/stock-ledger/post-movement.ts` `postTransfer` writes the out-entry audit row before the in-entry `stock_balance` update, violating doc 40 §B2 "must write the audit row as the last statement before commit"; caused one deadlock in a shared-DB full run (chain stayed intact).
 - **Open G-01 item:** where the G8 anchor is stored before the first partition detach (≥ 2028-03).
 - WAITING_GM · **2.2** field survey — chain 2.2 → 2.3 → 2.4 → 2.9.
 - WAITING_GM · **0.2** three cloud decisions (doc 42 §11) → 0.3 → 0.5 → 0.6; and **0.8** restore test.

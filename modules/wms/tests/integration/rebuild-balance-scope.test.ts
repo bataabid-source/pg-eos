@@ -9,7 +9,7 @@
 // 13B §RLS auto-policy loop, pattern ① entity_scope). It then overwrites balances from a partial fold ->
 // corrupts them (doc 40 P4: balances are derived and rebuildable with ZERO diff).
 //
-// Fixed behaviour the Master will have pg-backend implement: before any write, rebuildBalance
+// Fixed behaviour pg-backend implemented: before any write, rebuildBalance
 // checks inside the same transaction that the caller sees the WHOLE ledger — the current role is
 // superuser or BYPASSRLS, OR platform.allowed_entities() contains every platform.entities id —
 // otherwise it throws a new typed `RebuildScopeError` (exported from modules/wms/index.ts) and
@@ -313,8 +313,9 @@ afterAll(async () => {
 describe('Scenario: rebuildBalance refuses to run for a caller who cannot see the whole ledger', () => {
   // Deliberately three SEPARATE `it`s (not one), so each right-reason-for-RED the GM directive
   // names is its own named test, independent of the others:
-  //   1. the export itself is missing (today's actual state) — never calls rebuildBalance.
-  //   2. even if the export existed, today's rebuildBalance has no scope check at all, so it
+  //   1. the export itself was missing before the fix (RED-before-the-fix state) — never calls
+  //      rebuildBalance.
+  //   2. even once the export existed, rebuildBalance had no scope check at all before the fix, so it
   //      RESOLVES instead of rejecting — this `it` genuinely calls rebuildBalance regardless of
   //      whether test 1 passed, so it independently proves "rebuild proceeds" against the live
   //      database rather than being short-circuited by test 1's assertion.

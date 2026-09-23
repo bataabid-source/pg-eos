@@ -2,8 +2,7 @@
 // against pg-reviewer slice-close round 2 finding 1 (see ./rebuild-balance-lock.feature for the
 // full defect writeup).
 //
-// Fixed behaviour the Master will have pg-backend implement (interface given verbatim in the
-// close-out brief):
+// Fixed behaviour pg-backend implemented (interface given verbatim in the close-out brief):
 //   - a new export `balanceRebuildLockKey(clientId, skuId): string`, from modules/wms/index.ts,
 //     returning exactly `'wms.stock_balance.rebuild|' + clientId + '|' + skuId`.
 //   - every posting (postMovement, postTransfer, reverseMovement) takes
@@ -12,16 +11,17 @@
 //   - rebuildBalance takes `pg_advisory_xact_lock(hashtextextended(<that text>, 0))` (exclusive)
 //     BEFORE folding the ledger.
 //
-// Today (RED): the import of `balanceRebuildLockKey` below fails outright (no such export exists
-// yet) — every `it` in this file fails at collection/import time for that reason alone. Once the
-// export exists, scenarios (a) and (b) below are independently RED for a second, distinct reason:
-// postMovement/rebuildBalance do not yet take ANY lock keyed on balanceRebuildLockKey, so a
-// separate session holding that key's lock does not block them at all — they settle immediately
-// instead of waiting. Scenario (c) already holds trivially today (no lock taken => nothing to
-// block on) and continues to hold once the fix lands (shared locks never block other shared
-// holders) — its only RED-today reason is the same import failure as every other `it` here.
-// Scenario (d) is a smoke/stress check that both regimes (locked and unlocked) can pass; its
-// RED-today reason is also only the import failure.
+// Written RED first on 2026-09-23: the import of `balanceRebuildLockKey` below failed outright (no
+// such export existed yet) — every `it` in this file failed at collection/import time for that
+// reason alone. Once the export existed, scenarios (a) and (b) below were independently RED for a
+// second, distinct reason: postMovement/rebuildBalance took no lock keyed on
+// balanceRebuildLockKey, so a separate session holding that key's lock did not block them at all —
+// they settled immediately instead of waiting. Scenario (c) held trivially before the fix (no lock
+// taken => nothing to block on) and continues to hold once the fix landed (shared locks never
+// block other shared holders) — its only RED-before-the-fix reason was the same import failure as
+// every other `it` here. Scenario (d) is a timing-dependent stress check; in one RED run before the
+// fix it produced 1 non-zero verify_balance_integrity() row, but it can pass by chance either way —
+// the deterministic regression guards are (a) and (b).
 //
 // Same connection/fixture conventions as modules/wms/tests/integration/stock-ledger.test.ts:
 // `pool` (PG* env, superuser) for fixture setup/teardown and direct assertions; `ctx` exactly the
