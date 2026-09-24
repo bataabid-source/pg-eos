@@ -43,7 +43,7 @@ command -v pnpm >/dev/null 2>&1 || { echo "guards-run: pnpm not found on PATH (n
 OUT="$(mktemp)"
 ERR="$(mktemp)"
 G14_LOG="$(mktemp)"
-trap 'rm -f "$OUT" "$ERR" "$G14_LOG"' EXIT
+trap 'rm -f "$OUT" "$ERR" "$G14_LOG" "$OUT".G15 "$OUT".G16 "$OUT".G17' EXIT
 
 echo "guards-run: $GUARDS against database '$DB'"
 # WBS 0.15: stdin redirection, not -f — see database/schema/apply.sh's header for the full,
@@ -129,25 +129,67 @@ echo
 # doc 40 Part F: G15 = playwright tests/scenarios 20/20 · G16 = stryker on domain/ ≥ 75 % ·
 # G17 = pnpm test:trace ≤ 2 s. A guard whose runner does not exist yet (S1–S20 arrive with the
 # slices; stryker is the nightly job; test:trace is WBS 6.4) is reported NOT RUNNABLE and blocks
-# only under PG_GUARDS_STRICT=1, which scripts/deploy.sh sets — nothing deploys without them.
+# only under PG_GUARDS_STRICT=1 (deploy mode). PG_GUARDS_STRICT accepts exactly "0" or "1" (unset =
+# "0"); any other value fails closed. Each guard proves it ran (a marker line in its log) and is
+# judged on doc 40's stated condition, never on the runner's exit code alone (reviewer findings
+# 1–3 and 6 on 421afe2, folded 2026-09-24).
+case "${PG_GUARDS_STRICT:-0}" in 0|1) ;; *) echo "guards-run: PG_GUARDS_STRICT must be 0 or 1 (got '${PG_GUARDS_STRICT}')" >&2; exit 2 ;; esac
 has_script() { node -e "process.exit(require('./package.json').scripts&&require('./package.json').scripts['$1']?0:1)" 2>/dev/null; }
-run_nonsql_guard() {
-  local g="$1" label="$2" script="$3" present="$4" cond="$5"
+verdict_nonsql() {   # $1 guard  $2 label  $3 present(0/1)  $4 result: green|red:<why>|missing
+  local g="$1" label="$2" present="$3" res="$4"
   if [ "$present" = "1" ]; then
-    if pnpm -s "$script" >"$OUT.$g" 2>&1; then report_line "$g" "-" "green ($label $cond)"
-    else report_line "$g" "-" "RED — blocks merge and deploy ($label failed; see $OUT.$g)"; BLOCKING=$((BLOCKING + 1)); fi
+    case "$res" in
+      green) report_line "$g" "-" "green ($label)" ;;
+      *) report_line "$g" "-" "RED — blocks merge and deploy ($label: ${res#red:}; see $OUT.$g)"; BLOCKING=$((BLOCKING + 1)) ;;
+    esac
   elif [ "${PG_GUARDS_STRICT:-0}" = "1" ]; then
-    report_line "$g" "-" "RED — NOT RUNNABLE under PG_GUARDS_STRICT ($label runner missing)"; BLOCKING=$((BLOCKING + 1))
+    report_line "$g" "-" "RED — NOT RUNNABLE under PG_GUARDS_STRICT=1 ($label runner missing)"; BLOCKING=$((BLOCKING + 1))
   else
-    report_line "$g" "-" "NOT RUNNABLE — $label runner not present yet (report only until deploy)"
+    report_line "$g" "-" "NOT RUNNABLE — $label runner not present yet (report only; deploy sets PG_GUARDS_STRICT=1)"
   fi
 }
+# G15 — every one of S1..S20 must be present AND passed (playwright JSON reporter), not a file count.
 g15_present=0; [ -n "$(ls -A tests/scenarios 2>/dev/null)" ] && has_script test:scenarios && g15_present=1
+g15_res=missing
+if [ "$g15_present" = "1" ]; then
+  if pnpm -s test:scenarios --reporter=json >"$OUT.G15" 2>/dev/null; then :; fi
+  g15_res="$(node -e '
+    const fs=require("fs"); let j; try{ j=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); }catch(e){ console.log("red:no playwright JSON report (did it run?)"); process.exit(0); }
+    const seen=new Map(); const walk=(s)=>{ (s.suites||[]).forEach(walk); (s.specs||[]).forEach(sp=>{ const m=/\bS(\d{1,2})\b/.exec(sp.title+" "+(sp.file||"")); if(!m) return; const n=+m[1]; if(n<1||n>20) return; const ok=sp.ok===true || (sp.tests||[]).every(t=>(t.results||[]).some(r=>r.status==="passed")); seen.set(n,(seen.get(n)??true)&&ok); }); };
+    (j.suites||[]).forEach(walk);
+    const missing=[],failed=[]; for(let n=1;n<=20;n++){ if(!seen.has(n)) missing.push("S"+n); else if(!seen.get(n)) failed.push("S"+n); }
+    if(!missing.length&&!failed.length) console.log("green"); else console.log("red:"+(seen.size)+"/20 present, passed "+([...seen.values()].filter(Boolean).length)+"/20"+(missing.length?"; missing "+missing.join(","):"")+(failed.length?"; failed "+failed.join(","):""));
+  ' "$OUT.G15")"
+fi
+verdict_nonsql G15 "doc 40 Part E scenarios S1–S20 20/20" "$g15_present" "$g15_res"
+# G16 — stryker on domain/ with thresholds.break = 75, and a final-score line as proof it ran.
 g16_present=0; { ls stryker.config.* >/dev/null 2>&1 || ls stryker.conf.* >/dev/null 2>&1; } && has_script mutation && g16_present=1
+g16_res=missing
+if [ "$g16_present" = "1" ]; then
+  cfg="$(ls stryker.config.* stryker.conf.* 2>/dev/null | head -1)"
+  if ! grep -Eq '^[^#/]*break[[:space:]]*:[[:space:]]*75\b' "$cfg"; then g16_res="red:thresholds.break is not 75 in $cfg"
+  elif ! grep -Eq 'domain/' "$cfg"; then g16_res="red:mutate target does not name domain/ in $cfg"
+  else
+    pnpm -s mutation >"$OUT.G16" 2>&1 || true
+    score="$(grep -Eo 'Final mutation score[^0-9]*[0-9]+(\.[0-9]+)?' "$OUT.G16" | grep -Eo '[0-9]+(\.[0-9]+)?$' | tail -1)"
+    if [ -z "$score" ]; then g16_res="red:no 'Final mutation score' line — stryker did not run to completion"
+    elif awk -v s="$score" 'BEGIN{exit !(s+0 >= 75)}'; then g16_res=green; else g16_res="red:mutation score $score % < 75 %"; fi
+  fi
+fi
+verdict_nonsql G16 "stryker mutation on domain/ >= 75 %" "$g16_present" "$g16_res"
+# G17 — one number in, full timeline out, <= 2 s: the runner must print 'trace_ms=<n>'; turbo must not cache it.
 g17_present=0; has_script test:trace && g17_present=1
-run_nonsql_guard G15 "doc 40 Part E scenarios" test:scenarios "$g15_present" "20/20"
-run_nonsql_guard G16 "stryker mutation on domain/" mutation "$g16_present" ">= 75 %"
-run_nonsql_guard G17 "trace screen" test:trace "$g17_present" "<= 2 s"
+g17_res=missing
+if [ "$g17_present" = "1" ]; then
+  if grep -Eq '"test:trace"[^}]*"cache"[[:space:]]*:[[:space:]]*true' turbo.json 2>/dev/null; then g17_res="red:turbo.json caches test:trace — set cache:false"
+  else
+    pnpm -s test:trace >"$OUT.G17" 2>&1 || true
+    ms="$(grep -Eo 'trace_ms=[0-9]+' "$OUT.G17" | tail -1 | cut -d= -f2)"
+    if [ -z "$ms" ]; then g17_res="red:no 'trace_ms=<n>' line — test:trace did not prove it ran"
+    elif [ "$ms" -le 2000 ]; then g17_res=green; else g17_res="red:trace took ${ms} ms > 2000 ms"; fi
+  fi
+fi
+verdict_nonsql G17 "trace screen <= 2 s" "$g17_present" "$g17_res"
 
 if [ "$BLOCKING" -gt 0 ]; then
   echo
