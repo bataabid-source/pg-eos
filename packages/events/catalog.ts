@@ -31,5 +31,12 @@ export const EVENT_CATALOG = [
   // same commit as the publisher
   // (CLAUDE.md · PARALLEL LANES: packages/* is a Master-only path).
   'platform.alert.fired',
+  // WBS 5.5a part 1 (lane 2, MIGRATION-REQUEST-2 / Master issue 2026-09-24): written once per
+  // CreateSite call, same transaction as the insert. Aggregate `platform.sites`.
+  'platform.site.created',
+  // WBS 5.5a part 1: written once per UpdateSite call that changes a column, same transaction as
+  // the update (doc 38 row 5.5a acceptance: "every state change → outbox + audit in one
+  // transaction"). Aggregate `platform.sites`.
+  'platform.site.updated',
 ] as const;
 export type CatalogedEventType = (typeof EVENT_CATALOG)[number];
