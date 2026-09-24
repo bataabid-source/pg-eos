@@ -5,6 +5,8 @@
 | catalog | 1 | 1.2 | 2026-09-24 | ../pg-eos-lane-1 |
 | hr | 2 | 3.3 | 2026-09-24 | ../pg-eos-lane-2 (queued) |
 
+- `0013_1_price-lists-version.sql` — lane 1, task 1.2, applied 2026-09-24 (pg-reviewer pre-migration APPROVED WITH CHANGES; number issued by the Master, MIGRATION-REQUEST-1.md).
+
 `platform` (lane 3, task 5.13) released 2026-09-24 — 5.13 part 1 committed (alert evaluation mechanism), NOT DONE (part 2: delivery, escalation, dynamic recipients, reports, job).
 `wms + packages/db (idempotency) + database/migrations (0010)` (lane M, task 2.9-part2) released 2026-09-24 — GM sheet-3 answers applied (idempotency store, cancel/close rules, variance photo, shared logger); NOT DONE (blocked on SCR-WMS-INB-01 §6, Q10/D-159 GM acceptance).
 `wms + packages/contracts/wms + packages/events (catalog)` (lane M, task 2.9) released 2026-09-24 — 2.9 built and reviewed, PASS round 4; NOT DONE (blocked on SCR-PLAT-IDEM-01, SCR-WMS-INB-01 §1–4, observability, GM acceptance).
