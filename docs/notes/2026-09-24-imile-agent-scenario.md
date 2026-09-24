@@ -32,6 +32,8 @@ Applied reading (defaults, recorded):
 | b | Inbound e-mail channel for the agent is not in the integration register | new row **I-01b** in doc 23 (mailbox, IMAP, classification rules, owner DEL_MGR, critical) — documentary + `integration_config` seed with 3.14 |
 | c | "Named owner of the audit decision" (doc 07 §5-5) | by D-141 Q36 owners are positions: **DEL_MGR** — documentary correction in doc 07 |
 | d | One adapter interface inside `services/agent` (portal today, API if ever) | design item in the 3.14 brief, no schema |
+| e | `imile.agent_health` has no `entity_id`; a heartbeat is not a commercial/operational event of one entity, so it is not published to `platform.outbox` for now (pg-reviewer round 1, 3.14: the `platform.*` aggregate-type workaround was rejected as an invented rule, same precedent as WBS 2.6's `wms.skus` G-01 item, closed D-116: no `entity_id` added, `outbox_business_needs_entity` not weakened) | G-01 candidate: either add `entity_id` to `imile.agent_health` or a GM ruling that station-agent heartbeats are platform-level events exempt from the outbox — filed with 3.14, not resolved |
+| f | `imile.agent_health` has no CHECK constraints for two of this slice's application-level invariants (`pending_pushes >= 0`, `session_valid or error_message is not null`) — doc 36 §5-4 #2 wants a matching DB constraint where one is reasonable (pg-reviewer round 2, 3.14) | G-01 candidate: add the two CHECK constraints in a future migration — filed with 3.14, not resolved; enforced at the contract (Zod) and domain layers only for now |
 
 Nothing here touches the pilot path (2.9 → lanes). No schema change now.
 

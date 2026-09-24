@@ -4,7 +4,7 @@
 |---|---|---|---|---|
 | admin | 1 | 0.19 | 2026-09-24 | ../pg-eos-lane-1 (queued — next lane-1 session; `apps/admin`, D-172) |
 | hr | 2 | 5.5a | 2026-09-24 | ../pg-eos-lane-2 (queued — next lane-2 session, 5.5a part 2: hr.shifts / shift_assignments / shift_groups) |
-| imile | 3 | 3.14 | 2026-09-24 | shared `claude-kit` (queued — next lane-3 session; D-175, portal check confirmed) |
+| imile | 3 | 3.14 | 2026-09-24 | shared `claude-kit` (part 1 committed NOT DONE @ `<this commit>` — health-reporting mechanism, pg-reviewer PASS round 4; still owned by lane 3 for part 2, `services/agent` pull loop) |
 
 - `0013_1_price-lists-version.sql` — lane 1, task 1.2, applied 2026-09-24 (pg-reviewer pre-migration APPROVED WITH CHANGES; number issued by the Master, MIGRATION-REQUEST-1.md).
 
