@@ -22,7 +22,8 @@ Not a lock table — deliberately not a `|`-prefixed markdown table, since
 `.claude/hooks/lane-guard.sh` parses every such line in this file as a
 module-lock row (see Rules below). One line per migration, newest first:
 
-- `0015` — next free number; issued by the Master on the next MIGRATION-REQUEST (5.5a expected first: `platform.sites` + `hr.shifts` / `hr.shift_assignments` / `hr.shift_groups`).
+- `0016` — next free number (5.5a part 2: `hr.shifts` / `hr.shift_assignments` / `hr.shift_groups`, on its own MIGRATION-REQUEST-2 entry and pre-migration review).
+- `0015_2_platform-sites.sql` — lane 2, task 5.5a part 1 (`platform.sites` + `hr.employees.default_site_id` FK + `platform.thresholds` `att.geofence_radius_m=500`, SCR-HR-SHIFT-01 §2.4 / D-144 item 4), issued by the Master 2026-09-24 on MIGRATION-REQUEST-2 (pre-migration review APPROVED WITH CHANGES, 7 findings applied).
 - `0014_2_employees-version.sql` — lane 2, task 3.3 (`hr.employees.version` + classification row; shape of 0008), issued by the Master 2026-09-24 on MIGRATION-REQUEST-2 (pre-migration review APPROVED); applied, merged in `9616422`.
 - `0013` — RESERVED for lane 1, task 1.2 (catalog), pending its MIGRATION-REQUEST-1.md.
 - `0012_M_space-dashboard-invoker-grant.sql` — lane M, task 5.13 part 1, applied 2026-09-24 (pg-reviewer pre-migration APPROVED WITH CHANGES, header text).
