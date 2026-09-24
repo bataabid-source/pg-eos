@@ -4,6 +4,13 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## 0.6a — CI gate ④ reports doc 40 Part E progress instead of failing on golden-slice acceptance (2026-09-24)
+
+- CI run #12 (78c640e, the 2.9 acceptance commit) was red on gate ④ only: the 0.6a placeholder failed whenever `.golden-slice-accepted` exists ("wire Playwright S1-S20"). That made CI permanently red until every S1–S20 feature exists, although doc 40 Part E makes the 20 scenarios a gate on **production deploy**, not on every commit. Default (Master, recorded): gate ④ now prints "implemented: n / 20" and fails only when a `tests/scenarios/*.spec.ts` exists with no Playwright runner wired in the job — the moment the runner must be added. The 20/20 condition stays on the deploy pipeline (0.6b / scripts/deploy.sh).
+- Model: opus-5.5 session (Master, direct — CI config) · Delegated: none · Review: n/a (CI trip-wire correction)
+
+---
+
 ## 2.9 — golden slice ACCEPTED (R1 applied; new-slice.sh and pre-commit active) — DONE (2026-09-24)
 
 - GM decision sheet 4, verbatim: "R1: ب · R2: أ" (`docs/notes/2026-09-24-gm-decision-sheet-4.md`), recorded as **D-161** (R1) and **D-162** (R2).

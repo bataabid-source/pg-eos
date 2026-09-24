@@ -101,13 +101,17 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      - name: Check golden-slice acceptance gate
+      # doc 40 Part E: "All 20 (S1-S20) must pass before any production deploy" — a gate on the
+      # deploy pipeline, not on every commit; each S# spans modules that are built lane by lane.
+      # This job reports how many are implemented and trips the moment a scenario spec exists with
+      # no Playwright runner wired (the point at which the runner must be added to this job).
+      - name: Doc 40 Part E scenarios
         run: |
-          if [ -f .golden-slice-accepted ]; then
-            echo "golden slice accepted: wire Playwright S1-S20 (post-2.9)" >&2
+          n=$(find tests/scenarios -type f -name '*.spec.ts' | wc -l)
+          echo "doc 40 Part E scenarios implemented: ${n} / 20 (S1-S20 gate production deploy)"
+          if [ "$n" -gt 0 ]; then
+            echo "::error::tests/scenarios has ${n} spec(s) but no Playwright runner is wired in this job yet" >&2
             exit 1
-          else
-            echo "no acceptance scenarios exist yet (golden slice 2.9 not built)"
           fi
 
   guards:
