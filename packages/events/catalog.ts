@@ -15,5 +15,12 @@ export const EVENT_CATALOG = [
   // WBS 2.9 fix round 2 (finding 6d): written per ReceiveLine call whose qty_actual differs from
   // qty_ordered, same transaction as the line write. Aggregate `wms.order_lines`.
   'wms.inbound.variance',
+  // WBS 3.3 (lane 2, MIGRATION-REQUEST-2 / Master issue 2026-09-24): written once per employee
+  // registration, same transaction as the insert. Aggregate `hr.employees`.
+  'hr.employee.registered',
+  // WBS 3.3: written once per employee document recorded (residency, licence, …), same
+  // transaction as the insert; the INV-C4-1 hard gate reads document validity. Aggregate
+  // `hr.employee_documents`.
+  'hr.employee_document.recorded',
 ] as const;
 export type CatalogedEventType = (typeof EVENT_CATALOG)[number];
