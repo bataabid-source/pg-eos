@@ -172,7 +172,7 @@ Type: 🧑 human decision/data · 🤖 AI-buildable slice · 🔧 infra · ✅ v
 | 5.10 | Housing: properties, units, rooms, beds, assignments, maintenance, inspections | 🤖 | 5.3 | **1** | HOUSING_SUP | Bed = unit of assignment; clearance blocked until bed released | TODO |
 | 5.11 | Administrative: purchase requests, three-way match, petty cash, assets/custody, approvals, correspondence | 🤖 | 4.1 | **3** | Admin Mgr | PO paid without match impossible | TODO |
 | 5.12 | Fleet: maintenance plans (km-based), orders, accidents, fuel ledger (I-03 import) | 🤖 | 3.1 | **3** | FLEET_MGR | Fuel entry without odometer rejected; anomaly > 20% flagged | TODO |
-| 5.13 | Alerts engine (**22 rules — N-01…N-18 plus N-19…N-22 from doc 23 §4**), report catalog (24), scheduled delivery | 🤖 | 0.10 | **M** | SYSADMIN | Alert without action link impossible; no alert targets an unfilled position | READY |
+| 5.13 | Alerts engine (**22 rules — N-01…N-18 plus N-19…N-22 from doc 23 §4**), report catalog (24), scheduled delivery | 🤖 | 0.10 | **M** | SYSADMIN | Alert without action link impossible; no alert targets an unfilled position | IN PROGRESS — part 1 @ `<this commit>` (alert evaluation mechanism: EvaluateAlertRules + AcknowledgeAlert, migrations 0011/0012); part 2 = delivery · escalation · dynamic recipients · report catalog · job |
 | 5.14 | M13 Governance: budgets/variance, KPI tree, OKRs, risk register, NCR, policies, board pack, decisions | 🤖 | 4.11 | **3** | GM | Board pack generates from live data | TODO |
 | 5.15 | **Data gates M08, M09 (documents 100%)** | 🧑 | 5.3, 3.1 | **A** | HR_MGR, FLEET_MGR | Scorecards = 100% | DEFERRED-POST-PILOT — D-127 (data gates) |
 | 5.16 | Scenarios S13, S14, S17 pass | ✅ | 5.11 | **M** | HR_MGR | Playwright green | TODO |

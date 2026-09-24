@@ -13,6 +13,10 @@
     "./wms/receive-inbound": {
       "types": "./dist/wms/receive-inbound.d.ts",
       "default": "./dist/wms/receive-inbound.js"
+    },
+    "./platform/evaluate-alerts": {
+      "types": "./dist/platform/evaluate-alerts.d.ts",
+      "default": "./dist/platform/evaluate-alerts.js"
     }
   },
   "scripts": {

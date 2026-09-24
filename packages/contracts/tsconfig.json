@@ -9,7 +9,12 @@
     "_shared/**/*.ts",
     "_harness/**/*.ts",
     "scripts/**/*.ts",
-    "wms/**/*.ts"
+    "wms/**/*.ts",
+    "platform/**/*.ts"
   ],
-  "exclude": ["dist", "node_modules", "tests"]
+  "exclude": [
+    "dist",
+    "node_modules",
+    "tests"
+  ]
 }

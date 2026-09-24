@@ -3,6 +3,12 @@
   "compilerOptions": {
     "noEmit": true
   },
-  "include": ["index.ts", "*.ts", "tests/integration/**/*.ts", "vitest.config.ts"],
+  "include": [
+    "index.ts",
+    "*.ts",
+    "tests/integration/**/*.ts",
+    "tests/evaluate-alerts/**/*.ts",
+    "vitest.config.ts"
+  ],
   "exclude": ["dist", "node_modules"]
 }
