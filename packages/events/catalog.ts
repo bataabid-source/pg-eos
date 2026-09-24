@@ -22,5 +22,14 @@ export const EVENT_CATALOG = [
   // transaction as the insert; the INV-C4-1 hard gate reads document validity. Aggregate
   // `hr.employee_documents`.
   'hr.employee_document.recorded',
+  // WBS 5.13 part 1 (alert evaluation mechanism, modules/platform/application/evaluate-alerts):
+  // written once per fired alert, in the SAME transaction as the platform.alert_log insert
+  // (doc 40 §B6 / doc 25 §1). aggregate_type `platform.alert_rules`, aggregate_id = the rule's
+  // uuid (platform.outbox.aggregate_id is `uuid not null`; platform.alert_log.id is bigserial, so
+  // the log row's id travels in the payload, not in aggregate_id — Master default, CHANGELOG 5.13).
+  // payload = alertLogId, ruleCode, entityRef, recipients, firedAt. Added by the Master in the
+  // same commit as the publisher
+  // (CLAUDE.md · PARALLEL LANES: packages/* is a Master-only path).
+  'platform.alert.fired',
 ] as const;
 export type CatalogedEventType = (typeof EVENT_CATALOG)[number];
