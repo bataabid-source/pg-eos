@@ -106,6 +106,14 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — GM decision sheet 5: 19 open items after the golden slice (sheet-2 leftovers, portal SCR, iMile, lanes, GitHub) — DONE (2026-09-24)
+
+- GM request: open the GitHub settings page for the human identity step (done in the browser pane, positioned on "Change visibility") and put every pending decision into one questionnaire with professional options. Written: `docs/notes/2026-09-24-gm-decision-sheet-5.md` + interactive checklist https://claude.ai/artifact/Giy43tqz5q1vYJBJ4TJVjH — Q1–Q19 with ★ recommendations; proposed numbers marked as judgement.
+- No code, no schema.
+- Model: Master session fable-5.1 · Delegated: none · Review: n/a (governance) · tokens ≈ 20k (estimate)
+
+---
+
 ## X — Delivery-client portal addendum: statement, contract, sub-users, service request, suggestions (D-163) — DONE (2026-09-24)
 
 - GM addendum to D-160 recorded verbatim. Four of five items already in doc 27 §6 / §8; new: order counters, read-only "my contract", explicit "my users", "request a service" → sales opportunity (`source = client_portal`), ticket type `suggestion`. Portal screens 12 → 18. Two check-list additions on the same G-01. Phase 6; no schema now.
