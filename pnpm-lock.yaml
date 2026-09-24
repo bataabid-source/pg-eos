@@ -89,6 +89,9 @@ importers:
 
   modules/wms:
     dependencies:
+      '@pg-eos/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
       '@pg-eos/db':
         specifier: workspace:*
         version: link:../../packages/db
@@ -104,6 +107,12 @@ importers:
       pg:
         specifier: ^8.13.0
         version: 8.23.0
+      xstate:
+        specifier: ^5.19.2
+        version: 5.33.2
+      zod:
+        specifier: ^4.6.5
+        version: 4.6.5
     devDependencies:
       '@types/node':
         specifier: ^24.13.6
@@ -1769,6 +1778,9 @@ packages:
       utf-8-validate:
         optional: true
 
+  xstate@5.33.2:
+    resolution: {integrity: sha512-8tC7yXgeCvpT8gKEeEje6ikJJG1wpnoLiXe+HfECW8m10ubMd3QxKOwWA8KxPJVBcLwfdRoMKYxIBGYKmo37/A==}
+
   xtend@4.0.2:
     resolution: {integrity: sha512-LKYU1iAXJXUgAXn9URjiu+MWhyUXHsvfp7mcuYm9dSUKK0/CjtrUwFAxD82/mCWbtLsGjFIad0wIsod4zrTAEQ==}
     engines: {node: '>=0.4'}
@@ -3030,6 +3042,8 @@ snapshots:
       strip-ansi: 7.2.0
 
   ws@8.21.3: {}
+
+  xstate@5.33.2: {}
 
   xtend@4.0.2: {}
 

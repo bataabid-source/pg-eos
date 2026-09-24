@@ -9,6 +9,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./wms/receive-inbound": {
+      "types": "./dist/wms/receive-inbound.d.ts",
+      "default": "./dist/wms/receive-inbound.js"
     }
   },
   "scripts": {

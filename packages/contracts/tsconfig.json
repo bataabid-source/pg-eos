@@ -8,7 +8,8 @@
     "index.ts",
     "_shared/**/*.ts",
     "_harness/**/*.ts",
-    "scripts/**/*.ts"
+    "scripts/**/*.ts",
+    "wms/**/*.ts"
   ],
   "exclude": ["dist", "node_modules", "tests"]
 }

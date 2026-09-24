@@ -317,6 +317,139 @@ const EXPECTED_DATCOLLATE = 'C';
 // fixture, not a business value (CLAUDE.md AGENT CONSTRAINTS — never fabricate a name).
 const ARABIC_TRIGRAM_PROBE_WORD = 'مخزن';
 
+// WBS 2.9 follow-up — migration 0009 (database/migrations/0009_M_next-doc-no-definer.sql):
+// platform.next_doc_no is now SECURITY DEFINER with an explicit gate (caller must be
+// platform.is_internal() and p_entity must be in platform.allowed_entities(), unless the session
+// role itself bypasses RLS). Proved here, as pgeos_app (the non-superuser application role,
+// migration 0007), with the SAME set_config(...) GUCs packages/db/src/with-context.ts sets
+// (app.user_id / app.client_id / app.is_internal) — never hand-rolled differently. Each call runs
+// inside its own begin/rollback on a dedicated pgeos_app-role pool so a successful allocation's
+// platform.counters increment is never left behind (brief: "counter increments are acceptable side
+// effects: don't try to roll the counter back" — rollback is simply the cleanest way to honor
+// that). platform.audit_log is never touched by this block.
+const appPool = new Pool({
+  host: process.env['PGHOST'] ?? 'localhost',
+  port: Number(process.env['PGPORT'] ?? '5432'),
+  user: process.env['PG_APP_USER'] ?? 'pgeos_app',
+  database: process.env['PGDATABASE'] ?? 'pgeos',
+  max: 5,
+});
+
+const NEXT_DOC_NO_FIXTURE_USER_UUID = '00000000-0000-4000-8000-0000000209b1';
+let pstEntityId: string;
+
+describe('platform.next_doc_no — SECURITY DEFINER gate as pgeos_app (migration 0009)', () => {
+  beforeAll(async () => {
+    const pstResult: QueryResult<{ id: string }> = await pool.query(
+      `select id from platform.entities where code = $1`,
+      ['PST'],
+    );
+    const pstRow = pstResult.rows[0];
+    if (!pstRow) throw new Error("seed entity 'PST' not found in platform.entities");
+    pstEntityId = pstRow.id;
+
+    // Real identity.users + identity.user_entities rows, created/cleaned through the admin
+    // connection — same fixture pattern as modules/wms/tests/integration/stock-ledger.test.ts.
+    // Granted PCC only — PST stays outside this user's allowed_entities() for scenario 2.
+    await pool.query(`delete from identity.user_entities where user_id = $1`, [
+      NEXT_DOC_NO_FIXTURE_USER_UUID,
+    ]);
+    await pool.query(`delete from identity.users where id = $1`, [NEXT_DOC_NO_FIXTURE_USER_UUID]);
+    await pool.query(
+      `insert into identity.users (id, email, full_name_ar, user_type)
+       values ($1, $2, $3, 'internal')`,
+      [
+        NEXT_DOC_NO_FIXTURE_USER_UUID,
+        `_nextdocno_fixture_${randomUUID()}@test.invalid`,
+        'ممثل اختبار next_doc_no — WBS 2.9 follow-up',
+      ],
+    );
+    await pool.query(`insert into identity.user_entities (user_id, entity_id) values ($1, $2)`, [
+      NEXT_DOC_NO_FIXTURE_USER_UUID,
+      pccEntityId,
+    ]);
+  });
+
+  afterAll(async () => {
+    await pool.query(`delete from identity.user_entities where user_id = $1`, [
+      NEXT_DOC_NO_FIXTURE_USER_UUID,
+    ]);
+    await pool.query(`delete from identity.users where id = $1`, [NEXT_DOC_NO_FIXTURE_USER_UUID]);
+    await appPool.end();
+  });
+
+  it('next_doc_no as pgeos_app allocates a number for an entity the internal caller holds', async () => {
+    // 'DOC'/'ALL' against PCC already has a live platform.counters row — reused, never invented
+    // (same counter the WBS 0.9 acceptance-#1 describe block above allocates against).
+    const client = await appPool.connect();
+    try {
+      await client.query('begin');
+      await client.query(`select set_config('app.user_id', $1, true)`, [
+        NEXT_DOC_NO_FIXTURE_USER_UUID,
+      ]);
+      await client.query(`select set_config('app.client_id', $1, true)`, [null]);
+      await client.query(`select set_config('app.is_internal', 'true', true)`);
+
+      const result: QueryResult<{ next_doc_no: string }> = await client.query(
+        `select platform.next_doc_no($1, $2, $3) as next_doc_no`,
+        [pccEntityId, 'DOC', 'ALL'],
+      );
+      expect(result.rows[0]?.next_doc_no).toMatch(/^PCC-DC-\d{5}$/);
+
+      await client.query('rollback');
+    } finally {
+      client.release();
+    }
+  });
+
+  it('next_doc_no as pgeos_app for an entity outside allowed_entities() is refused with 42501', async () => {
+    const client = await appPool.connect();
+    try {
+      await client.query('begin');
+      await client.query(`select set_config('app.user_id', $1, true)`, [
+        NEXT_DOC_NO_FIXTURE_USER_UUID,
+      ]);
+      await client.query(`select set_config('app.client_id', $1, true)`, [null]);
+      await client.query(`select set_config('app.is_internal', 'true', true)`);
+
+      // The fixture user's user_entities row only ever granted PCC (beforeAll) — PST is a real,
+      // seeded entity outside that scope.
+      await expect(
+        client.query(`select platform.next_doc_no($1, $2, $3) as next_doc_no`, [
+          pstEntityId,
+          'DOC',
+          'ALL',
+        ]),
+      ).rejects.toMatchObject({ code: '42501' });
+
+      await client.query('rollback');
+    } finally {
+      client.release();
+    }
+  });
+
+  it('next_doc_no as pgeos_app with no context (no app.user_id / is_internal) is refused with 42501', async () => {
+    const client = await appPool.connect();
+    try {
+      await client.query('begin');
+      // Deliberately no set_config(...) calls at all — a fresh transaction carries no
+      // app.user_id/app.client_id/app.is_internal GUC, exactly like a connection that never went
+      // through withContext(ctx, fn).
+      await expect(
+        client.query(`select platform.next_doc_no($1, $2, $3) as next_doc_no`, [
+          pccEntityId,
+          'DOC',
+          'ALL',
+        ]),
+      ).rejects.toMatchObject({ code: '42501' });
+
+      await client.query('rollback');
+    } finally {
+      client.release();
+    }
+  });
+});
+
 describe('the database ctype supports Arabic trigrams (SCR-TRGM-01)', () => {
   it('datctype is C.UTF-8, datcollate is C, and show_trgm() returns real trigrams for Arabic text', async () => {
     const dbSettings: QueryResult<{ datctype: string; datcollate: string }> = await pool.query(

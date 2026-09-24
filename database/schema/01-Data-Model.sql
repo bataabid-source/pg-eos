@@ -93,11 +93,21 @@ create table platform.counters (
   unique (entity_id, doc_type, period)
 );
 
+-- v1.2 (migration 0009, WBS 2.9): SECURITY DEFINER + pinned search_path + entity-scope gate, so
+-- operational users can allocate numbers under RLS (platform.counters' reference_write needs
+-- platform.reference.manage). Revoke/grant/owner check live in 0009 (pgeos_app is created by 0007).
 create or replace function platform.next_doc_no(
   p_entity uuid, p_doc_type text, p_period text default 'ALL'
-) returns text language plpgsql as $$
+) returns text language plpgsql security definer
+set search_path = pg_catalog, pg_temp as $$
 declare v_prefix text; v_pad int; v_val bigint;
 begin
+  if not exists (select 1 from pg_roles where rolname = session_user and (rolsuper or rolbypassrls))
+     and not (platform.is_internal() and p_entity = any(platform.allowed_entities())) then
+    raise exception using errcode = '42501',
+      message = format('0009: entity %s is outside the caller''s allowed_entities()', p_entity);
+  end if;
+
   update platform.counters
      set current_val = current_val + 1
    where entity_id = p_entity and doc_type = p_doc_type and period = p_period

@@ -8,5 +8,12 @@ export const EVENT_CATALOG = [
   // aggregate `wms.stock_movements`, payload = the ledger entry as written. Added by the Master in the
   // same commit as the publisher (CLAUDE.md · PARALLEL LANES: packages/* is a Master-only path).
   'wms.stock.moved',
+  // WBS 2.9 (golden slice), fix round 2 (finding 6a/6b, doc 40 §C3 line 262): written once per
+  // inbound order, in the SAME transaction as the last ReceiveLine call that brings the order to
+  // 'received' — NOT at CloseInbound (Close only closes). Aggregate `wms.inbound_orders`.
+  'wms.inbound.received',
+  // WBS 2.9 fix round 2 (finding 6d): written per ReceiveLine call whose qty_actual differs from
+  // qty_ordered, same transaction as the line write. Aggregate `wms.order_lines`.
+  'wms.inbound.variance',
 ] as const;
 export type CatalogedEventType = (typeof EVENT_CATALOG)[number];

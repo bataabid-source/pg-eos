@@ -1,0 +1,52 @@
+// modules/wms/domain/receive-inbound/invariants.ts — WBS 2.9, THE GOLDEN SLICE.
+//
+// domain/ layer: pure invariant checks — no I/O, no Date, no Math.random(). The application layer
+// (../../application/receive-inbound/receive-line.ts) calls these BEFORE any DB write; a failed
+// invariant throws a typed error from ./errors.ts. pg-tester adds property tests against these
+// functions directly.
+
+import { Quantity } from '@pg-eos/domain-kit';
+
+import { SkuClientMismatchError, VarianceReasonRequiredError } from './errors.js';
+
+/** INV-C3-3: the order line's SKU must be owned by the SAME client as the order itself. */
+export function assertSkuBelongsToOrderClient(skuClientId: string, orderClientId: string): void {
+  if (skuClientId !== orderClientId) {
+    throw new SkuClientMismatchError(
+      `order line's SKU belongs to client ${skuClientId}, but the order belongs to client ` +
+        `${orderClientId} (INV-C3-3). (Allowed: a SKU owned by the order's own client)`,
+    );
+  }
+}
+
+/** a fully-short receipt (qtyActual = 0) is itself a variance and needs a reason like any
+ *  other — this function does not special-case it; the SPECIAL handling (no ledger row, put-away
+ *  skipped, counts as complete for Close with location_id null) lives in
+ *  ../../application/receive-inbound/receive-line.ts and close-inbound.ts, driven by
+ *  isFullyShortReceipt below. */
+export function isVarianceReceipt(qtyActual: Quantity, qtyOrdered: Quantity): boolean {
+  return !qtyActual.equals(qtyOrdered);
+}
+
+/** INV-C3-5: a variance (qty_actual != qty_ordered, INCLUDING qty_actual = 0) requires a
+ *  varianceReason, checked BEFORE any DB write — never relies on the DB CHECK
+ *  `variance_needs_reason`'s own error. */
+export function assertVarianceHasReason(
+  qtyActual: Quantity,
+  qtyOrdered: Quantity,
+  varianceReason: string | null | undefined,
+): void {
+  if (isVarianceReceipt(qtyActual, qtyOrdered) && !varianceReason) {
+    throw new VarianceReasonRequiredError(
+      `qty_actual (${qtyActual.toString()}) differs from qty_ordered (${qtyOrdered.toString()}) ` +
+        `but no varianceReason was supplied (INV-C3-5). (Allowed: a varianceReason string)`,
+    );
+  }
+}
+
+/** true iff this receipt is fully short (nothing physically arrived). Such a line posts NO
+ *  ledger row and is skipped from put-away entirely — it counts as 'complete' for CloseInbound's
+ *  own gate even with location_id still null, ONLY in this one case. */
+export function isFullyShortReceipt(qtyActual: Quantity): boolean {
+  return qtyActual.isZero();
+}

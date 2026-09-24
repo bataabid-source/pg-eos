@@ -6,10 +6,10 @@ Maintained by pg-scribe only, in the same commit as the task it records.
 | field | value |
 |---|---|
 | Phase | 0 — Foundation → 2 — Warehouse · **pilot-first (D-127, GM 2026-09-24): the pilot runs on seed 019 + synthetic data; every field/human/sign-off/training/naming item and Tier-0 provisioning is DEFERRED-POST-PILOT** |
-| Current task | **2.4 DONE — location weight/volume limits enforced on put-away** (previous task 0.6a part 2 CI Chrome fix @ `d8dc887`). Completion 19/133. |
-| Golden slice (2.9) | not built · `.golden-slice-accepted` absent · `scripts/new-slice.sh` is a no-op. Deps 2.4, 2.6, 2.8, 0.15 — **all now DONE**; **2.9 next**, full human review, never parallelised. **Phase-0 gate: passed on 0.8 (D-130)** — pilot backup/restore acceptance against local Docker, 8/8 green. Acceptance also wires every Phase-0 "mechanism only" deferral (GM 2026-09-22), starting with 0.17's login endpoints. |
+| Current task | **2.9 IN PROGRESS, NOT DONE — golden slice "Receive inbound order" built and reviewed (review PASS round 4)** (previous task 2.4 @ `4aaecdf`). Completion 19/133 (2.9 not counted DONE). |
+| Golden slice (2.9) | **built and reviewed, blocked on GM acceptance** · `.golden-slice-accepted` NOT created (deliberately — `scripts/new-slice.sh` stays a no-op) · scope backend only, no PDA UI (GM choice). Blocked on: SCR-PLAT-IDEM-01, SCR-WMS-INB-01 §1–4, observability (36 §5-4 #10; pino not yet a dependency), and the GM's personal acceptance. See `docs/notes/SCR-PLAT-IDEM-01-idempotency-key-store.md`, `docs/notes/SCR-WMS-INB-01-receive-inbound-rules.md`. |
 | Deployment tier | **Pilot Tier 0 = local Docker `postgres:16` (D-129)**; Oracle Tier 0 (`docs/package/42-Oracle-Cloud-Deployment.md`) after the pilot (0.3, 0.5, 0.7, 0.6b DEFERRED-POST-PILOT) |
-| Schema | `database/schema/01 · 13 · 13B · 019` — the ONLY permitted schema (01 v1.1, 13B v4.4, migrations 0001–0007) · DB locale UTF8 / collate C / ctype C.UTF-8 · `apply.sh --recreate` green 2026-09-24 (0.6a part 1): 175 tables/14 schemas, `wms.verify_wh1()` 21/21, G1–G13 = 0, G13 100/100, G18/G-SEED = 0, `test:isolation` 55/55 · **SCR-HR-ATT-01 APPROVED (D-131)** — migration number not yet issued; pg-reviewer pre-migration review before any DDL |
+| Schema | `database/schema/01 · 13 · 13B · 019` — the ONLY permitted schema (01 v1.1, 13B v4.4, migrations 0001–0009: 0008 inbound-orders version/G6, 0009 next_doc_no SECURITY DEFINER, both task 2.9) · DB locale UTF8 / collate C / ctype C.UTF-8 · fresh `apply.sh --recreate` as `pgeos_app` 2026-09-24 (2.9): `turbo test` 14/14 (wms 246/246, platform 27/27), G1–G14/G18/G-SEED green (G13 100/100), lint/typecheck 16/16/boundaries green · **SCR-HR-ATT-01 APPROVED (D-131)** — migration number not yet issued |
 | Session model | fable (`claude-fable-5-1`, set by the GM via /model 2026-09-23 evening; earlier opus) · workers sonnet, reviews/ADR/security opus, pg-scribe sonnet, no haiku (GM 2026-09-23) |
 | Toolchain | pnpm 9.15.9 · Node 25.2.1 · Docker 29.0.1 · psql 16.15 · claude CLI · migrations auto-runner (WBS 0.11) · psql UTF-8 fix (WBS 0.15, see `apply.sh` header) · TypeScript 5.9.3 ceiling `<6.1.0` · Python 3.13 (`python`, not `python3`, on this machine) |
 | Setup check | 2026-09-24: `bash scripts/check-setup.sh` → READY (133 rows) · `python scripts/gen-briefs.py --check` 15 briefs ok · `python scripts/gen-backlog.py` 133 rows written; `--check` to rerun locally (see CHANGELOG) · `.githooks/commit-msg` accepts `0.6a`/`0.6b` · lint / typecheck / 330 tests / G1–G14+G18 green 2026-09-23 |
@@ -22,27 +22,27 @@ None claimed.
 
 | task | commit |
 |---|---|
-| 2.4 — location weight/volume limits enforced on put-away | `<this commit>` |
+| 2.9 — golden slice "Receive inbound order" (backend), built + reviewed, NOT DONE | `<this commit>` |
+| 2.4 — location weight/volume limits enforced on put-away | `4aaecdf` |
 | 0.6a part 2/2 — CI gates ①–⑥ on GitHub Actions, tests as pgeos_app | `a554810` |
 | 0.6a part 2 fix — CI installs Chrome for Puppeteer, `--continue` | `d8dc887` |
 | 0.6a part 1/2 — pgeos_app role + entity_scope USING/WITH CHECK (migration 0007, D-133) | `1f19c92` |
-| 2.3 — generate 3,330 WH1 location codes (verification-only) | `f3426eb` |
 
 ## Blockers
 
+- **2.9 NOT DONE — four items block `.golden-slice-accepted`:** (1) SCR-PLAT-IDEM-01 Idempotency-Key store (409 on reuse, 7-day replay); (2) SCR-WMS-INB-01 §1–4 (received→closed edge, zero-qty line completes, Close/Cancel commands, variance photo column); (3) observability (logger + monitoring dashboard; pino not yet a dependency); (4) the GM's personal acceptance.
 - **Open G-01 item:** G8 anchor storage before the first partition detach (≥ 2028-03) — D-115: `platform.settings` key design.
 - **Carried under D-131 (owner GM, post-pilot):** ADR-0003 items 1 (shared PDA — PDA path blocked), 3, 4a, 5 (punch-record retention; doc 40:668, doc 25:429 unchanged), 6, 8, 9; GPS classification; SoD mechanism; §2.5 values. APP-1 has no WBS ID (D-127 no naming) — stays `tasks/proposed/`.
 - **Not applied under D-132:** G3 diagram `01-08` regeneration (mermaid renderer not installed); G1/G2 (no retention value).
-- (0.18 carried forward) resolved: RLS in 0007, tests/CI as `pgeos_app` in part 2.
-- **D6 follow-up (0.6a part 2):** production partition maintenance must take the audit-chain advisory lock before partition DDL (same 40P01 lock-ordering risk hit locally by `turbo test` parallel runs, `modules/platform audit-chain-seq.test.ts` vs. another package's audit write) — no new WBS ID, tracked here.
+- **D6 follow-up (0.6a part 2):** production partition maintenance must take the audit-chain advisory lock before partition DDL — no new WBS ID, tracked here.
 - WAITING_GM rows: **0** (D-127). Deferred post-pilot: 20 rows, listed under Phase 7 in `tasks/MASTER_BACKLOG.md`.
 - Concurrent external processes can delete uncommitted work (incident `a901a04`) · sessions start inside `claude-kit/` · stale `.git/*.lock` files are removed by hand.
 
 ## Next 3 tasks
 
-1. **2.9** golden slice "Receive inbound order" (deps 2.4, 2.6, 2.8, 0.15 all DONE, full human review) — never parallelised
+1. GM rulings on SCR-PLAT-IDEM-01, SCR-WMS-INB-01 and observability, then the GM's personal review of 2.9 and `.golden-slice-accepted`
 2. **0.6a close** — GM ruleset decision on `main` (first green CI run already recorded @ `d8dc887`)
-3. Up to three lanes per doc 38 `Lane` column, after `.golden-slice-accepted`
+3. After `.golden-slice-accepted`: up to three lanes per doc 38 `Lane` column
 
 ## Notes
 

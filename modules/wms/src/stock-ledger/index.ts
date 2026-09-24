@@ -31,10 +31,13 @@ export {
 
 export {
   postMovement,
+  postMovementInTx,
   postTransfer,
+  postTransferInTx,
   reverseMovement,
   type LedgerDeps,
   type PostMovementInput,
+  type PostTransferInput,
   type PostedMovement,
 } from './post-movement.js';
 

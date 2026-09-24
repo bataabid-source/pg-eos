@@ -579,27 +579,131 @@ async function writeMovementEventAndAudit(
   await writeMovementAuditRow(tx, params);
 }
 
-/** Posts one ledger row for `input.entry`. Throws before any DB call for an invalid entry. */
+/**
+ * Fix round 1 (Master decision, WBS 2.9): the transaction-scoped variant — everything
+ * `postMovement` does (same lock order: shared rebuild lock -> location limits -> the balance
+ * lock -> audit), but against a CALLER-SUPPLIED, already-open `tx` instead of opening its own via
+ * withContext. This is what lets a caller (e.g. modules/wms/application/receive-inbound/
+ * receive-line.ts) compose a ledger posting into ONE transaction alongside its own reads/writes,
+ * instead of the ledger post committing as a separate transaction. `postMovement` below is now a
+ * thin wrapper over this function.
+ */
+export async function postMovementInTx(
+  tx: NodePgDatabase,
+  input: PostMovementInput,
+  actorId: string | null,
+  deps: LedgerDeps,
+): Promise<PostedMovement> {
+  validateEntry(input.entry);
+
+  // pg-reviewer slice-close round 2 finding 1: shared rebuild-key lock FIRST, before any of this
+  // transaction's per-balance-key locks (see lockRebuildKeysShared's own comment for the protocol).
+  await lockRebuildKeysShared(tx, [{ clientId: input.entry.clientId, skuId: input.entry.skuId }]);
+
+  // WBS 2.4 (D1): enforced BEFORE the ledger insert, in the same transaction — a no-op unless
+  // input.entry.toLocationId is set (see checkLocationLimitsForEntries).
+  await checkLocationLimitsForEntries(tx, [input.entry]);
+
+  const occurredAt = deps.clock.now();
+  const row = await insertMovementRow(tx, {
+    entityId: input.entityId,
+    entry: input.entry,
+    occurredAt,
+    performedBy: input.performedBy,
+    refTable: input.refTable ?? null,
+    refId: input.refId ?? null,
+    reasonCode: input.reasonCode ?? null,
+    deviceId: input.deviceId ?? null,
+  });
+
+  await lockAndApplyBalanceDelta(tx, input.entry, occurredAt);
+  await writeMovementEventAndAudit(tx, {
+    entityId: input.entityId,
+    movementRow: row,
+    occurredAt,
+    correlationId: input.correlationId,
+    actorId,
+  });
+
+  return { movementIds: [row.id], correlationId: input.correlationId };
+}
+
+/** Posts one ledger row for `input.entry`. Throws before any DB call for an invalid entry. Thin
+ *  wrapper: opens its own transaction and delegates to postMovementInTx (fix round 1). */
 export async function postMovement(
   ctx: WithContextCtx,
   input: PostMovementInput,
   deps: LedgerDeps,
 ): Promise<PostedMovement> {
   validateEntry(input.entry);
+  return withContext(ctx, (tx) => postMovementInTx(tx, input, ctx.userId, deps));
+}
 
-  return withContext(ctx, async (tx) => {
-    // pg-reviewer slice-close round 2 finding 1: shared rebuild-key lock FIRST, before any of this
-    // transaction's per-balance-key locks (see lockRebuildKeysShared's own comment for the protocol).
-    await lockRebuildKeysShared(tx, [{ clientId: input.entry.clientId, skuId: input.entry.skuId }]);
+/**
+ * decision 1: a transfer is two single-sided rows in one transaction — an out-row at
+ * `fromLocationId` and an in-row at `toLocationId`, same client/sku/qty/batch/uom, both
+ * movementType 'transfer', sharing ref_table/ref_id (whatever `input` carries) and correlationId.
+ */
+export type PostTransferInput = Omit<PostMovementInput, 'entry'> & {
+  readonly base: Parameters<typeof planTransfer>[0];
+  readonly fromLocationId: string;
+  readonly toLocationId: string;
+};
 
-    // WBS 2.4 (D1): enforced BEFORE the ledger insert, in the same transaction — a no-op unless
-    // input.entry.toLocationId is set (see checkLocationLimitsForEntries).
-    await checkLocationLimitsForEntries(tx, [input.entry]);
+/** Fix round 1 (Master decision, WBS 2.9): the transaction-scoped variant of postTransfer — same
+ *  lock order (shared rebuild lock -> location limits -> sorted balance locks -> audit last, per
+ *  ADR-0002), against a caller-supplied `tx`. postTransfer below is now a thin wrapper. */
+export async function postTransferInTx(
+  tx: NodePgDatabase,
+  input: PostTransferInput,
+  actorId: string | null,
+  deps: LedgerDeps,
+): Promise<PostedMovement> {
+  const [outEntry, inEntry] = planTransfer(input.base, input.fromLocationId, input.toLocationId);
+  validateEntry(outEntry);
+  validateEntry(inEntry);
 
-    const occurredAt = deps.clock.now();
+  // pg-reviewer slice-close round 2 finding 1: shared rebuild-key lock FIRST, before any of this
+  // transaction's per-balance-key locks below (see lockRebuildKeysShared's own comment for the
+  // protocol). decision 1: both entries share the same client/sku, so this is a single key —
+  // written as a pair list (and deduplicated by lockRebuildKeysShared) so it stays correct if a
+  // transfer ever spans SKUs.
+  await lockRebuildKeysShared(tx, [
+    { clientId: outEntry.clientId, skuId: outEntry.skuId },
+    { clientId: inEntry.clientId, skuId: inEntry.skuId },
+  ]);
+
+  // WBS 2.4 (D1): enforced BEFORE either leg's ledger insert, in the same transaction — a no-op
+  // for outEntry (toLocationId null, decision 1); throwing here rolls back the whole transfer, so
+  // neither leg is written (checkLocationLimitsForEntries's own comment / D1 "atomically").
+  await checkLocationLimitsForEntries(tx, [outEntry, inEntry]);
+
+  const occurredAt = deps.clock.now();
+
+  // Both entries' balance locks are acquired up front, in SORTED key order (lockBalanceRow's own
+  // contract) — never in "out row, then in row" order, which would let a concurrent transfer in
+  // the opposite direction acquire the same two locks in the reverse order and deadlock.
+  const lockKeys = [outEntry, inEntry]
+    .map((entry) => balanceKey(entry.clientId, entry.skuId, balanceLocationId(entry), entry.batchNo))
+    .sort();
+  for (const key of lockKeys) {
+    await lockBalanceRow(tx, key);
+  }
+
+  // ADR-0002 / doc 40 §B2: the audit row must be the LAST statement before commit. Writing the
+  // out-entry's ledger+balance+outbox+audit, THEN the in-entry's balance update, would take the
+  // global audit-chain advisory lock (the out-entry's audit insert) and only afterwards try to
+  // acquire the in-entry's balance row lock — exactly the lock-order inversion ADR-0002 forbids
+  // (observed as a live deadlock in a shared-DB full run). Instead: every ledger insert and
+  // balance-delta statement for BOTH entries runs first; only once all of them have completed do
+  // the outbox events get written (outbox before audit is fine — it takes no chain-wide lock),
+  // and the audit_log rows are written last of all, so no row lock is ever acquired after the
+  // audit-chain lock is taken.
+  const rows: StoredMovementRow[] = [];
+  for (const entry of [outEntry, inEntry]) {
     const row = await insertMovementRow(tx, {
       entityId: input.entityId,
-      entry: input.entry,
+      entry,
       occurredAt,
       performedBy: input.performedBy,
       refTable: input.refTable ?? null,
@@ -608,112 +712,44 @@ export async function postMovement(
       deviceId: input.deviceId ?? null,
     });
 
-    await lockAndApplyBalanceDelta(tx, input.entry, occurredAt);
-    await writeMovementEventAndAudit(tx, {
+    await applyLockedBalanceDelta(tx, entry, occurredAt);
+    rows.push(row);
+  }
+
+  for (const row of rows) {
+    await writeMovementOutboxEvent(tx, {
+      entityId: input.entityId,
+      movementRow: row,
+      correlationId: input.correlationId,
+      actorId,
+    });
+  }
+
+  for (const row of rows) {
+    await writeMovementAuditRow(tx, {
       entityId: input.entityId,
       movementRow: row,
       occurredAt,
       correlationId: input.correlationId,
-      actorId: ctx.userId,
+      actorId,
     });
+  }
 
-    return { movementIds: [row.id], correlationId: input.correlationId };
-  });
+  return { movementIds: rows.map((row) => row.id), correlationId: input.correlationId };
 }
 
 /**
  * decision 1: a transfer is two single-sided rows in one transaction — an out-row at
  * `fromLocationId` and an in-row at `toLocationId`, same client/sku/qty/batch/uom, both
  * movementType 'transfer', sharing ref_table/ref_id (whatever `input` carries) and correlationId.
+ * Thin wrapper: opens its own transaction and delegates to postTransferInTx (fix round 1).
  */
 export async function postTransfer(
   ctx: WithContextCtx,
-  input: Omit<PostMovementInput, 'entry'> & {
-    readonly base: Parameters<typeof planTransfer>[0];
-    readonly fromLocationId: string;
-    readonly toLocationId: string;
-  },
+  input: PostTransferInput,
   deps: LedgerDeps,
 ): Promise<PostedMovement> {
-  const [outEntry, inEntry] = planTransfer(input.base, input.fromLocationId, input.toLocationId);
-  validateEntry(outEntry);
-  validateEntry(inEntry);
-
-  return withContext(ctx, async (tx) => {
-    // pg-reviewer slice-close round 2 finding 1: shared rebuild-key lock FIRST, before any of this
-    // transaction's per-balance-key locks below (see lockRebuildKeysShared's own comment for the
-    // protocol). decision 1: both entries share the same client/sku, so this is a single key —
-    // written as a pair list (and deduplicated by lockRebuildKeysShared) so it stays correct if a
-    // transfer ever spans SKUs.
-    await lockRebuildKeysShared(tx, [
-      { clientId: outEntry.clientId, skuId: outEntry.skuId },
-      { clientId: inEntry.clientId, skuId: inEntry.skuId },
-    ]);
-
-    // WBS 2.4 (D1): enforced BEFORE either leg's ledger insert, in the same transaction — a no-op
-    // for outEntry (toLocationId null, decision 1); throwing here rolls back the whole transfer, so
-    // neither leg is written (checkLocationLimitsForEntries's own comment / D1 "atomically").
-    await checkLocationLimitsForEntries(tx, [outEntry, inEntry]);
-
-    const occurredAt = deps.clock.now();
-
-    // Both entries' balance locks are acquired up front, in SORTED key order (lockBalanceRow's own
-    // contract) — never in "out row, then in row" order, which would let a concurrent transfer in
-    // the opposite direction acquire the same two locks in the reverse order and deadlock.
-    const lockKeys = [outEntry, inEntry]
-      .map((entry) => balanceKey(entry.clientId, entry.skuId, balanceLocationId(entry), entry.batchNo))
-      .sort();
-    for (const key of lockKeys) {
-      await lockBalanceRow(tx, key);
-    }
-
-    // ADR-0002 / doc 40 §B2: the audit row must be the LAST statement before commit. Writing the
-    // out-entry's ledger+balance+outbox+audit, THEN the in-entry's balance update, would take the
-    // global audit-chain advisory lock (the out-entry's audit insert) and only afterwards try to
-    // acquire the in-entry's balance row lock — exactly the lock-order inversion ADR-0002 forbids
-    // (observed as a live deadlock in a shared-DB full run). Instead: every ledger insert and
-    // balance-delta statement for BOTH entries runs first; only once all of them have completed do
-    // the outbox events get written (outbox before audit is fine — it takes no chain-wide lock),
-    // and the audit_log rows are written last of all, so no row lock is ever acquired after the
-    // audit-chain lock is taken.
-    const rows: StoredMovementRow[] = [];
-    for (const entry of [outEntry, inEntry]) {
-      const row = await insertMovementRow(tx, {
-        entityId: input.entityId,
-        entry,
-        occurredAt,
-        performedBy: input.performedBy,
-        refTable: input.refTable ?? null,
-        refId: input.refId ?? null,
-        reasonCode: input.reasonCode ?? null,
-        deviceId: input.deviceId ?? null,
-      });
-
-      await applyLockedBalanceDelta(tx, entry, occurredAt);
-      rows.push(row);
-    }
-
-    for (const row of rows) {
-      await writeMovementOutboxEvent(tx, {
-        entityId: input.entityId,
-        movementRow: row,
-        correlationId: input.correlationId,
-        actorId: ctx.userId,
-      });
-    }
-
-    for (const row of rows) {
-      await writeMovementAuditRow(tx, {
-        entityId: input.entityId,
-        movementRow: row,
-        occurredAt,
-        correlationId: input.correlationId,
-        actorId: ctx.userId,
-      });
-    }
-
-    return { movementIds: rows.map((row) => row.id), correlationId: input.correlationId };
-  });
+  return withContext(ctx, (tx) => postTransferInTx(tx, input, ctx.userId, deps));
 }
 
 /**
