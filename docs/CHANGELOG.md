@@ -4,6 +4,16 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## 0.6a — CLOSED: branch-protection ruleset active on main (D-166) (2026-09-24)
+
+- Repo made public by the GM (D-164, `fb1966a`), unblocking the branch-protection step. GitHub ruleset `main-protection` created 2026-09-24, ACTIVE, targets `main`, empty bypass list. Rules: restrict deletions; block force pushes; require a pull request before merging (required approvals 0); require status checks to pass — exactly the 5 checks, source GitHub Actions: "① lint + boundaries + typecheck", "②③ unit + integration (as pgeos_app)", "④ acceptance (doc 40 Part E)", "⑤ guards (G1-G18)", "⑥ security scan". Implements D-142 ("With PR (Recommended)"), recorded as D-165.
+- Default taken (Master, recorded): required approvals = 0, because the GM is the sole maintainer — any higher count would block every merge.
+- Consequence: direct pushes to `main` are now rejected; every commit lands through branch → PR → green CI → merge. This closing commit is the first to use that flow.
+- 0.6a deliverables (full task): parts 1/2 `1f19c92` and 2/2 `a554810` + `d8dc887`; first green CI run #2 @ `d8dc887`; later fix `ffa4857` (gate ④ reports doc 40 Part E progress).
+- Model: opus (Master) · Delegated: pg-scribe · Review: PASS(0 findings — bookkeeping only)
+
+---
+
 ## 0.6a — CI gate ④ reports doc 40 Part E progress instead of failing on golden-slice acceptance (2026-09-24)
 
 - CI run #12 (78c640e, the 2.9 acceptance commit) was red on gate ④ only: the 0.6a placeholder failed whenever `.golden-slice-accepted` exists ("wire Playwright S1-S20"). That made CI permanently red until every S1–S20 feature exists, although doc 40 Part E makes the 20 scenarios a gate on **production deploy**, not on every commit. Default (Master, recorded): gate ④ now prints "implemented: n / 20" and fails only when a `tests/scenarios/*.spec.ts` exists with no Playwright runner wired in the job — the moment the runner must be added. The 20/20 condition stays on the deploy pipeline (0.6b / scripts/deploy.sh).
