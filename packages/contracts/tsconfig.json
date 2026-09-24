@@ -10,6 +10,7 @@
     "_harness/**/*.ts",
     "scripts/**/*.ts",
     "wms/**/*.ts",
+    "imile/**/*.ts",
     "hr/**/*.ts",
     "catalog/**/*.ts",
     "platform/**/*.ts"

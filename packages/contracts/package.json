@@ -29,6 +29,10 @@
     "./platform/maintain-site": {
       "types": "./dist/platform/maintain-site.d.ts",
       "default": "./dist/platform/maintain-site.js"
+    },
+    "./imile/report-agent-health": {
+      "types": "./dist/imile/report-agent-health.d.ts",
+      "default": "./dist/imile/report-agent-health.js"
     }
   },
   "scripts": {
