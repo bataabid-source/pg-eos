@@ -7,7 +7,7 @@ verbatim — IDs, type markers, Depends on, Lane, Owner, Acceptance — and adds
 
 Usage:
     python3 scripts/gen-backlog.py            # (re)writes tasks/MASTER_BACKLOG.md, keeps existing statuses
-    python3 scripts/gen-backlog.py --check    # verifies 133 rows, the header line and the X / 0.19 statuses; writes nothing
+    python3 scripts/gen-backlog.py --check    # verifies 134 rows, the header line and the X / 0.19 statuses; writes nothing
 
 Status vocabulary (pg-scribe moves rows; nothing else edits this file):
     TODO · READY · ACTIVE · WAITING_GM · BLOCKED · DONE @ <hash> · SUPERSEDED — <ADR/decision>
@@ -19,8 +19,8 @@ import re, sys, pathlib
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 # Header wording fixed by the GM 2026-09-23 (D-111); count 132 → 133 on 2026-09-24 (D-124 split of 0.6 into
 # 0.6a / 0.6b, applied to doc 38 v4.2 under directive D-127…D-134). The X-tasks and 0.19 are inside the 133 rows.
-HEADER = "**133 doc-38 tasks (v4.2: 0.6 → 0.6a / 0.6b, D-124) + X.1–X.6 CONTINUOUS + 0.19 DEFERRED + DEFERRED-POST-PILOT rows (D-127)** — eight phases (0–7) + cross-cutting X-tasks; X.1–X.6 and 0.19 are counted inside the 133. No 18-phase roadmap, no separate database phase (BOOTSTRAP-v4 §8)."
-EXPECTED_ROWS = 133
+HEADER = "**134 doc-38 tasks (v4.3: 0.6 → 0.6a / 0.6b, D-124; 5.3b added, D-167) + X.1–X.6 CONTINUOUS + 0.19 DEFERRED + DEFERRED-POST-PILOT rows (D-127)** — eight phases (0–7) + cross-cutting X-tasks; X.1–X.6 and 0.19 are counted inside the 133. No 18-phase roadmap, no separate database phase (BOOTSTRAP-v4 §8)."
+EXPECTED_ROWS = 134
 ROW_ID = r"(\d+\.\d+[ab]?|X\.\d+)"
 DEFERRED_PP = "DEFERRED-POST-PILOT"
 WBS = ROOT / "docs" / "package" / "38-WBS.md"
@@ -84,7 +84,7 @@ def render(phases, keep):
     out.append("| `ACTIVE` | claimed in `tasks/LANE_LOCKS.md`; one per lane |")
     out.append("| `WAITING_GM` | 🧑 / 🔧 lane-A task: runbook or script produced, waits for the GM; never blocks a code lane |")
     out.append("| `BLOCKED` | REAL BLOCKER recorded in `docs/PROJECT_STATE.md` |")
-    out.append("| `SUPERSEDED — <id>` | row kept for the 133 count; replaced by the named ADR / GM decision, never picked (D-125) |")
+    out.append("| `SUPERSEDED — <id>` | row kept for the 134 count; replaced by the named ADR / GM decision, never picked (D-125) |")
     out.append("| `DEFERRED-POST-PILOT — <id>` | pilot-first rule (D-127): field data, human entry, sign-off, training, naming and Tier-0 provisioning wait until the pilot system is complete; the pilot runs on seed 019 + synthetic data only; the row keeps its phase and is listed again under Phase 7; never picked before the pilot |")
     out.append("| `DONE @ <hash>` | acceptance criterion passed, pg-reviewer PASS, gates green — written by pg-scribe in the same commit |")
     out.append("")
