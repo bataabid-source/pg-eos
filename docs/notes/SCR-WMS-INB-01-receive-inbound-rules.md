@@ -80,3 +80,20 @@ The line write, the transition to `received`, the version bump, the line's own a
 still gets its GRN and event exactly as before. See
 `modules/wms/domain/receive-inbound/invariants.ts`'s `isAllZeroOrder` and
 `modules/wms/application/receive-inbound/receive-line.ts` steps 5b/6/8.
+
+## 7. Schedule the inbound (appointment) — GM observation D-168 (2026-09-24)
+
+**Observation (verbatim):** "هناك ملاحظة: طلب التسليم أو التوريد (مسودة) الذي يصدره العميل لنا — لاحظت أن الخيارات التي يقدمها النظام هي القبول أم الرفض؛ هناك خيار آخر يجب أن يُضاف: الجدولة وتحديد الوقت والتاريخ"
+
+**What exists:** `wms.inbound_orders.expected_at timestamptz` (01:742, nullable, never set by any command today) and `arrived_at`. The golden slice offers `ApproveInbound` (draft → approved) and `CancelInbound` (draft/approved → cancelled). There is no way to give the client a date and time, and no reason travels back to the client on a cancel.
+
+**Requested (no new state — an appointment is a fact on the order, not a status):**
+- Command **`ScheduleInbound`** — roles `WH_MGR` or `WH_SUP`; legal in `draft` and `approved` (self-transition, version bump); input `expectedAt` (timestamptz, must be in the future, warehouse working days/hours when Q12 of D-141 is ever set — until then any time), optional `dockCode` and `scheduleNote`; writes `expected_at`, `scheduled_by`, `scheduled_at` (new columns: `scheduled_by uuid`, `scheduled_at timestamptz`), outbox event **`wms.inbound.scheduled`** + audit row in the same transaction. Rescheduling = the same command again (history is the audit chain).
+- **Approve and schedule together:** `ApproveInbound` gains an optional `expectedAt` so the manager can accept and give the slot in one step; when present it emits both `wms.inbound.approved` and `wms.inbound.scheduled`.
+- **Reject with reason:** `CancelInbound` from `draft`/`approved` gains a mandatory `cancelReason` (new column `cancel_reason text`) — today the client learns nothing. Event `wms.inbound.cancelled` carries it.
+- **Client side:** the portal ASN screen (doc 27 §6 screen 5, WBS 6.1) shows the three outcomes — approved with appointment · rescheduled · rejected with reason — and the appointment on "my orders"; the client API (6.2) exposes `expected_at`. Notification to the client on schedule/reschedule/reject through `alert_rules` channels (new rule, code proposed **N-23** "inbound scheduled / rescheduled / rejected", target CLIENT_ADMIN + CLIENT_CREATOR, in-app + email).
+- **Board:** the WH_SUP board's "استلام" group shows today's appointments ordered by `expected_at`; an approved order without an appointment is a card "بلا موعد" (no schema — a query).
+
+**Schema (G-01, with this note):** `wms.inbound_orders` + `scheduled_by`, `scheduled_at`, `cancel_reason`, `dock_code` (nullable; docks are not modelled today — free code until a docks table is requested). Column classification `public`. `chk_inbound_orders_status` unchanged.
+
+**Timing (default taken):** staged as **2.9b "Schedule inbound (appointment)"** in `tasks/backlog/` — the first slice to be replicated from the golden template (`new-slice.sh wms schedule-inbound`), lane 2, depends 2.9; migration number issued when it starts, pg-reviewer pre-migration review first. It does not reopen 2.9.
