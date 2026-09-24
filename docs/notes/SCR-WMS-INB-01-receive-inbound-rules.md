@@ -20,6 +20,6 @@ doc 40 §C3 `ReceiveLine` says "photo if variance". `wms.order_lines` has **no**
 
 ## 5. Not in this request (recorded elsewhere)
 
-- The Idempotency-Key store: SCR-PLAT-IDEM-01.
+- Storing Idempotency-Key values for replay: requested in SCR-PLAT-IDEM-01.
 - Observability (a logger and a monitoring dashboard, doc 36 §5-4 #10): pino is not yet a dependency — a GM batch question, not a schema change.
 - `audit_log.device_id` from the PDA (CHANGELOG carried item): arrives with the PDA screen slice, which is the first caller that has a device id.

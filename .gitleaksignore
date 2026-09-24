@@ -8,3 +8,5 @@
 50055f8b0246c4d83c0c2c51c5adfb96fa5dc2eb:packages/contracts/tests/harness.test.ts:generic-api-key:41
 d8ccb7eec9cc6c8fd4116bf5ab3db65f952ca41a:packages/contracts/tests/harness.test.ts:generic-api-key:16
 bab005ae752561dc828f734b1f6649358e7c0f20:docs/package/36-Technical-Architecture-Audit.md:generic-api-key:197
+# Verified 2026-09-24 (WBS 2.9): prose in an SCR note ("Idempotency-Key store: SCR-PLAT-IDEM-01"), not a secret; the line was reworded after this commit.
+eef0d427822ed6890074bb1e8ecc244dc2f36703:docs/notes/SCR-WMS-INB-01-receive-inbound-rules.md:generic-api-key:23

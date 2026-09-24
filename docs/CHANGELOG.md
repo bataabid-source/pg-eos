@@ -6,6 +6,8 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ## 2.9 — golden slice "Receive inbound order" (backend) — built and reviewed, NOT DONE (2026-09-24)
 
+- **CI run #6 (eef0d42): gates ①–⑤ green (all packages, as pgeos_app); ⑥ red** — gitleaks generic-api-key false positive on prose in SCR-WMS-INB-01 ("Idempotency-Key store: SCR-PLAT-IDEM-01"). Fix (Master, direct): line reworded; the historical fingerprint added to .gitleaksignore with its verification note. Local full-history gitleaks: no leaks.
+
 - Golden-slice review PASS round 4, PASS(36 findings fixed): FAIL(21) → FAIL(13) → FAIL(2) → PASS. Pre-migration reviews of 0008 and 0009: APPROVED WITH CHANGES. **NOT DONE**: blocked on SCR-PLAT-IDEM-01 (Idempotency-Key store, 409 on reuse and 7-day replay), SCR-WMS-INB-01 §1–4 (received→closed edge, zero-qty line completes, Close/Cancel commands, variance photo column), observability (36 §5-4 #10 — logger and monitoring dashboard; pino not yet a dependency), and the GM's personal acceptance. `.golden-slice-accepted` is **not created**; `scripts/new-slice.sh` stays a no-op.
 - Migrations: `database/migrations/0008_M_inbound-orders-version.sql` (generalises 13B:161-166 to `wms.inbound_orders`, plus G6 classification) and `0009_M_next-doc-no-definer.sql` (`next_doc_no` SECURITY DEFINER with an entity-scope gate, parity 01:96, revoke from public / grant to `pgeos_app`, owner check). Lane M, task 2.9, applied 2026-09-24.
 - Events added to `packages/events/catalog.ts`: `wms.inbound.received`, `wms.inbound.variance`. `xstate` added to `modules/wms`.
