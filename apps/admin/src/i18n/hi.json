@@ -1,0 +1,22 @@
+{
+  "app.name": "एंटरप्राइज़ ऑपरेटिंग सिस्टम",
+  "nav.inbox": "निर्णय इनबॉक्स",
+  "inbox.header.title": "निर्णय इनबॉक्स — {role}",
+  "inbox.header.count": "{n} को आपके निर्णय की आवश्यकता है",
+  "inbox.empty.title": "अभी आपके निर्णय की आवश्यकता वाला कुछ नहीं है",
+  "inbox.empty.missing": "कोई खुला निर्णय नहीं",
+  "inbox.empty.owner": "ज़िम्मेदार: {role}",
+  "inbox.error.title": "निर्णय इनबॉक्स प्रदर्शित नहीं हो सका",
+  "inbox.error.missing": "निर्णय लोड नहीं हो सके",
+  "inbox.error.owner": "ज़िम्मेदार: तकनीकी सहायता",
+  "inbox.action.approve": "स्वीकृत करें",
+  "inbox.action.reject": "अस्वीकार करें",
+  "inbox.action.details": "विवरण",
+  "locale.select.label": "भाषा",
+  "locale.name.ar": "अरबी",
+  "locale.name.en": "अंग्रेज़ी",
+  "locale.name.hi": "हिन्दी",
+  "locale.name.ur": "उर्दू",
+  "locale.name.bn": "बंगाली",
+  "locale.name.am": "अम्हारी"
+}

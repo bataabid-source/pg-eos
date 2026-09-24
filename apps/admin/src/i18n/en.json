@@ -1,0 +1,22 @@
+{
+  "app.name": "Enterprise Operating System",
+  "nav.inbox": "Decision Inbox",
+  "inbox.header.title": "Decision Inbox — {role}",
+  "inbox.header.count": "{n} need your decision",
+  "inbox.empty.title": "Nothing needs your decision right now",
+  "inbox.empty.missing": "No open decisions",
+  "inbox.empty.owner": "Owner: {role}",
+  "inbox.error.title": "Could not display the Decision Inbox",
+  "inbox.error.missing": "Could not load decisions",
+  "inbox.error.owner": "Owner: Technical Support",
+  "inbox.action.approve": "Approve",
+  "inbox.action.reject": "Reject",
+  "inbox.action.details": "Details",
+  "locale.select.label": "Language",
+  "locale.name.ar": "Arabic",
+  "locale.name.en": "English",
+  "locale.name.hi": "Hindi",
+  "locale.name.ur": "Urdu",
+  "locale.name.bn": "Bengali",
+  "locale.name.am": "Amharic"
+}

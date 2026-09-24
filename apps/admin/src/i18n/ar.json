@@ -1,0 +1,22 @@
+{
+  "app.name": "نظام التشغيل الإداري",
+  "nav.inbox": "صندوق القرارات",
+  "inbox.header.title": "صندوق القرارات — {role}",
+  "inbox.header.count": "{n} تحتاج قرارك",
+  "inbox.empty.title": "لا يوجد ما يحتاج قرارك الآن",
+  "inbox.empty.missing": "لا قرارات مفتوحة",
+  "inbox.empty.owner": "المسؤول: {role}",
+  "inbox.error.title": "تعذّر عرض صندوق القرارات",
+  "inbox.error.missing": "تعذّر تحميل القرارات",
+  "inbox.error.owner": "المسؤول: الدعم الفني",
+  "inbox.action.approve": "اعتماد",
+  "inbox.action.reject": "رفض",
+  "inbox.action.details": "التفاصيل",
+  "locale.select.label": "اللغة",
+  "locale.name.ar": "العربية",
+  "locale.name.en": "الإنجليزية",
+  "locale.name.hi": "الهندية",
+  "locale.name.ur": "الأردية",
+  "locale.name.bn": "البنغالية",
+  "locale.name.am": "الأمهرية"
+}
