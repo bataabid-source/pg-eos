@@ -37,6 +37,7 @@ Maintained by pg-scribe only, in the same commit as the task it records.
 - ~~(a) G15–G17 are not run by `guards-run.sh`.~~ **Resolved 2026-09-24 (D-170):** runners executed when present, NOT RUNNABLE otherwise, blocking under `PG_GUARDS_STRICT=1` (deploy).
 - ~~(b) `scripts/new-slice.sh` `LANGS` lacks `am`.~~ **Resolved (D-170).**
 - ~~(c) No package scaffold for a module with no golden counterpart.~~ **Resolved (D-170):** `new-slice.sh` scaffolds `modules/<module>` (package.json, tsconfigs, vitest, index.ts barrel, contracts dir) from the golden shell before copying the layers.
+- **`scripts/deploy.sh` does not exist yet** (CLAUDE.md names it): G15–G17 are NOT RUNNABLE and non-blocking at merge until it exists and exports `PG_GUARDS_STRICT=1` before `pnpm guards:run` (0.6b / deploy slice). Recorded 2026-09-24.
 - **Open G-01 item:** G8 anchor storage before the first partition detach (≥ 2028-03) — D-115: `platform.settings` key design.
 - **Carried under D-131 (owner GM, post-pilot):** ADR-0003 items 1 (shared PDA — PDA path blocked), 3, 4a, 5 (punch-record retention; doc 40:668, doc 25:429 unchanged), 6, 8, 9; GPS classification; SoD mechanism; §2.5 values. APP-1 has no WBS ID (D-127 no naming) — stays `tasks/proposed/`.
 - **Not applied under D-132:** G3 diagram `01-08` regeneration (mermaid renderer not installed); G1/G2 (no retention value).
