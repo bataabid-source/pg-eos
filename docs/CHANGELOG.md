@@ -106,6 +106,13 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — Delivery-client portal addendum: statement, contract, sub-users, service request, suggestions (D-163) — DONE (2026-09-24)
+
+- GM addendum to D-160 recorded verbatim. Four of five items already in doc 27 §6 / §8; new: order counters, read-only "my contract", explicit "my users", "request a service" → sales opportunity (`source = client_portal`), ticket type `suggestion`. Portal screens 12 → 18. Two check-list additions on the same G-01. Phase 6; no schema now.
+- Model: Master session fable-5.1 · Delegated: none · Review: n/a (governance) · tokens ≈ 7k (estimate)
+
+---
+
 ## X — SCR-TMS-PORTAL-01 filed: delivery-client portal — self-dispatch, recipient book, live driver tracking (D-160) — DONE (2026-09-24)
 
 - GM directive recorded verbatim (D-160; the SCR commit fd2ad13 carried the label D-150 by mistake — that range belongs to the 2.9 session — corrected in this commit). Shapes: `tms.recipients`, `tms.client_drivers` view, client-side `created → assigned` under `tms.task.assign_own` with INV-C4-1 kept, `tms.driver_positions` (append-only, 30-day default), +3 portal screens, policy exception for attached drivers' names. Five defaults in §4. Phase 6 (6.1/6.2); no pilot impact.

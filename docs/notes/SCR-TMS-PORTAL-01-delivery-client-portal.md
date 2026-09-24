@@ -36,3 +36,16 @@ Route optimisation for the client, chat with the driver, COD settlement view cha
 3. Live position is recorded only during `out_for_delivery` and kept **30 days**; the client sees it only for his own tasks / attached drivers.
 4. Position ping interval **60 s** while moving (driver app), configurable in `platform.thresholds`.
 5. Phase 6 with 6.1; the API (6.2) gains `GET /drivers`, `POST /orders/{ref}/assign`, `GET /tasks/{ref}/position` in the same phase.
+
+## 5. Addendum D-163 — account, package, sub-users, service request, complaints (GM, 2026-09-24)
+
+| # | GM line (verbatim) | Present today? (doc 27 §6 / doc 40 §C10) | What is new |
+|---|---|---|---|
+| 5 | كشف حسابه وعدد طلباته | **Yes** — screen 10 "invoices & statement" (per entity + consolidated + ageing); screen 2 dashboard (open orders, today's shipments, balance); screen 7 "my orders" | Dashboard gains the **order counters** (today · month · by status) — a query on `tms.delivery_tasks` / `wms.outbound_orders`, no schema |
+| 6 | إدارة باقته أو تعاقده | **Half** — the contract exists (`sales.contracts`, `contract_sla`, price annex) but **no portal screen shows it** | New screen **"my contract"**: package (DL-04/05 dedicated drivers/vehicles, contracted space, services, SLA, price annex, term, renewal date), read-only; changes go through "request a service" (line 8). No schema — `client_portal_scope` policy on `sales.contracts` and its annex (today `entity_scope` only) is the only addition |
+| 7 | إدارة حسابات المستخدمين الفرعيين تحت إدارته | **Yes** — `CLIENT_ADMIN` "manages his users" (doc 27 §8, §9 step ③) | The user-management screen is implied but **not among the 12** → listed explicitly as screen **"my users"** (invite by mail + OTP, role among the four client roles, deactivate). No schema |
+| 8 | طلب إضافة خدمة من خدمات بريميوم | **No** | New screen **"request a service"**: the client picks from the 92-service catalog (only categories his entity offers; prices not shown unless in his annex) or writes a free request → creates a **`sales.opportunities` row of source `client_portal`** for SALES_MGR/SALES_REP and a card on their board; the client sees its status (received · quoted · contracted · declined). Precedent: the "partner_or_decline" decision path (S9). No new table — `sales.opportunities.source` gains the value `client_portal` (check-list addition, G-01 with this SCR) |
+| 9 | شكاوى واقتراحات: فتح تذكرة | **Yes** — screen 12 "complaints → PCC ticket automatically" (`cc.tickets`) | Extend with **type `suggestion`** beside `complaint` (`cc.tickets.ticket_type` value — check-list addition) and show the ticket's status + SLA state to the client |
+
+**Screens after this addendum: 12 → 18** (D-160: my drivers · dispatch · recipients; D-163: my contract · my users · request a service). Roles: `CLIENT_ADMIN` alone manages users and contract requests; `CLIENT_FINANCE` sees statement only (unchanged).
+**Defaults taken:** service requests are opportunities, not orders (Sales qualifies and quotes — no price is committed from the portal); the contract screen is read-only; suggestions are PCC tickets with the lowest priority class.
