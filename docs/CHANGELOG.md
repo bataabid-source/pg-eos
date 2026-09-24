@@ -116,6 +116,14 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — Lane blockers (a)(b)(c) settled; lanes claimed; building resumes (D-170) — DONE (2026-09-24)
+
+- `scripts/guards-run.sh`: G15–G17 runners executed when present (test:scenarios · mutation · test:trace), NOT RUNNABLE reported otherwise, blocking under `PG_GUARDS_STRICT=1` (deploy). `scripts/new-slice.sh`: `am` added to LANGS; new-module scaffold (package.json, tsconfigs, vitest config, index.ts barrel, contracts dir) copied from the golden shell before the layers. PROJECT_STATE blockers struck through; LANE_LOCKS: lane 1 `catalog` (1.2), lane 2 `hr` (3.3, queued), lane 3 `platform` (5.13, in progress).
+- External free-tier AI APIs: dropped by the GM (D-170); no tooling added.
+- Model: Master session fable-5.1 · Delegated: none · Review: n/a (governance + scripts) · tokens ≈ 15k (estimate)
+
+---
+
 ## X — Logistics terms on orders: handover point, transport by, vehicle type, labour (D-169) — DONE (2026-09-24)
 
 - GM directive recorded verbatim (D-169). SCR-WMS-INB-01 §8: four terms on inbound and outbound orders, contract defaults, portal proposal, pickup-task creation for premium transport from a client site, terms in the `received`/`dispatched` payloads for billing. Folded into staged slice 2.9b (inbound) and 2.11 (outbound); backlog row and file updated. No schema now.

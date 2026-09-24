@@ -24,8 +24,8 @@
 #     that can report green without executing is worse than no guard. Do not remove that line.
 #   - G18 (billing.verify_unpriced_events) is REPORT-ONLY and never blocks.
 #   - G-SEED (reference-seed completeness) is REPORT-ONLY and never blocks.
-#   - G15–G17 are still not SQL and still not run here: `pnpm playwright test tests/scenarios` (G15)
-#     · `pnpm stryker run` (G16) · `pnpm test:trace` (G17).
+#   - G15–G17 are not SQL: their runners (test:scenarios · mutation · test:trace) are executed here
+#     when present; a missing runner is NOT RUNNABLE (report only) unless PG_GUARDS_STRICT=1 (deploy).
 #
 # Exit: 0 all blocking guards green · 1 at least one of G1–G14 (G6 included, WBS 0.16 closed;
 #       G14 included, WBS 0.18) returned a row / failed · 2 the guards file, psql or pnpm could not
@@ -125,7 +125,29 @@ for g in G1 G2 G3 G4 G5 G6 G7 G8 G9 G10 G11 G12 G13 G14 G18 G-SEED; do
 done
 
 echo
-echo "G15–G17 are not SQL and still not run here: pnpm playwright test tests/scenarios (G15) · pnpm stryker run (G16) · pnpm test:trace (G17)."
+# ---- G15–G17: not SQL — run their runners here when they exist (lane blocker (a), 2026-09-24) ----
+# doc 40 Part F: G15 = playwright tests/scenarios 20/20 · G16 = stryker on domain/ ≥ 75 % ·
+# G17 = pnpm test:trace ≤ 2 s. A guard whose runner does not exist yet (S1–S20 arrive with the
+# slices; stryker is the nightly job; test:trace is WBS 6.4) is reported NOT RUNNABLE and blocks
+# only under PG_GUARDS_STRICT=1, which scripts/deploy.sh sets — nothing deploys without them.
+has_script() { node -e "process.exit(require('./package.json').scripts&&require('./package.json').scripts['$1']?0:1)" 2>/dev/null; }
+run_nonsql_guard() {
+  local g="$1" label="$2" script="$3" present="$4" cond="$5"
+  if [ "$present" = "1" ]; then
+    if pnpm -s "$script" >"$OUT.$g" 2>&1; then report_line "$g" "-" "green ($label $cond)"
+    else report_line "$g" "-" "RED — blocks merge and deploy ($label failed; see $OUT.$g)"; BLOCKING=$((BLOCKING + 1)); fi
+  elif [ "${PG_GUARDS_STRICT:-0}" = "1" ]; then
+    report_line "$g" "-" "RED — NOT RUNNABLE under PG_GUARDS_STRICT ($label runner missing)"; BLOCKING=$((BLOCKING + 1))
+  else
+    report_line "$g" "-" "NOT RUNNABLE — $label runner not present yet (report only until deploy)"
+  fi
+}
+g15_present=0; [ -n "$(ls -A tests/scenarios 2>/dev/null)" ] && has_script test:scenarios && g15_present=1
+g16_present=0; { ls stryker.config.* >/dev/null 2>&1 || ls stryker.conf.* >/dev/null 2>&1; } && has_script mutation && g16_present=1
+g17_present=0; has_script test:trace && g17_present=1
+run_nonsql_guard G15 "doc 40 Part E scenarios" test:scenarios "$g15_present" "20/20"
+run_nonsql_guard G16 "stryker mutation on domain/" mutation "$g16_present" ">= 75 %"
+run_nonsql_guard G17 "trace screen" test:trace "$g17_present" "<= 2 s"
 
 if [ "$BLOCKING" -gt 0 ]; then
   echo

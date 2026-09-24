@@ -29,7 +29,7 @@
 #        modules/wms/tests/receive-inbound         → modules/<module>/tests/<use-case>
 #      plus the contract  packages/contracts/wms/receive-inbound.ts
 #                      → packages/contracts/<module>/<use-case>.ts
-#      plus the i18n key block in packages/i18n/<lang>/<module>.json for ar en hi ur bn.
+#      plus the i18n key block in packages/i18n/<lang>/<module>.json for ar en hi ur bn am.
 #   3. sed-rename inside every copied file, in this order (longest first, so no partial hits):
 #        receive-inbound → <use-case>            (kebab: paths, i18n keys, route segments)
 #        receive_inbound → <use_case>            (snake: SQL, column and event names)
@@ -52,7 +52,7 @@ GATE="$ROOT/.golden-slice-accepted"
 GOLDEN_MODULE="wms"
 GOLDEN_SLUG="receive-inbound"
 LAYERS="domain application infrastructure api tests"
-LANGS="ar en hi ur bn"
+LANGS="ar en hi ur bn am"   # six field-app languages — SCR-I18N-01 / D-001 (am added: lane blocker (b))
 
 if [ ! -f "$GATE" ]; then
   echo "golden slice not accepted yet"
@@ -146,6 +146,39 @@ for layer in $LAYERS; do
     while IFS= read -r -d '' f; do mv "$f" "${f//$GOLDEN_PASCAL/$pascal}"; done
 done
 rename_in_place "$ROOT/packages/contracts/$MODULE/$SLUG.ts"
+
+# ---- module scaffold (lane blocker (c), 2026-09-24) -----------------------
+# A module with no golden counterpart (anything but identity platform sales wms today) gets its
+# package shell copied from the golden module BEFORE the five layers are copied: package.json,
+# tsconfig.json, tsconfig.test.json, vitest.config.ts and an index.ts barrel, with @pg-eos/wms →
+# @pg-eos/<module>. This is the ONLY way a new module package is created (CLAUDE.md: hand-made
+# trees are a review FAIL). After the copy, `pnpm install` links the new workspace package; the
+# boundaries rule (eslint.config.mjs) matches modules/* generically, so nothing else is registered.
+scaffold_module() {
+  local mdir="$ROOT/modules/$MODULE" gdir="$ROOT/modules/$GOLDEN_MODULE"
+  # the layer copy above already created modules/<module>/<layer>; the package shell (package.json)
+  # is what decides whether the module exists as a workspace package.
+  [ -f "$mdir/package.json" ] && return 0
+  mkdir -p "$mdir"
+  for f in package.json tsconfig.json tsconfig.test.json vitest.config.ts; do
+    cp "$gdir/$f" "$mdir/$f"
+    rename_in_place "$mdir/$f"
+    sed -i "s#\"@pg-eos/${GOLDEN_MODULE}\"#\"@pg-eos/${MODULE}\"#g" "$mdir/$f"   # workspace package name
+    produced="$produced modules/$MODULE/$f"
+  done
+  # tsconfig.test.json lists the golden slice's own test folders; keep only the generic ones.
+  sed -i "s#\"tests/${SLUG}/\*\*/\*.ts\"#\"tests/**/*.ts\"#; /\"tests\/integration\/\*\*\/\*.ts\",/d; /\"tests\/unit\/\*\*\/\*.ts\",/d" "$mdir/tsconfig.test.json"
+  cat > "$mdir/index.ts" <<EOF
+// modules/$MODULE — package shell created by scripts/new-slice.sh (lane blocker (c), 2026-09-24),
+// copied from the golden module's shell (modules/$GOLDEN_MODULE). Public barrel: every use case
+// re-exports its application layer here. Never hand-made (CLAUDE.md · SPEED AND QUALITY).
+export * from './application/$SLUG/index.js';
+EOF
+  produced="$produced modules/$MODULE/index.ts"
+  mkdir -p "$ROOT/packages/contracts/$MODULE"
+  echo "new-slice: scaffolded module package modules/$MODULE (run: pnpm install)"
+}
+scaffold_module
 
 # ---- i18n key block ------------------------------------------------------
 for lang in $LANGS; do
