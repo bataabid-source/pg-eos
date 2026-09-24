@@ -71,6 +71,16 @@ jobs:
       # fails loudly here instead of deep inside apply.sh.
       - name: Assert psql 16
         run: psql --version | grep -q ' 16\.'
+      # packages/documents renders PDFs with Puppeteer. The pnpm store is restored from cache, so
+      # puppeteer's postinstall (which downloads Chrome to ~/.cache/puppeteer) does not re-run:
+      # install the pinned Chrome explicitly (CI run #1 failed with "Could not find Chrome").
+      - name: Install Chrome for Puppeteer
+        run: pnpm --filter @pg-eos/documents exec puppeteer browsers install chrome
+      # ubuntu-24.04 restricts unprivileged user namespaces via AppArmor, which Chrome's sandbox
+      # needs. Relaxed on the throwaway runner only — the app keeps the sandbox on (render.ts
+      # launches without --no-sandbox).
+      - name: Allow Chrome sandbox on the runner
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
       - name: Apply schema (creates pgeos_app via migration 0007)
         run: bash database/schema/apply.sh --recreate
       # Default taken: gates ② (unit) and ③ (integration) share this one job because the
@@ -82,7 +92,9 @@ jobs:
       # modules/platform audit-chain-seq.test.ts (creates an audit_log partition — DDL,
       # AccessExclusiveLock) deadlocks (40P01) with another package's audit writes holding the
       # audit-chain advisory lock. Seen twice locally on 2026-09-24; serial runs are green.
-      - run: pnpm exec turbo run test --concurrency=1
+      # --continue: run every package even after one fails, so a single red package does not hide
+      # the others (run #1 stopped at @pg-eos/documents). The job still fails on any red.
+      - run: pnpm exec turbo run test --concurrency=1 --continue
 
   acceptance:
     name: "④ acceptance (doc 40 Part E)"
