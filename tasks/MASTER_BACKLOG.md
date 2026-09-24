@@ -103,7 +103,7 @@ Type: 🧑 human decision/data · 🤖 AI-buildable slice · 🔧 infra · ✅ v
 |---|---|---|---|---|---|---|---|
 | 3.1 | `tms.vehicles`, documents, hard gate on expired docs | 🤖 | 0.9 | **1** | FLEET_MGR | Expired-doc vehicle cannot be assigned | READY |
 | 3.2 | **Data gate M09:** all vehicles with valid documents | 🧑 | 3.1 | **A** | FLEET_MGR | Scorecard = 100% | DEFERRED-POST-PILOT — D-127 (data gate) |
-| 3.3 | `hr.employees` (drivers), documents, hard gate | 🤖 | 0.9 | **2** | HR_MGR | Expired-doc driver cannot be assigned | READY |
+| 3.3 | `hr.employees` (drivers), documents, hard gate | 🤖 | 0.9 | **2** | HR_MGR | Expired-doc driver cannot be assigned | DONE @ `<this commit>` — register-employee slice (4 commands, hard gate INV-C4-1), migration 0014, SCR-HR-EMP-01 filed; 71/71 as pgeos_app |
 | 3.4 | Delivery tasks, routes, POD (GPS + signature/photo + server timestamp), exceptions | 🤖 | 2.12, 3.1 | **1** | DEL_MGR | POD without GPS rejected | TODO |
 | 3.5 | Failure-reason tree **7 parents × 25 children** with `counts_against_driver` and conditional auto-attribution — **exactly three reasons count against the driver** (`door_not_opened`, `building_not_found`, `shift_time_exhausted`); breakdown and accident never do | 🤖 | 3.4 | **1** | DEL_MGR | "No answer" without two logged contact attempts flagged; `tms.failure_reasons` holds 7 + 25 rows | TODO |
 | 3.6 | COD reconciliation + day-close gates (five) | 🤖 | 3.4 | **1** | CFO | Day cannot close with COD variance | TODO |
@@ -172,7 +172,7 @@ Type: 🧑 human decision/data · 🤖 AI-buildable slice · 🔧 infra · ✅ v
 | 5.10 | Housing: properties, units, rooms, beds, assignments, maintenance, inspections | 🤖 | 5.3 | **1** | HOUSING_SUP | Bed = unit of assignment; clearance blocked until bed released | TODO |
 | 5.11 | Administrative: purchase requests, three-way match, petty cash, assets/custody, approvals, correspondence | 🤖 | 4.1 | **3** | Admin Mgr | PO paid without match impossible | TODO |
 | 5.12 | Fleet: maintenance plans (km-based), orders, accidents, fuel ledger (I-03 import) | 🤖 | 3.1 | **3** | FLEET_MGR | Fuel entry without odometer rejected; anomaly > 20% flagged | TODO |
-| 5.13 | Alerts engine (**22 rules — N-01…N-18 plus N-19…N-22 from doc 23 §4**), report catalog (24), scheduled delivery | 🤖 | 0.10 | **M** | SYSADMIN | Alert without action link impossible; no alert targets an unfilled position | IN PROGRESS — part 1 @ `<this commit>` (alert evaluation mechanism: EvaluateAlertRules + AcknowledgeAlert, migrations 0011/0012); part 2 = delivery · escalation · dynamic recipients · report catalog · job |
+| 5.13 | Alerts engine (**22 rules — N-01…N-18 plus N-19…N-22 from doc 23 §4**), report catalog (24), scheduled delivery | 🤖 | 0.10 | **M** | SYSADMIN | Alert without action link impossible; no alert targets an unfilled position | IN PROGRESS — part 1 @ `a66ea8c` (alert evaluation mechanism: EvaluateAlertRules + AcknowledgeAlert, migrations 0011/0012); part 2 = delivery · escalation · dynamic recipients · report catalog · job |
 | 5.14 | M13 Governance: budgets/variance, KPI tree, OKRs, risk register, NCR, policies, board pack, decisions | 🤖 | 4.11 | **3** | GM | Board pack generates from live data | TODO |
 | 5.15 | **Data gates M08, M09 (documents 100%)** | 🧑 | 5.3, 3.1 | **A** | HR_MGR, FLEET_MGR | Scorecards = 100% | DEFERRED-POST-PILOT — D-127 (data gates) |
 | 5.16 | Scenarios S13, S14, S17 pass | ✅ | 5.11 | **M** | HR_MGR | Playwright green | TODO |
