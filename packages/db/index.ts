@@ -16,3 +16,5 @@
 export type { WithContextCtx } from './src/with-context.js';
 export { withContext } from './src/with-context.js';
 export { db } from './src/client.js';
+export type { IdempotencyInput, JsonValue } from './src/idempotency.js';
+export { IdempotencyConflictError, withIdempotentContext } from './src/idempotency.js';

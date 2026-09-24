@@ -22,12 +22,25 @@ export interface ClockDeps {
   readonly ids: IdGenerator;
 }
 
+/** A structured-log field bag — CLAUDE.md · AGENT CONSTRAINTS "No console.log — pino". Any value
+ *  is accepted (including an `err` key holding the raw caught `unknown`/Error value) so a caller
+ *  can pass pino's own `err` convention straight through without narrowing it first. */
+export type LogFields = Record<string, unknown>;
+
+/** A structured logger port. Implemented by ../../infrastructure/receive-inbound/logger.ts (a
+ *  @pg-eos/logger child-logger adapter); a fixed no-op/spy implementation in tests. */
+export interface Logger {
+  error(obj: LogFields, msg: string): void;
+  info(obj: LogFields, msg: string): void;
+}
+
 /** Everything a command needs, injected by the composition root
  *  (../../api/receive-inbound/composition.ts). Commands program only against these ports — the
  *  application layer never imports infrastructure/. */
 export interface ReceiveInboundDeps extends ClockDeps {
   readonly repo: InboundOrderRepository;
   readonly ledger: LedgerPort;
+  readonly logger: Logger;
 }
 
 /** What an audit row is about: the aggregate row itself, or one of its lines. The adapter maps
@@ -97,6 +110,10 @@ export interface InboundOrderRepository {
       readonly batchNo: string | null;
       readonly expiryDate: string | null;
       readonly varianceReason: string | null;
+      /** Both null or both set — the contract and assertVariancePhotoRequiresVariance both
+       *  enforce this before the write is attempted (SCR-WMS-INB-01 §4). */
+      readonly variancePhotoUrl: string | null;
+      readonly variancePhotoSha256: string | null;
       readonly status: string;
     },
   ): Promise<boolean>;
@@ -107,6 +124,10 @@ export interface InboundOrderRepository {
   ): Promise<boolean>;
   countUnreceiptedLines(tx: NodePgDatabase, orderId: string): Promise<number>;
   hasBlockingOpenLines(tx: NodePgDatabase, orderId: string): Promise<boolean>;
+  /** CancelInbound's own business rule (SCR-WMS-INB-01 §1/§3): true iff any line of the order
+   *  already has qty_actual > 0 — stock has physically moved and the order may no longer be
+   *  cancelled. */
+  hasPhysicallyReceivedLines(tx: NodePgDatabase, orderId: string): Promise<boolean>;
   pickRcvLocation(tx: NodePgDatabase, warehouseId: string): Promise<{ readonly id: string }>;
   findRcvBalanceLocation(
     tx: NodePgDatabase,
@@ -148,6 +169,11 @@ export interface InboundOrderRepository {
       readonly batchNo: string | null;
       readonly expiryDate: string | null;
       readonly varianceReason: string | null;
+      /** Null when the line carries no variance photo; the caller (./receive-line.ts) includes
+       *  these keys in the rendered GRN snapshot ONLY when both are non-null (SCR-WMS-INB-01 §4,
+       *  §6). */
+      readonly variancePhotoUrl: string | null;
+      readonly variancePhotoSha256: string | null;
     }>;
   }>;
   writeAuditRow(

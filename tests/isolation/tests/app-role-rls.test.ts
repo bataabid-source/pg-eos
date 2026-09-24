@@ -35,7 +35,7 @@
 
 import { randomUUID } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -47,12 +47,32 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..', '..', '..');
 
-const MIGRATION_FILE = path.join(
-  ROOT,
-  'database',
-  'migrations',
-  '0007_M_pgeos-app-role-entity-scope.sql',
-);
+const MIGRATIONS_DIR = path.join(ROOT, 'database', 'migrations');
+
+const MIGRATION_FILE = path.join(MIGRATIONS_DIR, '0007_M_pgeos-app-role-entity-scope.sql');
+
+// Fix round 1 (Master, this session): 0007's grant loop re-grants DELETE on every platform table
+// (including platform.idempotency_keys, added later by migration 0010) — applying 0007 ALONE, as
+// this test used to, left the dev DB with pgeos_app holding DELETE on it, because normally
+// apply.sh's own full run applies every LATER migration afterward (0010 revokes DELETE again).
+// Root cause + fix confirmed live: `has_table_privilege('pgeos_app','platform.idempotency_keys',
+// 'DELETE')` was false before this test ran, true immediately after (0007-only), and false again
+// once every migration numbered >= 0007 is re-applied in file order, below.
+const MIGRATION_NUMBER_RE = /^(\d{4})_/;
+
+/** Every database/migrations/NNNN_*.sql file whose numeric prefix is >= `minNumber`, sorted by
+ *  that number — mirrors apply.sh's own `sort -V` migrations step, not re-invented. */
+function migrationFilesFrom(minNumber: number): string[] {
+  const entries = readdirSync(MIGRATIONS_DIR);
+  return entries
+    .map((name) => {
+      const match = MIGRATION_NUMBER_RE.exec(name);
+      return match ? { name, number: Number(match[1]) } : null;
+    })
+    .filter((entry): entry is { name: string; number: number } => entry !== null && entry.number >= minNumber)
+    .sort((a, b) => a.number - b.number)
+    .map((entry) => path.join(MIGRATIONS_DIR, entry.name));
+}
 
 // The runtime role D-133 names — fixed, not a per-run throwaway (contrast ROLE in
 // client-isolation.test.ts): this file only ever connects as it, never creates or drops it.
@@ -781,5 +801,23 @@ describe('0007 applied twice converges and G7 extended query returns 0', () => {
 
     const g7Rows = await g7ExtendedRows();
     expect(g7Rows).toEqual([]);
+
+    // Fix round 1: 0007 alone re-grants DELETE broadly (its own grant loop) — apply.sh's real
+    // sequence always runs every LATER migration afterward (0010 revokes DELETE on
+    // platform.idempotency_keys again). Reproduce that same convergence here, in file order, so
+    // this test leaves the dev DB in exactly the state a full `apply.sh` run would, not the
+    // 0007-only intermediate state.
+    const laterMigrations = migrationFilesFrom(7);
+    expect(laterMigrations.length).toBeGreaterThan(0); // vacuity guard — 0007 itself must be found.
+    for (const migrationFile of laterMigrations) {
+      execFileSync('psql', psqlArgs, { input: readFileSync(migrationFile, 'utf8'), encoding: 'utf8' });
+    }
+
+    const deleteGrant = await admin.query<{ has_priv: boolean }>(
+      `select has_table_privilege('pgeos_app', 'platform.idempotency_keys', 'DELETE') as has_priv`,
+    );
+    expect(firstRow(deleteGrant, 'has_table_privilege lookup for platform.idempotency_keys DELETE').has_priv).toBe(
+      false,
+    );
   });
 });

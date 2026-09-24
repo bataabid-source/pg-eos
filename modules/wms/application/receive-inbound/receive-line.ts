@@ -1,7 +1,8 @@
 // modules/wms/application/receive-inbound/receive-line.ts — WBS 2.9, THE GOLDEN SLICE.
 //
-// ONE withContext transaction. Lock order (full rationale in
-// ../../infrastructure/receive-inbound/repository.ts's own header):
+// ONE withIdempotentContext transaction (step 0 — see
+// ../../../../packages/db/src/idempotency.ts — runs first when input.idem is set). Lock order
+// (full rationale in ../../infrastructure/receive-inbound/repository.ts's own header):
 //   1. order-row lock (repo.getOrderForUpdate) + expectedVersion check.
 //   2. line-row lock, bound to the order (repo.getOrderLineForUpdate: a mismatched
 //      lineId/orderId pair is LineNotFoundError, never a cross-order leak).
@@ -28,12 +29,12 @@
 // CloseInbound's own gate (repo.hasBlockingOpenLines) treats status='complete' + qty_actual=0 as
 // non-blocking even without a location_id.
 
-import { withContext, type WithContextCtx } from '@pg-eos/db';
+import { withIdempotentContext, type IdempotencyInput, type WithContextCtx } from '@pg-eos/db';
 import { Quantity } from '@pg-eos/domain-kit';
 import { writeOutboxEvent, type CatalogedEventType } from '@pg-eos/events';
 
 import { INBOUND_ORDER_EVENTS, advanceInboundOrder, canTransition } from '../../domain/receive-inbound/machine.js';
-import { assertSkuBelongsToOrderClient, assertVarianceHasReason, isFullyShortReceipt, isVarianceReceipt } from '../../domain/receive-inbound/invariants.js';
+import { assertSkuBelongsToOrderClient, assertVarianceHasReason, assertVariancePhotoRequiresVariance, isFullyShortReceipt, isVarianceReceipt } from '../../domain/receive-inbound/invariants.js';
 import { LineAlreadyReceivedError, MissingActorError, StaleVersionError } from '../../domain/receive-inbound/errors.js';
 import type { ReceiveInboundDeps } from './ports.js';
 
@@ -61,8 +62,14 @@ export interface ReceiveLineInput {
   readonly batchNo?: string | undefined;
   readonly expiryDate?: string | undefined;
   readonly varianceReason?: string | undefined;
+  /** Both present or both absent — enforced by the contract
+   *  (packages/contracts/wms/receive-inbound.ts) AND allowed only on a variance receipt
+   *  (assertVariancePhotoRequiresVariance below) — SCR-WMS-INB-01 §4. */
+  readonly variancePhotoUrl?: string | undefined;
+  readonly variancePhotoSha256?: string | undefined;
   readonly expectedVersion: number;
   readonly correlationId: string;
+  readonly idem?: IdempotencyInput | undefined;
 }
 
 export interface ReceiveLineResult {
@@ -79,7 +86,7 @@ export async function receiveLine(
   if (!ctx.userId) throw new MissingActorError('ReceiveLine requires ctx.userId.');
   const actorId = ctx.userId;
 
-  return withContext(ctx, async (tx) => {
+  return withIdempotentContext<ReceiveLineResult>(ctx, input.idem, async (tx) => {
     // Steps 1-3 — lock order, lock the bound line, re-entry guard.
     const order = await deps.repo.getOrderForUpdate(tx, input.orderId);
     // NOTE: StaleVersionError is thrown here on a version mismatch — same pattern as every other
@@ -112,6 +119,7 @@ export async function receiveLine(
     const qtyActual = Quantity.of(input.qtyActual);
     const qtyOrdered = Quantity.of(line.qtyOrdered);
     assertVarianceHasReason(qtyActual, qtyOrdered, input.varianceReason);
+    assertVariancePhotoRequiresVariance(qtyActual, qtyOrdered, input.variancePhotoUrl !== undefined);
 
     const isVariance = isVarianceReceipt(qtyActual, qtyOrdered);
     const isFullyShort = isFullyShortReceipt(qtyActual);
@@ -126,6 +134,8 @@ export async function receiveLine(
       batchNo: input.batchNo ?? line.batchNo,
       expiryDate: input.expiryDate ?? null,
       varianceReason: input.varianceReason ?? null,
+      variancePhotoUrl: input.variancePhotoUrl ?? null,
+      variancePhotoSha256: input.variancePhotoSha256 ?? null,
       status: persistedLineStatus,
     });
     if (!lineUpdated) {
@@ -135,7 +145,10 @@ export async function receiveLine(
     }
 
     // Step 5b — the transition decision, from the machine alone (no if on the status string).
-    // An all-zero-qty order stays 'received' and closes from there (machine edge received->CLOSE).
+    // An all-zero-qty order stays 'received' — the machine has no received->CLOSE edge, so such
+    // an order is CANCELLED, not closed (./cancel-inbound.ts). It still gets the GRN and
+    // 'wms.inbound.received' event below like any other order reaching 'received' — see
+    // SCR-WMS-INB-01 §6 (WAITING_GM) for whether that stands.
     const unreceipted = await deps.repo.countUnreceiptedLines(tx, input.orderId);
     const isLastLine = unreceipted === 0;
     const events = [receiptEvent, ...(isLastLine ? [INBOUND_ORDER_EVENTS.RECEIVE_LINE_LAST] : [])];
@@ -150,13 +163,20 @@ export async function receiveLine(
       const docNo = await deps.repo.nextDocNo(tx, order.entityId, GRN_DOC_TYPE);
       const snapshot = await deps.repo.getGrnSnapshotData(tx, input.orderId);
       // frozen snapshot — order fields + every line's sku/ordered/actual/uom/batch/expiry/
-      // variance_reason. No location — put-away has not happened yet.
+      // variance_reason. No location — put-away has not happened yet. A line's
+      // variancePhotoUrl/variancePhotoSha256 are included ONLY when present, never as an
+      // explicit null key.
       const renderedData = {
         docNo,
         clientId: snapshot.clientId,
         warehouse: snapshot.warehouseCode,
         arrivedAt: snapshot.arrivedAt,
-        lines: snapshot.lines,
+        lines: snapshot.lines.map(({ variancePhotoUrl, variancePhotoSha256, ...line }) => ({
+          ...line,
+          ...(variancePhotoUrl !== null && variancePhotoSha256 !== null
+            ? { variancePhotoUrl, variancePhotoSha256 }
+            : {}),
+        })),
       };
       const inserted = await deps.repo.insertGrnDocument(tx, {
         entityId: order.entityId,

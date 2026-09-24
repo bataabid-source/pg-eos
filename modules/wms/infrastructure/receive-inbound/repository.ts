@@ -5,6 +5,11 @@
 // ../../application/receive-inbound/ports.ts's `InboundOrderRepository`.
 //
 // LOCK ORDER — the one every command follows (each command's header points here):
+//   0. the idempotency advisory lock + platform.idempotency_keys upsert (packages/db/src/
+//      idempotency.ts's withIdempotentContext), FIRST — before step 1 — whenever the command's
+//      own input carries an `idem` (every write command in this use case). A copy of this file
+//      keeps this as its own step 0; it is not a row lock on this module's own tables, but it is
+//      still the first thing the transaction does.
 //   1. getOrderForUpdate — `select ... for update` on the ONE aggregate row. Held for the rest of
 //      the transaction; the caller compares its own version to expectedVersion here.
 //   2. getOrderLineForUpdate — `select ... for update` on the ONE line row, bound to its order
@@ -133,6 +138,8 @@ async function updateLineReceipt(
     readonly batchNo: string | null;
     readonly expiryDate: string | null;
     readonly varianceReason: string | null;
+    readonly variancePhotoUrl: string | null;
+    readonly variancePhotoSha256: string | null;
     readonly status: string;
   },
 ): Promise<boolean> {
@@ -142,6 +149,8 @@ async function updateLineReceipt(
            batch_no = ${params.batchNo},
            expiry_date = ${params.expiryDate}::date,
            variance_reason = ${params.varianceReason},
+           variance_photo_url = ${params.variancePhotoUrl},
+           variance_photo_sha256 = ${params.variancePhotoSha256},
            status = ${params.status}
      where id = ${params.lineId}::uuid and qty_actual is null
   `);
@@ -183,6 +192,18 @@ async function hasBlockingOpenLines(tx: NodePgDatabase, orderId: string): Promis
     ) as blocked
   `);
   return result.rows[0]?.blocked ?? true;
+}
+
+/** CancelInbound's own business rule (SCR-WMS-INB-01 §1/§3): true iff at least one line of the
+ *  order already has qty_actual > 0 — stock has physically moved. */
+async function hasPhysicallyReceivedLines(tx: NodePgDatabase, orderId: string): Promise<boolean> {
+  const result = await tx.execute<{ moved: boolean }>(sql`
+    select exists (
+      select 1 from ${sql.raw(LINE_TABLE)}
+       where order_table = ${ORDER_TABLE} and order_id = ${orderId}::uuid and qty_actual > 0
+    ) as moved
+  `);
+  return result.rows[0]?.moved ?? false;
 }
 
 async function pickRcvLocation(tx: NodePgDatabase, warehouseId: string): Promise<{ readonly id: string }> {
@@ -355,9 +376,12 @@ async function getGrnSnapshotData(
     batch_no: string | null;
     expiry_date: string | null;
     variance_reason: string | null;
+    variance_photo_url: string | null;
+    variance_photo_sha256: string | null;
   }>(sql`
     select s.code as sku_code, ol.qty_ordered::text as qty_ordered, ol.qty_actual::text as qty_actual,
-           ol.uom, ol.batch_no, ol.expiry_date::text as expiry_date, ol.variance_reason
+           ol.uom, ol.batch_no, ol.expiry_date::text as expiry_date, ol.variance_reason,
+           ol.variance_photo_url, ol.variance_photo_sha256
       from ${sql.raw(LINE_TABLE)} ol
       join wms.skus s on s.id = ol.sku_id
      where ol.order_table = ${ORDER_TABLE} and ol.order_id = ${orderId}::uuid
@@ -377,6 +401,8 @@ async function getGrnSnapshotData(
       batchNo: row.batch_no,
       expiryDate: row.expiry_date,
       varianceReason: row.variance_reason,
+      variancePhotoUrl: row.variance_photo_url,
+      variancePhotoSha256: row.variance_photo_sha256,
     })),
   };
 }
@@ -419,6 +445,7 @@ export const inboundOrderRepository: InboundOrderRepository = {
   updateLineLocation,
   countUnreceiptedLines,
   hasBlockingOpenLines,
+  hasPhysicallyReceivedLines,
   pickRcvLocation,
   findRcvBalanceLocation,
   suggestLocationCandidatesQuery,

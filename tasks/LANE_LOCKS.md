@@ -3,6 +3,7 @@
 | module | lane | task | claimed_at | worktree |
 |---|---|---|---|---|
 
+`wms + packages/db (idempotency) + database/migrations (0010)` (lane M, task 2.9-part2) released 2026-09-24 — GM sheet-3 answers applied (idempotency store, cancel/close rules, variance photo, shared logger); NOT DONE (blocked on SCR-WMS-INB-01 §6, Q10/D-159 GM acceptance).
 `wms + packages/contracts/wms + packages/events (catalog)` (lane M, task 2.9) released 2026-09-24 — 2.9 built and reviewed, PASS round 4; NOT DONE (blocked on SCR-PLAT-IDEM-01, SCR-WMS-INB-01 §1–4, observability, GM acceptance).
 `wms` (lane 2, task 2.4) released 2026-09-24 — 2.4 DONE.
 `packages/db + CI (.github)` (lane M, task 0.6a-2) released 2026-09-24 — 0.6a IN PROGRESS pending GM ruleset decision (first green CI run: #2 @ d8dc887).
@@ -13,6 +14,7 @@ Not a lock table — deliberately not a `|`-prefixed markdown table, since
 `.claude/hooks/lane-guard.sh` parses every such line in this file as a
 module-lock row (see Rules below). One line per migration, newest first:
 
+- `0010_M_idempotency-keys-variance-photo.sql` — lane M, task 2.9-part2, applied 2026-09-24 (pg-reviewer pre-migration APPROVED WITH CHANGES).
 - `0009_M_next-doc-no-definer.sql` — lane M, task 2.9, applied 2026-09-24 (pg-reviewer pre-migration APPROVED WITH CHANGES).
 - `0008_M_inbound-orders-version.sql` — lane M, task 2.9, applied 2026-09-24 (pg-reviewer pre-migration APPROVED WITH CHANGES).
 - `0007_M_pgeos-app-role-entity-scope.sql` — lane M, task 0.6a (part 1, D-133/D-140), applied 2026-09-24 (pg-reviewer pre-migration APPROVED WITH CHANGES; slice PASS round 4).

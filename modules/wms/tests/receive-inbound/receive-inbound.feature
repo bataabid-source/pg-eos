@@ -37,10 +37,17 @@ Feature: Receive inbound order (WBS 2.9, golden slice)
     When ReceiveLine is called with qty_actual = qty_ordered
     Then no "wms.inbound.variance" row is written
 
-  Scenario: A zero-quantity line with a reason completes without putaway
+  Scenario: A zero-quantity line with a reason completes, but CloseInbound is no longer legal from "received"
     When ReceiveLine is called with qty_actual = 0 and a varianceReason
-    Then no stock movement is posted, the line counts complete for CloseInbound, and ConfirmPutaway
-      is never required for that line
+    Then no stock movement is posted, the line counts complete, and ConfirmPutaway is never required
+      for that line
+    But CloseInbound from "received" is now rejected with IllegalTransitionError — the machine no
+      longer offers that edge — and CancelInbound (no line has qty_actual > 0) sets status "cancelled"
+
+  Scenario: A mixed order (one zero-qty line, one non-zero line) reaches "putaway" through its non-zero line
+    Given an order with one zero-qty line and one non-zero line, both receipted
+    When ConfirmPutaway is called only for the non-zero line
+    Then the order status becomes "putaway" and CloseInbound then succeeds
 
   Scenario: A cross-order line is rejected
     When ReceiveLine is called with a lineId that belongs to a DIFFERENT order
@@ -87,8 +94,19 @@ Feature: Receive inbound order (WBS 2.9, golden slice)
     Then the order status becomes "cancelled"
 
   Scenario: CancelInbound after any line has been received is rejected
-    When CancelInbound is called after at least one line has been receipted
-    Then it is rejected with CancelBlockedError
+    When CancelInbound is called after at least one line has qty_actual > 0
+    Then it is rejected with CancelBlockedError (stock has physically moved)
+
+  Scenario: CancelInbound is legal from "received" when every line is qty 0
+    Given every receipted line has qty_actual = 0 and the order has reached "received"
+    When CancelInbound is called
+    Then the order status becomes "cancelled"
+
+  Scenario: CancelInbound on an order still "receiving" is rejected
+    Given the order has at least one line still open (not every line has been receipted)
+    When CancelInbound is called
+    Then it is rejected with IllegalTransitionError — the machine has no receiving --CANCEL-->
+      cancelled edge
 
   Scenario: ApproveInbound without role WH_MGR is rejected
     Given the caller holds no special role
@@ -122,3 +140,28 @@ Feature: Receive inbound order (WBS 2.9, golden slice)
   Scenario: Two concurrent ApproveInbound calls with the same expectedVersion
     When two callers call ApproveInbound at once with the same expectedVersion
     Then exactly one succeeds and the other is rejected with StaleVersionError (409)
+
+  Scenario: ApproveInbound is idempotent — same Idempotency-Key and body replays the stored result
+    Given an Idempotency-Key and a request body already used once for ApproveInbound
+    When ApproveInbound is called again with the SAME key and the SAME body
+    Then the second call returns the stored result without re-running the command, the order's
+      version bumps exactly once, and only one audit row exists for the first correlationId
+
+  Scenario: The same Idempotency-Key with a different request body is rejected
+    Given an Idempotency-Key already used once for ApproveInbound
+    When ApproveInbound is called again with the SAME key but a DIFFERENT body
+    Then it is rejected with IdempotencyConflictError (maps to HTTP 409)
+
+  Scenario: ReceiveLine is idempotent — the PDA-retry double-post case
+    Given a caller sends the same Idempotency-Key and body for ReceiveLine twice (a PDA retry that
+      never saw the first response)
+    When ReceiveLine is called again with the SAME key and the SAME body
+    Then exactly one stock_movements row is posted for that line and correlation, the second call
+      returns the stored result, and the order's version bumps exactly once
+
+  Scenario: A variance receipt may carry a photo pair; a non-variance receipt may not
+    When ReceiveLine is called on a variance receipt with variancePhotoUrl and variancePhotoSha256
+    Then both columns are persisted on the order line
+    When ReceiveLine is called on a NON-variance receipt with a photo pair
+    Then it is rejected with VariancePhotoWithoutVarianceError
+    And an invalid variancePhotoSha256 is rejected by the contract schema before either command runs

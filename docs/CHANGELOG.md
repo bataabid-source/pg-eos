@@ -4,6 +4,18 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## 2.9 (part 2) — GM sheet-3 answers applied: idempotency store, cancel/close rules, variance photo, shared logger — NOT DONE (2026-09-24)
+
+- Delivered: migration `database/migrations/0010_M_idempotency-keys-variance-photo.sql` (a pre-migration review APPROVED WITH CHANGES; idempotent, and re-run proven even after a 0007 re-run); `packages/db/src/idempotency.ts` (`withIdempotentContext`; `JsonCompatible<T>` bound); the new `packages/logger` package with 3 tests; the wms changes (optional idempotency on writes, canonical-JSON sha256 in the handlers, `IdempotencyConflictError` → 409, the Q3/Q5 machine and cancel rule with `IllegalTransitionError` thrown before `CancelBlockedError`, the Q6 variance-photo column pair plus `VariancePhotoWithoutVarianceError`, a logger port and a child-logger adapter); tests; and isolation test 10, which now re-applies every migration ≥ 0007 (re-running 0007 alone had re-granted DELETE on `idempotency_keys`).
+- Defaults taken (Master, recorded under D-150…D-159): commands keep "returns Result" (a replay returns the stored JSON result; conflicts throw a typed error mapped to 409), accepted by the reviewer. Idempotency keys are per-user only today (`entity_id` null). `JsonCompatible<T>` used instead of `T extends JsonValue`.
+- Open for acceptance: SCR-WMS-INB-01 §6 (an all-zero order gets a GRN and a billable event before cancel; WAITING_GM; blocks acceptance) and Q10 (D-159 — the GM asked for a review summary before personally accepting 2.9).
+- Follow-ups: the monitoring dashboard, the variance report document, PDA retry and `device_id` with the PDA slice, the pg-boss purge job wiring. Project-wide: G15–G17 are not run by `guards-run.sh`, and `new-slice.sh` `LANGS` has no `am` (SCR-I18N-01).
+- Evidence (fresh `apply.sh --recreate`, as `pgeos_app`): `turbo` 16/16 (wms 261/261, db 24/24, logger 3/3, platform 27/27); `test:isolation` 55/55; guards G1–G14, G18, G-SEED green; DELETE on `idempotency_keys` = f; lint, typecheck 18/18 and boundaries green.
+- Review: golden-slice reviewer (opus): part 2 FAIL(8) → FAIL(2) → PASS (10 findings fixed). The Master made the final text fixes and the logger test under D-117.
+- Model: opus-5.5 session (Master) · workers sonnet (pg-tester, pg-backend) · pg-reviewer opus · pg-scribe sonnet.
+
+---
+
 ## 2.9 — golden slice "Receive inbound order" (backend) — built and reviewed, NOT DONE (2026-09-24)
 
 - **CI run #6 (eef0d42): gates ①–⑤ green (all packages, as pgeos_app); ⑥ red** — gitleaks generic-api-key false positive on prose in SCR-WMS-INB-01 ("Idempotency-Key store: SCR-PLAT-IDEM-01"). Fix (Master, direct): line reworded; the historical fingerprint added to .gitleaksignore with its verification note. Local full-history gitleaks: no leaks.

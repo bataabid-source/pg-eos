@@ -4,10 +4,16 @@
 // quantity is a numeric(14,3) string, non-negative (a fully-short receipt, qtyActual=0
 // with a varianceReason, is legal — never negative). `expiryDate` is `z.iso.date()` (zod v4).
 // `performedBy` does NOT exist on any schema: the actor is ALWAYS `ctx.userId`, never a
-// caller-supplied field. `photoUrl` does NOT exist: wms.order_lines has no such column —
-// the Master files a G-01 schema-change request for it; this is not this slice's invention to
-// add. Every order-mutating command carries `expectedVersion` — the optimistic-lock token
-// the caller read most recently; a stale one -> StaleVersionError (409).
+// caller-supplied field. Every order-mutating command carries `expectedVersion` — the
+// optimistic-lock token the caller read most recently; a stale one -> StaleVersionError (409).
+//
+// SCR-WMS-INB-01 §4 (migration 0010_M_idempotency-keys-variance-photo.sql): `wms.order_lines`
+// now carries `variance_photo_url`/`variance_photo_sha256`, so ReceiveLineInputSchema accepts
+// `variancePhotoUrl`/`variancePhotoSha256` — both or neither (`.refine` below), sha256 hex
+// validated at the contract boundary; whether a photo may accompany THIS receipt (only on a
+// variance) is a domain invariant
+// (modules/wms/domain/receive-inbound/invariants.ts's assertVariancePhotoRequiresVariance), not a
+// contract-level rule.
 //
 // TEMPLATE GUIDANCE: one contract file per use case, one exported `<Command>InputSchema` per
 // command — scripts/new-slice.sh's sed-rename relies on that literal naming.
@@ -24,6 +30,8 @@ const POSITIVE_QUANTITY = NON_NEGATIVE_QUANTITY.refine((value) => Number(value) 
 // wms.inbound_orders.version starts at 1 (migration 0008: int not null default 1).
 const MIN_VERSION = 1;
 const EXPECTED_VERSION = z.number().int().min(MIN_VERSION);
+// migration 0010: `variance_photo_sha256 text check (variance_photo_sha256 ~ '^[0-9a-f]{64}$')`.
+const SHA256_HEX = z.string().regex(/^[0-9a-f]{64}$/);
 
 export const ApproveInboundInputSchema = z
   .object({
@@ -43,8 +51,14 @@ export const ReceiveLineInputSchema = z
     batchNo: z.string().optional(),
     expiryDate: z.iso.date().optional(),
     varianceReason: z.string().optional(),
+    variancePhotoUrl: z.string().min(1).optional(),
+    variancePhotoSha256: SHA256_HEX.optional(),
     expectedVersion: EXPECTED_VERSION,
     correlationId: UUID_ID,
+  })
+  .refine((value) => (value.variancePhotoUrl === undefined) === (value.variancePhotoSha256 === undefined), {
+    message: 'variancePhotoUrl and variancePhotoSha256 must both be present or both absent',
+    path: ['variancePhotoSha256'],
   })
   .meta({ id: 'ReceiveLineInput' });
 

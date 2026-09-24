@@ -60,8 +60,10 @@ export class CloseBlockedError extends Error {
   }
 }
 
-/** CancelInbound was called once the order's status is 'receiving', 'received' or 'putaway' (any
- *  line already received) — cancellation is legal only from 'draft'/'approved'. */
+/** CancelInbound's own business rule refused it because at least one line already has
+ *  qty_actual > 0 (stock has physically moved) — SCR-WMS-INB-01 §1/§3. An illegal status (the
+ *  machine allows CANCEL only from 'draft', 'approved' or 'received') is a separate
+ *  IllegalTransitionError, checked first (see ./cancel-inbound.ts). */
 export class CancelBlockedError extends Error {
   constructor(message: string) {
     super(message);
@@ -116,6 +118,16 @@ export class RcvBalanceMissingError extends Error {
   constructor(message: string) {
     super(message);
     this.name = 'RcvBalanceMissingError';
+  }
+}
+
+/** ReceiveLine was supplied variancePhotoUrl/variancePhotoSha256 for a receipt that is NOT a
+ *  variance (qty_actual === qty_ordered) — a photo is meaningful only alongside a variance
+ *  (SCR-WMS-INB-01 §4). Maps to HTTP 422. */
+export class VariancePhotoWithoutVarianceError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'VariancePhotoWithoutVarianceError';
   }
 }
 

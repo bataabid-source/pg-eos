@@ -1,12 +1,13 @@
 // modules/wms/application/receive-inbound/approve-inbound.ts — WBS 2.9, THE GOLDEN SLICE.
 //
-// application/ layer, ONE withContext transaction. Lock order (full rationale in
-// ../../infrastructure/receive-inbound/repository.ts's own header): (1) order-row lock +
-// expectedVersion check, (2) the role gate, (3) the machine's legality check (via
-// canTransition, never an if on the status string), (4) the unconditional version bump, (5)
+// application/ layer, ONE withIdempotentContext transaction (step 0 — see
+// ../../../../packages/db/src/idempotency.ts — runs first when input.idem is set). Lock order
+// (full rationale in ../../infrastructure/receive-inbound/repository.ts's own header): (1)
+// order-row lock + expectedVersion check, (2) the role gate, (3) the machine's legality check
+// (via canTransition, never an if on the status string), (4) the unconditional version bump, (5)
 // the audit row (last).
 
-import { withContext, type WithContextCtx } from '@pg-eos/db';
+import { withIdempotentContext, type IdempotencyInput, type WithContextCtx } from '@pg-eos/db';
 
 import { INBOUND_EVENT_ROLES, INBOUND_ORDER_EVENTS, advanceInboundOrder } from '../../domain/receive-inbound/machine.js';
 import { MissingActorError, RoleRequiredError, StaleVersionError } from '../../domain/receive-inbound/errors.js';
@@ -18,6 +19,7 @@ export interface ApproveInboundInput {
   readonly orderId: string;
   readonly expectedVersion: number;
   readonly correlationId: string;
+  readonly idem?: IdempotencyInput | undefined;
 }
 
 export interface ApproveInboundResult {
@@ -33,7 +35,7 @@ export async function approveInbound(
   if (!ctx.userId) throw new MissingActorError('ApproveInbound requires ctx.userId.');
   const actorId = ctx.userId;
 
-  return withContext(ctx, async (tx) => {
+  return withIdempotentContext<ApproveInboundResult>(ctx, input.idem, async (tx) => {
     const order = await deps.repo.getOrderForUpdate(tx, input.orderId);
     if (order.version !== input.expectedVersion) {
       throw new StaleVersionError(

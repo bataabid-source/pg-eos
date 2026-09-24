@@ -30,13 +30,15 @@
 // withContext(ctx, fn) as pgeos_app, genuinely subject to RLS). platform.audit_log rows are NEVER
 // deleted.
 
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 
 import { Pool } from 'pg';
 import type { QueryResult } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { FixedClock, SequentialIdGenerator } from '@pg-eos/domain-kit';
+// The shared idempotency helper, package barrel export.
+import { IdempotencyConflictError, type IdempotencyInput } from '@pg-eos/db';
 
 // The modules under test.
 import {
@@ -60,6 +62,8 @@ import {
   SkuClientMismatchError,
   StaleVersionError,
   VarianceReasonRequiredError,
+  // A variance-photo pair on a NON-variance receipt.
+  VariancePhotoWithoutVarianceError,
 } from '../../domain/receive-inbound/errors.js';
 // LocationLimitExceededError is the EXISTING WBS 2.4 typed error, reused not duplicated.
 import { LocationLimitExceededError } from '../../index.js';
@@ -136,6 +140,22 @@ function nextCorrelationId(): string {
   usedCorrelationIds.add(id);
   return id;
 }
+
+/** sha256 hex of the canonical JSON body, the endpoint 'wms.receive-inbound.<command>',
+ *  successStatus 200 — the same shape the api handlers build. */
+function idemFor(endpoint: string, key: string, body: unknown): IdempotencyInput {
+  return {
+    key,
+    endpoint: `wms.receive-inbound.${endpoint}`,
+    requestHash: createHash('sha256').update(JSON.stringify(body)).digest('hex'),
+    entityId: null,
+    successStatus: 200,
+  };
+}
+
+const VARIANCE_PHOTO_URL = 'https://cdn.pg-eos.local/variance-photos/test-fixture.jpg';
+const VARIANCE_PHOTO_SHA256 = 'a'.repeat(64);
+const INVALID_SHA256 = 'not-a-valid-sha';
 
 async function insertSku(clientId: string, code: string, grossWeightKg: string, volumeCbm: string): Promise<string> {
   const result: QueryResult<{ id: string }> = await pool.query(
@@ -294,6 +314,9 @@ async function grantRole(userId: string, roleCode: string): Promise<void> {
 }
 
 async function createFixtureActor(userId: string, entityIds: readonly string[]): Promise<void> {
+  // platform.idempotency_keys FKs to identity.users — cleared first, idempotent against a
+  // leftover row from a previously interrupted run reusing the same fixed fixture id.
+  await pool.query(`delete from platform.idempotency_keys where user_id = $1`, [userId]);
   await pool.query(`delete from identity.user_roles where user_id = $1`, [userId]);
   await pool.query(`delete from identity.user_entities where user_id = $1`, [userId]);
   await pool.query(`delete from identity.users where id = $1`, [userId]);
@@ -396,6 +419,10 @@ afterAll(async () => {
   if (fixtureClientIdY) await pool.query(`delete from sales.accounts where id = $1`, [fixtureClientIdY]);
   if (grnTemplateId) await pool.query(`delete from platform.document_templates where id = $1`, [grnTemplateId]);
   for (const userId of [ROLE_ACTOR_UUID, NO_ROLE_ACTOR_UUID, OUTSIDER_ACTOR_UUID]) {
+    // Idempotent commands write a platform.idempotency_keys row keyed on (user_id, key) — the
+    // idempotency scenarios above use these same fixture actors, so their rows must go before the
+    // identity.users row they FK to (platform.audit_log is NEVER deleted; this is not that table).
+    await pool.query(`delete from platform.idempotency_keys where user_id = $1`, [userId]);
     await pool.query(`delete from identity.user_roles where user_id = $1`, [userId]);
     await pool.query(`delete from identity.user_entities where user_id = $1`, [userId]);
     await pool.query(`delete from identity.users where id = $1`, [userId]);
@@ -543,10 +570,10 @@ describe('Scenario: a quantity variance emits wms.inbound.variance (outbox + aud
   });
 });
 
-// --- Scenario: zero-qty line -----------------------------------------------------------------------
+// --- Scenario: zero-qty line — 'received' has no CLOSE edge -------------------------------------
 
 describe('Scenario: a zero-quantity line with a varianceReason posts no ledger row and completes without putaway', () => {
-  it('qtyActual = 0.000 plus a varianceReason: no stock movement, line counts complete for CloseInbound with no ConfirmPutaway', async () => {
+  it('qtyActual = 0.000 plus a varianceReason: no stock movement, line counts complete, but CloseInbound from "received" is illegal — CancelInbound is the only way out', async () => {
     const skuZero = await insertSku(fixtureClientId, `RECVINB-ZEROQTY-${randomUUID()}`, SAFE_SKU_GROSS_WEIGHT_KG, SAFE_SKU_VOLUME_CBM);
     const { orderId, lineIds, version } = await createDraftInboundOrder(fixtureClientId, [{ skuId: skuZero, qtyOrdered: QTY_ORDERED }]);
     const lineId = lineIds[0] as string;
@@ -571,7 +598,68 @@ describe('Scenario: a zero-quantity line with a varianceReason posts no ledger r
 
     const beforeClose = await getOrder(orderId);
     expect(beforeClose.status).toBe('received');
-    const closed = await closeInbound(roleCtx, { orderId, expectedVersion: beforeClose.version, correlationId: nextCorrelationId() }, deps);
+
+    // The machine has no received --CLOSE--> closed edge.
+    await expect(
+      closeInbound(roleCtx, { orderId, expectedVersion: beforeClose.version, correlationId: nextCorrelationId() }, deps),
+    ).rejects.toBeInstanceOf(IllegalTransitionError);
+
+    // Every line is qty_actual = 0 (nothing physically moved) — CancelInbound is legal even though
+    // the order already reached 'received'.
+    const cancelled = await cancelInbound(
+      roleCtx,
+      { orderId, expectedVersion: (await getOrder(orderId)).version, correlationId: nextCorrelationId() },
+      deps,
+    );
+    expect(cancelled.status).toBe('cancelled');
+  });
+});
+
+describe('Scenario: a MIXED order (one zero-qty line, one non-zero line) reaches "putaway" through its non-zero line and closes', () => {
+  it('the zero-qty line counts complete without ConfirmPutaway; putting away only the non-zero line reaches "putaway", and CloseInbound then succeeds', async () => {
+    const skuZero = await insertSku(fixtureClientId, `RECVINB-MIXED-ZERO-${randomUUID()}`, SAFE_SKU_GROSS_WEIGHT_KG, SAFE_SKU_VOLUME_CBM);
+    const skuNonZero = await insertSku(fixtureClientId, `RECVINB-MIXED-NONZERO-${randomUUID()}`, SAFE_SKU_GROSS_WEIGHT_KG, SAFE_SKU_VOLUME_CBM);
+    const { orderId, lineIds, version } = await createDraftInboundOrder(fixtureClientId, [
+      { skuId: skuZero, qtyOrdered: QTY_ORDERED },
+      { skuId: skuNonZero, qtyOrdered: QTY_ORDERED },
+    ]);
+    const [lineZero, lineNonZero] = lineIds as [string, string];
+    await approveInbound(roleCtx, { orderId, expectedVersion: version, correlationId: nextCorrelationId() }, deps);
+
+    await receiveLine(
+      roleCtx,
+      {
+        orderId,
+        lineId: lineZero,
+        qtyActual: ZERO_QTY,
+        varianceReason: ZERO_QTY_REASON,
+        expectedVersion: (await getOrder(orderId)).version,
+        correlationId: nextCorrelationId(),
+      },
+      deps,
+    );
+    await receiveLine(
+      roleCtx,
+      { orderId, lineId: lineNonZero, qtyActual: QTY_ORDERED, expectedVersion: (await getOrder(orderId)).version, correlationId: nextCorrelationId() },
+      deps,
+    );
+
+    expect((await getOrder(orderId)).status).toBe('received');
+    expect((await getLine(lineZero)).status).toBe('complete');
+    expect((await getLine(lineZero)).location_id).toBeNull();
+
+    const suggestion = await suggestLocation(roleCtx, { skuId: skuNonZero, qty: QTY_ORDERED, warehouseId }, deps);
+    const chosen = suggestion.candidates[0] as { locationId: string };
+    await confirmPutaway(
+      roleCtx,
+      { orderId, lineId: lineNonZero, toLocationId: chosen.locationId, expectedVersion: (await getOrder(orderId)).version, correlationId: nextCorrelationId() },
+      deps,
+    );
+
+    const afterPutaway = await getOrder(orderId);
+    expect(afterPutaway.status).toBe('putaway');
+
+    const closed = await closeInbound(roleCtx, { orderId, expectedVersion: afterPutaway.version, correlationId: nextCorrelationId() }, deps);
     expect(closed.status).toBe('closed');
   });
 });
@@ -820,6 +908,35 @@ describe('Scenario: CancelInbound after any line has been received is rejected',
   });
 });
 
+describe('Scenario: CancelInbound on an order still receiving is rejected', () => {
+  it('rejects with IllegalTransitionError — the machine has no receiving --CANCEL--> cancelled edge', async () => {
+    const skuA = await insertSku(fixtureClientId, `RECVINB-CANCEL-RECEIVING-A-${randomUUID()}`, SAFE_SKU_GROSS_WEIGHT_KG, SAFE_SKU_VOLUME_CBM);
+    const skuB = await insertSku(fixtureClientId, `RECVINB-CANCEL-RECEIVING-B-${randomUUID()}`, SAFE_SKU_GROSS_WEIGHT_KG, SAFE_SKU_VOLUME_CBM);
+    const { orderId, lineIds, version } = await createDraftInboundOrder(fixtureClientId, [
+      { skuId: skuA, qtyOrdered: QTY_ORDERED },
+      { skuId: skuB, qtyOrdered: QTY_ORDERED },
+    ]);
+    const [lineA] = lineIds as [string, string];
+    const approved = await approveInbound(roleCtx, { orderId, expectedVersion: version, correlationId: nextCorrelationId() }, deps);
+    // Only ONE of the two lines is receipted — the order is 'receiving', not 'received'.
+    await receiveLine(
+      roleCtx,
+      { orderId, lineId: lineA, qtyActual: QTY_ORDERED, expectedVersion: approved.version, correlationId: nextCorrelationId() },
+      deps,
+    );
+    const stillReceiving = await getOrder(orderId);
+    expect(stillReceiving.status).toBe('receiving');
+
+    await expect(
+      cancelInbound(roleCtx, { orderId, expectedVersion: stillReceiving.version, correlationId: nextCorrelationId() }, deps),
+    ).rejects.toBeInstanceOf(IllegalTransitionError);
+
+    const after = await getOrder(orderId);
+    expect(after.status).toBe('receiving');
+    expect(after.version).toBe(stillReceiving.version);
+  });
+});
+
 // --- Scenario: role gates ------------------------------------------------------------------------------
 
 describe('Scenario: ApproveInbound without role WH_MGR is rejected', () => {
@@ -862,6 +979,149 @@ describe('Scenario: CancelInbound without role WH_MGR is rejected', () => {
     const after = await getOrder(orderId);
     expect(after.status).toBe('draft');
     expect(after.version).toBe(version);
+  });
+});
+
+// --- Scenario: idempotency — ApproveInbound is idempotent ----------------------------------------
+
+describe('Scenario: ApproveInbound called twice with the same idem key + same body replays the stored result', () => {
+  it('the second call returns the stored result, version bumps exactly once, and only one audit row exists for the first correlationId', async () => {
+    const sku = await insertSku(fixtureClientId, `RECVINB-IDEM-REPLAY-${randomUUID()}`, SAFE_SKU_GROSS_WEIGHT_KG, SAFE_SKU_VOLUME_CBM);
+    const { orderId, version } = await createDraftInboundOrder(fixtureClientId, [{ skuId: sku, qtyOrdered: QTY_ORDERED }]);
+    const idemKey = `approve-replay-${randomUUID()}`;
+    const firstCorrelationId = nextCorrelationId();
+    const body = { orderId, expectedVersion: version, correlationId: firstCorrelationId };
+
+    const first = await approveInbound(roleCtx, { ...body, idem: idemFor('approve', idemKey, body) }, deps);
+    expect(first.status).toBe('approved');
+    const afterFirst = await getOrder(orderId);
+    expect(afterFirst.version).toBeGreaterThan(version);
+
+    // Same key, same body (including the SAME expectedVersion, now stale) — replay must NOT
+    // re-run the command (it would otherwise hit StaleVersionError against the bumped row).
+    const second = await approveInbound(roleCtx, { ...body, idem: idemFor('approve', idemKey, body) }, deps);
+    expect(second).toEqual(first);
+
+    const afterSecond = await getOrder(orderId);
+    expect(afterSecond.version).toBe(afterFirst.version); // bumped exactly once.
+    expect(await auditCountForCorrelation(firstCorrelationId)).toBe(1);
+  });
+
+  it('the same idem key with a DIFFERENT body is rejected with IdempotencyConflictError', async () => {
+    const sku = await insertSku(fixtureClientId, `RECVINB-IDEM-MISMATCH-${randomUUID()}`, SAFE_SKU_GROSS_WEIGHT_KG, SAFE_SKU_VOLUME_CBM);
+    const { orderId, version } = await createDraftInboundOrder(fixtureClientId, [{ skuId: sku, qtyOrdered: QTY_ORDERED }]);
+    const idemKey = `approve-mismatch-${randomUUID()}`;
+    const firstBody = { orderId, expectedVersion: version, correlationId: nextCorrelationId() };
+
+    await approveInbound(roleCtx, { ...firstBody, idem: idemFor('approve', idemKey, firstBody) }, deps);
+
+    const differentBody = { orderId, expectedVersion: version, correlationId: nextCorrelationId() }; // different correlationId -> different hash.
+    await expect(
+      approveInbound(roleCtx, { ...differentBody, idem: idemFor('approve', idemKey, differentBody) }, deps),
+    ).rejects.toBeInstanceOf(IdempotencyConflictError);
+  });
+});
+
+describe('Scenario: ReceiveLine is idempotent — the PDA-retry double-post case', () => {
+  it('the same idem key + same body sent twice posts exactly ONE stock_movements row, the second call returns the stored result, and the version bumps exactly once', async () => {
+    const sku = await insertSku(fixtureClientId, `RECVINB-IDEM-RECEIVELINE-${randomUUID()}`, SAFE_SKU_GROSS_WEIGHT_KG, SAFE_SKU_VOLUME_CBM);
+    const { orderId, lineIds, version } = await createDraftInboundOrder(fixtureClientId, [{ skuId: sku, qtyOrdered: QTY_ORDERED }]);
+    const lineId = lineIds[0] as string;
+    const approved = await approveInbound(roleCtx, { orderId, expectedVersion: version, correlationId: nextCorrelationId() }, deps);
+
+    const idemKey = `receive-line-replay-${randomUUID()}`;
+    const body = { orderId, lineId, qtyActual: QTY_ORDERED, expectedVersion: approved.version, correlationId: nextCorrelationId() };
+
+    const first = await receiveLine(roleCtx, { ...body, idem: idemFor('receive-line', idemKey, body) }, deps);
+    const afterFirst = await getOrder(orderId);
+
+    // Same key, same body — including the SAME (now stale) expectedVersion. A PDA that never saw
+    // the first response and retries the identical request must get the FIRST result back, not a
+    // second post.
+    const second = await receiveLine(roleCtx, { ...body, idem: idemFor('receive-line', idemKey, body) }, deps);
+    expect(second).toEqual(first);
+
+    expect(await movementCountForLine(fixtureClientId, sku, orderId)).toBe(1);
+    const afterSecond = await getOrder(orderId);
+    expect(afterSecond.version).toBe(afterFirst.version); // bumped exactly once.
+  });
+});
+
+// --- Scenario: variance photo ---------------------------------------------------------------------
+
+describe('Scenario: a variance receipt with a photo pair persists variance_photo_url/variance_photo_sha256', () => {
+  it('persists both columns on the order line', async () => {
+    const sku = await insertSku(fixtureClientId, `RECVINB-VARPHOTO-OK-${randomUUID()}`, SAFE_SKU_GROSS_WEIGHT_KG, SAFE_SKU_VOLUME_CBM);
+    const { orderId, lineIds, version } = await createDraftInboundOrder(fixtureClientId, [{ skuId: sku, qtyOrdered: QTY_ORDERED }]);
+    const lineId = lineIds[0] as string;
+    await approveInbound(roleCtx, { orderId, expectedVersion: version, correlationId: nextCorrelationId() }, deps);
+
+    await receiveLine(
+      roleCtx,
+      {
+        orderId,
+        lineId,
+        qtyActual: VARIANCE_QTY_ACTUAL,
+        varianceReason: VARIANCE_REASON,
+        variancePhotoUrl: VARIANCE_PHOTO_URL,
+        variancePhotoSha256: VARIANCE_PHOTO_SHA256,
+        expectedVersion: (await getOrder(orderId)).version,
+        correlationId: nextCorrelationId(),
+      },
+      deps,
+    );
+
+    const result: QueryResult<{ variance_photo_url: string | null; variance_photo_sha256: string | null }> = await pool.query(
+      `select variance_photo_url, variance_photo_sha256 from wms.order_lines where id = $1`,
+      [lineId],
+    );
+    const row = result.rows[0];
+    expect(row?.variance_photo_url).toBe(VARIANCE_PHOTO_URL);
+    expect(row?.variance_photo_sha256).toBe(VARIANCE_PHOTO_SHA256);
+  });
+});
+
+describe('Scenario: a photo pair on a NON-variance receipt is rejected', () => {
+  it('rejects with VariancePhotoWithoutVarianceError and writes nothing', async () => {
+    const sku = await insertSku(fixtureClientId, `RECVINB-VARPHOTO-NOVAR-${randomUUID()}`, SAFE_SKU_GROSS_WEIGHT_KG, SAFE_SKU_VOLUME_CBM);
+    const { orderId, lineIds, version } = await createDraftInboundOrder(fixtureClientId, [{ skuId: sku, qtyOrdered: QTY_ORDERED }]);
+    const lineId = lineIds[0] as string;
+    await approveInbound(roleCtx, { orderId, expectedVersion: version, correlationId: nextCorrelationId() }, deps);
+
+    await expect(
+      receiveLine(
+        roleCtx,
+        {
+          orderId,
+          lineId,
+          qtyActual: QTY_ORDERED, // no variance — matches qty_ordered.
+          variancePhotoUrl: VARIANCE_PHOTO_URL,
+          variancePhotoSha256: VARIANCE_PHOTO_SHA256,
+          expectedVersion: (await getOrder(orderId)).version,
+          correlationId: nextCorrelationId(),
+        },
+        deps,
+      ),
+    ).rejects.toBeInstanceOf(VariancePhotoWithoutVarianceError);
+
+    expect((await getLine(lineId)).qty_actual).toBeNull();
+  });
+});
+
+describe('Scenario: an invalid variance-photo sha256 is rejected by the contract schema', () => {
+  it('ReceiveLineInputSchema.parse throws on a malformed sha256', () => {
+    expect(() =>
+      ReceiveLineInputSchema.parse({
+        orderId: randomUUID(),
+        lineId: randomUUID(),
+        qtyActual: VARIANCE_QTY_ACTUAL,
+        varianceReason: VARIANCE_REASON,
+        variancePhotoUrl: VARIANCE_PHOTO_URL,
+        variancePhotoSha256: INVALID_SHA256,
+        expectedVersion: 1,
+        correlationId: randomUUID(),
+      }),
+    ).toThrow();
   });
 });
 

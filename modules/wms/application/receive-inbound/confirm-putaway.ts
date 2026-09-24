@@ -1,7 +1,8 @@
 // modules/wms/application/receive-inbound/confirm-putaway.ts — WBS 2.9, THE GOLDEN SLICE.
 //
-// ONE withContext transaction. Lock order (full rationale in
-// ../../infrastructure/receive-inbound/repository.ts's own header): (1) order-row lock +
+// ONE withIdempotentContext transaction (step 0 — see
+// ../../../../packages/db/src/idempotency.ts — runs first when input.idem is set). Lock order
+// (full rationale in ../../infrastructure/receive-inbound/repository.ts's own header): (1) order-row lock +
 // expectedVersion check; (2) line-row lock, bound to the order; (3) re-entry guard on the
 // locked line (status <> 'complete' AND location_id IS NULL) -> LineAlreadyPutAwayError, BEFORE
 // any ledger post; (4) the line write; (5) the reused ledger port's own advisory locks (INV-C3-4
@@ -11,7 +12,7 @@
 // Re-validates `toLocationId` itself (does not trust SuggestLocation's own output) — enforced by
 // the ledger port's postPutawayTransfer.
 
-import { withContext, type WithContextCtx } from '@pg-eos/db';
+import { withIdempotentContext, type IdempotencyInput, type WithContextCtx } from '@pg-eos/db';
 
 import { INBOUND_ORDER_EVENTS, advanceInboundOrder, canTransition } from '../../domain/receive-inbound/machine.js';
 import { LineAlreadyPutAwayError, MissingActorError, RcvBalanceMissingError, StaleVersionError } from '../../domain/receive-inbound/errors.js';
@@ -26,6 +27,7 @@ export interface ConfirmPutawayInput {
   readonly toLocationId: string;
   readonly expectedVersion: number;
   readonly correlationId: string;
+  readonly idem?: IdempotencyInput | undefined;
 }
 
 export interface ConfirmPutawayResult {
@@ -41,7 +43,7 @@ export async function confirmPutaway(
   if (!ctx.userId) throw new MissingActorError('ConfirmPutaway requires ctx.userId.');
   const actorId = ctx.userId;
 
-  return withContext(ctx, async (tx) => {
+  return withIdempotentContext<ConfirmPutawayResult>(ctx, input.idem, async (tx) => {
     const order = await deps.repo.getOrderForUpdate(tx, input.orderId);
     if (order.version !== input.expectedVersion) {
       throw new StaleVersionError(

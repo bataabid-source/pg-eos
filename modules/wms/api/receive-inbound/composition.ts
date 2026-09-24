@@ -9,15 +9,23 @@
 
 import type { Clock, IdGenerator } from '@pg-eos/domain-kit';
 
-import type { ReceiveInboundDeps } from '../../application/receive-inbound/ports.js';
+import type { Logger, ReceiveInboundDeps } from '../../application/receive-inbound/ports.js';
 import { inboundLedgerPort } from '../../infrastructure/receive-inbound/ledger.js';
+import { inboundPinoLogger } from '../../infrastructure/receive-inbound/logger.js';
 import { inboundOrderRepository } from '../../infrastructure/receive-inbound/repository.js';
 
-export function createReceiveInboundDeps(clockDeps: { readonly clock: Clock; readonly ids: IdGenerator }): ReceiveInboundDeps {
+/** `logger` defaults to the pino adapter (../../infrastructure/receive-inbound/logger.ts) — a
+ *  caller (tests) may inject a fixed/spy Logger instead, same pattern as `clock`/`ids`. */
+export function createReceiveInboundDeps(clockDeps: {
+  readonly clock: Clock;
+  readonly ids: IdGenerator;
+  readonly logger?: Logger;
+}): ReceiveInboundDeps {
   return {
     clock: clockDeps.clock,
     ids: clockDeps.ids,
     repo: inboundOrderRepository,
     ledger: inboundLedgerPort,
+    logger: clockDeps.logger ?? inboundPinoLogger,
   };
 }

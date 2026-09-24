@@ -7,9 +7,16 @@
 // `actor.getSnapshot().can({ type })`, never a hand-written if/switch on the status string.
 //
 // Source: doc 40 §C3 state machine (line ~256) — draft -> approved -> receiving -> received ->
-// putaway -> closed | cancelled — plus the slice brief's Master default for the CancelInbound
-// gate (draft/approved only). `INBOUND_ORDER_STATUS` is verbatim from 01-Data-Model.sql:748 /
-// .claude/briefs/wms.brief.md §3 `inbound_orders.status`.
+// putaway -> closed | cancelled (SCR-WMS-INB-01 §1/§3): CLOSE is legal ONLY from 'putaway' — an
+// order whose every line is a zero-qty receipt cannot close straight from 'received' and must be
+// cancelled instead (see CANCEL below). CANCEL is legal from 'draft', 'approved' AND 'received'
+// — NOT 'receiving': cancellation is refused once any line has been received with a positive
+// quantity (see CancelInbound's own business rule,
+// ../../application/receive-inbound/cancel-inbound.ts), and 'receiving' means at least one line
+// already has qty_actual set, so a legal CANCEL from 'receiving' would always be refused by that
+// rule anyway; the one order that legitimately reaches 'received' with CANCEL still open is one
+// whose every line was received at qty_actual = 0 (SCR-WMS-INB-01 §1/§2). `INBOUND_ORDER_STATUS`
+// is verbatim from 01-Data-Model.sql:748 / .claude/briefs/wms.brief.md §3 `inbound_orders.status`.
 //
 // TEMPLATE GUIDANCE for the next slice copied from this one via scripts/new-slice.sh: this file's
 // shape — a status enum, an events enum, and a single flat XState v5 machine consulted only
@@ -78,15 +85,18 @@ export const inboundOrderMachine = createMachine({
       on: {
         [INBOUND_ORDER_EVENTS.RECEIVE_LINE]: INBOUND_ORDER_STATUS.RECEIVING,
         [INBOUND_ORDER_EVENTS.RECEIVE_LINE_LAST]: INBOUND_ORDER_STATUS.RECEIVED,
+        // No CANCEL edge here: cancelling is refused once any line has been received
+        // (SCR-WMS-INB-01 §3), whatever the quantity. The one exception is an order whose EVERY
+        // line was received at 0, which only exists in 'received' (SCR-WMS-INB-01 §1).
       },
     },
     [INBOUND_ORDER_STATUS.RECEIVED]: {
       on: {
         [INBOUND_ORDER_EVENTS.CONFIRM_PUTAWAY_FIRST]: INBOUND_ORDER_STATUS.PUTAWAY,
-        // Master default (WBS 2.9, SCR-WMS-INB-01 §1, WAITING_GM): an order whose every line is a
-        // zero-qty receipt needs no put-away, so it may close straight from 'received'. The machine only says the edge
-        // exists; CloseInbound's own "no open line" business rule decides whether it may be taken.
-        [INBOUND_ORDER_EVENTS.CLOSE]: INBOUND_ORDER_STATUS.CLOSED,
+        // No CLOSE edge from 'received' — a fully-short order (every line qty_actual = 0) has no
+        // put-away to do and must be CANCELLED instead (SCR-WMS-INB-01 §1). CancelInbound's own
+        // business rule still refuses this if any line has qty_actual > 0.
+        [INBOUND_ORDER_EVENTS.CANCEL]: INBOUND_ORDER_STATUS.CANCELLED,
       },
     },
     [INBOUND_ORDER_STATUS.PUTAWAY]: {

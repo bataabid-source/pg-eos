@@ -7,7 +7,7 @@
 
 import { Quantity } from '@pg-eos/domain-kit';
 
-import { SkuClientMismatchError, VarianceReasonRequiredError } from './errors.js';
+import { SkuClientMismatchError, VarianceReasonRequiredError, VariancePhotoWithoutVarianceError } from './errors.js';
 
 /** INV-C3-3: the order line's SKU must be owned by the SAME client as the order itself. */
 export function assertSkuBelongsToOrderClient(skuClientId: string, orderClientId: string): void {
@@ -40,6 +40,23 @@ export function assertVarianceHasReason(
     throw new VarianceReasonRequiredError(
       `qty_actual (${qtyActual.toString()}) differs from qty_ordered (${qtyOrdered.toString()}) ` +
         `but no varianceReason was supplied (INV-C3-5). (Allowed: a varianceReason string)`,
+    );
+  }
+}
+
+/** A variance photo (variancePhotoUrl/variancePhotoSha256, both or neither per the contract) is
+ *  allowed ONLY on a variance receipt (SCR-WMS-INB-01 §4) — otherwise
+ *  VariancePhotoWithoutVarianceError, thrown BEFORE any DB write, same discipline as
+ *  assertVarianceHasReason above. */
+export function assertVariancePhotoRequiresVariance(
+  qtyActual: Quantity,
+  qtyOrdered: Quantity,
+  hasVariancePhoto: boolean,
+): void {
+  if (hasVariancePhoto && !isVarianceReceipt(qtyActual, qtyOrdered)) {
+    throw new VariancePhotoWithoutVarianceError(
+      `a variance photo was supplied but qty_actual (${qtyActual.toString()}) equals qty_ordered ` +
+        `(${qtyOrdered.toString()}) — no variance occurred. (Allowed: a photo only on a variance receipt)`,
     );
   }
 }
