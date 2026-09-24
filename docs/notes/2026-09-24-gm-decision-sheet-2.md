@@ -79,7 +79,7 @@ Items deliberately **not** listed (they are WBS data tasks or seeds, not GM choi
 
 ---
 
-## Answers — GM 2026-09-24, recorded as D-139 (verbatim, then how each is applied)
+## Answers — GM 2026-09-24, recorded as D-141 (verbatim, then how each is applied)
 
 The GM answered on the interactive sheet (v2, plain-language wording with a ✕ "cancel the process" option). Verbatim answer line:
 
