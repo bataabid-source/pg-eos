@@ -2,7 +2,7 @@
 
 **Generated from `docs/package/38-WBS.md` (Document 38 v4.0) by `scripts/gen-backlog.py` — IDs, type markers, dependencies, lanes, owners and acceptance criteria are copied verbatim; doc 38 governs on any difference.**
 
-**133 doc-38 tasks (v4.2: 0.6 → 0.6a / 0.6b, D-124) + X.1–X.6 CONTINUOUS + 0.19 DEFERRED + DEFERRED-POST-PILOT rows (D-127)** — eight phases (0–7) + cross-cutting X-tasks; X.1–X.6 and 0.19 are counted inside the 133. No 18-phase roadmap, no separate database phase (BOOTSTRAP-v4 §8).
+**134 doc-38 tasks (v4.3: 0.6 → 0.6a / 0.6b, D-124; 5.3b added, D-165) + X.1–X.6 CONTINUOUS + 0.19 DEFERRED + DEFERRED-POST-PILOT rows (D-127)** — eight phases (0–7) + cross-cutting X-tasks; X.1–X.6 and 0.19 are counted inside the 133. No 18-phase roadmap, no separate database phase (BOOTSTRAP-v4 §8).
 
 | Status | Meaning |
 |---|---|
@@ -11,7 +11,7 @@
 | `ACTIVE` | claimed in `tasks/LANE_LOCKS.md`; one per lane |
 | `WAITING_GM` | 🧑 / 🔧 lane-A task: runbook or script produced, waits for the GM; never blocks a code lane |
 | `BLOCKED` | REAL BLOCKER recorded in `docs/PROJECT_STATE.md` |
-| `SUPERSEDED — <id>` | row kept for the 133 count; replaced by the named ADR / GM decision, never picked (D-125) |
+| `SUPERSEDED — <id>` | row kept for the 134 count; replaced by the named ADR / GM decision, never picked (D-125) |
 | `DEFERRED-POST-PILOT — <id>` | pilot-first rule (D-127): field data, human entry, sign-off, training, naming and Tier-0 provisioning wait until the pilot system is complete; the pilot runs on seed 019 + synthetic data only; the row keeps its phase and is listed again under Phase 7; never picked before the pilot |
 | `DONE @ <hash>` | acceptance criterion passed, pg-reviewer PASS, gates green — written by pg-scribe in the same commit |
 
@@ -162,6 +162,7 @@ Type: 🧑 human decision/data · 🤖 AI-buildable slice · 🔧 infra · ✅ v
 | 5.1 | M06 Call center: queues, agents, calls, tickets, SLA, ticket ↔ shipment link | 🤖 | 3.4 | **1** | CC_MGR | Agent cannot see another queue's tickets (RLS) | TODO |
 | 5.2 | CC billing (internal transfer price, external package + overage) | 🤖 | 5.1, 4.3 | **1** | CFO | Scenario S5 green | TODO |
 | 5.3 | M08 HR: org units, teams, attendance **captured natively (ADR-0003, D-126 — no I-04 import)**, leaves | 🤖 | 3.3 | **2** | HR_MGR | Attendance punches recorded natively; unmatched/failed to HR review queue (D-125) | TODO |
+| 5.3b | Field app **APP-1**: native attendance capture on the employee's registered phone (ADR-0003), device handover creates the registry row, employee requests + leaves (SCR-HR-SHIFT-01 §2.5–§2.6) — admitted D-165 (sheet 5 Q15) | 🤖 | 5.3 | **2** | HR_MGR | One registered device per employee; punch inside 500 m auto-accepted, out-of-geofence / unregistered → HR review queue; a leave request reaches its approval chain | TODO |
 | 5.4 | ~~Biometric credentials entered by GM; hourly sync~~ **SUPERSEDED — ADR-0003 (D-126, GM 2026-09-24; D-125): no third-party device, no credential import, no sync** | 🧑 | 5.3 | **A** | GM | — (superseded; the auto-absence gate PLT-50 stays, EXEC §1.3) | SUPERSEDED — ADR-0003 (D-126), D-125 |
 | 5.5 | Shifts and rest rotation (A3) | 🤖 | 5.3 | **2** | OPS_DIR | Rotation fair; exceptions logged | TODO |
 | 5.6 | Payroll ledger (auto-calc, CFO approval, month lock) | 🤖 | 5.3, 3.13 | **2** | CFO | Locked month immutable | TODO |
@@ -263,4 +264,4 @@ Type: 🧑 human decision/data · 🤖 AI-buildable slice · 🔧 infra · ✅ v
 | 6.2b | Client store connectors (I-12) — `tasks/backlog/6.2b-store-connectors.md`, source D-11 | 🤖 | 6.1, 6.2 | **1** | SYSADMIN + SALES_MGR (shared, D-11 §7 ق-4) | A store order posted by the test connector appears as one PG-EOS order with the D-11 §5-2 minimum fields, idempotent under replay, a forced failure follows the D-11 §5-5 nine-field policy and shows in the integration monitor; client isolation holds (G14) | TODO — admitted 2026-09-23 (D-115): option ③ approved per D-11 §7 (B in Phase 3, A in Phase 6, C = 6.2b); blocked on 6.1, 6.2, neither built; D-11 §5-4 schema additions still need a G-01 filing once 6.2b starts |
 | SC-01 | Sales commission activation (SCR-SC-01) — `tasks/backlog/SC-01-sales-commission.md`, source D-14 | 🤖 | 4.9, 1.7 | **2** | SALES_MGR | For a contract signed by one rep and later executed under another, the monthly run splits per `sales.account_ownership_history` exactly as D-14 §3, honours the cap and minimum-margin rule, reverses correctly on a credit note, exposes the statement only to the rep, SALES_MGR, CFO and GM; G2, G11, G14 green, no number written outside `platform.thresholds` | TODO — admitted 2026-09-23 (D-115); dependency on the "sales contracts slice" bound to WBS **1.7** (D-123, `docs/package/38-WBS.md` line 68); structure approved (recurring, `collected` basis, 24 months, no cap year 1, half rate 12 months for existing clients, SCR-SC-01 approved); rates and the 0.5% manager share approved provisionally for year 1 with a 6-month review; blocked on 4.9 and 1.7, neither built |
 
-**Rows: 133** (expected 133 — `--check` fails otherwise; the four Staged rows above are never part of this count).
+**Rows: 134** (expected 134 — `--check` fails otherwise; the four Staged rows above are never part of this count).

@@ -106,6 +106,14 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — GM decision sheet 5 answered (D-165): 19 items closed — commission as configuration, portal approved, APP-1 = 5.3b, lanes allocated — DONE (2026-09-24)
+
+- Verbatim answers recorded as D-165. Applied: SCR-SALES-SPACE-01 filed+approved (Q1); commission parameters become system settings with a worked-example preview (Q2–Q4); Gap #34 isolated for the GM (Q5); probation criterion (Q6); seven policy controls deleted at register level, prose pass queued (Q7); SCR-TMS-PORTAL-01 APPROVED, 30-day positions, 30-s ping (Q8–Q11); iMile portal check by the GM + SYSADMIN (Q12); engine decisions via team auditor, 60-s batches (Q13–Q14); **APP-1 admitted as WBS 5.3b** — doc 38 v4.3 (134 rows), backlog regenerated, counters in gen-backlog / check-setup / README-KIT, proposed file moved to `tasks/backlog/5.3b-…` (Q15); payroll post-pilot (Q16); sound on every operational alert (Q17); lane allocation relayed to the build session (Q18); repo public (Q19, D-164).
+- First governance change delivered via branch + PR under the new `main-protection` ruleset.
+- Model: Master session fable-5.1 · Delegated: none · Review: n/a (governance) · tokens ≈ 25k (estimate)
+
+---
+
 ## X — Repository made public by the GM (D-164); 0.6a close unblocked — DONE (2026-09-24)
 
 - GM completed the GitHub identity step in the browser pane; settings confirm the repo is public. Closes the PENDING part of D-157. The build session is asked to close 0.6a and apply branch protection on `main`.

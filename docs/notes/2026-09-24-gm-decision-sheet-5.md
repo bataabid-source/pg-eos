@@ -33,3 +33,11 @@ Written on the GM's request ("افتح استبيان للإجابات المط�
 | Q19 | GitHub identity step (repo public, D-157) | أ done · ب later (0.6a stays open) |
 
 Not listed (no GM decision needed): blockers (a)(b)(c) before lanes are build tasks for the build session; reference-data seeding (column classification, permissions, min prices, chart of accounts) is data entry with CFO/SYSADMIN, tracked in Gap-Register #1/#3/#4/#78.
+
+---
+
+## Answers — GM 2026-09-24, recorded as D-165
+
+> Q1: أ · Q2: ج (كل إعدادات العمولات اجعلها مدخلات يتم إعدادها لاحقاً من إعدادات النظام مع تقديم مثال للأثر للتوضيح) · Q3: ج (نفس النص) · Q4: د (نفس النص) · Q5: ج (احذف هذا البند من المشروع أو اعزله لأحذفه أنا) · Q6: أ · Q7: ج · Q8: أ · Q9: أ · Q10: أ · Q11: ب · Q12: ب (متاح طول الوقت) · Q13: أ · Q14: أ · Q15: أ · Q16: أ · Q17: ب · Q18: أ · Q19: أ
+
+Applied per D-165 in `docs/DECISION_LOG.md`. Q2–Q4: commission is configuration with a worked-example preview; Q5 isolated for the GM; Q7 all seven deleted; Q15 APP-1 = 5.3b.
