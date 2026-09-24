@@ -59,6 +59,15 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — Sound on operational web boards; push token in the device registry (D-145) — DONE (2026-09-24)
+
+- GM directive on the notifications review: sound required on web boards for all operations and field managers (exception to D-15 §3-هـ, recorded as an amendment there); push token approved into the device-registry shape; alert-admin screen confirmed with 5.13.
+- Applied: D-15 §3-هـ amendment; SCR-HR-SHIFT-01 §2.5 (`push_token`, `push_provider`, secret) and new §2.10 (`alert_rules.sound`). Default: realtime alerts only (N-01, N-03, N-10, N-13, N-14, N-19, N-22), per-rule flag set by SYSADMIN.
+- No code, no schema. 2.9 session files untouched.
+- Model: Master session fable-5.1 · Delegated: none · Review: n/a (governance) · tokens ≈ 8k (estimate)
+
+---
+
 ## X — SCR-HR-SHIFT-01 approved and pulled into the pilot; PLT-50 superseded (D-144) — DONE (2026-09-24)
 
 - GM answers to the D-143 defaults: no gating (PLT-50 retired, ADR-0003 amended), blinking ready-for-pickup badge (D-15 §3-ح exception, reduced-motion safe), HR group per role, one `platform.sites` table (closes Q30a), shapes §2.1–§2.9 approved and **inside the pilot** — sequenced after 2.9 acceptance as two to three lane slices; the Master issues WBS rows then.
