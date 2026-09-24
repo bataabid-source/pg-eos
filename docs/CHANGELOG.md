@@ -116,6 +116,13 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — Master issue for lane 2: migration 0014 + two hr events in the catalog — DONE (2026-09-24)
+
+- MIGRATION-REQUEST-2 (WBS 3.3): number **0014** issued (`0014_2_employees-version.sql`); 0013 reserved for lane 1; 0011/0012 recorded for 5.13. `packages/events/catalog.ts` gains `hr.employee.registered` and `hr.employee_document.recorded` (frozen path, Master-only). Lane 2 session opened by the GM in ../pg-eos-lane-2.
+- Model: Master session fable-5.1 · Delegated: none · Review: n/a (governance) · tokens ≈ 3k (estimate)
+
+---
+
 ## X — Visible pilot: 0.19 admin shell pulled to lane 1 after 1.2, 5.18 boards after 5.13 (D-172) — DONE (2026-09-24)
 
 - GM "موافق" to the visible-pilot proposal. 0.19 leaves DEFERRED (Phase-0 mechanism-only lifted for it alone) → READY, lane 1 after 1.2; 5.18 follows 5.13 on lane 3; 2.16 unchanged. PROJECT_STATE next tasks and MASTER_BACKLOG 0.19 status updated. No schema.

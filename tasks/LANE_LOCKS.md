@@ -17,6 +17,9 @@ Not a lock table — deliberately not a `|`-prefixed markdown table, since
 `.claude/hooks/lane-guard.sh` parses every such line in this file as a
 module-lock row (see Rules below). One line per migration, newest first:
 
+- `0014_2_employees-version.sql` — lane 2, task 3.3 (`hr.employees.version` + classification row; shape of 0008), issued by the Master 2026-09-24 on MIGRATION-REQUEST-2 (pre-migration review APPROVED).
+- `0013` — RESERVED for lane 1, task 1.2 (catalog), pending its MIGRATION-REQUEST-1.md.
+- `0011`/`0012` — lane M/3, task 5.13 (`alert-log-version-seed-rules`, `space-dashboard-invoker-grant`), written 2026-09-24, land with the 5.13 PR.
 - `0010_M_idempotency-keys-variance-photo.sql` — lane M, task 2.9-part2, applied 2026-09-24 (pg-reviewer pre-migration APPROVED WITH CHANGES).
 - `0009_M_next-doc-no-definer.sql` — lane M, task 2.9, applied 2026-09-24 (pg-reviewer pre-migration APPROVED WITH CHANGES).
 - `0008_M_inbound-orders-version.sql` — lane M, task 2.9, applied 2026-09-24 (pg-reviewer pre-migration APPROVED WITH CHANGES).
