@@ -16,7 +16,11 @@ Maintained by pg-scribe only, in the same commit as the task it records.
 
 ## Lanes
 
-None claimed.
+| lane | task | module lock | worktree | status |
+|---|---|---|---|---|
+| 1 | 1.2 catalog (M03) | `catalog` | `../pg-eos-lane-1` | opening 2026-09-24 (D-167 Q18) |
+| 2 | 3.3 drivers hard gate | `hr` | `../pg-eos-lane-2` | queued — next session |
+| 3 | 5.13 alerts engine | `platform` | shared `claude-kit` (session Postgres resume-1, uncommitted WIP) | in progress |
 
 ## Last 5 DONE (newest first)
 
@@ -30,9 +34,9 @@ None claimed.
 
 ## Blockers (settle BEFORE any lane opens — reviewer's project-wide items)
 
-- (a) G15–G17 are not run by `guards-run.sh`.
-- (b) `scripts/new-slice.sh` `LANGS` lacks `am` (SCR-I18N-01).
-- (c) No package scaffold exists for a module with no golden counterpart (only `identity`, `platform`, `sales`, `wms` exist under `modules/`) — the scaffold rule must be recorded before the first lane slice in a new module.
+- ~~(a) G15–G17 are not run by `guards-run.sh`.~~ **Resolved 2026-09-24 (D-170):** runners executed when present, NOT RUNNABLE otherwise, blocking under `PG_GUARDS_STRICT=1` (deploy).
+- ~~(b) `scripts/new-slice.sh` `LANGS` lacks `am`.~~ **Resolved (D-170).**
+- ~~(c) No package scaffold for a module with no golden counterpart.~~ **Resolved (D-170):** `new-slice.sh` scaffolds `modules/<module>` (package.json, tsconfigs, vitest, index.ts barrel, contracts dir) from the golden shell before copying the layers.
 - **Open G-01 item:** G8 anchor storage before the first partition detach (≥ 2028-03) — D-115: `platform.settings` key design.
 - **Carried under D-131 (owner GM, post-pilot):** ADR-0003 items 1 (shared PDA — PDA path blocked), 3, 4a, 5 (punch-record retention; doc 40:668, doc 25:429 unchanged), 6, 8, 9; GPS classification; SoD mechanism; §2.5 values. APP-1 has no WBS ID (D-127 no naming) — stays `tasks/proposed/`.
 - **Not applied under D-132:** G3 diagram `01-08` regeneration (mermaid renderer not installed); G1/G2 (no retention value).
