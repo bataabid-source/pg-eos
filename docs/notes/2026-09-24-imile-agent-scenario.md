@@ -34,3 +34,17 @@ Applied reading (defaults, recorded):
 | d | One adapter interface inside `services/agent` (portal today, API if ever) | design item in the 3.14 brief, no schema |
 
 Nothing here touches the pilot path (2.9 → lanes). No schema change now.
+
+## 5. Clarification D-148 — two account kinds, one agent per auditor
+
+- **Station account** = the shipment-operations-manager account. One station agent uses it for **reading** everything (shipments, statuses, audit data) every 10 minutes (I-01).
+- **Audit accounts** = one iMile account per delivery-team manager. iMile tracks every audit decision by the user who made it, so there is **one agent session per auditor**, logging in with the auditor's own iMile account and executing that auditor's decisions by proxy every 60 seconds (I-02). Auditors never log in manually (single-session rule per account). Credentials: entered once by the auditor into the secrets store; OTP renewal from the auditor's mailbox through the agent's mail channel.
+- **Engine decisions (ADR-27 auto-close):** pushed through the session of the auditor who owns the driver's team; our side records `closed_by = 'engine'` and the pushing user — default taken, GM may change.
+- **New carrier (G-01 with 3.14/3.17):** `imile.auditor_accounts` — `employee_id`, iMile username, session state, last login, health, `is_active`; no secret stored in the row.
+- Supersedes: doc 07 §2-1 "one dedicated account", doc 40 §C8 "dedicated iMile account; single session", doc 23 I-01/I-02 account column — documentary corrections queued for the Phase-3 brief.
+
+## 6. Driver app — replacement of the iMile driver app?
+
+**Not as a replacement, in practice.** Delivery scans and POD for iMile shipments must land in iMile's system; there is no API; the only route would be the auditor agent entering status/POD per shipment by proxy, which (a) depends on the audit account exposing such a screen, (b) makes iMile see the auditor, not the driver, as the deliverer, and (c) undermines G3 (who wrote what) and the attribution model the package builds on (`imile.driver_ids`, 3.12 — drivers deliver in the iMile app under their own iMile ID).
+**Yes as a parallel layer, which is the current design:** the driver delivers in the iMile app; our agent reads the outcome; our driver app handles what iMile never sees — shift start and attendance, cage handover, custody and cash, ranking and commission, returns, grievance. Management stays on one screen; the driver uses two apps for different purposes, never duplicated work.
+One external check owed (DEL_MGR): can the audit account record delivery/POD per shipment at all. If yes, the option exists but stays not recommended for the contractual reason above.

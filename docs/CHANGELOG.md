@@ -75,6 +75,15 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — iMile accounts clarified: station agent reads, one agent per auditor writes; driver-app answer (D-148) — DONE (2026-09-24)
+
+- GM clarification recorded verbatim. Agent topology for Phase 3: read via the shipment-operations account, write via a per-auditor session in the auditor's own iMile account (iMile attributes decisions by user). Credentials by the auditor into secrets; engine decisions pushed via the team auditor's session (`closed_by = engine`) — default. New carrier `imile.auditor_accounts` queued under G-01 with 3.14/3.17. Documentary corrections to doc 07 §2-1, doc 40 §C8, doc 23 I-01/I-02 queued for the Phase-3 brief.
+- Driver app: not a replacement of the iMile driver app (no API, misattribution, G3), yes as a parallel layer — scenario page v2 §8 and note §6. One external check owed to DEL_MGR.
+- No code, no schema. Tree was clean (2.9 session committed).
+- Model: Master session fable-5.1 · Delegated: none · Review: n/a (governance) · tokens ≈ 12k (estimate)
+
+---
+
 ## X — iMile agent integration scenario (D-147) — DONE (2026-09-24)
 
 - GM request for the agent + e-mail integration scenario (dispatch, inventory, audit). Delivered as a narrative page (artifact) and `docs/notes/2026-09-24-imile-agent-scenario.md`; directive recorded verbatim as D-147 with three default readings (single front; "no alternatives" = no alternative operational path, API stays an adapter; e-mail is an agent channel).
