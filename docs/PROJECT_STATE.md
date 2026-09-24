@@ -18,7 +18,7 @@ Maintained by pg-scribe only, in the same commit as the task it records.
 
 | lane | task | module lock | worktree | status |
 |---|---|---|---|---|
-| 1 | 0.19 admin app shell (D-172) | `admin` (`apps/admin`) | `../pg-eos-lane-1` | queued — next lane-1 session (`/pg-resume` from main ≥ this commit); 1.2 DONE @ `6a53fc8` |
+| 1 | 0.19 admin app shell (D-172) | `admin` (`apps/admin`) | `../pg-eos-lane-1` | **DONE @ `<this commit>`** (PR pending Master merge); next lane-1 task per D-172: 3.1 vehicles |
 | 2 | 5.5a part 2: `hr.shifts` / `shift_assignments` / `shift_groups` (SCR-HR-SHIFT-01 §2.1–§2.3) | `hr` (`platform` released, PR #19 merged) | `../pg-eos-lane-2` | queued — next lane-2 session; part 1 (`platform.sites`, migration 0015) DONE @ `3679b70`; next free migration **0016** on request |
 | 3 | 3.14 iMile station agent (D-175: portal check confirmed live) | `imile` (new module) | shared `claude-kit` | queued — next lane-3 session; 5.18 stays queued behind it, no longer blocked on lane 2's `platform` hold (released above) |
 
@@ -26,11 +26,11 @@ Maintained by pg-scribe only, in the same commit as the task it records.
 
 | task | commit |
 |---|---|
+| 0.19 — admin app shell: nav, Decision Inbox, empty-state, design system (lane 1, first frontend slice), DONE | `<this commit>` |
 | 5.5a part 1 — `platform.sites` (SCR-HR-SHIFT-01 §2.4), migration 0015, DONE (part 2 of 5.5a pending) | `3679b70` |
 | 3.3 — hr.employees (drivers), documents, hard gate (lane 2, first replicated slice) — DONE | `9616422` |
 | 1.2 — M03 catalog price lists/lines/import/exceptions, floor rule (lane 1), DONE | `6a53fc8` |
 | 5.13 part 1 — alert evaluation mechanism (`EvaluateAlertRules` + `AcknowledgeAlert`, migrations 0011/0012), NOT DONE | `a66ea8c` |
-| 0.6a — CI gates ①–⑥ CLOSED, branch protection active (D-165), DONE | `991ee6b` |
 
 ## Blockers (settle BEFORE any lane opens — reviewer's project-wide items)
 

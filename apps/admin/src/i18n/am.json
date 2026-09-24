@@ -1,0 +1,22 @@
+{
+  "app.name": "የድርጅት አሠራር ስርዓት",
+  "nav.inbox": "የውሳኔ ሳጥን",
+  "inbox.header.title": "የውሳኔ ሳጥን — {role}",
+  "inbox.header.count": "{n} ውሳኔዎ ያስፈልጋቸዋል",
+  "inbox.empty.title": "አሁን ውሳኔዎ የሚያስፈልገው ነገር የለም",
+  "inbox.empty.missing": "ክፍት ውሳኔዎች የሉም",
+  "inbox.empty.owner": "ባለቤት: {role}",
+  "inbox.error.title": "የውሳኔ ሳጥኑን ማሳየት አልተቻለም",
+  "inbox.error.missing": "ውሳኔዎችን መጫን አልተቻለም",
+  "inbox.error.owner": "ባለቤት: ቴክኒካል ድጋፍ",
+  "inbox.action.approve": "አጽድቅ",
+  "inbox.action.reject": "ውድቅ አድርግ",
+  "inbox.action.details": "ዝርዝሮች",
+  "locale.select.label": "ቋንቋ",
+  "locale.name.ar": "ዓረብኛ",
+  "locale.name.en": "እንግሊዝኛ",
+  "locale.name.hi": "ሂንዲ",
+  "locale.name.ur": "ኡርዱ",
+  "locale.name.bn": "ቤንጋሊኛ",
+  "locale.name.am": "አማርኛ"
+}
