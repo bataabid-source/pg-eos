@@ -1,0 +1,22 @@
+{
+  "app.name": "انٹرپرائز آپریٹنگ سسٹم",
+  "nav.inbox": "فیصلوں کا اِن باکس",
+  "inbox.header.title": "فیصلوں کا اِن باکس — {role}",
+  "inbox.header.count": "{n} کو آپ کے فیصلے کی ضرورت ہے",
+  "inbox.empty.title": "ابھی آپ کے فیصلے کی ضرورت والا کچھ نہیں",
+  "inbox.empty.missing": "کوئی کھلا فیصلہ نہیں",
+  "inbox.empty.owner": "ذمہ دار: {role}",
+  "inbox.error.title": "فیصلوں کا اِن باکس ظاہر نہیں ہو سکا",
+  "inbox.error.missing": "فیصلے لوڈ نہیں ہو سکے",
+  "inbox.error.owner": "ذمہ دار: تکنیکی معاونت",
+  "inbox.action.approve": "منظور کریں",
+  "inbox.action.reject": "مسترد کریں",
+  "inbox.action.details": "تفصیلات",
+  "locale.select.label": "زبان",
+  "locale.name.ar": "عربی",
+  "locale.name.en": "انگریزی",
+  "locale.name.hi": "ہندی",
+  "locale.name.ur": "اردو",
+  "locale.name.bn": "بنگالی",
+  "locale.name.am": "امہاری"
+}

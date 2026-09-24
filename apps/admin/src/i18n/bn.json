@@ -1,0 +1,22 @@
+{
+  "app.name": "এন্টারপ্রাইজ অপারেটিং সিস্টেম",
+  "nav.inbox": "সিদ্ধান্ত ইনবক্স",
+  "inbox.header.title": "সিদ্ধান্ত ইনবক্স — {role}",
+  "inbox.header.count": "{n} টির আপনার সিদ্ধান্ত প্রয়োজন",
+  "inbox.empty.title": "এই মুহূর্তে আপনার সিদ্ধান্তের প্রয়োজন এমন কিছু নেই",
+  "inbox.empty.missing": "কোনো খোলা সিদ্ধান্ত নেই",
+  "inbox.empty.owner": "দায়িত্বপ্রাপ্ত: {role}",
+  "inbox.error.title": "সিদ্ধান্ত ইনবক্স প্রদর্শন করা যায়নি",
+  "inbox.error.missing": "সিদ্ধান্ত লোড করা যায়নি",
+  "inbox.error.owner": "দায়িত্বপ্রাপ্ত: কারিগরি সহায়তা",
+  "inbox.action.approve": "অনুমোদন",
+  "inbox.action.reject": "প্রত্যাখ্যান",
+  "inbox.action.details": "বিস্তারিত",
+  "locale.select.label": "ভাষা",
+  "locale.name.ar": "আরবি",
+  "locale.name.en": "ইংরেজি",
+  "locale.name.hi": "হিন্দি",
+  "locale.name.ur": "উর্দু",
+  "locale.name.bn": "বাংলা",
+  "locale.name.am": "আমহারিক"
+}
