@@ -1,0 +1,18 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true
+    // Fix round 1 (F20): register-employee.test.ts now imports packages/contracts/hr/register-employee
+    // through its package subpath export (@pg-eos/contracts/hr/register-employee —
+    // packages/contracts/package.json's own `exports` map), not a deep relative path — the rootDir
+    // widening this project previously needed for that deep import is gone; tsconfig.json's default
+    // (repo-relative to modules/hr) governs again.
+  },
+  "include": [
+    "index.ts",
+    "*.ts",
+    "tests/**/*.ts",
+    "vitest.config.ts"
+  ],
+  "exclude": ["dist", "node_modules"]
+}
