@@ -6,7 +6,7 @@ Maintained by pg-scribe only, in the same commit as the task it records.
 | field | value |
 |---|---|
 | Phase | 0 — Foundation → 2 — Warehouse · **pilot-first (D-127, GM 2026-09-24): the pilot runs on seed 019 + synthetic data; every field/human/sign-off/training/naming item and Tier-0 provisioning is DEFERRED-POST-PILOT** |
-| Current task | **Lane handover (Master, D-173): 1.2 DONE @ `6a53fc8` (PR #12) · 3.3 DONE @ `9616422` (PR #14) · 5.13 part 1 @ `a66ea8c` NOT DONE.** Next: lane 1 → 0.19 · lane 2 → 5.5a · lane 3 → 5.18 (once the `platform` lock frees). Completion 23/136. Previous governance commit: `412708a` (PR #11). |
+| Current task | **Lane handover (Master, D-173): 1.2 DONE @ `6a53fc8` (PR #12) · 3.3 DONE @ `9616422` (PR #14) · 5.5a part 1 (`platform.sites`) DONE @ `7d0de4e`, part 2 pending · 5.13 part 1 @ `a66ea8c` NOT DONE.** Next: lane 1 → 0.19 · lane 2 → 5.5a part 2 (`hr.shifts`/`shift_assignments`/`shift_groups`) · lane 3 → 3.14 iMile station agent (D-175), then 5.18 (no longer `platform`-blocked). Completion 23/136 (5.5a stays open — part 2 outstanding). Previous governance commit: `412708a` (PR #11). |
 | Golden slice (2.9) | **ACCEPTED** · `.golden-slice-accepted` committed · `scripts/new-slice.sh` active (trial on throw-away worktree, `tms assign-route`, 18 REPLACE-ON-COPY markers; registers contract exports itself since `412708a`) · `.githooks/pre-commit` active (①lint/boundaries/types ②touched-module unit tests ③guards:run when database/ staged; no gate on docs-only commits) · scope backend only, no PDA UI (GM choice). R1: an all-zero order gets no GRN and no `wms.inbound.received` event. |
 | Deployment tier | **Pilot Tier 0 = local Docker `postgres:16` (D-129)**; Oracle Tier 0 (`docs/package/42-Oracle-Cloud-Deployment.md`) after the pilot (0.3, 0.5, 0.7, 0.6b DEFERRED-POST-PILOT) |
 | Schema | `database/schema/01 · 13 · 13B · 019` — the ONLY permitted schema (01 v1.1, 13B v4.4, migrations 0001–0014: 0008 inbound-orders version/G6, 0009 next_doc_no SECURITY DEFINER, 0010 idempotency-keys + variance-photo columns (task 2.9), 0011 `alert_log.version` + N-16 deactivated, 0012 `wms.space_dashboard` security_invoker grant (5.13 part 1), 0013 `catalog.price_lists.version` (1.2), 0014 `hr.employees.version` (3.3)) · DB locale UTF8 / collate C / ctype C.UTF-8 · next free migration **0015** · **SCR-HR-ATT-01 APPROVED (D-131)** — migration number not yet issued |
@@ -19,35 +19,35 @@ Maintained by pg-scribe only, in the same commit as the task it records.
 | lane | task | module lock | worktree | status |
 |---|---|---|---|---|
 | 1 | 0.19 admin app shell (D-172) | `admin` (`apps/admin`) | `../pg-eos-lane-1` | queued — next lane-1 session (`/pg-resume` from main ≥ this commit); 1.2 DONE @ `6a53fc8` |
-| 2 | 5.5a shifts, shift groups, sites (SCR-HR-SHIFT-01 §2.1–§2.4) | `hr` + `platform` (sites only) | `../pg-eos-lane-2` | queued — next lane-2 session; MIGRATION-REQUEST → 0015; 3.3 DONE @ `9616422` |
-| 3 | 3.14 iMile station agent (D-175: portal check confirmed live) | `imile` (new module) | shared `claude-kit` | queued — next lane-3 session; 5.18 stays queued behind it (`platform` also held by lane 2 for 5.5a — D-173 a) |
+| 2 | 5.5a part 2: `hr.shifts` / `shift_assignments` / `shift_groups` (SCR-HR-SHIFT-01 §2.1–§2.3) | `hr` (`platform` released to Master — lock row pending Master update) | `../pg-eos-lane-2` | queued — next lane-2 session; part 1 (`platform.sites`, migration 0015) DONE @ `7d0de4e`; next free migration number on request |
+| 3 | 3.14 iMile station agent (D-175: portal check confirmed live) | `imile` (new module) | shared `claude-kit` | queued — next lane-3 session; 5.18 stays queued behind it, no longer blocked on lane 2's `platform` hold (released above) |
 
 ## Last 5 DONE (newest first)
 
 | task | commit |
 |---|---|
+| 5.5a part 1 — `platform.sites` (SCR-HR-SHIFT-01 §2.4), migration 0015, DONE (part 2 of 5.5a pending) | `7d0de4e` |
 | 3.3 — hr.employees (drivers), documents, hard gate (lane 2, first replicated slice) — DONE | `9616422` |
 | 1.2 — M03 catalog price lists/lines/import/exceptions, floor rule (lane 1), DONE | `6a53fc8` |
 | 5.13 part 1 — alert evaluation mechanism (`EvaluateAlertRules` + `AcknowledgeAlert`, migrations 0011/0012), NOT DONE | `a66ea8c` |
 | 0.6a — CI gates ①–⑥ CLOSED, branch protection active (D-165), DONE | `991ee6b` |
-| 2.9 — golden slice ACCEPTED (R1 applied; new-slice.sh + pre-commit active), DONE | `78c640e` |
 
 ## Blockers (settle BEFORE any lane opens — reviewer's project-wide items)
 
-- ~~(a)(b)(c) G15–G17 not run by `guards-run.sh` · `new-slice.sh` `LANGS` lacks `am` · no package scaffold for a module with no golden counterpart.~~ **Resolved 2026-09-24 (D-170):** runners executed when present (NOT RUNNABLE otherwise, blocking under `PG_GUARDS_STRICT=1`); `am` added; `new-slice.sh` scaffolds `modules/<module>` from the golden shell before copying the layers.
-- **`scripts/deploy.sh` does not exist yet** (CLAUDE.md names it): G15–G17 are NOT RUNNABLE and non-blocking at merge until it exists and exports `PG_GUARDS_STRICT=1` before `pnpm guards:run` (0.6b / deploy slice). Recorded 2026-09-24.
+- ~~(a)(b)(c) G15–G17 not run by `guards-run.sh` · `new-slice.sh` `LANGS` lacks `am` · no package scaffold for a module with no golden counterpart.~~ **Resolved 2026-09-24 (D-170).** **`scripts/deploy.sh` does not exist yet** (CLAUDE.md names it): G15–G17 NOT RUNNABLE and non-blocking at merge until it exists and exports `PG_GUARDS_STRICT=1` before `pnpm guards:run` (0.6b / deploy slice).
 - **Open G-01 item:** G8 anchor storage before the first partition detach (≥ 2028-03) — D-115: `platform.settings` key design.
 - **Carried under D-131 (owner GM, post-pilot):** ADR-0003 items 1 (shared PDA — PDA path blocked), 3, 4a, 5 (punch-record retention; doc 40:668, doc 25:429 unchanged), 6, 8, 9; GPS classification; SoD mechanism; §2.5 values. APP-1 has no WBS ID (D-127 no naming) — stays `tasks/proposed/`.
 - **Not applied under D-132:** G3 diagram `01-08` regeneration (mermaid renderer not installed); G1/G2 (no retention value). **D6 follow-up (0.6a part 2):** production partition maintenance must take the audit-chain advisory lock before partition DDL — no new WBS ID, tracked here.
 - WAITING_GM rows: **0** (D-127). Deferred post-pilot: 20 rows, listed under Phase 7 in `tasks/MASTER_BACKLOG.md`.
 - Concurrent external processes can delete uncommitted work (incident `a901a04`) · sessions start inside `claude-kit/` · stale `.git/*.lock` files are removed by hand.
 - **Batched Master tasks (frozen paths, one Master-only window):** `entityId` on `WithContextCtx` (`packages/db`, lane 2 finding 2 — slices fail closed 422 until then) · SCR-HR-EMP-01 three DB CHECKs as a Master migration (pre-migration review first) · `catalog.price_list.activated` / `catalog.price_exception.granted` into `packages/events/catalog.ts` when 1.4/1.6 consume them. Done in D-173: PG_APP_USER NOTE in check-setup.
+- **Flagged by lane 2 (5.5a part 1), pre-existing, untouched by this slice:** unfiltered `pnpm --filter @pg-eos/platform test` shows ~7 failures in `tests/evaluate-alerts/**` and `tests/integration/{schema-invariants,audit-chain-*}.test.ts` (FK/RLS fixtures, concurrency/timeouts) — audit-chain ones touch the hash chain, Master/GM attention needed.
 
 ## Next 3 tasks (D-172 / D-173)
 
 1. Lane 1: 0.19 admin app shell (lock `admin`, D-172) — then 3.1 vehicles
-2. Lane 2: 5.5a shifts / shift groups / sites (locks `hr` + `platform`, D-173) — then D-144 slice 2 (device custody link, requests, leaves → 5.3b)
-3. Lane 3: 5.18 focus boards once `platform` frees (or GM answer D-173 a), then 5.13 part 2, then 3.14 after the GM's iMile portal check
+2. Lane 2: 5.5a part 2 — `hr.shifts` / `shift_assignments` / `shift_groups` (lock `hr`) — then D-144 slice 2 (device custody link, requests, leaves → 5.3b)
+3. Lane 3: 3.14 iMile station agent (D-175, portal check confirmed) — then 5.18 focus boards (no longer `platform`-blocked), then 5.13 part 2
 
 ## Notes
 
