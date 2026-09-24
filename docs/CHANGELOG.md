@@ -106,6 +106,13 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — Repository made public by the GM (D-164); 0.6a close unblocked — DONE (2026-09-24)
+
+- GM completed the GitHub identity step in the browser pane; settings confirm the repo is public. Closes the PENDING part of D-157. The build session is asked to close 0.6a and apply branch protection on `main`.
+- Model: Master session fable-5.1 · Delegated: none · Review: n/a (governance) · tokens ≈ 2k (estimate)
+
+---
+
 ## X — GM decision sheet 5: 19 open items after the golden slice (sheet-2 leftovers, portal SCR, iMile, lanes, GitHub) — DONE (2026-09-24)
 
 - GM request: open the GitHub settings page for the human identity step (done in the browser pane, positioned on "Change visibility") and put every pending decision into one questionnaire with professional options. Written: `docs/notes/2026-09-24-gm-decision-sheet-5.md` + interactive checklist https://claude.ai/artifact/Giy43tqz5q1vYJBJ4TJVjH — Q1–Q19 with ★ recommendations; proposed numbers marked as judgement.
