@@ -579,6 +579,7 @@ describe('Scenario: a zero-quantity line with a varianceReason posts no ledger r
     const lineId = lineIds[0] as string;
     await approveInbound(roleCtx, { orderId, expectedVersion: version, correlationId: nextCorrelationId() }, deps);
 
+    const zeroReceiptCorrelationId = nextCorrelationId();
     await receiveLine(
       roleCtx,
       {
@@ -587,7 +588,7 @@ describe('Scenario: a zero-quantity line with a varianceReason posts no ledger r
         qtyActual: ZERO_QTY,
         varianceReason: ZERO_QTY_REASON,
         expectedVersion: (await getOrder(orderId)).version,
-        correlationId: nextCorrelationId(),
+        correlationId: zeroReceiptCorrelationId,
       },
       deps,
     );
@@ -599,6 +600,13 @@ describe('Scenario: a zero-quantity line with a varianceReason posts no ledger r
     const beforeClose = await getOrder(orderId);
     expect(beforeClose.status).toBe('received');
 
+    // SCR-WMS-INB-01 §6 — an all-zero order reaches 'received' with NO GRN document and NO
+    // 'wms.inbound.received' event, even though the order genuinely reached 'received'. A zero
+    // line is still a variance, so 'wms.inbound.variance' IS written for it.
+    expect(await documentsForSource(orderId)).toHaveLength(0);
+    expect(await outboxRowsForCorrelationAndType(zeroReceiptCorrelationId, INBOUND_RECEIVED_EVENT_TYPE)).toHaveLength(0);
+    expect(await outboxRowsForCorrelationAndType(zeroReceiptCorrelationId, INBOUND_VARIANCE_EVENT_TYPE)).toHaveLength(1);
+
     // The machine has no received --CLOSE--> closed edge.
     await expect(
       closeInbound(roleCtx, { orderId, expectedVersion: beforeClose.version, correlationId: nextCorrelationId() }, deps),
@@ -609,6 +617,63 @@ describe('Scenario: a zero-quantity line with a varianceReason posts no ledger r
     const cancelled = await cancelInbound(
       roleCtx,
       { orderId, expectedVersion: (await getOrder(orderId)).version, correlationId: nextCorrelationId() },
+      deps,
+    );
+    expect(cancelled.status).toBe('cancelled');
+  });
+});
+
+describe('an all-zero order reaches received with no GRN and no wms.inbound.received event (SCR-WMS-INB-01 §6)', () => {
+  it('a TWO-line order where every line is receipted at qtyActual = 0 writes no platform.documents row and no wms.inbound.received outbox row, yet the order reaches "received" and CancelInbound still succeeds (SCR-WMS-INB-01 §6)', async () => {
+    const skuA = await insertSku(fixtureClientId, `RECVINB-ALLZERO-A-${randomUUID()}`, SAFE_SKU_GROSS_WEIGHT_KG, SAFE_SKU_VOLUME_CBM);
+    const skuB = await insertSku(fixtureClientId, `RECVINB-ALLZERO-B-${randomUUID()}`, SAFE_SKU_GROSS_WEIGHT_KG, SAFE_SKU_VOLUME_CBM);
+    const { orderId, lineIds, version } = await createDraftInboundOrder(fixtureClientId, [
+      { skuId: skuA, qtyOrdered: QTY_ORDERED },
+      { skuId: skuB, qtyOrdered: QTY_ORDERED },
+    ]);
+    const [lineA, lineB] = lineIds as [string, string];
+    await approveInbound(roleCtx, { orderId, expectedVersion: version, correlationId: nextCorrelationId() }, deps);
+
+    await receiveLine(
+      roleCtx,
+      {
+        orderId,
+        lineId: lineA,
+        qtyActual: ZERO_QTY,
+        varianceReason: ZERO_QTY_REASON,
+        expectedVersion: (await getOrder(orderId)).version,
+        correlationId: nextCorrelationId(),
+      },
+      deps,
+    );
+
+    const lastLineCorrelationId = nextCorrelationId();
+    const receiveResult = await receiveLine(
+      roleCtx,
+      {
+        orderId,
+        lineId: lineB,
+        qtyActual: ZERO_QTY,
+        varianceReason: ZERO_QTY_REASON,
+        expectedVersion: (await getOrder(orderId)).version,
+        correlationId: lastLineCorrelationId,
+      },
+      deps,
+    );
+    expect(receiveResult.orderStatus).toBe('received');
+
+    const afterReceived = await getOrder(orderId);
+    expect(afterReceived.status).toBe('received');
+    expect(afterReceived.version).toBeGreaterThan(version); // version still bumped.
+
+    expect(await documentsForSource(orderId)).toHaveLength(0);
+    expect(await outboxRowsForCorrelationAndType(lastLineCorrelationId, INBOUND_RECEIVED_EVENT_TYPE)).toHaveLength(0);
+    // Each zero line is still a variance — 'wms.inbound.variance' fires for the last line too.
+    expect(await outboxRowsForCorrelationAndType(lastLineCorrelationId, INBOUND_VARIANCE_EVENT_TYPE)).toHaveLength(1);
+
+    const cancelled = await cancelInbound(
+      roleCtx,
+      { orderId, expectedVersion: afterReceived.version, correlationId: nextCorrelationId() },
       deps,
     );
     expect(cancelled.status).toBe('cancelled');
@@ -638,15 +703,21 @@ describe('Scenario: a MIXED order (one zero-qty line, one non-zero line) reaches
       },
       deps,
     );
+    const lastLineCorrelationId = nextCorrelationId();
     await receiveLine(
       roleCtx,
-      { orderId, lineId: lineNonZero, qtyActual: QTY_ORDERED, expectedVersion: (await getOrder(orderId)).version, correlationId: nextCorrelationId() },
+      { orderId, lineId: lineNonZero, qtyActual: QTY_ORDERED, expectedVersion: (await getOrder(orderId)).version, correlationId: lastLineCorrelationId },
       deps,
     );
 
     expect((await getOrder(orderId)).status).toBe('received');
     expect((await getLine(lineZero)).status).toBe('complete');
     expect((await getLine(lineZero)).location_id).toBeNull();
+
+    // SCR-WMS-INB-01 §6 — MIXED order (at least one line > 0): the GRN and the event ARE written,
+    // exactly as today, because SCR-WMS-INB-01 §6 only withholds them when EVERY line is zero.
+    expect(await documentsForSource(orderId)).toHaveLength(1);
+    expect(await outboxRowsForCorrelationAndType(lastLineCorrelationId, INBOUND_RECEIVED_EVENT_TYPE)).toHaveLength(1);
 
     const suggestion = await suggestLocation(roleCtx, { skuId: skuNonZero, qty: QTY_ORDERED, warehouseId }, deps);
     const chosen = suggestion.candidates[0] as { locationId: string };

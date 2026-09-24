@@ -123,6 +123,10 @@ export interface InboundOrderRepository {
     params: { readonly lineId: string; readonly locationId: string; readonly status: string },
   ): Promise<boolean>;
   countUnreceiptedLines(tx: NodePgDatabase, orderId: string): Promise<number>;
+  /** SCR-WMS-INB-01 §6: every line's qty_actual, called only once the order's last line has just
+   *  been receipted (so every value is non-null) — taken under the order-row lock already held,
+   *  no new lock. */
+  getAllLineQtyActual(tx: NodePgDatabase, orderId: string): Promise<readonly string[]>;
   hasBlockingOpenLines(tx: NodePgDatabase, orderId: string): Promise<boolean>;
   /** CancelInbound's own business rule (SCR-WMS-INB-01 §1/§3): true iff any line of the order
    *  already has qty_actual > 0 — stock has physically moved and the order may no longer be

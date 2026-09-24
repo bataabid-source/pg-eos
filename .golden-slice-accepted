@@ -1,0 +1,7 @@
+Golden slice WBS 2.9 "Receive inbound order" (modules/wms/{domain,application,infrastructure,api,tests}/receive-inbound + packages/contracts/wms/receive-inbound.ts) — ACCEPTED by the GM on 2026-09-24.
+
+GM answer, verbatim (decision sheet 4, docs/notes/2026-09-24-gm-decision-sheet-4.md): "R1: ب · R2: أ" — R2 أ = accept after applying R1.
+Built and reviewed in: eef0d42 (part 1), efd52f4 (part 2: GM sheet-3 answers), and the acceptance commit that adds this file (R1: no GRN / received event for an all-zero order).
+Independent golden-slice review (pg-reviewer, opus): part 1 FAIL(21) → FAIL(13) → FAIL(2) → PASS; part 2 FAIL(8) → FAIL(2) → PASS; R1 PASS.
+
+This file is the gate scripts/new-slice.sh checks (EXECUTION-MASTER-v4 §3.5, BOOTSTRAP-v5 §9). It is committed on purpose and must never be git-ignored or deleted.

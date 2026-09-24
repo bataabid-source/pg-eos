@@ -15,7 +15,9 @@
 //   2. getOrderLineForUpdate — `select ... for update` on the ONE line row, bound to its order
 //      (id + order_id + order_table together — a mismatched pair is LineNotFoundError).
 //   3. every OTHER row lock the command needs — today only nextDocNo (platform.next_doc_no locks a
-//      platform.counters row) when ReceiveLine completes the last line and writes the GRN.
+//      platform.counters row) when ReceiveLine completes the last line and writes the GRN. An
+//      all-zero order (SCR-WMS-INB-01 §6) simply skips step 3 — no GRN, so no doc-no allocation
+//      and no platform.counters lock.
 //   4. the reused stock-ledger mechanism's own advisory locks (shared rebuild -> location limits
 //      -> sorted balance -> audit chain) — see ./ledger.ts and ../../src/stock-ledger.
 //   5. outbox inserts, then updateOrder (the version bump, on the row already locked in step 1 —
@@ -175,6 +177,17 @@ async function countUnreceiptedLines(tx: NodePgDatabase, orderId: string): Promi
      where order_table = ${ORDER_TABLE} and order_id = ${orderId}::uuid and qty_actual is null
   `);
   return Number(result.rows[0]?.n ?? '0');
+}
+
+/** SCR-WMS-INB-01 §6: every line's qty_actual, called only once the order's last line has just
+ *  been receipted (so every value is non-null) — under the order-row lock already held, no new
+ *  lock. */
+async function getAllLineQtyActual(tx: NodePgDatabase, orderId: string): Promise<readonly string[]> {
+  const result = await tx.execute<{ qty_actual: string }>(sql`
+    select qty_actual::text as qty_actual from ${sql.raw(LINE_TABLE)}
+     where order_table = ${ORDER_TABLE} and order_id = ${orderId}::uuid and qty_actual is not null
+  `);
+  return result.rows.map((row) => row.qty_actual);
 }
 
 /** CloseInbound's own gate: true iff at least one line is still open. a fully-short receipt
@@ -444,6 +457,7 @@ export const inboundOrderRepository: InboundOrderRepository = {
   updateLineReceipt,
   updateLineLocation,
   countUnreceiptedLines,
+  getAllLineQtyActual,
   hasBlockingOpenLines,
   hasPhysicallyReceivedLines,
   pickRcvLocation,

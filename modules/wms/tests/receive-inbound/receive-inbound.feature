@@ -41,11 +41,22 @@ Feature: Receive inbound order (WBS 2.9, golden slice)
     When ReceiveLine is called with qty_actual = 0 and a varianceReason
     Then no stock movement is posted, the line counts complete, and ConfirmPutaway is never required
       for that line
+    And a "wms.inbound.variance" event is still written for that line (it is a variance)
     But CloseInbound from "received" is now rejected with IllegalTransitionError — the machine no
       longer offers that edge — and CancelInbound (no line has qty_actual > 0) sets status "cancelled"
 
+  Scenario: An all-zero order reaches "received" with no GRN and no wms.inbound.received event (SCR-WMS-INB-01 §6)
+    Given a TWO-line order where every line is receipted at qty_actual = 0
+    When the LAST open line is receipted
+    Then the order status becomes "received" and its version is bumped
+    But no platform.documents row is recorded for the order and no "wms.inbound.received" event is
+      written — a "wms.inbound.variance" event IS still written for each zero line
+    And CancelInbound still sets status "cancelled"
+
   Scenario: A mixed order (one zero-qty line, one non-zero line) reaches "putaway" through its non-zero line
     Given an order with one zero-qty line and one non-zero line, both receipted
+    Then exactly one GRN document and exactly one "wms.inbound.received" event ARE written, as for
+      any order that is not all-zero
     When ConfirmPutaway is called only for the non-zero line
     Then the order status becomes "putaway" and CloseInbound then succeeds
 

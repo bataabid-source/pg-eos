@@ -67,3 +67,11 @@ export function assertVariancePhotoRequiresVariance(
 export function isFullyShortReceipt(qtyActual: Quantity): boolean {
   return qtyActual.isZero();
 }
+
+/** SCR-WMS-INB-01 §6: true iff EVERY line of the order has qty_actual = 0 — called only once the
+ *  order's last line has just been receipted (every qty_actual is therefore non-null). The
+ *  application layer (../../application/receive-inbound/receive-line.ts) uses this to skip the
+ *  GRN document and the 'wms.inbound.received' outbox event for such an order. */
+export function isAllZeroOrder(lineQtyActuals: readonly string[]): boolean {
+  return lineQtyActuals.every((qty) => Quantity.of(qty).isZero());
+}

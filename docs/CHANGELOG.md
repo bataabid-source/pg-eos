@@ -4,6 +4,18 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## 2.9 — golden slice ACCEPTED (R1 applied; new-slice.sh and pre-commit active) — DONE (2026-09-24)
+
+- GM decision sheet 4, verbatim: "R1: ب · R2: أ" (`docs/notes/2026-09-24-gm-decision-sheet-4.md`), recorded as **D-161** (R1) and **D-162** (R2).
+- R1 applied: an all-zero inbound order gets **no GRN and no `wms.inbound.received` event** (SCR-WMS-INB-01 §6, RESOLVED) — `receive-line.ts` skips the GRN `doc_no`, the `platform.documents` row, and the `received` outbox + audit row when every line is qty 0, via the pure `isAllZeroOrder` predicate and the repository read `getAllLineQtyActual`.
+  - Files: `modules/wms/application/receive-inbound/receive-line.ts`, `modules/wms/application/receive-inbound/ports.ts`, `modules/wms/domain/receive-inbound/invariants.ts`, `modules/wms/infrastructure/receive-inbound/repository.ts`, `modules/wms/tests/receive-inbound/receive-inbound.feature`, `modules/wms/tests/receive-inbound/receive-inbound.test.ts`, `docs/notes/SCR-WMS-INB-01-receive-inbound-rules.md`.
+  - Tests: a two-line all-zero order produces 0 `platform.documents` rows and 0 `received` outbox events, still reaches `received` state and remains cancellable; a mixed order (one zero-qty line, one non-zero) produces 1 GRN document and 1 `received` event as before. `pnpm test --filter=@pg-eos/wms` 262/262.
+- R2 applied: the golden slice is accepted. `.golden-slice-accepted` committed (states the R1/R2 answer and the review history verbatim). `scripts/new-slice.sh` activated — trial run on a throw-away worktree (`tms assign-route`): copies all 5 layers plus the contract, no golden names or `wms.` left behind, 18 REPLACE-ON-COPY markers substituted correctly. `.githooks/pre-commit` activated in the same commit (D-139: "تفعيل new-slice.sh والـpre-commit في نفس commit الاعتماد"). Pre-commit defaults: a staged set of only `*.md`, `docs/` or `tasks/` runs no gate; gate ① lint, boundaries, typecheck; gate ② `tests/unit/**`, `*.unit.test.ts`, `*.property.test.ts` of the touched `modules/<m>` or `packages/<p>`; gate ③ `guards:run` when `database/` is staged (local compose PG defaults; a guard that can't run refuses the commit); staged as mode 100755.
+- Review: golden-slice reviewer (opus). Part 1 FAIL(21) → FAIL(13) → FAIL(2) → PASS; part 2 FAIL(8) → FAIL(2) → PASS; R1 PASS. 46 findings fixed in total across the slice.
+- Model: opus-5.5 session (Master) · pg-tester and pg-backend sonnet · pg-reviewer opus · pg-scribe sonnet.
+
+---
+
 ## 2.9 (part 2) — GM sheet-3 answers applied: idempotency store, cancel/close rules, variance photo, shared logger — NOT DONE (2026-09-24)
 
 - Delivered: migration `database/migrations/0010_M_idempotency-keys-variance-photo.sql` (a pre-migration review APPROVED WITH CHANGES; idempotent, and re-run proven even after a 0007 re-run); `packages/db/src/idempotency.ts` (`withIdempotentContext`; `JsonCompatible<T>` bound); the new `packages/logger` package with 3 tests; the wms changes (optional idempotency on writes, canonical-JSON sha256 in the handlers, `IdempotencyConflictError` → 409, the Q3/Q5 machine and cancel rule with `IllegalTransitionError` thrown before `CancelBlockedError`, the Q6 variance-photo column pair plus `VariancePhotoWithoutVarianceError`, a logger port and a child-logger adapter); tests; and isolation test 10, which now re-applies every migration ≥ 0007 (re-running 0007 alone had re-granted DELETE on `idempotency_keys`).

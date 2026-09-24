@@ -6,8 +6,8 @@ Maintained by pg-scribe only, in the same commit as the task it records.
 | field | value |
 |---|---|
 | Phase | 0 — Foundation → 2 — Warehouse · **pilot-first (D-127, GM 2026-09-24): the pilot runs on seed 019 + synthetic data; every field/human/sign-off/training/naming item and Tier-0 provisioning is DEFERRED-POST-PILOT** |
-| Current task | **2.9 IN PROGRESS, NOT DONE — part 2 applied: GM sheet-3 answers (idempotency store, cancel/close rules, variance photo, shared logger)** (previous task 2.9 part 1 fix @ `83f984c`). Completion 19/133 (2.9 not counted DONE). |
-| Golden slice (2.9) | **part 2 delivered, blocked on §6 and the GM's personal acceptance** · `.golden-slice-accepted` NOT created (deliberately — `scripts/new-slice.sh` stays a no-op) · scope backend only, no PDA UI (GM choice). SCR-PLAT-IDEM-01, SCR-WMS-INB-01 §1–4 and observability resolved (D-150…D-156). Blocked on: SCR-WMS-INB-01 §6 (WAITING_GM) and Q10/D-159 (GM wants a review summary before accepting). See `docs/notes/SCR-PLAT-IDEM-01-idempotency-key-store.md`, `docs/notes/SCR-WMS-INB-01-receive-inbound-rules.md`. |
+| Current task | **2.9 DONE — golden slice ACCEPTED by the GM** (D-161/D-162, decision sheet 4, R1: ب · R2: أ). Previous task: 2.9 part 2 @ `efd52f4`, plus fix `811a159`. Completion 20/133. |
+| Golden slice (2.9) | **ACCEPTED** · `.golden-slice-accepted` committed · `scripts/new-slice.sh` active (trial on throw-away worktree, `tms assign-route`, 18 REPLACE-ON-COPY markers) · `.githooks/pre-commit` active (①lint/boundaries/types ②touched-module unit tests ③guards:run when database/ staged; no gate on docs-only commits) · scope backend only, no PDA UI (GM choice). R1: an all-zero order gets no GRN and no `wms.inbound.received` event. |
 | Deployment tier | **Pilot Tier 0 = local Docker `postgres:16` (D-129)**; Oracle Tier 0 (`docs/package/42-Oracle-Cloud-Deployment.md`) after the pilot (0.3, 0.5, 0.7, 0.6b DEFERRED-POST-PILOT) |
 | Schema | `database/schema/01 · 13 · 13B · 019` — the ONLY permitted schema (01 v1.1, 13B v4.4, migrations 0001–0010: 0008 inbound-orders version/G6, 0009 next_doc_no SECURITY DEFINER, 0010 idempotency-keys + variance-photo columns, all task 2.9) · DB locale UTF8 / collate C / ctype C.UTF-8 · fresh `apply.sh --recreate` as `pgeos_app` 2026-09-24 (2.9 part 2): `turbo` 16/16 (wms 261/261, db 24/24, logger 3/3, platform 27/27), `test:isolation` 55/55, G1–G14/G18/G-SEED green, lint/typecheck 18/18/boundaries green · **SCR-HR-ATT-01 APPROVED (D-131)** — migration number not yet issued |
 | Session model | fable (`claude-fable-5-1`, set by the GM via /model 2026-09-23 evening; earlier opus) · workers sonnet, reviews/ADR/security opus, pg-scribe sonnet, no haiku (GM 2026-09-23) |
@@ -22,15 +22,17 @@ None claimed.
 
 | task | commit |
 |---|---|
-| 2.9 part 2 — GM sheet-3 answers applied (idempotency store, cancel/close rules, variance photo, shared logger), NOT DONE | `<this commit>` |
+| 2.9 — golden slice ACCEPTED (R1 applied; new-slice.sh + pre-commit active), DONE | `<this commit>` |
+| 2.9 part 2 — GM sheet-3 answers applied (idempotency store, cancel/close rules, variance photo, shared logger), NOT DONE | `efd52f4` (+ fix `811a159`) |
 | 2.9 — golden slice "Receive inbound order" (backend), built + reviewed, NOT DONE | `83f984c` |
 | 2.4 — location weight/volume limits enforced on put-away | `4aaecdf` |
 | 0.6a part 2/2 — CI gates ①–⑥ on GitHub Actions, tests as pgeos_app | `a554810` |
-| 0.6a part 2 fix — CI installs Chrome for Puppeteer, `--continue` | `d8dc887` |
 
-## Blockers
+## Blockers (settle BEFORE any lane opens — reviewer's project-wide items)
 
-- **2.9 NOT DONE — two items block `.golden-slice-accepted`:** (1) SCR-WMS-INB-01 §6 (an all-zero order needs a GRN and billable event before cancel — WAITING_GM); (2) Q10/D-159 — the GM asked for a review summary before personally accepting. SCR-PLAT-IDEM-01, SCR-WMS-INB-01 §1–4 and observability resolved by D-150…D-156 (idempotency store migration 0010, cancel/close rules, variance-photo columns, `@pg-eos/logger`).
+- (a) G15–G17 are not run by `guards-run.sh`.
+- (b) `scripts/new-slice.sh` `LANGS` lacks `am` (SCR-I18N-01).
+- (c) No package scaffold exists for a module with no golden counterpart (only `identity`, `platform`, `sales`, `wms` exist under `modules/`) — the scaffold rule must be recorded before the first lane slice in a new module.
 - **0.6a:** Q8/D-157 — GM chose to make the repo public; PENDING the GM's own identity-verification step in GitHub (the Master cannot perform it); 0.6a stays open until then.
 - **Open G-01 item:** G8 anchor storage before the first partition detach (≥ 2028-03) — D-115: `platform.settings` key design.
 - **Carried under D-131 (owner GM, post-pilot):** ADR-0003 items 1 (shared PDA — PDA path blocked), 3, 4a, 5 (punch-record retention; doc 40:668, doc 25:429 unchanged), 6, 8, 9; GPS classification; SoD mechanism; §2.5 values. APP-1 has no WBS ID (D-127 no naming) — stays `tasks/proposed/`.
@@ -41,9 +43,9 @@ None claimed.
 
 ## Next 3 tasks
 
-1. Master prepares the 2.9 review summary (Q10/D-159), then the GM's personal review of 2.9 and `.golden-slice-accepted`; SCR-WMS-INB-01 §6 ruling still WAITING_GM
-2. **0.6a close** — GM completes the GitHub identity check to finish making the repo public (Q8/D-157), then branch protection is applied
-3. After `.golden-slice-accepted`: up to three lanes per doc 38 `Lane` column
+1. Settle blockers (a), (b), (c) above
+2. Open up to three lanes per doc 38 `Lane` column
+3. **0.6a close** — GM completes the GitHub identity check to finish making the repo public (Q8/D-157), then branch protection is applied
 
 ## Notes
 

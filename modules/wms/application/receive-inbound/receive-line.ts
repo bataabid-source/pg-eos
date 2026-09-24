@@ -11,14 +11,16 @@
 //   4. pure domain invariants (../../domain/receive-inbound/invariants.ts) — SKU/client match,
 //      variance-reason — thrown before any write.
 //   5. the line write (repo.updateLineReceipt), then the machine-driven transition decision.
-//   6. IF this is the order's last open line: allocate the GRN doc_no (platform.next_doc_no —
-//      a platform.counters ROW lock) and insert the GRN document. This MUST precede step 7:
-//      ADR-0002 forbids taking any row lock after the audit-chain advisory lock, and the ledger
-//      port writes an audit row. Every row lock in this command is taken before step 7.
+//   6. IF this is the order's last open line AND NOT every line is qty_actual=0 (SCR-WMS-INB-01
+//      §6): allocate the GRN doc_no (platform.next_doc_no — a platform.counters ROW lock) and
+//      insert the GRN document. This MUST precede step 7: ADR-0002 forbids taking any row lock
+//      after the audit-chain advisory lock, and the ledger port writes an audit row. Every row
+//      lock in this command is taken before step 7.
 //   7. the reused ledger port's own advisory locks (shared rebuild -> location limits -> balance
 //      -> audit) — SKIPPED entirely for a fully-short receipt (qtyActual=0 posts NO ledger row).
 //   8. outbox events ('wms.inbound.received' on the last line, doc 40 §C3 line 262 — NOT at
-//      Close; 'wms.inbound.variance' on a variance) — inserts only, no row locks.
+//      Close, and NOT for an all-zero order, SCR-WMS-INB-01 §6; 'wms.inbound.variance' on a
+//      variance) — inserts only, no row locks.
 //   9. the unconditional version bump on the order row already locked in step 1, with
 //      arrived_at/received_by set only on the FIRST receipt.
 //  10. audit rows, last (ADR-0002).
@@ -34,7 +36,7 @@ import { Quantity } from '@pg-eos/domain-kit';
 import { writeOutboxEvent, type CatalogedEventType } from '@pg-eos/events';
 
 import { INBOUND_ORDER_EVENTS, advanceInboundOrder, canTransition } from '../../domain/receive-inbound/machine.js';
-import { assertSkuBelongsToOrderClient, assertVarianceHasReason, assertVariancePhotoRequiresVariance, isFullyShortReceipt, isVarianceReceipt } from '../../domain/receive-inbound/invariants.js';
+import { assertSkuBelongsToOrderClient, assertVarianceHasReason, assertVariancePhotoRequiresVariance, isAllZeroOrder, isFullyShortReceipt, isVarianceReceipt } from '../../domain/receive-inbound/invariants.js';
 import { LineAlreadyReceivedError, MissingActorError, StaleVersionError } from '../../domain/receive-inbound/errors.js';
 import type { ReceiveInboundDeps } from './ports.js';
 
@@ -146,19 +148,20 @@ export async function receiveLine(
 
     // Step 5b — the transition decision, from the machine alone (no if on the status string).
     // An all-zero-qty order stays 'received' — the machine has no received->CLOSE edge, so such
-    // an order is CANCELLED, not closed (./cancel-inbound.ts). It still gets the GRN and
-    // 'wms.inbound.received' event below like any other order reaching 'received' — see
-    // SCR-WMS-INB-01 §6 (WAITING_GM) for whether that stands.
+    // an order is CANCELLED, not closed (./cancel-inbound.ts). SCR-WMS-INB-01 §6: such an order
+    // gets NO GRN and NO 'wms.inbound.received' event — see isAllZero below.
     const unreceipted = await deps.repo.countUnreceiptedLines(tx, input.orderId);
     const isLastLine = unreceipted === 0;
+    const isAllZero = isLastLine && isAllZeroOrder(await deps.repo.getAllLineQtyActual(tx, input.orderId));
     const events = [receiptEvent, ...(isLastLine ? [INBOUND_ORDER_EVENTS.RECEIVE_LINE_LAST] : [])];
     const finalStatus = advanceInboundOrder(order.status, events);
     const occurredAt = deps.clock.now();
 
     // Step 6 — every ROW lock before the ledger (ADR-0002): the GRN doc_no allocation locks a
-    // platform.counters row, so it happens here, never after the ledger's audit insert.
+    // platform.counters row, so it happens here, never after the ledger's audit insert. SKIPPED
+    // for an all-zero order (SCR-WMS-INB-01 §6) — no GRN, so no doc-no allocation.
     let grnDocument: { readonly id: string; readonly docNo: string } | null = null;
-    if (isLastLine) {
+    if (isLastLine && !isAllZero) {
       const templateId = await deps.repo.getDocumentTemplateId(tx, GRN_TEMPLATE_CODE);
       const docNo = await deps.repo.nextDocNo(tx, order.entityId, GRN_DOC_TYPE);
       const snapshot = await deps.repo.getGrnSnapshotData(tx, input.orderId);
@@ -213,6 +216,8 @@ export async function receiveLine(
     }
 
     // Step 8 — the order just reached 'received' -> 'wms.inbound.received' (doc 40 §C3 line 262).
+    // grnDocument is null for an all-zero order (SCR-WMS-INB-01 §6), so this — and its audit row
+    // — are skipped for that case.
     if (grnDocument) {
       await writeOutboxEvent(tx, {
         entityId: order.entityId,

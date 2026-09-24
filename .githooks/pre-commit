@@ -1,0 +1,74 @@
+#!/usr/bin/env bash
+# PG-EOS · pre-commit hook — CLAUDE.md · SPEED AND QUALITY (v5): "Planned pre-commit gates, same
+# mechanism, no husky: ① lint+boundaries+types, ② domain unit tests of the touched module,
+# ③ pnpm guards:run --changed. Commit is refused on red." Activated with the golden-slice acceptance
+# (WBS 2.9, GM directive D-139) by the same `git config core.hooksPath .githooks` that runs
+# commit-msg (scripts/install-hooks.mjs, root `prepare`).
+#
+# Scope, decided once and applied mechanically:
+#   - A commit whose staged files are ALL documentation or bookkeeping (*.md, tasks/, docs/) runs
+#     no gate: governance commits carry no code.
+#   - ① runs for any staged code or config change.
+#   - ② runs the domain-level tests (tests/unit/**, *.unit.test.ts, *.property.test.ts — pure, no
+#     database) of every modules/<m>/ or packages/<p>/ touched.
+#   - ③ `pnpm guards:run` runs when anything under database/ is staged ("--changed" = the schema or
+#     a migration changed). It needs the local Postgres (infra/docker/docker-compose.yml); if the
+#     guards cannot run at all, the commit is refused rather than let through untested.
+# CI (.github/workflows/ci.yml) still runs every gate on every push; this hook refuses a red commit
+# earlier, on the author's machine.
+set -uo pipefail
+
+ROOT="$(git rev-parse --show-toplevel)"
+cd "$ROOT" || exit 1
+
+mapfile -t staged < <(git diff --cached --name-only --diff-filter=ACMR)
+[ "${#staged[@]}" -eq 0 ] && exit 0
+
+code=()
+db_changed=0
+declare -A touched=()
+for f in "${staged[@]}"; do
+  case "$f" in
+    *.md|docs/*|tasks/*) continue ;;
+  esac
+  code+=("$f")
+  case "$f" in
+    database/*) db_changed=1 ;;
+    modules/*/*) touched["modules/$(echo "$f" | cut -d/ -f2)"]=1 ;;
+    packages/*/*) touched["packages/$(echo "$f" | cut -d/ -f2)"]=1 ;;
+  esac
+done
+
+if [ "${#code[@]}" -eq 0 ]; then
+  exit 0
+fi
+
+fail() { echo "pre-commit: REFUSED — $1" >&2; exit 1; }
+
+echo "pre-commit: ① lint + boundaries + types"
+pnpm -s lint >/dev/null 2>&1 || fail "gate ① lint is red (run: pnpm lint)"
+pnpm -s lint:boundaries >/dev/null 2>&1 || fail "gate ① module boundaries are red (run: pnpm lint:boundaries)"
+pnpm -s typecheck >/dev/null 2>&1 || fail "gate ① typecheck is red (run: pnpm typecheck)"
+
+for dir in "${!touched[@]}"; do
+  [ -f "$dir/package.json" ] || continue
+  mapfile -t unit_tests < <(find "$dir" -path "$dir/node_modules" -prune -o -type f \
+    \( -path "$dir/tests/unit/*.test.ts" -o -name "*.unit.test.ts" -o -name "*.property.test.ts" \) -print)
+  [ "${#unit_tests[@]}" -eq 0 ] && continue
+  echo "pre-commit: ② domain unit tests — $dir (${#unit_tests[@]} files)"
+  rel=()
+  for t in "${unit_tests[@]}"; do rel+=("${t#"$dir"/}"); done
+  (cd "$dir" && npx vitest run "${rel[@]}" >/dev/null 2>&1) || fail "gate ② domain unit tests are red in $dir (run: cd $dir && npx vitest run ${rel[*]})"
+done
+
+if [ "$db_changed" -eq 1 ]; then
+  echo "pre-commit: ③ guards (database/ changed)"
+  # Local defaults of infra/docker/docker-compose.yml when the author has not set them.
+  PGHOST="${PGHOST:-localhost}" PGPORT="${PGPORT:-5432}" PGUSER="${PGUSER:-postgres}" PGDATABASE="${PGDATABASE:-pgeos}"     pnpm -s guards:run >/dev/null 2>&1
+  status=$?
+  [ "$status" -eq 2 ] && fail "gate ③ could not run the guards (is the local Postgres up? see infra/docker/docker-compose.yml)"
+  [ "$status" -ne 0 ] && fail "gate ③ guards are red (run: pnpm guards:run)"
+fi
+
+echo "pre-commit: green"
+exit 0

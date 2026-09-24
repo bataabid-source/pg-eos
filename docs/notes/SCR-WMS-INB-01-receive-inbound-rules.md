@@ -1,6 +1,6 @@
 # SCR-WMS-INB-01 — receive-inbound rules not written in doc 40 §C3, and the variance photo
 
-**Status: §1–§4 RESOLVED; §6 WAITING_GM and blocks `.golden-slice-accepted`** (answer (b) would change `receive-line.ts`, which every copy inherits). §1–§4: GM decision sheet 3 (`docs/notes/2026-09-24-gm-decision-sheet-3.md`): §1 Q3
+**Status: §1–§6 RESOLVED.** §1–§4: GM decision sheet 3 (`docs/notes/2026-09-24-gm-decision-sheet-3.md`): §1 Q3
 ب, §2 Q4 أ, §3 Q5 أ, §4 Q6 أ. See each item's own "Resolution (sheet 3)" line below; item 4's
 schema addition is applied in `database/migrations/0010_M_idempotency-keys-variance-photo.sql`.
 Filed under **EXECUTION-MASTER-v4 §1.11 (G-01)** by the Master during WBS 2.9 (golden slice),
@@ -70,3 +70,13 @@ built for this case; the code is unchanged from §1/§2's resolution. **GM decid
 - (a) keep the GRN and the event as built. The billable event then STANDS after the cancel: CancelInbound writes only an audit row, and no `wms.inbound.cancelled` event exists in `packages/events/catalog.ts`. Voiding it would need a new catalogued cancel event — a new rule the GM would approve by name; or
 - (b) suppress the GRN and the `wms.inbound.received` event when every line of the order is
   qty_actual = 0 (a code change to `receive-line.ts`, not built in this slice).
+
+**Resolution: (b) applied** — no GRN and no `wms.inbound.received` for an all-zero order. When
+`ReceiveLine` completes the LAST line and every line of the order has qty_actual = 0,
+`receive-line.ts` writes no `platform.documents` row, allocates no GRN doc_no (no
+`platform.counters` row lock), and writes no `wms.inbound.received` outbox event or its audit row.
+The line write, the transition to `received`, the version bump, the line's own audit row, and the
+`wms.inbound.variance` event for the zero line are unchanged. A mixed order (some lines non-zero)
+still gets its GRN and event exactly as before. See
+`modules/wms/domain/receive-inbound/invariants.ts`'s `isAllZeroOrder` and
+`modules/wms/application/receive-inbound/receive-line.ts` steps 5b/6/8.
