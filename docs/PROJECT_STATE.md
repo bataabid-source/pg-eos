@@ -18,7 +18,7 @@ Maintained by pg-scribe only, in the same commit as the task it records.
 
 | lane | task | module lock | worktree | status |
 |---|---|---|---|---|
-| 1 | 1.2 catalog (M03) | `catalog` | `../pg-eos-lane-1` | opening 2026-09-24 (D-167 Q18) |
+| 1 | 1.2 catalog (M03) | `catalog` | `../pg-eos-lane-1` | feat(1.2) committed on lane/1 @ `<this commit>`, PR pending Master merge; next 0.19 admin shell (D-172) |
 | 2 | 3.3 drivers hard gate | `hr` | `../pg-eos-lane-2` | queued — next session |
 | 3 | 5.18 focus boards (M) | `platform` | shared `claude-kit` | queued — next session; then 5.13 part 2, then 3.14 after the GM's iMile portal check (D-172) |
 
@@ -26,11 +26,11 @@ Maintained by pg-scribe only, in the same commit as the task it records.
 
 | task | commit |
 |---|---|
-| 5.13 part 1 — alert evaluation mechanism (`EvaluateAlertRules` + `AcknowledgeAlert`, migrations 0011/0012), NOT DONE | `<this commit>` |
+| 1.2 — M03 catalog price lists/lines/import/exceptions, floor rule (lane 1), DONE pending merge | `<this commit>` |
+| 5.13 part 1 — alert evaluation mechanism (`EvaluateAlertRules` + `AcknowledgeAlert`, migrations 0011/0012), NOT DONE | `a66ea8c` |
 | 0.6a — CI gates ①–⑥ CLOSED, branch protection active (D-165), DONE | `991ee6b` |
 | 2.9 — golden slice ACCEPTED (R1 applied; new-slice.sh + pre-commit active), DONE | `78c640e` |
 | 2.9 part 2 — GM sheet-3 answers applied (idempotency store, cancel/close rules, variance photo, shared logger), NOT DONE | `efd52f4` (+ fix `811a159`) |
-| 2.9 — golden slice "Receive inbound order" (backend), built + reviewed, NOT DONE | `83f984c` |
 
 ## Blockers (settle BEFORE any lane opens — reviewer's project-wide items)
 

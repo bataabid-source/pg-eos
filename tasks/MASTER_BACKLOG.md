@@ -54,7 +54,7 @@ Type: 🧑 human decision/data · 🤖 AI-buildable slice · 🔧 infra · ✅ v
 | ID | Task | Type | Depends on | Lane | Owner | Acceptance | Status |
 |---|---|---|---|---|---|---|---|
 | 1.1 | Enter entity legal data (CR, tax, address, logo) for PCC/PST/PDL/POR | 🧑 | 0.9 | **A** | Admin Mgr | Zero document with incomplete header | DEFERRED-POST-PILOT — D-127 (human entry; the pilot runs on seed 019 + synthetic data) |
-| 1.2 | M03 `catalog`: categories, services (7 categories), segments, price lists, exceptions | 🤖 | 0.13 | **1** | CFO | Price below floor rejected from UI, API and import | READY |
+| 1.2 | M03 `catalog`: categories, services (7 categories), segments, price lists, exceptions | 🤖 | 0.13 | **1** | CFO | Price below floor rejected from UI, API and import | DONE @ `<this commit>` — lane 1; UI leg → 0.19 (D-172); reference.manage grant = GM item |
 | 1.3 | **Data gate M03:** floor price + standard cost for every active service | 🧑 | 1.2 | **A** | CFO | Scorecard = 100% | DEFERRED-POST-PILOT — D-127 (data gate; Phase-1 gate item after the pilot) |
 | 1.4 | Pricing engine: exception → contract → segment → list → pending | 🤖 | 1.2 | **1** | CFO | Tiered pricing matches manual calc on 3 cases; unpriced event stays pending | TODO |
 | 1.5 | M02 `sales`: accounts, contacts, leads, opportunities, activities | 🤖 | 0.13 | **1** | SALES_MGR | One account per client across entities; duplicate detection fires | DONE (proof) @ `f790da7` — ADR-0001; excluded from the completion ratio; full slice replicated from 2.9 later; SCR-TRGM-01 option A. |
