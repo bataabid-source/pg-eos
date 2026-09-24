@@ -75,6 +75,14 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — iMile agent integration scenario (D-147) — DONE (2026-09-24)
+
+- GM request for the agent + e-mail integration scenario (dispatch, inventory, audit). Delivered as a narrative page (artifact) and `docs/notes/2026-09-24-imile-agent-scenario.md`; directive recorded verbatim as D-147 with three default readings (single front; "no alternatives" = no alternative operational path, API stays an adapter; e-mail is an agent channel).
+- Four Phase-3 gaps listed for lane 3 (driver capacity carrier, I-01b mailbox row, audit owner by position, adapter interface). No code, no schema.
+- Model: Master session fable-5.1 · Delegated: none · Review: n/a (governance) · tokens ≈ 35k (estimate)
+
+---
+
 ## X — Standing rule: no multi-question back-and-forth; one complete questionnaire instead (D-146) — DONE (2026-09-24)
 
 - GM directive recorded verbatim (D-146). Applied as a session rule and saved in the Master's persistent memory; CLAUDE.md line deferred until the 2.9 session commits (frozen path while another session is active).
