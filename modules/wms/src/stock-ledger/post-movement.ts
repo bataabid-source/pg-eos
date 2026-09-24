@@ -26,13 +26,21 @@ import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import {
   balanceKey,
   balanceRebuildLockKey,
+  evaluateLocationLimits,
+  hasWeightVolumeLimits,
+  locationLimitLockKey,
   planReversal,
   planTransfer,
   validateEntry,
   type LedgerEntry,
   type MovementType,
 } from './domain.js';
-import { MovementNotFoundError, NegativeStockError } from './errors.js';
+import {
+  LocationBlockedError,
+  LocationLimitExceededError,
+  MovementNotFoundError,
+  NegativeStockError,
+} from './errors.js';
 
 // decision 1: SQLSTATE for a CHECK constraint violation (Postgres error class 23 — integrity
 // constraint violation, code 23514) — the class 01 wms.stock_balance constraint no_negative_stock raises.
@@ -208,6 +216,230 @@ async function lockRebuildKeysShared(
   }
 }
 
+
+/**
+ * pg-reviewer fix round 1 finding F2: true only for the SQLSTATE `wms.check_location_limits`
+ * itself raises (`RAISE EXCEPTION` with no explicit SQLSTATE defaults to P0001, "raise_exception")
+ * — walked through the `cause` chain the same way isNegativeStockViolation does above, bounded by
+ * `seen` against a cyclic chain. Any OTHER error (a connection failure, a different constraint, a
+ * programming mistake) is rethrown unchanged by the caller, never folded into
+ * LocationLimitExceededError.
+ */
+function isCheckLocationLimitsViolation(error: unknown): boolean {
+  const seen = new Set<unknown>();
+  let current: unknown = error;
+
+  while (current instanceof Error && !seen.has(current)) {
+    seen.add(current);
+    const code = 'code' in current ? current.code : undefined;
+    if (code === 'P0001') {
+      return true;
+    }
+    current = current.cause;
+  }
+
+  return false;
+}
+
+/**
+ * WBS 2.4 (D1-D4): enforces a location's max_weight_kg/max_volume_cbm and is_blocked flag on the
+ * RESULTING load — existing wms.stock_balance (all clients/SKUs) plus the incoming qty (D2) — for
+ * a single ledger entry that ADDS stock to a location (entry.toLocationId set). A no-op for an
+ * entry that only removes stock (toLocationId null) — decision D1 only enforces on the ADDING
+ * side. Called BEFORE the ledger insert, inside the same transaction, by every caller
+ * (postMovement, both legs of postTransfer, and reverseMovement, via checkLocationLimitsForEntries).
+ *
+ * D4: takes `pg_advisory_xact_lock` keyed on the location (locationLimitLockKey, hashed the same
+ * way lockBalanceRow/lockRebuildKeysShared hash their own keys) BEFORE reading the current load —
+ * this is the FIRST statement below — so two concurrent put-aways into the same location that
+ * together exceed the limit are serialised: the second waits for the first's transaction to
+ * commit or roll back, then reads the (now updated, or reverted) load itself.
+ *
+ * Three steps after the lock: read the location row, compute the resulting weight/volume and the
+ * exceeds/missing-dimension flags in one load query (D5: the arithmetic runs in SQL, on numeric columns — never JS float) against the
+ * location and SKU rows AS OF right now, inside this locked transaction. That computed state — not
+ * a parse of `wms.check_location_limits`'s Arabic exception text (D2: "rather than by parsing
+ * Arabic exception text") — is what selects LocationBlockedError vs LocationLimitExceededError.
+ * For storage locations only (hasWeightVolumeLimits: pallet/shelf — operational locations skip
+ * it, F9 scope), `wms.check_location_limits` (019:343-365) is then called as the final barrier
+ * (D2). If it raises its own `raise exception` (SQLSTATE P0001) despite every check above passing,
+ * that is mapped to LocationLimitExceededError, wrapping the original cause; any other error
+ * (connection, timeout, cancellation, missing grant) is rethrown unchanged (F2).
+ */
+async function checkLocationLimits(
+  tx: NodePgDatabase,
+  params: { readonly toLocationId: string; readonly skuId: string; readonly qty: Quantity },
+): Promise<void> {
+  await tx.execute(
+    sql`select pg_advisory_xact_lock(hashtextextended(${locationLimitLockKey(params.toLocationId)}, 0))`,
+  );
+
+  const locationResult = await tx.execute<{
+    readonly location_code: string;
+    readonly location_type: string;
+    readonly is_blocked: boolean;
+    readonly block_reason: string | null;
+  }>(sql`
+    select code as location_code, location_type, is_blocked, block_reason
+      from wms.locations
+     where id = ${params.toLocationId}::uuid
+  `);
+
+  const location = locationResult.rows[0];
+  if (!location) {
+    throw new Error(
+      `checkLocationLimits: no wms.locations row for id ${params.toLocationId} ` +
+        `(Allowed: the id of an existing wms.locations row)`,
+    );
+  }
+
+  // pg-reviewer fix round 2 (Master decision, F7): the exact arithmetic — the resulting load and
+  // the > comparisons against max_weight_kg/max_volume_cbm — stays in SQL, on numeric columns
+  // (Quantity cannot represent volume_cbm's precision, see domain.ts's evaluateLocationLimits
+  // comment); this query only computes the booleans the pure decision function consumes.
+  const result = await tx.execute<{
+    readonly max_weight_kg: string | null;
+    readonly max_volume_cbm: string | null;
+    readonly has_max_weight: boolean;
+    readonly has_max_volume: boolean;
+    readonly sku_has_weight: boolean;
+    readonly sku_has_volume: boolean;
+    readonly resulting_weight_kg: string;
+    readonly resulting_volume_cbm: string;
+    readonly weight_exceeds: boolean;
+    readonly volume_exceeds: boolean;
+  }>(sql`
+    select
+      l.max_weight_kg::text as max_weight_kg,
+      l.max_volume_cbm::text as max_volume_cbm,
+      (l.max_weight_kg is not null) as has_max_weight,
+      (l.max_volume_cbm is not null) as has_max_volume,
+      (s.gross_weight_kg is not null) as sku_has_weight,
+      (s.volume_cbm is not null) as sku_has_volume,
+      (coalesce(agg.weight_kg, 0) + (${params.qty.toString()}::numeric * coalesce(s.gross_weight_kg, 0)))::text
+        as resulting_weight_kg,
+      (coalesce(agg.volume_cbm, 0) + (${params.qty.toString()}::numeric * coalesce(s.volume_cbm, 0)))::text
+        as resulting_volume_cbm,
+      coalesce(
+        (coalesce(agg.weight_kg, 0) + (${params.qty.toString()}::numeric * coalesce(s.gross_weight_kg, 0))) > l.max_weight_kg,
+        false)
+        as weight_exceeds,
+      coalesce(
+        (coalesce(agg.volume_cbm, 0) + (${params.qty.toString()}::numeric * coalesce(s.volume_cbm, 0))) > l.max_volume_cbm,
+        false)
+        as volume_exceeds
+    from wms.locations l
+    cross join wms.skus s
+    left join lateral (
+      select sum(sb.qty_on_hand * coalesce(sk.gross_weight_kg, 0)) as weight_kg,
+             sum(sb.qty_on_hand * coalesce(sk.volume_cbm, 0)) as volume_cbm
+        from wms.stock_balance sb
+        join wms.skus sk on sk.id = sb.sku_id
+       where sb.location_id = l.id
+    ) agg on true
+    where l.id = ${params.toLocationId}::uuid and s.id = ${params.skuId}::uuid
+  `);
+
+  const row = result.rows[0];
+  if (!row) {
+    throw new Error(
+      `checkLocationLimits: no row for location ${params.toLocationId} / sku ${params.skuId} ` +
+        `(Allowed: an existing wms.locations id and an existing wms.skus id)`,
+    );
+  }
+
+  const verdict = evaluateLocationLimits({
+    locationType: location.location_type,
+    isBlocked: location.is_blocked,
+    hasMaxWeight: row.has_max_weight,
+    hasMaxVolume: row.has_max_volume,
+    skuHasWeight: row.sku_has_weight,
+    skuHasVolume: row.sku_has_volume,
+    weightExceeds: row.weight_exceeds,
+    volumeExceeds: row.volume_exceeds,
+  });
+
+  if (!verdict.ok) {
+    switch (verdict.reason) {
+      case 'blocked':
+        throw new LocationBlockedError(
+          `location ${location.location_code} is blocked (${location.block_reason ?? '—'}) ` +
+            `(wms.locations.is_blocked; wms.check_location_limits, 019:351-353). ` +
+            `(Allowed: a destination location with is_blocked = false)`,
+        );
+      case 'missing_weight':
+        throw new LocationLimitExceededError(
+          `sku ${params.skuId} has no gross_weight_kg, but location ${location.location_code} has ` +
+            `max_weight_kg = ${row.max_weight_kg} kg set — a hard barrier can't be verified ` +
+            `without a number (D3). (Allowed: a SKU with gross_weight_kg set)`,
+        );
+      case 'missing_volume':
+        throw new LocationLimitExceededError(
+          `sku ${params.skuId} has no volume_cbm, but location ${location.location_code} has ` +
+            `max_volume_cbm = ${row.max_volume_cbm} m3 set — a hard barrier can't be verified ` +
+            `without a number (D3). (Allowed: a SKU with volume_cbm set)`,
+        );
+      case 'over_weight':
+        throw new LocationLimitExceededError(
+          `location ${location.location_code} allows max_weight_kg = ${row.max_weight_kg} kg; the ` +
+            `resulting load would be ${row.resulting_weight_kg} kg (19 §3-3 hard barrier, no ` +
+            `warning). (Allowed: a resulting load <= max_weight_kg)`,
+        );
+      case 'over_volume':
+        throw new LocationLimitExceededError(
+          `location ${location.location_code} allows max_volume_cbm = ${row.max_volume_cbm} m3; ` +
+            `the resulting volume would be ${row.resulting_volume_cbm} m3 (19 §3-3 hard barrier, ` +
+            `no warning). (Allowed: a resulting volume <= max_volume_cbm)`,
+        );
+    }
+  }
+
+  // F9 (Master decision): wms.check_location_limits is the final barrier for pallet/shelf
+  // locations only (verdict.ok is true here, so this location is either blocked-exempt by type or
+  // a passing pallet/shelf check) — operational locations are never weight/volume-checked (D1/D3
+  // scope), so the barrier is skipped for them. F2: ONLY its own SQLSTATE P0001 (`raise exception`,
+  // no explicit code) is mapped to LocationLimitExceededError; any other error is rethrown
+  // unchanged, never folded into a false "limit exceeded".
+  if (!hasWeightVolumeLimits(location.location_type)) {
+    return;
+  }
+
+  try {
+    await tx.execute(sql`
+      select wms.check_location_limits(
+        ${params.toLocationId}::uuid, ${row.resulting_weight_kg}::numeric, ${row.resulting_volume_cbm}::numeric)
+    `);
+  } catch (error) {
+    if (isCheckLocationLimitsViolation(error)) {
+      throw new LocationLimitExceededError(
+        `wms.check_location_limits rejected location ${location.location_code} despite passing ` +
+          `every pre-check above — treated as a limit violation (D2's final barrier). ` +
+          `(Allowed: wms.check_location_limits accepting this location/weight/volume)`,
+        { cause: error },
+      );
+    }
+    throw error;
+  }
+}
+
+/** WBS 2.4 (D1): runs checkLocationLimits for every entry in `entries` that ADDS stock
+ *  (toLocationId set) — a no-op for an entry that only removes stock. Callers (postMovement,
+ *  postTransfer, reverseMovement) run this BEFORE any ledger insert in the transaction. */
+async function checkLocationLimitsForEntries(
+  tx: NodePgDatabase,
+  entries: readonly LedgerEntry[],
+): Promise<void> {
+  for (const entry of entries) {
+    if (entry.toLocationId !== null) {
+      await checkLocationLimits(tx, {
+        toLocationId: entry.toLocationId,
+        skuId: entry.skuId,
+        qty: entry.qty,
+      });
+    }
+  }
+}
+
 /**
  * decision 2/3: NOT `insert … on conflict (…) do update` (the brief's suggested SQL shape) — that
  * shape is provably broken for a delta that can be negative against a CHECK constraint like
@@ -360,6 +592,10 @@ export async function postMovement(
     // transaction's per-balance-key locks (see lockRebuildKeysShared's own comment for the protocol).
     await lockRebuildKeysShared(tx, [{ clientId: input.entry.clientId, skuId: input.entry.skuId }]);
 
+    // WBS 2.4 (D1): enforced BEFORE the ledger insert, in the same transaction — a no-op unless
+    // input.entry.toLocationId is set (see checkLocationLimitsForEntries).
+    await checkLocationLimitsForEntries(tx, [input.entry]);
+
     const occurredAt = deps.clock.now();
     const row = await insertMovementRow(tx, {
       entityId: input.entityId,
@@ -413,6 +649,11 @@ export async function postTransfer(
       { clientId: outEntry.clientId, skuId: outEntry.skuId },
       { clientId: inEntry.clientId, skuId: inEntry.skuId },
     ]);
+
+    // WBS 2.4 (D1): enforced BEFORE either leg's ledger insert, in the same transaction — a no-op
+    // for outEntry (toLocationId null, decision 1); throwing here rolls back the whole transfer, so
+    // neither leg is written (checkLocationLimitsForEntries's own comment / D1 "atomically").
+    await checkLocationLimitsForEntries(tx, [outEntry, inEntry]);
 
     const occurredAt = deps.clock.now();
 
@@ -533,6 +774,12 @@ export async function reverseMovement(
     await lockRebuildKeysShared(tx, [
       { clientId: reversalEntry.clientId, skuId: reversalEntry.skuId },
     ]);
+
+    // pg-reviewer fix round 1 finding F1: planReversal swaps from/to, so a reversal CAN add stock
+    // to a location (reversing an outbound entry) — enforced the same as postMovement/postTransfer,
+    // before the ledger insert, in the same lock order (shared rebuild lock -> location lock ->
+    // sorted balance locks -> audit).
+    await checkLocationLimitsForEntries(tx, [reversalEntry]);
 
     const occurredAt = deps.clock.now();
     const row = await insertMovementRow(tx, {

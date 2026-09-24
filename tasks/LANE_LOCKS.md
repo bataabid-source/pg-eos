@@ -3,7 +3,8 @@
 | module | lane | task | claimed_at | worktree |
 |---|---|---|---|---|
 
-None claimed. `packages/db + CI (.github)` (lane M, task 0.6a-2) released 2026-09-24 — 0.6a IN PROGRESS pending GM ruleset decision + first green CI run.
+`wms` (lane 2, task 2.4) released 2026-09-24 — 2.4 DONE.
+`packages/db + CI (.github)` (lane M, task 0.6a-2) released 2026-09-24 — 0.6a IN PROGRESS pending GM ruleset decision (first green CI run: #2 @ d8dc887).
 
 ## Migrations issued
 

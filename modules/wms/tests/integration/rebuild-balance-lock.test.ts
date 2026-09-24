@@ -74,6 +74,21 @@ const STRESS_POST_COUNT = 20;
 const STRESS_REBUILD_COUNT = 3;
 const STRESS_RECEIPT_QTY = '1.000';
 
+// WBS 2.4 fix round 1: every fixture SKU now needs a location-limit-safe gross_weight_kg /
+// volume_cbm — WBS 2.4 D3 rejects a null-weight (or null-volume) SKU moving into ANY WH1 storage
+// location, since 019-Warehouse-WH1-Setup.sql sets max_weight_kg/max_volume_cbm on all 3,153 of
+// them (019:236-245). Worst-case load this file ever posts at locationL1: fixtureSkuId receives
+// INITIAL_RECEIPT_QTY (10.000) plus two LOCK_TEST_RECEIPT_QTY (1.000 each, one per lock-contention
+// scenario) = 12.000 units; fixtureSkuIdStress receives INITIAL_RECEIPT_QTY (10.000) plus
+// STRESS_POST_COUNT (20) x STRESS_RECEIPT_QTY (1.000) = 30.000 units — 42.000 combined at
+// locationL1 in the worst case. At FIXTURE_SKU_GROSS_WEIGHT_KG kg/unit that is 42 * 0.100 =
+// 4.2 kg, and at FIXTURE_SKU_VOLUME_CBM cbm/unit (the smallest nonzero value
+// wms.skus.volume_cbm's numeric(10,4) column can hold) 42 * 0.0001 = 0.0042 cbm — both trivially
+// under the smaller of the two 019 hard barriers (750 kg / 0.97200 cbm on a shelf location,
+// 019:239-245; 1,000 kg / 1.76175 cbm on a pallet location, 019:236-237).
+const FIXTURE_SKU_GROSS_WEIGHT_KG = '0.100';
+const FIXTURE_SKU_VOLUME_CBM = '0.0001';
+
 // 01 wms.stock_movements.performed_by — "not null" with no FK on that column; a fixed constant
 // named in the test (same convention as stock-ledger.test.ts's PERFORMED_BY_FIXTURE_UUID),
 // distinct from every other suite's value since this file never shares fixtures with them.
@@ -216,16 +231,30 @@ beforeAll(async () => {
   fixtureClientId = clientRow.id;
 
   const skuResult: QueryResult<{ id: string }> = await pool.query(
-    `insert into wms.skus (client_id, code, name_ar) values ($1, $2, $3) returning id`,
-    [fixtureClientId, `LOCK-SKU-${randomUUID()}`, 'صنف اختبار قفل إعادة بناء الرصيد'],
+    `insert into wms.skus (client_id, code, name_ar, gross_weight_kg, volume_cbm)
+     values ($1, $2, $3, $4::numeric, $5::numeric) returning id`,
+    [
+      fixtureClientId,
+      `LOCK-SKU-${randomUUID()}`,
+      'صنف اختبار قفل إعادة بناء الرصيد',
+      FIXTURE_SKU_GROSS_WEIGHT_KG,
+      FIXTURE_SKU_VOLUME_CBM,
+    ],
   );
   const skuRow = skuResult.rows[0];
   if (!skuRow) throw new Error('fixture wms.skus insert returned no row');
   fixtureSkuId = skuRow.id;
 
   const skuStressResult: QueryResult<{ id: string }> = await pool.query(
-    `insert into wms.skus (client_id, code, name_ar) values ($1, $2, $3) returning id`,
-    [fixtureClientId, `LOCK-SKU-STRESS-${randomUUID()}`, 'صنف اختبار ضغط قفل إعادة بناء الرصيد'],
+    `insert into wms.skus (client_id, code, name_ar, gross_weight_kg, volume_cbm)
+     values ($1, $2, $3, $4::numeric, $5::numeric) returning id`,
+    [
+      fixtureClientId,
+      `LOCK-SKU-STRESS-${randomUUID()}`,
+      'صنف اختبار ضغط قفل إعادة بناء الرصيد',
+      FIXTURE_SKU_GROSS_WEIGHT_KG,
+      FIXTURE_SKU_VOLUME_CBM,
+    ],
   );
   const skuStressRow = skuStressResult.rows[0];
   if (!skuStressRow) throw new Error('fixture wms.skus insert returned no row (stress sku)');

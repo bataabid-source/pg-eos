@@ -44,6 +44,32 @@ export class MovementNotFoundError extends Error {
 }
 
 /**
+ * WBS 2.4 (doc 38 row 2.4 acceptance "Over-weight put-away rejected", 19 §3-3 hard barrier, no
+ * warning). Thrown when the RESULTING total at the destination location — existing
+ * wms.stock_balance (all clients/SKUs) plus the incoming qty (D2) — would exceed
+ * wms.locations.max_weight_kg or max_volume_cbm, or (D3) when the moving SKU's gross_weight_kg (or
+ * volume_cbm) is null and the location has that max set — a hard barrier can't be verified without
+ * a number. Thrown BEFORE the ledger insert in the same transaction (postMovement/postTransfer/
+ * reverseMovement);
+ * nothing is written — for postTransfer, the whole transfer rolls back (D1). */
+export class LocationLimitExceededError extends Error {
+  constructor(message: string, options?: { readonly cause?: unknown }) {
+    super(message, options);
+    this.name = 'LocationLimitExceededError';
+  }
+}
+
+/** WBS 2.4: the destination location is wms.locations.is_blocked = true (wms.check_location_limits,
+ *  019:351-353). Thrown BEFORE
+ *  the ledger insert in the same transaction; nothing is written. */
+export class LocationBlockedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'LocationBlockedError';
+  }
+}
+
+/**
  * pg-reviewer gate finding 9 / doc 40 P4: rebuildBalance recomputes wms.stock_balance from the
  * FULL wms.stock_movements ledger for a (client, sku) pair. Under RLS, wms.stock_balance's policy
  * (internal_only) lets an internal caller see every balance row, but wms.stock_movements' policy

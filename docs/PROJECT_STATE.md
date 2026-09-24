@@ -6,8 +6,8 @@ Maintained by pg-scribe only, in the same commit as the task it records.
 | field | value |
 |---|---|
 | Phase | 0 — Foundation → 2 — Warehouse · **pilot-first (D-127, GM 2026-09-24): the pilot runs on seed 019 + synthetic data; every field/human/sign-off/training/naming item and Tier-0 provisioning is DEFERRED-POST-PILOT** |
-| Current task | **0.6a part 2/2 delivered — CI gates ①–⑥ on GitHub Actions + integration tests as `pgeos_app`** (previous task 0.6a part 1 @ `1f19c92`). 0.6a stays IN PROGRESS pending (1) GM ruleset decision on `main` and (2) the first green GitHub Actions run. Completion 18/133. |
-| Golden slice (2.9) | not built · `.golden-slice-accepted` absent · `scripts/new-slice.sh` is a no-op. Deps 2.4, 2.6, 2.8, 0.15 — 2.6, 2.8, 0.15, **2.3 now DONE**; **2.4 next**. **Phase-0 gate: passed on 0.8 (D-130)** — pilot backup/restore acceptance against local Docker, 8/8 green. Acceptance also wires every Phase-0 "mechanism only" deferral (GM 2026-09-22), starting with 0.17's login endpoints. |
+| Current task | **2.4 DONE — location weight/volume limits enforced on put-away** (previous task 0.6a part 2 CI Chrome fix @ `d8dc887`). Completion 19/133. |
+| Golden slice (2.9) | not built · `.golden-slice-accepted` absent · `scripts/new-slice.sh` is a no-op. Deps 2.4, 2.6, 2.8, 0.15 — **all now DONE**; **2.9 next**, full human review, never parallelised. **Phase-0 gate: passed on 0.8 (D-130)** — pilot backup/restore acceptance against local Docker, 8/8 green. Acceptance also wires every Phase-0 "mechanism only" deferral (GM 2026-09-22), starting with 0.17's login endpoints. |
 | Deployment tier | **Pilot Tier 0 = local Docker `postgres:16` (D-129)**; Oracle Tier 0 (`docs/package/42-Oracle-Cloud-Deployment.md`) after the pilot (0.3, 0.5, 0.7, 0.6b DEFERRED-POST-PILOT) |
 | Schema | `database/schema/01 · 13 · 13B · 019` — the ONLY permitted schema (01 v1.1, 13B v4.4, migrations 0001–0007) · DB locale UTF8 / collate C / ctype C.UTF-8 · `apply.sh --recreate` green 2026-09-24 (0.6a part 1): 175 tables/14 schemas, `wms.verify_wh1()` 21/21, G1–G13 = 0, G13 100/100, G18/G-SEED = 0, `test:isolation` 55/55 · **SCR-HR-ATT-01 APPROVED (D-131)** — migration number not yet issued; pg-reviewer pre-migration review before any DDL |
 | Session model | fable (`claude-fable-5-1`, set by the GM via /model 2026-09-23 evening; earlier opus) · workers sonnet, reviews/ADR/security opus, pg-scribe sonnet, no haiku (GM 2026-09-23) |
@@ -22,11 +22,11 @@ None claimed.
 
 | task | commit |
 |---|---|
+| 2.4 — location weight/volume limits enforced on put-away | `<this commit>` |
+| 0.6a part 2/2 — CI gates ①–⑥ on GitHub Actions, tests as pgeos_app | `a554810` |
+| 0.6a part 2 fix — CI installs Chrome for Puppeteer, `--continue` | `d8dc887` |
 | 0.6a part 1/2 — pgeos_app role + entity_scope USING/WITH CHECK (migration 0007, D-133) | `1f19c92` |
 | 2.3 — generate 3,330 WH1 location codes (verification-only) | `f3426eb` |
-| 0.8 — pilot backup/restore acceptance (D-130) | `56fa267` |
-| X — D-135 session operating directive v6 in CLAUDE.md | `41c1e04` |
-| X — D-127…D-134 pilot-first (2.2 closed on seed, ADR-0003 accepted, 0.6a READY) | `1f5027f` |
 
 ## Blockers
 
@@ -40,9 +40,9 @@ None claimed.
 
 ## Next 3 tasks
 
-1. **2.4** (dep 2.3 DONE, lane 2)
-2. **2.9** golden slice "Receive inbound order" (dep 2.4, full human review) — never parallelised
-3. **0.6a close** — GM ruleset decision on `main` + first green GitHub Actions run
+1. **2.9** golden slice "Receive inbound order" (deps 2.4, 2.6, 2.8, 0.15 all DONE, full human review) — never parallelised
+2. **0.6a close** — GM ruleset decision on `main` (first green CI run already recorded @ `d8dc887`)
+3. Up to three lanes per doc 38 `Lane` column, after `.golden-slice-accepted`
 
 ## Notes
 
@@ -52,4 +52,4 @@ None claimed.
 - Phase-0 policy (GM 2026-09-22): mechanism-only tasks; deferred parts tracked here and in `MASTER_BACKLOG.md`.
 - GIT rule (GM 2026-09-23 B3): task ↔ code link is `git log` with `type(WBS):`; previous task's hash recorded here inside the next task's commit. Push policy D-120.
 - GM decision sheet: `docs/notes/2026-09-23-gm-decision-sheet.md` · cleanup dispositions: `docs/notes/2026-09-24-cleanup-candidates.md` §4.
-- **Batched questions for GM:** D-139 "items 2, 4, 5" (from "0.8 الآن → 0.6a مع البنود 2 و4 و5 مدمجة فيها") — which numbered list? No match found in the referenced files. **0.6a ruleset:** GitHub ruleset on `main` of `bataabid-source/pg-eos` requiring the five CI checks + "require PR" + no bypass conflicts with D-120 (direct push to main) — GM decision needed.
+- **Batched questions for GM:** D-139 "items 2, 4, 5" (from "0.8 الآن → 0.6a مع البنود 2 و4 و5 مدمجة فيها") — which numbered list? No match found in the referenced files. **0.6a ruleset:** GitHub ruleset on `main` of `bataabid-source/pg-eos` requiring the five CI checks + "require PR" + no bypass conflicts with D-120 (direct push to main) — GM decision needed. **2.4 F9:** should operational locations (RCV, QRT, STG, SHP, RTN, DMG) also be subject to the 1,000 kg limit set in 019 §8, or does the weight/volume check stay storage-only (pallet/shelf) per 19 §3-3?

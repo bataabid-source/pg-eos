@@ -110,6 +110,30 @@ const QTY_FRACTION_PART_MIN = 1;
 const QTY_FRACTION_PART_MAX = 999;
 const QTY_FRACTION_PAD_WIDTH = 3;
 
+// WBS 2.4 fix round 1: every fixture SKU now needs a location-limit-safe gross_weight_kg /
+// volume_cbm — WBS 2.4 D3 rejects a null-weight (or null-volume) SKU moving into ANY WH1 storage
+// location, since 019-Warehouse-WH1-Setup.sql sets max_weight_kg/max_volume_cbm on all 3,153 of
+// them (019:236-245), and D1 enforces the barrier for every entry that ADDS stock, i.e. every
+// receipt/transfer-in this file's fixture SKUs are posted with below.
+// Sized against the worst case the "1,000 random movements" concurrency scenario further below
+// can produce: replaying its own arbitrary — `fc.sample(movementDescriptorArb(), { numRuns:
+// CONCURRENCY_MOVEMENT_COUNT, seed: CONCURRENCY_SEED })` — and summing, per fixture location, every
+// draw's qty that lands there as an inbound add (single-sided isInbound=true, or a transfer's
+// in-row at locationIndexB when locA !== locB — the only two ways an entry in this file adds stock
+// to a location), the busiest of the FIXTURE_LOCATION_COUNT=5 locations receives at most
+// 4,021.017 combined qty units, summed across every one of the FIXTURE_SKU_COUNT=3 fixture SKUs
+// that ever lands there (deterministic for this fixed seed; the other 4 locations total 3,134.710
+// / 3,834.289 / 2,930.622 / 3,004.217). RECEIPT_QTY (12.500) and TRANSFER_QTY (5.000) above are
+// both trivial against this same bound. At FIXTURE_SKU_GROSS_WEIGHT_KG kg/unit that busiest
+// location's worst-case load is 4,021.017 * 0.100 = 402.1017 kg — comfortably under the SMALLER of
+// the two 019 hard barriers (750 kg on a shelf location, 019:239-245; 1,000 kg on a pallet
+// location, 019:236-237). At FIXTURE_SKU_VOLUME_CBM cbm/unit (the smallest nonzero value
+// wms.skus.volume_cbm's numeric(10,4) column can hold) the same worst case is
+// 4,021.017 * 0.0001 = 0.4021017 cbm — comfortably under the smaller of the two volume barriers
+// (0.97200 cbm on a shelf location, 1.76175 cbm on a pallet location).
+const FIXTURE_SKU_GROSS_WEIGHT_KG = '0.100';
+const FIXTURE_SKU_VOLUME_CBM = '0.0001';
+
 // decision 10: "performed_by = a fixed uuid constant named in the test (no FK on that column,
 // 01 wms.stock_movements.performed_by)". Also used as ctx.userId per the brief's Public surface
 // block's test-ctx line.
@@ -258,9 +282,15 @@ beforeAll(async () => {
 
   for (let i = 0; i < FIXTURE_SKU_COUNT; i += 1) {
     const skuResult: QueryResult<{ id: string }> = await pool.query(
-      `insert into wms.skus (client_id, code, name_ar)
-       values ($1, $2, $3) returning id`,
-      [fixtureClientId, `LEDGER-SKU-${i}-${randomUUID()}`, `صنف اختبار دفتر المخزون ${i}`],
+      `insert into wms.skus (client_id, code, name_ar, gross_weight_kg, volume_cbm)
+       values ($1, $2, $3, $4::numeric, $5::numeric) returning id`,
+      [
+        fixtureClientId,
+        `LEDGER-SKU-${i}-${randomUUID()}`,
+        `صنف اختبار دفتر المخزون ${i}`,
+        FIXTURE_SKU_GROSS_WEIGHT_KG,
+        FIXTURE_SKU_VOLUME_CBM,
+      ],
     );
     const skuRow = skuResult.rows[0];
     if (!skuRow) throw new Error('fixture wms.skus insert returned no row');

@@ -7,16 +7,23 @@ export {
   balanceKey,
   balanceRebuildLockKey,
   deriveBalances,
+  evaluateLocationLimits,
+  hasWeightVolumeLimits,
+  locationLimitLockKey,
   planReversal,
   planTransfer,
   validateEntry,
   type LedgerEntry,
+  type LocationLimitReason,
+  type LocationLimitVerdict,
   type MovementType,
 } from './domain.js';
 
 export {
   InvalidLedgerEntryError,
   InvalidQuantityError,
+  LocationBlockedError,
+  LocationLimitExceededError,
   MovementNotFoundError,
   NegativeStockError,
   RebuildScopeError,

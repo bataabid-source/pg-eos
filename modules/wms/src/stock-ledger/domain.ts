@@ -96,6 +96,96 @@ export function balanceRebuildLockKey(clientId: string, skuId: string): string {
   return REBUILD_LOCK_KEY_PREFIX + clientId + '|' + skuId;
 }
 
+// WBS 2.4 (D4): prefix for the per-location advisory-lock key postMovement/postTransfer/
+// reverseMovement take
+// before reading a location's current load to check wms.check_location_limits — a DIFFERENT
+// keyspace text than REBUILD_LOCK_KEY_PREFIX/balanceKey above (same hashtextextended(text, 0)
+// scheme, so collision with either is astronomically unlikely, never by design overlap) so this
+// lock never blocks — or is blocked by — an unrelated rebuild or balance-row lock.
+const LOCATION_LIMIT_LOCK_KEY_PREFIX = 'wms.locations.limit|';
+
+/**
+ * WBS 2.4 (D4): the single source of the location-limit advisory-lock key text for a location id.
+ * Pure text construction only — the caller is responsible for taking
+ * `pg_advisory_xact_lock(hashtextextended(key, 0))` inside its own open transaction, before
+ * reading that location's current load (post-movement.ts's checkLocationLimits).
+ */
+export function locationLimitLockKey(locationId: string): string {
+  return LOCATION_LIMIT_LOCK_KEY_PREFIX + locationId;
+}
+
+// pg-reviewer fix round 2 (Master decision, F7 blocker resolved): Quantity (numeric(14,3), 3
+// fractional digits) cannot represent wms.locations.max_volume_cbm (numeric(10,5)) or
+// wms.skus.volume_cbm (numeric(10,4)) without precision loss — Quantity.of('1.76175') throws. The
+// exact arithmetic (resulting load, the > comparisons) stays in SQL, on numeric columns
+// (post-movement.ts's checkLocationLimits); only the DECISION — which typed error, if any, a set
+// of already-computed booleans implies — is a pure function here.
+export type LocationLimitReason =
+  | 'blocked'
+  | 'missing_weight'
+  | 'missing_volume'
+  | 'over_weight'
+  | 'over_volume';
+
+export type LocationLimitVerdict =
+  | { readonly ok: true }
+  | { readonly ok: false; readonly reason: LocationLimitReason };
+
+const LOCATION_TYPES_WITH_WEIGHT_VOLUME_LIMITS: ReadonlySet<string> = new Set(['pallet', 'shelf']);
+
+/** WBS 2.4 (F9 scope, 19 §3-3): true iff a location of this wms.locations.location_type carries
+ *  the hard weight/volume barrier (storage: pallet/shelf). The ONE source for this rule — both
+ *  evaluateLocationLimits and post-movement.ts's final-barrier gate use it. */
+export function hasWeightVolumeLimits(locationType: string): boolean {
+  return LOCATION_TYPES_WITH_WEIGHT_VOLUME_LIMITS.has(locationType);
+}
+
+const OK_VERDICT: LocationLimitVerdict = { ok: true };
+
+/**
+ * WBS 2.4 (D1/D3/F9): the single source of the location-limit decision, checked in order:
+ *  - isBlocked -> 'blocked' (any location type — the blocked check applies universally);
+ *  - a location type outside pallet/shelf -> ok (19 §3-3: the hard barrier is only for storage
+ *    locations — operational locations are never weight/volume-checked);
+ *  - hasMaxWeight && !skuHasWeight -> 'missing_weight' (D3: a hard barrier can't be verified
+ *    without a number);
+ *  - hasMaxVolume && !skuHasVolume -> 'missing_volume' (same, for volume);
+ *  - hasMaxWeight && weightExceeds -> 'over_weight';
+ *  - hasMaxVolume && volumeExceeds -> 'over_volume';
+ *  - otherwise ok. `weightExceeds`/`volumeExceeds` are computed in SQL as a strict `>` against the
+ *    resulting load (current + incoming), so an exact match to the max is allowed.
+ */
+export function evaluateLocationLimits(input: {
+  readonly locationType: string;
+  readonly isBlocked: boolean;
+  readonly hasMaxWeight: boolean;
+  readonly hasMaxVolume: boolean;
+  readonly skuHasWeight: boolean;
+  readonly skuHasVolume: boolean;
+  readonly weightExceeds: boolean;
+  readonly volumeExceeds: boolean;
+}): LocationLimitVerdict {
+  if (input.isBlocked) {
+    return { ok: false, reason: 'blocked' };
+  }
+  if (!hasWeightVolumeLimits(input.locationType)) {
+    return OK_VERDICT;
+  }
+  if (input.hasMaxWeight && !input.skuHasWeight) {
+    return { ok: false, reason: 'missing_weight' };
+  }
+  if (input.hasMaxVolume && !input.skuHasVolume) {
+    return { ok: false, reason: 'missing_volume' };
+  }
+  if (input.hasMaxWeight && input.weightExceeds) {
+    return { ok: false, reason: 'over_weight' };
+  }
+  if (input.hasMaxVolume && input.volumeExceeds) {
+    return { ok: false, reason: 'over_volume' };
+  }
+  return OK_VERDICT;
+}
+
 /** brief Public surface, verbatim: `${clientId}|${skuId}|${locationId}|${batchNo}`. */
 export function balanceKey(
   clientId: string,
