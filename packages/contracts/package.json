@@ -25,6 +25,10 @@
     "./catalog/maintain-price-list": {
       "types": "./dist/catalog/maintain-price-list.d.ts",
       "default": "./dist/catalog/maintain-price-list.js"
+    },
+    "./platform/maintain-site": {
+      "types": "./dist/platform/maintain-site.d.ts",
+      "default": "./dist/platform/maintain-site.js"
     }
   },
   "scripts": {
