@@ -76,7 +76,7 @@ The five decisions of §5 are approved "as written" (precedent D-131: an item wi
 |---|---|---|
 | 1 | Gap as a schema change | **approved** — 3.1 (`pickup_delivery` + `task_type` check), 3.2 (`collected` state + `tms.task.collected`), 3.4 (`tms.proof_of_collection`) |
 | 2 | Pickup site shape | **3.3 (b) `sales.account_sites`** + `tms.delivery_tasks.pickup_site_id` (the recommendation) |
-| 3 | Service code | **no recommendation existed — carried to the CFO.** Standing default until then: **3.5 (a)**, the collection leg is priced inside DL-01 / DL-02 per contract; the catalog stays at 92. (b) `DL-19` is opened only by a recorded GM + CFO decision with `min_price` and `standard_cost` (doc 04 decision 1, M03 gate) |
+| 3 | Service code | **Resolved D-139 (Q8 = a): inside DL-01 / DL-02, catalog stays 92.** Earlier text: no recommendation existed — carried to the CFO. Standing default until then: **3.5 (a)**, the collection leg is priced inside DL-01 / DL-02 per contract; the catalog stays at 92. (b) `DL-19` is opened only by a recorded GM + CFO decision with `min_price` and `standard_cost` (doc 04 decision 1, M03 gate) |
 | 4 | Unique `(source_type, source_ref)` | **yes** — folded into the same migration (D-11 §2-3 row 23) |
 | 5 | Timing | **post-pilot, with WBS 3.7 (Phase 3, lane 1)** — D-127 default. The migration number is issued by the Master **after the 0.6a commit lands** (0007 is taken by 0.6a; this becomes the next free number at that time), pg-reviewer pre-migration review first. `packages/events/catalog.ts` (`tms.task.collected`) and `database/schema/*` are frozen paths → single-lane Master task merged before lane 1 resumes |
 

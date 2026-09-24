@@ -36,6 +36,18 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — GM decision sheet 2 answered (D-139): 43 items closed, 6 value follow-ups — DONE (2026-09-24)
+
+- GM answered every question on the interactive sheet (v2: plain-language wording, ✕ cancel option). Verbatim line + Q4/Q5 free-text rulings recorded as D-139; per-answer meaning and landing place in the sheet's "Answers" table.
+- Applied now (annotations only): Gap-Register 09 rows for the 27 answered gaps → D-139; D-15 §8-2 D-2…D-6 ✅; SCR-TMS-PICKUP-01 §7 item 3 resolved (a). Doc 38 row 0.8 was already on local Docker (Q40 no-op).
+- Lands later, named per row: seeds (Q1 20% internal price list, Q10 0.500 KWD/task, Q25 25%, Q26 90 days, Q29 approved 2025-08-05, Q30b 500 m, Q30c 24 months, Q32 credit-hold release A0), SCRs (Q4 contract space model, Q33 department-derived approver, Q7h SCR-SC-01 migration), backlog rows (Q18 file import after 2.11, Q41 P3 revoke, Q43 value lists), documentary corrections (Q17 doc 23, Q27 EXEC §1.3, Q36 doc 22/28).
+- Cancelled: named domain owners (Q36); seven unenforced policy controls (Q42, pending counsel's statutory check).
+- Batched follow-ups (6): Q4 conflict with mandatory ST-14 and quote reservations · Q7b rate matrix · Q7e multiplier · Q15 date typo · Q26 criterion · Q30a carrier.
+- No code, no schema. Other sessions' uncommitted work (wms stock-ledger files) untouched.
+- Model: Master session fable-5.1 · Delegated: none · Review: n/a (governance) · tokens ≈ 40k (estimate)
+
+---
+
 ## X — GM decision sheet 2: every open GM item as multiple choice — DONE (2026-09-24)
 
 - GM request (2026-09-24): "اسرد كل هذه النقاط التي تحتاج إلى إجابات على شكل تحديد إجابة من ضمن خيارات لأجاوبهم كلهم دفعة واحدة". Written: `docs/notes/2026-09-24-gm-decision-sheet-2.md` — 43 questions (Q1–Q43, with Q7a–h and Q30a–g sub-items) across commercial/pricing, warehouse operations, delivery/integration/boards, HR/legal/attendance, governance/platform. Sources: every ⏳ row of Gap-Register 09, D-11/12/13/14/15 decision tables, SCR-HR-ATT-01 carried items, SCR-TMS-PICKUP-01 item 3, ADR-0002 G8 anchor, CHANGELOG 2.3 batched questions. ★ marks only recommendations already written in the source; no option invented. WBS data tasks and seeds are listed at the end as deliberately excluded.
