@@ -59,6 +59,15 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — SCR-HR-SHIFT-01 approved and pulled into the pilot; PLT-50 superseded (D-144) — DONE (2026-09-24)
+
+- GM answers to the D-143 defaults: no gating (PLT-50 retired, ADR-0003 amended), blinking ready-for-pickup badge (D-15 §3-ح exception, reduced-motion safe), HR group per role, one `platform.sites` table (closes Q30a), shapes §2.1–§2.9 approved and **inside the pilot** — sequenced after 2.9 acceptance as two to three lane slices; the Master issues WBS rows then.
+- Standing rule from the GM: this session touches no file held by the 2.9 session until it commits.
+- No code, no schema, no migration.
+- Model: Master session fable-5.1 · Delegated: none · Review: n/a (governance) · tokens ≈ 12k (estimate)
+
+---
+
 ## X — SCR-HR-SHIFT-01 filed: shifts, transport groups, sites, device custody, vehicle QR, employee requests (D-143) — DONE (2026-09-24)
 
 - GM directive of eleven lines (verbatim in D-143) after the attendance-boards mock-up. Filed `docs/notes/SCR-HR-SHIFT-01-shifts-groups-sites-devices.md` under G-01: every line classified (process rule / existing carrier / schema gap), shapes §2.1–§2.9, explicit exclusions (payroll), proposed WBS deltas (5.3, APP-1, 3.7, fleet QR row), five batched GM questions (PLT-50 override? static vs animated badge? per-role vs per-person HR group? single `platform.sites`? approve shapes).

@@ -1,6 +1,6 @@
 # SCR-HR-SHIFT-01 — shifts, shift groups, work sites, device custody, vehicle QR, employee requests (GM directive D-143)
 
-**Status: FILED — shapes for GM approval; nothing in `database/schema/*` or `database/migrations/*` is touched.** Raised under **EXECUTION-MASTER-v4 §1.11 (G-01)** on criterion (i) real schema gap (Gap-Register **#7** shifts/leaves, **#17**, **#18** device registry) and (iii) a GM requirement not modelled. Source: the GM's eleven-line directive of 2026-09-24 recorded verbatim as **D-143** in `docs/DECISION_LOG.md`. Companion requests: SCR-HR-ATT-01 (attendance punches, approved D-131) and SCR-TMS-PICKUP-01 (pickup leg + `sales.account_sites`, approved D-137). Timing: **post-pilot (D-127)** unless the GM rules otherwise; the pilot path 2.9 → lanes is unchanged.
+**Status: APPROVED — GM directive D-144 (2026-09-24); resolution in §5. Scope: INSIDE THE PILOT (GM), sequenced after the golden slice 2.9 is accepted. Nothing in `database/schema/*` or `database/migrations/*` is touched by this note; DDL after pg-reviewer's pre-migration review.** Raised under **EXECUTION-MASTER-v4 §1.11 (G-01)** on criterion (i) real schema gap (Gap-Register **#7** shifts/leaves, **#17**, **#18** device registry) and (iii) a GM requirement not modelled. Source: the GM's eleven-line directive of 2026-09-24 recorded verbatim as **D-143** in `docs/DECISION_LOG.md`. Companion requests: SCR-HR-ATT-01 (attendance punches, approved D-131) and SCR-TMS-PICKUP-01 (pickup leg + `sales.account_sites`, approved D-137). Timing: **inside the pilot by D-144** (overrides the D-127 default for this request); the golden slice 2.9 is untouched and is accepted first, then these shapes enter the lanes as WBS rows the Master issues.
 
 ## 1. The eleven directive lines, classified
 
@@ -49,3 +49,14 @@
 3. **Line 11** — HR group assignable per **role** (default, consistent with D-138) or per **person** (a D-138 exception)?
 4. **Sites** — approve the single `platform.sites` table replacing both `sales.account_sites` (D-137) and `hr.work_sites` (D-131 carried)? This also closes **Q30a** (D-141) as "site table with radius".
 5. Approve shapes §2.1–§2.9 as shapes (DDL after pg-reviewer's pre-migration review, post-pilot).
+
+## 5. Resolution under D-144 (GM, 2026-09-24)
+
+| §4 item | GM answer (verbatim) | Applied |
+|---|---|---|
+| 1 PLT-50 | "لا تعطيل: تفعيل مباشر للغياب والتأخير" | **PLT-50 is superseded.** Automatic absence and late detection is ON from the moment an employee has a registered device **and** an active shift assignment (§2.2) — lateness needs a shift to be late against. The 95% × 30-day gate (EXEC-v4 §1.3, doc 15 §6-7, D-126 last-but-one clause, ADR-0003) no longer applies; `platform.feature_flags` PLT-50 is seeded `enabled = true`. Doc 15 §6-7's warning ("hundreds of wrong penalties on incomplete data") stays in the record as the known risk the GM accepted; the HR review queue (SCR-HR-ATT-01 §2.3) and the approve/reject step on every proposed penalty remain the safeguard |
+| 2 badge | "وامضة" | The "جاهز للاستلام" badge **blinks** (D-15 §3-ح exception, recorded). Implementation rule: CSS animation on the badge only, ≤ 1 Hz, and **no animation when `prefers-reduced-motion: reduce`** (accessibility; the badge stays bright green, static) |
+| 3 HR group | "نعم لكل من يحمله" | Per **role**, confirmed — consistent with D-138 |
+| 4 sites | "نعم جدول واحد" | One `platform.sites` table (§2.4) replaces `sales.account_sites` (D-137) and `hr.work_sites` (D-131 carried). Q30a (D-141) closed |
+| 5 shapes + timing | "أدرجها داخل الـpilot" | Shapes §2.1–§2.9 approved **and pulled into the pilot scope**. Consequence: two to three additional slices in the lanes after 2.9 acceptance (shifts+groups+sites · device custody link+requests+leaves · fleet QR), each with its own migration number, pg-reviewer pre-migration review, RED tests first. Payroll stays out (§3). The Master issues the WBS rows and lane assignments when 2.9 is accepted; nothing is started in parallel with 2.9 |
+| — | "لا تلمس ملفات الجلسة الأخرى إلا بعد الانتهاء" | Standing rule for this governance session: no edit to any path the 2.9 session holds (`database/schema/*`, `modules/*`, `packages/*`, `tasks/LANE_LOCKS.md`) until that session commits |

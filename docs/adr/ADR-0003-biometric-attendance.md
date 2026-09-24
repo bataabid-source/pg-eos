@@ -148,3 +148,7 @@ Accepted — 2026-09-24 (D-131). Proposed 2026-09-24 (D-126).
 
 - The proposed task is `tasks/proposed/APP-1-field-app-attendance.md`, status `WAITING_GM`. It is not admitted and has no `MASTER_BACKLOG` row (BOOTSTRAP-v5 line 175; Staged-section rule). The GM assigns it a numbered WBS ID; "APP-1" is D-126's app name.
 - Doc-38 draft: `docs/notes/2026-09-24-38-wbs-bio-attendance-draft.md`.
+
+## Amendment under D-144 (GM, 2026-09-24) — PLT-50 superseded
+
+The Decision text above keeps D-126 verbatim, including "PLT-50 stays". By GM directive **D-144** ("لا تعطيل: تفعيل مباشر للغياب والتأخير") that clause is **superseded**: automatic absence and late detection is active as soon as the employee has a registered device and an active shift assignment (SCR-HR-SHIFT-01 §2.2); the 95% × 30-day completeness gate of EXEC-v4 §1.3 / doc 15 §6-7 is retired and the PLT-50 flag is seeded `enabled = true`. The known risk stated in doc 15 §6-7 is accepted by the GM; the HR review queue and the approve/reject step on every proposed penalty remain. Nothing else in this ADR changes.
