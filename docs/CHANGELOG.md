@@ -4,6 +4,16 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — D-142 GM answers (branch protection, operational-area limits, D-139 items) (2026-09-24)
+
+- Q1 "Branch protection: enable with PR, checks only, or defer until after the pilot?" → "نعم", then clarified to "With PR (Recommended)": require a PR + the five CI checks, replacing direct push to main (D-120). **NOT applied**: real blocker — GitHub will not enforce rulesets (or classic branch protection) on a private repo below the Team/Pro plan. Options returned to the GM: (a) upgrade to GitHub Pro, (b) make the repo public (not recommended), (c) a process-only PR rule (not platform-enforced).
+- Q2 "Do operational areas (receiving, quarantine, staging) fall under the 1,000 kg limit in 019 §8, or does it stay storage-only?" → "لا" — confirms weight/volume limits stay storage-only, the 2.4 F9 default already delivered @ `4aaecdf`; no change.
+- Q3 "Items 2, 4 and 5 (D-139): which list?" → "لا اعلم" — question closed; no further items merge into 0.6a.
+- Note: the parallel session that produced `4aaecdf` renumbered its own D-139 to D-141 (`f0d79eb`) after the Master flagged the duplicate D-number.
+- Model: sonnet (pg-scribe) · Delegated: none · Review: n/a (record-only, no code) · tokens ≈ 4k (estimate)
+
+---
+
 ## 2.4 — location weight/volume limits enforced on put-away — DONE (2026-09-24)
 
 - Acceptance: "Over-weight put-away rejected". The limits already existed in seed 019 (1,000 kg pallet / 750 kg shelf, `max_volume_cbm` per location); this slice adds enforcement. Delivered: `modules/wms/src/stock-ledger/{post-movement.ts, domain.ts, errors.ts, index.ts}`. `postMovement`, both legs of `postTransfer`, and `reverseMovement` check every stock-adding entry, before the insert, in the same transaction, under a per-location `pg_advisory_xact_lock`. The check is on the resulting load at the location (Σ balance × sku gross_weight_kg / volume_cbm, all clients and SKUs, plus the incoming quantity), computed in SQL numeric. Pure decision function `evaluateLocationLimits` and single-source `hasWeightVolumeLimits` live in `domain.ts`. Typed errors `LocationLimitExceededError` and `LocationBlockedError` carry an "(Allowed: …)" message. `wms.check_location_limits` (019:343-365) is the final barrier for pallet/shelf; only its P0001 is mapped. A violation writes nothing: no ledger, balance, outbox or audit row.
