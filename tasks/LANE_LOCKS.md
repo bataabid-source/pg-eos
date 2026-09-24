@@ -2,11 +2,14 @@
 
 | module | lane | task | claimed_at | worktree |
 |---|---|---|---|---|
-| catalog | 1 | 1.2 | 2026-09-24 | ../pg-eos-lane-1 |
-| hr | 2 | 3.3 | 2026-09-24 | ../pg-eos-lane-2 (queued) |
+| admin | 1 | 0.19 | 2026-09-24 | ../pg-eos-lane-1 (queued — next lane-1 session; `apps/admin`, D-172) |
+| hr | 2 | 5.5a | 2026-09-24 | ../pg-eos-lane-2 (queued — next lane-2 session) |
+| platform | 2 | 5.5a | 2026-09-24 | ../pg-eos-lane-2 (queued — `platform.sites` §2.4 ONLY; released with the 5.5a merge, then lane 3 / 5.18) |
 
 - `0013_1_price-lists-version.sql` — lane 1, task 1.2, applied 2026-09-24 (pg-reviewer pre-migration APPROVED WITH CHANGES; number issued by the Master, MIGRATION-REQUEST-1.md).
 
+`hr` (lane 2, task 3.3) released 2026-09-24 — 3.3 DONE @ `9616422` (PR #14); re-claimed above for 5.5a.
+`catalog` (lane 1, task 1.2) released 2026-09-24 — 1.2 DONE @ `6a53fc8` (PR #12).
 `platform` (lane 3, task 5.13) released 2026-09-24 — 5.13 part 1 committed (alert evaluation mechanism), NOT DONE (part 2: delivery, escalation, dynamic recipients, reports, job).
 `wms + packages/db (idempotency) + database/migrations (0010)` (lane M, task 2.9-part2) released 2026-09-24 — GM sheet-3 answers applied (idempotency store, cancel/close rules, variance photo, shared logger); NOT DONE (blocked on SCR-WMS-INB-01 §6, Q10/D-159 GM acceptance).
 `wms + packages/contracts/wms + packages/events (catalog)` (lane M, task 2.9) released 2026-09-24 — 2.9 built and reviewed, PASS round 4; NOT DONE (blocked on SCR-PLAT-IDEM-01, SCR-WMS-INB-01 §1–4, observability, GM acceptance).
@@ -19,7 +22,8 @@ Not a lock table — deliberately not a `|`-prefixed markdown table, since
 `.claude/hooks/lane-guard.sh` parses every such line in this file as a
 module-lock row (see Rules below). One line per migration, newest first:
 
-- `0014_2_employees-version.sql` — lane 2, task 3.3 (`hr.employees.version` + classification row; shape of 0008), issued by the Master 2026-09-24 on MIGRATION-REQUEST-2 (pre-migration review APPROVED).
+- `0015` — next free number; issued by the Master on the next MIGRATION-REQUEST (5.5a expected first: `platform.sites` + `hr.shifts` / `hr.shift_assignments` / `hr.shift_groups`).
+- `0014_2_employees-version.sql` — lane 2, task 3.3 (`hr.employees.version` + classification row; shape of 0008), issued by the Master 2026-09-24 on MIGRATION-REQUEST-2 (pre-migration review APPROVED); applied, merged in `9616422`.
 - `0013` — RESERVED for lane 1, task 1.2 (catalog), pending its MIGRATION-REQUEST-1.md.
 - `0012_M_space-dashboard-invoker-grant.sql` — lane M, task 5.13 part 1, applied 2026-09-24 (pg-reviewer pre-migration APPROVED WITH CHANGES, header text).
 - `0011_M_alert-log-version-seed-rules.sql` — lane M, task 5.13 part 1, applied 2026-09-24 (pg-reviewer pre-migration FAIL(11) → PASS round 2).
