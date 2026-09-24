@@ -116,6 +116,13 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — Logistics terms on orders: handover point, transport by, vehicle type, labour (D-169) — DONE (2026-09-24)
+
+- GM directive recorded verbatim (D-169). SCR-WMS-INB-01 §8: four terms on inbound and outbound orders, contract defaults, portal proposal, pickup-task creation for premium transport from a client site, terms in the `received`/`dispatched` payloads for billing. Folded into staged slice 2.9b (inbound) and 2.11 (outbound); backlog row and file updated. No schema now.
+- Model: Master session fable-5.1 · Delegated: none · Review: n/a (governance) · tokens ≈ 8k (estimate)
+
+---
+
 ## X — GM observation on the golden slice: schedule the inbound (date + time) as a third answer (D-168) — DONE (2026-09-24)
 
 - Recorded verbatim (D-168). SCR-WMS-INB-01 §7 filed: `ScheduleInbound`, approve-with-slot, reject-with-reason, event `wms.inbound.scheduled`, N-23 client alert, four nullable columns under G-01. Staged as **2.9b** (`tasks/backlog/2.9b-schedule-inbound.md`, Staged row in MASTER_BACKLOG via gen-backlog.py) — the first slice to be replicated from the golden template, lane 2. 2.9 not reopened; no schema now.
