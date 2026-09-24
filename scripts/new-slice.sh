@@ -147,6 +147,24 @@ for layer in $LAYERS; do
 done
 rename_in_place "$ROOT/packages/contracts/$MODULE/$SLUG.ts"
 
+# ---- contracts package registration (Master task, reviewer finding on lane 2 / 3.3, 2026-09-24) ----
+# packages/contracts/package.json `exports` and tsconfig.json `include` are frozen for lanes; the
+# script (owned by the Master) registers the new subpath export and module include so a lane never
+# has to touch them. Idempotent: skips entries that already exist.
+node - "$ROOT/packages/contracts/package.json" "$MODULE" "$SLUG" <<'NODE'
+const fs = require('fs'); const [file, mod, slug] = process.argv.slice(2);
+const pkg = JSON.parse(fs.readFileSync(file, 'utf8')); pkg.exports = pkg.exports || {};
+const key = `./${mod}/${slug}`;
+if (!pkg.exports[key]) { pkg.exports[key] = { types: `./dist/${mod}/${slug}.d.ts`, default: `./dist/${mod}/${slug}.js` };
+  fs.writeFileSync(file, JSON.stringify(pkg, null, 2) + '\n'); console.log(`new-slice: registered export ${key} in packages/contracts/package.json`); }
+NODE
+tsc_cfg="$ROOT/packages/contracts/tsconfig.json"
+if ! grep -q "\"$MODULE/\*\*/\*.ts\"" "$tsc_cfg"; then
+  sed -i "s#\"wms/\*\*/\*.ts\"#\"wms/**/*.ts\",\n    \"$MODULE/**/*.ts\"#" "$tsc_cfg"
+  echo "new-slice: added $MODULE/**/*.ts to packages/contracts/tsconfig.json include"
+fi
+produced="$produced packages/contracts/package.json packages/contracts/tsconfig.json"
+
 # ---- module scaffold (lane blocker (c), 2026-09-24) -----------------------
 # A module with no golden counterpart (anything but identity platform sales wms today) gets its
 # package shell copied from the golden module BEFORE the five layers are copied: package.json,
