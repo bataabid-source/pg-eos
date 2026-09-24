@@ -7,7 +7,7 @@ verbatim — IDs, type markers, Depends on, Lane, Owner, Acceptance — and adds
 
 Usage:
     python3 scripts/gen-backlog.py            # (re)writes tasks/MASTER_BACKLOG.md, keeps existing statuses
-    python3 scripts/gen-backlog.py --check    # verifies 134 rows, the header line and the X / 0.19 statuses; writes nothing
+    python3 scripts/gen-backlog.py --check    # verifies 136 rows, the header line and the X / 0.19 statuses; writes nothing
 
 Status vocabulary (pg-scribe moves rows; nothing else edits this file):
     TODO · READY · ACTIVE · WAITING_GM · BLOCKED · DONE @ <hash> · SUPERSEDED — <ADR/decision>
@@ -19,8 +19,8 @@ import re, sys, pathlib
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 # Header wording fixed by the GM 2026-09-23 (D-111); count 132 → 133 on 2026-09-24 (D-124 split of 0.6 into
 # 0.6a / 0.6b, applied to doc 38 v4.2 under directive D-127…D-134). The X-tasks and 0.19 are inside the 133 rows.
-HEADER = "**134 doc-38 tasks (v4.3: 0.6 → 0.6a / 0.6b, D-124; 5.3b added, D-167) + X.1–X.6 CONTINUOUS + 0.19 DEFERRED + DEFERRED-POST-PILOT rows (D-127)** — eight phases (0–7) + cross-cutting X-tasks; X.1–X.6 and 0.19 are counted inside the 133. No 18-phase roadmap, no separate database phase (BOOTSTRAP-v4 §8)."
-EXPECTED_ROWS = 134
+HEADER = "**136 doc-38 tasks (v4.4: 0.6 → 0.6a / 0.6b, D-124; 5.3b added, D-167; 5.5a + 5.18 added, D-173) + X.1–X.6 CONTINUOUS + 0.19 DEFERRED + DEFERRED-POST-PILOT rows (D-127)** — eight phases (0–7) + cross-cutting X-tasks; X.1–X.6 and 0.19 are counted inside the 133. No 18-phase roadmap, no separate database phase (BOOTSTRAP-v4 §8)."
+EXPECTED_ROWS = 136
 ROW_ID = r"(\d+\.\d+[ab]?|X\.\d+)"
 DEFERRED_PP = "DEFERRED-POST-PILOT"
 WBS = ROOT / "docs" / "package" / "38-WBS.md"
@@ -84,7 +84,7 @@ def render(phases, keep):
     out.append("| `ACTIVE` | claimed in `tasks/LANE_LOCKS.md`; one per lane |")
     out.append("| `WAITING_GM` | 🧑 / 🔧 lane-A task: runbook or script produced, waits for the GM; never blocks a code lane |")
     out.append("| `BLOCKED` | REAL BLOCKER recorded in `docs/PROJECT_STATE.md` |")
-    out.append("| `SUPERSEDED — <id>` | row kept for the 134 count; replaced by the named ADR / GM decision, never picked (D-125) |")
+    out.append("| `SUPERSEDED — <id>` | row kept for the 136 count; replaced by the named ADR / GM decision, never picked (D-125) |")
     out.append("| `DEFERRED-POST-PILOT — <id>` | pilot-first rule (D-127): field data, human entry, sign-off, training, naming and Tier-0 provisioning wait until the pilot system is complete; the pilot runs on seed 019 + synthetic data only; the row keeps its phase and is listed again under Phase 7; never picked before the pilot |")
     out.append("| `DONE @ <hash>` | acceptance criterion passed, pg-reviewer PASS, gates green — written by pg-scribe in the same commit |")
     out.append("")
@@ -133,11 +133,10 @@ def render(phases, keep):
     out.append("|---|---|---|---|---|---|---|---|")
     out.append("| 2.20 | Warehouse work orders & VAS (SCR-WO-01) — `tasks/backlog/2.20-work-orders.md`, source D-12 | 🤖 | 2.9, 2.13 | **1** | WH_MGR | A work order from an outbound line, split into two tasks, assigned to two workers on the PDA, completed with one exception: `qty_done` sums correctly, a complete `work_order_events` timeline, one outbox event per state change in the same transaction, exactly one billing event priced on `qty_done`; G1, G9, G11, G18 green | TODO — admitted 2026-09-23 (D-115): `wo.sla.*` values approved for year 1, mandatory review after 90 operating days; blocked on 2.9 (golden slice) and 2.13 (PDA slice), neither built |")
     out.append("| 2.9b | Schedule inbound (appointment) + logistics terms (handover point · transport by · vehicle type · labour) — `tasks/backlog/2.9b-schedule-inbound.md`, source SCR-WMS-INB-01 §7–§8 | 🤖 | 2.9 | **2** | WH_MGR | A draft ASN scheduled to a future time carries expected_at/scheduled_by/scheduled_at, one `wms.inbound.scheduled` outbox row and one audit row in the same transaction; past time → 422; reschedule bumps version; approve-with-slot emits both events; cancel without reason → 422; WH_SUP board lists today's appointments; G1, G9, G11, G14 green | TODO — staged 2026-09-24 (D-168): first slice replicated from the golden template; migration number issued when it starts |")
-    out.append("| 5.18 | Focus boards on `platform.my_work` (SCR-FB-01) — `tasks/backlog/5.18-focus-boards.md`, source D-15 | 🤖 | 5.13 | **M** | SYSADMIN | For a user holding three roles, `platform.my_work` returns every open item that user owns across the fourteen groups and nothing owned by anyone else (RLS-verified); ar/en render with a real empty state; ordering per D-15 §3; first paint meets the D-15 §6 target; G7, G14 green | TODO — admitted 2026-09-23 (D-115): approved as written; blocked on 5.13 (alerts engine), not built |")
     out.append("| 6.2b | Client store connectors (I-12) — `tasks/backlog/6.2b-store-connectors.md`, source D-11 | 🤖 | 6.1, 6.2 | **1** | SYSADMIN + SALES_MGR (shared, D-11 §7 ق-4) | A store order posted by the test connector appears as one PG-EOS order with the D-11 §5-2 minimum fields, idempotent under replay, a forced failure follows the D-11 §5-5 nine-field policy and shows in the integration monitor; client isolation holds (G14) | TODO — admitted 2026-09-23 (D-115): option ③ approved per D-11 §7 (B in Phase 3, A in Phase 6, C = 6.2b); blocked on 6.1, 6.2, neither built; D-11 §5-4 schema additions still need a G-01 filing once 6.2b starts |")
     out.append("| SC-01 | Sales commission activation (SCR-SC-01) — `tasks/backlog/SC-01-sales-commission.md`, source D-14 | 🤖 | 4.9, 1.7 | **2** | SALES_MGR | For a contract signed by one rep and later executed under another, the monthly run splits per `sales.account_ownership_history` exactly as D-14 §3, honours the cap and minimum-margin rule, reverses correctly on a credit note, exposes the statement only to the rep, SALES_MGR, CFO and GM; G2, G11, G14 green, no number written outside `platform.thresholds` | TODO — admitted 2026-09-23 (D-115); dependency on the \"sales contracts slice\" bound to WBS **1.7** (D-123, `docs/package/38-WBS.md` line 68); structure approved (recurring, `collected` basis, 24 months, no cap year 1, half rate 12 months for existing clients, SCR-SC-01 approved); rates and the 0.5% manager share approved provisionally for year 1 with a 6-month review; blocked on 4.9 and 1.7, neither built |")
     out.append("")
-    out.append(f"**Rows: {total}** (expected {EXPECTED_ROWS} — `--check` fails otherwise; the five Staged rows above are never part of this count).")
+    out.append(f"**Rows: {total}** (expected {EXPECTED_ROWS} — `--check` fails otherwise; the four Staged rows above are never part of this count).")
     return "\n".join(out) + "\n", total
 
 def check_existing(counts):

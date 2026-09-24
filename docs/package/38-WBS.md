@@ -1,6 +1,8 @@
 # PG-EOS — Work Breakdown Structure
 **Document 38 · Version 4.2 · 24 September 2026**
 
+> **v4.4 (24 September 2026, Master issuance D-173 under GM directives D-144 / D-167 Q18 / D-172):** rows **5.5a** (shifts, shift groups, work sites — SCR-HR-SHIFT-01 §2.1–§2.4, lane 2) and **5.18** (focus boards on `platform.my_work`, staged since D-115, lane 3 per D-172) added; 0.19 lane M → 1 (D-172); 134 → 136 rows.
+
 > **v4.3 (24 September 2026, GM directive D-167, edit delegated to the Master):** row **5.3b** added (APP-1 field app admitted; 133 → 134 rows).
 
 > **v4.2 (24 September 2026, GM directive D-127…D-134, edit delegated to the Master):** 0.6 split into 0.6a / 0.6b (D-124; 0.6a acceptance carries D-133) · 2.3 no longer depends on 2.2 (D-128 — seed 019 is the authoritative layout for the pilot; the physical survey is a Phase-7 acceptance item) · 0.20 depends on 0.6a, 0.6b, 0.8 · Phase-0 gate: 0.8 by its pilot acceptance (D-130) · counts 132 → **133**.
@@ -53,7 +55,7 @@
 | 0.16 | Column sensitivity classification: `identity.column_classification` + deploy guard, **and classify every column of 01/13/13B/019 (G6 owner: SYSADMIN, doc 22 D02)** | 🤖 | 0.9 | **M** | SYSADMIN | Unclassified column fails deploy **and** G6 returns 0 on the applied schema; every later migration classifies its own columns (review point 4) |
 | 0.17 | M01 Identity: OTP login, sessions (revocable), roles, permissions, `user_entities`, **structure editor (roles, permission matrix, domain owners, approval chains, delegations, SoD rules)** | 🤖 | 0.11 | **M** | SYSADMIN | Every role logs in and sees only its scope; SoD-violating role assignment rejected; structure editable without deploy |
 | 0.18 | **RLS enabled on every operational table in 01/13/13B/019** (the patterns in 01 §11 and 13B §12 generalised) + **client isolation test** (ID tampering) | ✅ | 0.17 | **M** | SYSADMIN | **G7 returns 0** · User A returns zero rows from B's data on direct ID substitution, with no error |
-| 0.19 | Admin app shell: navigation, Decision Inbox, empty-state component, design system | 🤖 | 0.17 | **M** | SYSADMIN | Inbox renders; empty state shows "what's missing + owner" |
+| 0.19 | Admin app shell: navigation, Decision Inbox, empty-state component, design system (lane 1 after 1.2 — D-172) | 🤖 | 0.17 | **1** | SYSADMIN | Inbox renders; empty state shows "what's missing + owner" |
 | 0.20 | Runbook v1 (deploy, rollback, restore, secrets rotation) — drafted as soon as 0.6a is green, sealed only after 0.8 restore succeeds | 🧑 (draft 🤖) | 0.6a, 0.6b, 0.8 | **A** | SYSADMIN | Eight procedures written and tested once |
 
 **Phase gate:** 0.8 restore succeeded (pilot acceptance per D-130: real `backup.sh` / `restore.sh` against the local Docker `postgres:16` with a file target; the OCI Object Storage target is added with 0.5) · 0.18 isolation test green (G7 = 0) · 0.16 classification complete (G6 = 0) · 0.1 owners named · 0.2 three cloud decisions recorded.
@@ -176,6 +178,7 @@
 | 5.3b | Field app **APP-1**: native attendance capture on the employee's registered phone (ADR-0003), device handover creates the registry row, employee requests + leaves (SCR-HR-SHIFT-01 §2.5–§2.6) — admitted D-167 (sheet 5 Q15) | 🤖 | 5.3 | **2** | HR_MGR | One registered device per employee; punch inside 500 m auto-accepted, out-of-geofence / unregistered → HR review queue; a leave request reaches its approval chain |
 | 5.4 | ~~Biometric credentials entered by GM; hourly sync~~ **SUPERSEDED — ADR-0003 (D-126, GM 2026-09-24; D-125): no third-party device, no credential import, no sync** | 🧑 | 5.3 | **A** | GM | — (superseded; the auto-absence gate PLT-50 stays, EXEC §1.3) |
 | 5.5 | Shifts and rest rotation (A3) | 🤖 | 5.3 | **2** | OPS_DIR | Rotation fair; exceptions logged |
+| 5.5a | Shifts, shift groups, work sites — `hr.shifts`, `hr.shift_assignments`, `hr.shift_groups`, `platform.sites` (SCR-HR-SHIFT-01 §2.1–§2.4; pulled into the pilot by D-144, row issued by the Master D-173) | 🤖 | 3.3 | **2** | HR_MGR | One active shift assignment per employee per date (exclusion constraint on the date range); `platform.sites` is the single sites table (`kind ∈ {warehouse · office · client_pickup · housing · other}`, `radius_m` defaulting from `platform.thresholds` `att.geofence_radius_m`) referenced by `hr.employees.default_site_id`; a shift group carries its own attendance site and lead driver; every state change → outbox + audit in one transaction; G1, G6, G9, G11 green |
 | 5.6 | Payroll ledger (auto-calc, CFO approval, month lock) | 🤖 | 5.3, 3.13 | **2** | CFO | Locked month immutable |
 | 5.7 | Penalty schedule (**77 items**, `is_fraud` flagged on CLI-02/03/04/06/09 · ATT-07/08 · WRK-08), Art. 35–41 guards, **hierarchical authority enforced by trigger on `hr.disciplinary_cases.signed_by` with `routed_to` recorded** (supervisor D1–D2, manager D1–D3, GM D1–D4, dismissal GM only), grievance to the level above the signer, hash-chained | 🤖 | 5.3 | **2** | GM | `select count(*) from hr.penalty_schedule` = 77; deduction without Art. 37 steps rejected; Art. 35 15-day limit enforced; 5-day cap enforced; signer outside authority auto-routed up, never silently rejected |
 | 5.8 | Recruitment cases (**17 stages with fixed English codes per doc 10 v4 / 13B check constraint**, owner per stage, SLA, cost tracking, `due_at` maintained by trigger — not a generated column) | 🤖 | 5.3 | **2** | PRO | Stage without owner impossible; a stage code outside the 17 is rejected by the check constraint; escalation fires on day 11 (7-day SLA + `recruitment.escalate_pct` = 50) |
@@ -188,6 +191,7 @@
 | 5.15 | **Data gates M08, M09 (documents 100%)** | 🧑 | 5.3, 3.1 | **A** | HR_MGR, FLEET_MGR | Scorecards = 100% |
 | 5.16 | Scenarios S13, S14, S17 pass | ✅ | 5.11 | **M** | HR_MGR | Playwright green |
 | 5.17 | **One full payroll month computed and reviewed** | ✅ | 5.6 | **M** | CFO | Signed |
+| 5.18 | Focus boards on `platform.my_work` (SCR-FB-01, D-115; brief `tasks/backlog/5.18-focus-boards.md`) — admitted to doc 38 under D-172 / D-173 | 🤖 | 5.13 | **3** | SYSADMIN | For a user holding three roles, `platform.my_work` returns every open item that user owns across the fourteen groups and nothing owned by anyone else (RLS-verified); ar/en render with a real empty state; ordering per D-15 §3; first paint meets the D-15 §6 target; G7, G14 green |
 
 **Phase gate:** 5.15 gates · 5.17 signed.
 

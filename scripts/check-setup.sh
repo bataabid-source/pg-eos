@@ -51,7 +51,7 @@ need_file docs/CHANGELOG.md
 need_file docs/MODEL_ROUTING.md
 need_file docs/AGENT_WORKFLOW.md
 need_file tasks/MASTER_BACKLOG.md
-n=$(sed '/^## Staged/,$d' tasks/MASTER_BACKLOG.md 2>/dev/null | grep -cE '^\| ([0-9]+\.[0-9]+[ab]?|X\.[0-9]+) \|' || true); [ "${n:-0}" -eq 134 ] && ok "MASTER_BACKLOG = 134 doc-38 rows (v4.3, D-167)" || miss "MASTER_BACKLOG rows = $n (expected 134 — run: python3 scripts/gen-backlog.py)"
+n=$(sed '/^## Staged/,$d' tasks/MASTER_BACKLOG.md 2>/dev/null | grep -cE '^\| ([0-9]+\.[0-9]+[ab]?|X\.[0-9]+) \|' || true); [ "${n:-0}" -eq 136 ] && ok "MASTER_BACKLOG = 136 doc-38 rows (v4.4, D-173)" || miss "MASTER_BACKLOG rows = $n (expected 136 — run: python3 scripts/gen-backlog.py)"
 need_file tasks/LANE_LOCKS.md
 for d in tasks/proposed tasks/backlog tasks/active tasks/completed tasks/blocked docs/notes; do need_dir "$d"; done
 
@@ -59,6 +59,7 @@ echo "== 5. Git"
 if [ -d .git ]; then ok ".git present (branch: $(git rev-parse --abbrev-ref HEAD 2>/dev/null))"; else miss ".git — run: git init -b main && git add -A && git commit -m 'chore: SETUP-000 import package v4 + kit'"; fi
 
 echo "== 6. Tools on this machine (PROJECT-SETUP-GUIDE §1) — needed from task 0.4 onward"
+if [ -n "${PG_APP_USER:-}" ]; then ok "PG_APP_USER=${PG_APP_USER} (module tests and guards run as the app role)"; else printf '  \033[33mNOTE\033[0m  PG_APP_USER unset — packages/db falls back to PGUSER/postgres, so RLS is NOT exercised by module tests (0.6a default D2); export PG_APP_USER=pgeos_app before pnpm test / guards:run\n'; fi
 for t in git node pnpm docker psql claude; do
   if command -v "$t" >/dev/null 2>&1; then ok "$t → $(command -v "$t")"; else
     case $t in
