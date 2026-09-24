@@ -185,6 +185,8 @@ scaffold_module() {
     produced="$produced modules/$MODULE/$f"
   done
   # tsconfig.test.json lists the golden slice's own test folders; keep only the generic ones.
+  # and drop the golden file's own review comments (they reference modules/wms and fix round F20).
+  sed -i '/^[[:space:]]*\/\/ /d' "$mdir/tsconfig.test.json"
   sed -i "s#\"tests/${SLUG}/\*\*/\*.ts\"#\"tests/**/*.ts\"#; /\"tests\/integration\/\*\*\/\*.ts\",/d; /\"tests\/unit\/\*\*\/\*.ts\",/d" "$mdir/tsconfig.test.json"
   cat > "$mdir/index.ts" <<EOF
 // modules/$MODULE — package shell created by scripts/new-slice.sh (lane blocker (c), 2026-09-24),
