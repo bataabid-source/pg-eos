@@ -75,6 +75,14 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — iMile warehouse work on our PDA, batch export per user via agents (D-149) — DONE (2026-09-24)
+
+- GM clarification recorded verbatim; technical answer "yes, under verifiable conditions" with the failure modes and the one external portal check (DEL_MGR + SYSADMIN, one day) that gates the 3.14 brief. Carriers `imile.user_accounts` (generalising D-148) and `imile.export_batches` queued under G-01 with 3.14. Scenario page v3 §9, note §7.
+- No code, no schema.
+- Model: Master session fable-5.1 · Delegated: none · Review: n/a (governance) · tokens ≈ 9k (estimate)
+
+---
+
 ## X — iMile accounts clarified: station agent reads, one agent per auditor writes; driver-app answer (D-148) — DONE (2026-09-24)
 
 - GM clarification recorded verbatim. Agent topology for Phase 3: read via the shipment-operations account, write via a per-auditor session in the auditor's own iMile account (iMile attributes decisions by user). Credentials by the auditor into secrets; engine decisions pushed via the team auditor's session (`closed_by = engine`) — default. New carrier `imile.auditor_accounts` queued under G-01 with 3.14/3.17. Documentary corrections to doc 07 §2-1, doc 40 §C8, doc 23 I-01/I-02 queued for the Phase-3 brief.
