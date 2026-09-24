@@ -4,6 +4,13 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — Session-model rule for quota (D-174): lanes on sonnet/medium, Master on sonnet/medium, agents pinned — DONE (2026-09-24)
+
+- GM directive quoted verbatim in D-174. Agent pins verified unchanged (pg-reviewer opus; pg-backend / pg-frontend / pg-tester / pg-scribe sonnet). Live "Lane 2" session switched by the Master from fable/high to **sonnet/medium**; the closing sessions (pg-eos-prelane, Postgres resume) left as is. Rule for every new session: lane sessions open on sonnet/medium from the model menu before `/lane <id>`; the Master/governance session runs sonnet/medium for merges and bookkeeping and goes to opus only for ADR / security / D-117 (the GM sets the Master's model — a session cannot re-price itself). PROJECT_STATE "Session model" row updated.
+- Model: Master session fable-5.1 (until the GM switches it) · Delegated: none · Review: n/a (governance) · tokens ≈ 6k (estimate)
+
+---
+
 ## X — Lane handover after 1.2 / 3.3: PRs merged, WBS 5.5a + 5.18 issued, locks rotated (D-173) — DONE (2026-09-24)
 
 - Merge queue run by the Master (governance session, continuation of the 24/09 session): PR #10 5.13 part 1 → `a66ea8c` · PR #11 contracts exports (Master chore) → `5791943` + `412708a` · PR #12 lane 1 / 1.2 → `6a53fc8` · PR #14 lane 2 / 3.3 → `9616422` (PR #13 superseded: the lane commit `3c4a41c` was rebased by the Master onto `6a53fc8` — CHANGELOG / PROJECT_STATE / pnpm-lock conflicts — and re-pushed as `lane/2-r1`, force-push being denied in the Master session) · PR #2 (0.6a-d166 duplicate) closed. All merges rebase-merge on 5/5 green checks. `gh` runs per command with the token Git Credential Manager already holds (never displayed); no GM-side `gh auth login` needed for merges.
