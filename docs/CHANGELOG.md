@@ -116,6 +116,13 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — Visible pilot: 0.19 admin shell pulled to lane 1 after 1.2, 5.18 boards after 5.13 (D-172) — DONE (2026-09-24)
+
+- GM "موافق" to the visible-pilot proposal. 0.19 leaves DEFERRED (Phase-0 mechanism-only lifted for it alone) → READY, lane 1 after 1.2; 5.18 follows 5.13 on lane 3; 2.16 unchanged. PROJECT_STATE next tasks and MASTER_BACKLOG 0.19 status updated. No schema.
+- Model: Master session fable-5.1 · Delegated: none · Review: n/a (governance) · tokens ≈ 4k (estimate)
+
+---
+
 ## X — Lane blockers (a)(b)(c) settled; lanes claimed; building resumes (D-170) — DONE (2026-09-24)
 
 - `scripts/guards-run.sh`: G15–G17 runners executed when present (test:scenarios · mutation · test:trace), NOT RUNNABLE reported otherwise, blocking under `PG_GUARDS_STRICT=1` (deploy). `scripts/new-slice.sh`: `am` added to LANGS; new-module scaffold (package.json, tsconfigs, vitest config, index.ts barrel, contracts dir) copied from the golden shell before the layers. PROJECT_STATE blockers struck through; LANE_LOCKS: lane 1 `catalog` (1.2), lane 2 `hr` (3.3, queued), lane 3 `platform` (5.13, in progress).
