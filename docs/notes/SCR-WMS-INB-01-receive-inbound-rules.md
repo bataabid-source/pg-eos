@@ -97,3 +97,26 @@ still gets its GRN and event exactly as before. See
 **Schema (G-01, with this note):** `wms.inbound_orders` + `scheduled_by`, `scheduled_at`, `cancel_reason`, `dock_code` (nullable; docks are not modelled today — free code until a docks table is requested). Column classification `public`. `chk_inbound_orders_status` unchanged.
 
 **Timing (default taken):** staged as **2.9b "Schedule inbound (appointment)"** in `tasks/backlog/` — the first slice to be replicated from the golden template (`new-slice.sh wms schedule-inbound`), lane 2, depends 2.9; migration number issued when it starts, pg-reviewer pre-migration review first. It does not reopen 2.9.
+
+## 8. Logistics terms on the order — GM directive D-169 (2026-09-24)
+
+**Directive (verbatim):** "سيناريوهات التسليم: مخزن بريميوم - موقع العميل · الشحن والتوصيل: بواسطة العميل - بواسطة بريميوم · نوع المركبة · عمال شحن وتفريغ"
+
+**Reading (default recorded):** every inbound *and* outbound order carries four **logistics terms**, agreed at approval/scheduling time (§7), that decide who moves the goods, where hands change, which vehicle, and who loads/unloads — and therefore which catalog events are generated:
+
+| Term | Values | Inbound meaning | Outbound meaning |
+|---|---|---|---|
+| `handover_point` | `premium_warehouse` · `client_site` | goods are handed to us at our warehouse (client/carrier brings them) **or** collected by us at the client's site | goods are collected by the client at our warehouse **or** delivered to the client's site |
+| `transport_by` | `client` · `premium` | who moves the goods to the handover point | who moves them from it |
+| `vehicle_type` | `container_20` · `container_40` · `truck` · `trailer` · `van` · `pickup` · `other` (closed list; `vehicle_type text` exists on `wms.inbound_orders` 01:744 and gains the check) | drives the receiving service: HD-01 / HD-02 / HD-03 | drives loading OF-09 and, if `transport_by = premium`, the delivery service (DL-02 B2B / DL-03 dedicated trip / DL-06 by distance per contract) |
+| `labour_by` + `labour_count` | `client` · `premium` · `shared`; integer ≥ 0 | who unloads; when `premium`, HD-04 (palletised) or HD-05 (manual cartons) events are generated per unit and, outside working hours, HD-13 per hour | who loads; OF-09 per unit |
+
+**Consequences:**
+- `transport_by = premium` on an inbound whose `handover_point = client_site` **creates a `tms.delivery_task` of type `pickup_delivery`** (SCR-TMS-PICKUP-01, D-137) from the client site (`platform.sites`, SCR-HR-SHIFT-01 §2.4) to the warehouse, linked by `inbound_orders.delivery_task_id` (new column; outbound already has `delivery_task_id` 01:765). Its arrival is the `arrived_at` of the order.
+- `labour_count` feeds the WH_SUP board (workers to assign for the appointment) and, when 2.20 work orders exist, becomes the work order's crew size. No labour is billed unless `labour_by ∈ {premium, shared}` and the contract carries the HD line (price precedence rules of doc 04 unchanged).
+- The four terms default from the **contract** (`sales.contracts` gains `default_handover_point`, `default_transport_by`, `default_labour_by`) and may be overridden per order by WH_MGR/WH_SUP at approval or scheduling; the client may propose them on the portal ASN/outbound screens (6.1) and the API (6.2).
+- Billing events are derived at `received` (inbound) / `dispatched` (outbound) from the stored terms — never re-typed by hand; `wms.inbound.received` and `wms.outbound.dispatched` payloads carry the four terms so Phase-4 billing prices them without a second read.
+
+**Schema (G-01, with the slice):** `wms.inbound_orders` + `handover_point`, `transport_by`, `labour_by`, `labour_count`, `delivery_task_id`, check on `vehicle_type`; the same four on `wms.outbound_orders` (which already has `delivery_task_id`); three defaults on `sales.contracts`. All classified `commercial`. Check lists as above.
+
+**Scope (default taken):** folded into **2.9b** (terms are set in the same approve/schedule step) for the inbound side; the outbound side rides the first outbound slice (2.11). Nothing in 2.9 is reopened.
