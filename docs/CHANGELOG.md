@@ -59,6 +59,15 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — SCR-HR-SHIFT-01 filed: shifts, transport groups, sites, device custody, vehicle QR, employee requests (D-143) — DONE (2026-09-24)
+
+- GM directive of eleven lines (verbatim in D-143) after the attendance-boards mock-up. Filed `docs/notes/SCR-HR-SHIFT-01-shifts-groups-sites-devices.md` under G-01: every line classified (process rule / existing carrier / schema gap), shapes §2.1–§2.9, explicit exclusions (payroll), proposed WBS deltas (5.3, APP-1, 3.7, fleet QR row), five batched GM questions (PLT-50 override? static vs animated badge? per-role vs per-person HR group? single `platform.sites`? approve shapes).
+- Q30a of D-141 is now answered by line 5: site table with radius (client outlets are sites).
+- No code, no schema, no WBS row. The other session's uncommitted 2.9 work (`database/schema/01`, `modules/wms`, `packages/*`) untouched.
+- Model: Master session fable-5.1 · Delegated: none · Review: n/a (governance) · tokens ≈ 30k (estimate)
+
+---
+
 ## X — GM decision sheet 2 answered (D-141): 43 items closed, 6 value follow-ups — DONE (2026-09-24)
 
 - GM answered every question on the interactive sheet (v2: plain-language wording, ✕ cancel option). Verbatim line + Q4/Q5 free-text rulings recorded as D-141; per-answer meaning and landing place in the sheet's "Answers" table.

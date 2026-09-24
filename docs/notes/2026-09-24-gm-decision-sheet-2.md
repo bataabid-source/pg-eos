@@ -157,5 +157,5 @@ Plus two free-text rulings given with the answers (verbatim):
 2. **Q7b** rate matrix (segment × category) and **Q7e** salary multiplier — values needed before the commission seed.
 3. **Q15** date "220/8/2025" — 20 or 22 August 2025?
 4. **Q26** — confirmation criterion at day 90.
-5. **Q30a** — confirm circle (أ), since a 500 m radius was given.
+5. ~~**Q30a** — confirm circle (أ), since a 500 m radius was given.~~ **Answered by D-143 line 5:** a site table with a radius per site (`platform.sites`, SCR-HR-SHIFT-01 §2.4); client outlets are sites.
 6. **Q42** — counsel's list: which of the seven controls are statutory.
