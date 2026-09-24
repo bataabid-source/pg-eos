@@ -20,7 +20,7 @@ Maintained by pg-scribe only, in the same commit as the task it records.
 |---|---|---|---|---|
 | 1 | 0.19 admin app shell (D-172) | `admin` (`apps/admin`) | `../pg-eos-lane-1` | queued — next lane-1 session (`/pg-resume` from main ≥ this commit); 1.2 DONE @ `6a53fc8` |
 | 2 | 5.5a shifts, shift groups, sites (SCR-HR-SHIFT-01 §2.1–§2.4) | `hr` + `platform` (sites only) | `../pg-eos-lane-2` | queued — next lane-2 session; MIGRATION-REQUEST → 0015; 3.3 DONE @ `9616422` |
-| 3 | 5.18 focus boards (D-172) | `platform` — not claimable until lane 2 releases it (GM question D-173 a) | shared `claude-kit` | queued; then 5.13 part 2, then 3.14 after the GM's iMile portal check |
+| 3 | 3.14 iMile station agent (D-175: portal check confirmed live) | `imile` (new module) | shared `claude-kit` | queued — next lane-3 session; 5.18 stays queued behind it (`platform` also held by lane 2 for 5.5a — D-173 a) |
 
 ## Last 5 DONE (newest first)
 

@@ -5,6 +5,7 @@
 | admin | 1 | 0.19 | 2026-09-24 | ../pg-eos-lane-1 (queued — next lane-1 session; `apps/admin`, D-172) |
 | hr | 2 | 5.5a | 2026-09-24 | ../pg-eos-lane-2 (queued — next lane-2 session) |
 | platform | 2 | 5.5a | 2026-09-24 | ../pg-eos-lane-2 (queued — `platform.sites` §2.4 ONLY; released with the 5.5a merge, then lane 3 / 5.18) |
+| imile | 3 | 3.14 | 2026-09-24 | shared `claude-kit` (queued — next lane-3 session; D-175, portal check confirmed) |
 
 - `0013_1_price-lists-version.sql` — lane 1, task 1.2, applied 2026-09-24 (pg-reviewer pre-migration APPROVED WITH CHANGES; number issued by the Master, MIGRATION-REQUEST-1.md).
 
