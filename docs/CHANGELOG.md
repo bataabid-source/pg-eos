@@ -87,6 +87,14 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — SCR-TMS-PORTAL-01 filed: delivery-client portal — self-dispatch, recipient book, live driver tracking (D-160) — DONE (2026-09-24)
+
+- GM directive recorded verbatim (D-160; the SCR commit fd2ad13 carried the label D-150 by mistake — that range belongs to the 2.9 session — corrected in this commit). Shapes: `tms.recipients`, `tms.client_drivers` view, client-side `created → assigned` under `tms.task.assign_own` with INV-C4-1 kept, `tms.driver_positions` (append-only, 30-day default), +3 portal screens, policy exception for attached drivers' names. Five defaults in §4. Phase 6 (6.1/6.2); no pilot impact.
+- No code, no schema.
+- Model: Master session fable-5.1 · Delegated: none · Review: n/a (governance) · tokens ≈ 14k (estimate)
+
+---
+
 ## X — iMile warehouse work on our PDA, batch export per user via agents (D-149) — DONE (2026-09-24)
 
 - GM clarification recorded verbatim; technical answer "yes, under verifiable conditions" with the failure modes and the one external portal check (DEL_MGR + SYSADMIN, one day) that gates the 3.14 brief. Carriers `imile.user_accounts` (generalising D-148) and `imile.export_batches` queued under G-01 with 3.14. Scenario page v3 §9, note §7.

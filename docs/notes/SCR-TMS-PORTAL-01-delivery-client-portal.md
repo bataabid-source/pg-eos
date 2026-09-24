@@ -1,6 +1,6 @@
-# SCR-TMS-PORTAL-01 — delivery-client portal: self-dispatch to attached drivers, recipient book, live driver tracking (GM directive D-150)
+# SCR-TMS-PORTAL-01 — delivery-client portal: self-dispatch to attached drivers, recipient book, live driver tracking (GM directive D-160)
 
-**Status: FILED — shapes for GM approval; nothing in `database/schema/*` or `database/migrations/*` is touched.** Raised under **EXECUTION-MASTER-v4 §1.11 (G-01)** on criterion (iii): a GM requirement not modelled in doc 40 §C10 / doc 27 §6 (the 12 portal screens). Source: GM directive of 2026-09-24, verbatim in **D-150**. Timing: Phase 6 (6.1 Client Portal, lane 1) unless the GM pulls it forward; nothing in the pilot changes.
+**Status: FILED — shapes for GM approval; nothing in `database/schema/*` or `database/migrations/*` is touched.** Raised under **EXECUTION-MASTER-v4 §1.11 (G-01)** on criterion (iii): a GM requirement not modelled in doc 40 §C10 / doc 27 §6 (the 12 portal screens). Source: GM directive of 2026-09-24, verbatim in **D-160**. Timing: Phase 6 (6.1 Client Portal, lane 1) unless the GM pulls it forward; nothing in the pilot changes.
 
 ## 1. The directive, line by line
 
