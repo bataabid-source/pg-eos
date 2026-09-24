@@ -3,12 +3,12 @@
 | module | lane | task | claimed_at | worktree |
 |---|---|---|---|---|
 | admin | 1 | 0.19 | 2026-09-24 | ../pg-eos-lane-1 (queued — next lane-1 session; `apps/admin`, D-172) |
-| hr | 2 | 5.5a | 2026-09-24 | ../pg-eos-lane-2 (queued — next lane-2 session) |
-| platform | 2 | 5.5a | 2026-09-24 | ../pg-eos-lane-2 (queued — `platform.sites` §2.4 ONLY; released with the 5.5a merge, then lane 3 / 5.18) |
+| hr | 2 | 5.5a | 2026-09-24 | ../pg-eos-lane-2 (queued — next lane-2 session, 5.5a part 2: hr.shifts / shift_assignments / shift_groups) |
 | imile | 3 | 3.14 | 2026-09-24 | shared `claude-kit` (queued — next lane-3 session; D-175, portal check confirmed) |
 
 - `0013_1_price-lists-version.sql` — lane 1, task 1.2, applied 2026-09-24 (pg-reviewer pre-migration APPROVED WITH CHANGES; number issued by the Master, MIGRATION-REQUEST-1.md).
 
+`platform` (lane 2, task 5.5a part 1) released 2026-09-24 — `platform.sites` DONE @ `3679b70` (PR #19); free for lane 3 / 5.18 now that lane 2 no longer holds it.
 `hr` (lane 2, task 3.3) released 2026-09-24 — 3.3 DONE @ `9616422` (PR #14); re-claimed above for 5.5a.
 `catalog` (lane 1, task 1.2) released 2026-09-24 — 1.2 DONE @ `6a53fc8` (PR #12).
 `platform` (lane 3, task 5.13) released 2026-09-24 — 5.13 part 1 committed (alert evaluation mechanism), NOT DONE (part 2: delivery, escalation, dynamic recipients, reports, job).
