@@ -73,6 +73,14 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — Standing rule: no multi-question back-and-forth; one complete questionnaire instead (D-146) — DONE (2026-09-24)
+
+- GM directive recorded verbatim (D-146). Applied as a session rule and saved in the Master's persistent memory; CLAUDE.md line deferred until the 2.9 session commits (frozen path while another session is active).
+- No code, no schema.
+- Model: Master session fable-5.1 · Delegated: none · Review: n/a (governance) · tokens ≈ 4k (estimate)
+
+---
+
 ## X — Sound on operational web boards; push token in the device registry (D-145) — DONE (2026-09-24)
 
 - GM directive on the notifications review: sound required on web boards for all operations and field managers (exception to D-15 §3-هـ, recorded as an amendment there); push token approved into the device-registry shape; alert-admin screen confirmed with 5.13.
