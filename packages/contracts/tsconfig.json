@@ -10,6 +10,8 @@
     "_harness/**/*.ts",
     "scripts/**/*.ts",
     "wms/**/*.ts",
+    "hr/**/*.ts",
+    "catalog/**/*.ts",
     "platform/**/*.ts"
   ],
   "exclude": [

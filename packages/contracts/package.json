@@ -17,6 +17,14 @@
     "./platform/evaluate-alerts": {
       "types": "./dist/platform/evaluate-alerts.d.ts",
       "default": "./dist/platform/evaluate-alerts.js"
+    },
+    "./hr/register-employee": {
+      "types": "./dist/hr/register-employee.d.ts",
+      "default": "./dist/hr/register-employee.js"
+    },
+    "./catalog/maintain-price-list": {
+      "types": "./dist/catalog/maintain-price-list.d.ts",
+      "default": "./dist/catalog/maintain-price-list.js"
     }
   },
   "scripts": {

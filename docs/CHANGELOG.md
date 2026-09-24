@@ -130,6 +130,14 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — Master task for lane 2 (3.3 reviewer finding 3): hr contract export registered; new-slice.sh registers contract exports itself — DONE (2026-09-24)
+
+- `packages/contracts/package.json` gains `./hr/register-employee`; `packages/contracts/tsconfig.json` includes `hr/**/*.ts` (frozen `packages/*`, Master-only). `scripts/new-slice.sh` now registers the subpath export and tsconfig include for every replicated use case (idempotent), so no lane touches packages/contracts/{package.json,tsconfig.json} again. `pnpm-lock.yaml` changes that follow `pnpm install` after a scaffold are lane-writable (recorded default; the importer entry stays in the feat commit with a CHANGELOG line).
+- **Batched Master task (finding 2):** add `entityId` to `WithContextCtx` in `packages/db` so slices stop deriving it from `platform.allowed_entities()`; lane 2 fails closed (422) until then. Not in this commit.
+- Model: Master session fable-5.1 · Delegated: none · Review: n/a (governance) · tokens ≈ 4k (estimate)
+
+---
+
 ## X — Master issue for lane 2: migration 0014 + two hr events in the catalog — DONE (2026-09-24)
 
 - MIGRATION-REQUEST-2 (WBS 3.3): number **0014** issued (`0014_2_employees-version.sql`); 0013 reserved for lane 1; 0011/0012 recorded for 5.13. `packages/events/catalog.ts` gains `hr.employee.registered` and `hr.employee_document.recorded` (frozen path, Master-only). Lane 2 session opened by the GM in ../pg-eos-lane-2.
