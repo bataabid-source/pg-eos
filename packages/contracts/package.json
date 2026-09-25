@@ -73,6 +73,10 @@
     "./wms/manage-space": {
       "types": "./dist/wms/manage-space.d.ts",
       "default": "./dist/wms/manage-space.js"
+    },
+    "./imile/pull-shipments": {
+      "types": "./dist/imile/pull-shipments.d.ts",
+      "default": "./dist/imile/pull-shipments.js"
     }
   },
   "scripts": {
