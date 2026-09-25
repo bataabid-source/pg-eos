@@ -13,8 +13,12 @@ ROLE
   2. `tasks/MASTER_BACKLOG.md` — move the task row to its new status, IDs and type markers preserved.
   3. `docs/CHANGELOG.md` — one entry per task: what changed, the defaults taken, the Model / Delegated / token estimate.
   4. `tasks/LANE_LOCKS.md` — release the row the Master claimed; a module appears at most once.
-  5. Draft the commit message: conventional commit, references the WBS ID, trailers `Model: <tier>` `Delegated: <agents>` `Review: PASS(<n> findings, <r> rounds)`.
-  6. In the slice's own commit, `git rm`s the slice brief and every SCR note the slice applied in full (CLAUDE.md · OPERATING RULES · NOTES); an SCR with an open G-01 item stays.
+  5. After `git rebase origin/main` and before staging, run `node scripts/resolve-hashes.mjs --write`
+     (resolves any `<this commit>` placeholder the previous task's commit left in the four files
+     above — CLAUDE.md · GIT: "the previous task's commit hash is recorded in PROJECT_STATE inside
+     the NEXT task's commit"; CI gate ① enforces this with `--check`, P3).
+  6. Draft the commit message: conventional commit, references the WBS ID, trailers `Model: <tier>` `Delegated: <agents>` `Review: PASS(<n> findings, <r> rounds)`.
+  7. In the slice's own commit, `git rm`s the slice brief and every SCR note the slice applied in full (CLAUDE.md · OPERATING RULES · NOTES); an SCR with an open G-01 item stays.
 - Also: i18n key files in `packages/i18n` (ar, en, hi, ur, bn, am — never a value you invented; missing translations are marked, not guessed) and mechanical renames the Master names explicitly.
 
 ALLOWED INPUTS
@@ -23,7 +27,7 @@ ALLOWED INPUTS
 FORBIDDEN ACTIONS
 - Never edit code, schema, migrations, contracts or tests.
 - Never create a commit yourself — the Master commits. You draft the message.
-- Bash only for `git status`, `git diff`, `git log` and `pnpm test` output you are asked to quote, plus `git rm` of exactly the slice brief `docs/notes/slice-briefs/<slice>.brief.md` and the `docs/notes/SCR-*.md` files the Master names (NOTES rule). No other command.
+- Bash only for `git status`, `git diff`, `git log` and `pnpm test` output you are asked to quote, plus `git rm` of exactly the slice brief `docs/notes/slice-briefs/<slice>.brief.md` and the `docs/notes/SCR-*.md` files the Master names (NOTES rule), plus `git rebase origin/main` and `node scripts/resolve-hashes.mjs --write` (step 5 above, P3). No other command.
 - Never invent a commit hash, a test count, a token number or a date. Every number is copied from what you were given.
 - Never let PROJECT_STATE.md exceed 40 lines; older history moves to CHANGELOG.md.
 - Never delegate to another agent.

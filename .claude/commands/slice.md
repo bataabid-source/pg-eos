@@ -23,7 +23,11 @@ Loop (BOOTSTRAP-v5 §2 — mandatory, in order):
  11. PASS → pg-scribe updates state/backlog/CHANGELOG — including every worker's token estimate from its closing
      REPORT line (pg-tester, pg-backend, pg-frontend, pg-reviewer; a missing estimate is asked for, never guessed); the Master names the brief and SCR notes pg-scribe `git rm`s (NOTES).
      In the slice's own commit, pg-scribe `git rm`s the slice brief and every SCR note the slice applied in full
-     (CLAUDE.md · OPERATING RULES · NOTES); an SCR with an open G-01 item stays. →
+     (CLAUDE.md · OPERATING RULES · NOTES); an SCR with an open G-01 item stays.
+     After `git rebase origin/main` and before staging, run `node scripts/resolve-hashes.mjs --write`
+     (resolves any `<this commit>` placeholder the previous task's commit left behind — CLAUDE.md ·
+     GIT: "the previous task's commit hash is recorded in PROJECT_STATE inside the NEXT task's
+     commit"; CI gate ① checks this with `--check`, P3). →
      **one `feat(<WBS>)` commit** with trailers, `Review: PASS(<n> findings, <r> rounds)` → release the lock.
  12. Review cap (P7): round 1 FAIL → ONE builder/tester fix round → round 2. Round 2 FAIL → STOP: commit and merge
      only the GREEN, PASS-reviewed subset (if any); every open finding becomes a `<WBS> part n+1` row in

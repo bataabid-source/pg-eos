@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # PG-EOS · tests/hooks/run.sh — regression tests for the versioned hooks and bookkeeping gates
-# (D-179, 2026-09-25). Pure bash, no database, no node. Runs in CI gate ① and via `pnpm test:hooks`.
-#   .claude/hooks/lane-guard.sh · .claude/hooks/db-guard.sh · .githooks/commit-msg · scripts/check-locks.sh · scripts/brief-check.sh
+# (D-179, 2026-09-25). Pure bash, no database. Runs in CI gate ① and via `pnpm test:hooks`.
+#   .claude/hooks/lane-guard.sh · .claude/hooks/db-guard.sh · .githooks/commit-msg · scripts/check-locks.sh
+#   · scripts/brief-check.sh · scripts/resolve-hashes.mjs (node, P3) · scripts/gov-ratio.sh (P3)
 # Every rule these files enforce has a case here; a change that drops a rule turns a case red.
 set -uo pipefail
 
@@ -189,6 +190,90 @@ expect "no db anywhere: allowed"                  0 "$(dbg "" "psql -c 'delete f
 expect "non-psql command with drop allowed"       0 "$(dbg pgeos "git branch -D drop-me && echo 'drop '")"
 expect "apply.sh invocation allowed"              0 "$(dbg pgeos "bash database/schema/apply.sh --recreate")"
 expect "empty payload allowed"                    0 "$(printf '{}' | bash "$REPO/.claude/hooks/db-guard.sh" 2>/dev/null; echo $?)"
+
+# ---- resolve-hashes.mjs (P3): resolves the `<this commit>` placeholder from git blame ----------
+echo "resolve-hashes.mjs"
+RH="$TMP/rh"; mkdir -p "$RH/docs"
+(
+  cd "$RH" && git init -q -b main .
+  printf 'line1\nline2 <this commit> placeholder\nline3\n' > docs/PROJECT_STATE.md
+  git add docs/PROJECT_STATE.md
+  git -c user.email=t@t -c user.name=t commit -q -m 'feat(2.9): introduce placeholder'
+  printf 'other\n' > other.txt
+  git add other.txt
+  git -c user.email=t@t -c user.name=t commit -q -m 'feat(2.9): unrelated, does not touch PROJECT_STATE.md'
+) >/dev/null 2>&1
+RH_INTRO="$(cd "$RH" && git rev-parse --short=7 HEAD~1)"
+rh_check() { ( cd "$RH" && node "$REPO/scripts/resolve-hashes.mjs" --check >/dev/null 2>&1 ); echo $?; }
+rh_write() { ( cd "$RH" && node "$REPO/scripts/resolve-hashes.mjs" --write >/dev/null 2>&1 ); echo $?; }
+# (b) "a placeholder introduced by an older base commit -> stale": no origin remote here, so base
+# falls back to `main`, which (single-branch fixture) equals HEAD; the older commit is still a
+# real ancestor of it and != HEAD, so this already exercises the ancestor-of-base rule, not just
+# a naive "!= HEAD" check (Master review round 1 BLOCKER fix).
+expect "check: stale placeholder (older base commit) refused" 1 "$(rh_check)"
+expect "write: exits 0"                                        0 "$(rh_write)"
+expect "write: placeholder replaced with introducing hash"     0 "$(grep -q "$RH_INTRO" "$RH/docs/PROJECT_STATE.md"; echo $?)"
+expect "write: literal placeholder gone"                       1 "$(grep -q '<this commit>' "$RH/docs/PROJECT_STATE.md"; echo $?)"
+expect "check: clean after write"                              0 "$(rh_check)"
+
+# ---- resolve-hashes.mjs (P3, Master review round 1 BLOCKER fix): stale iff the introducing commit
+# is an ancestor of the base ref AND is not HEAD — not simply "!= HEAD". A `pull_request` CI build
+# checks out a synthetic merge commit (refs/pull/N/merge); a naive "!= HEAD" rule would attribute
+# every lane PR's own new placeholder to its lane commit and turn every lane PR red.
+echo "resolve-hashes.mjs — ancestor-of-base staleness rule"
+RH2="$TMP/rh2"; mkdir -p "$RH2/docs"
+(
+  cd "$RH2" && git init -q -b main .
+  printf 'base line\n' > docs/PROJECT_STATE.md
+  git add docs/PROJECT_STATE.md
+  git -c user.email=t@t -c user.name=t commit -q -m 'feat(2.9): base, no placeholder'
+  git checkout -q -b feature
+  printf 'base line\nfeature <this commit> placeholder\n' > docs/PROJECT_STATE.md
+  git add docs/PROJECT_STATE.md
+  git -c user.email=t@t -c user.name=t commit -q -m 'feat(2.9): PR introduces its own placeholder'
+  git checkout -q main
+  printf 'base line\nunrelated bump\n' > other.txt
+  git add other.txt
+  git -c user.email=t@t -c user.name=t commit -q -m 'feat(2.9): main advances, unrelated to the PR'
+  git checkout -q -b pr-merge main
+  git -c user.email=t@t -c user.name=t merge -q --no-ff feature -m 'Merge PR into main (simulates refs/pull/N/merge)'
+) >/dev/null 2>&1
+rh2_check() { ( cd "$RH2" && node "$REPO/scripts/resolve-hashes.mjs" --check >/dev/null 2>&1 ); echo $?; }
+# (a) placeholder introduced on a feature branch, checked out from the PR's synthetic merge commit -> clean
+expect "check: PR's own placeholder on a merge-commit checkout is clean" 0 "$(rh2_check)"
+
+RH3="$TMP/rh3"; mkdir -p "$RH3/docs"
+(
+  cd "$RH3" && git init -q -b main .
+  printf 'line1\nline2 <this commit> placeholder\n' > docs/PROJECT_STATE.md
+  git add docs/PROJECT_STATE.md
+  git -c user.email=t@t -c user.name=t commit -q -m 'feat(2.9): placeholder introduced by the tip of main itself'
+) >/dev/null 2>&1
+rh3_check() { ( cd "$RH3" && node "$REPO/scripts/resolve-hashes.mjs" --check >/dev/null 2>&1 ); echo $?; }
+# (c) placeholder introduced by HEAD, and HEAD is the base ref's own tip (a plain push-to-main
+# build, not a PR) -> clean
+expect "check: placeholder introduced by HEAD on the base is clean" 0 "$(rh3_check)"
+
+# ---- gov-ratio.sh (P3): 7-day feat/fix(<WBS>) ratio + average review rounds --------------------
+echo "gov-ratio.sh"
+GR="$TMP/gr"; mkdir -p "$GR/scripts/lib"
+cp "$REPO/scripts/lib/review-trailer.sh" "$GR/scripts/lib/"
+(
+  cd "$GR" && git init -q -b main .
+  git -c user.email=t@t -c user.name=t commit -q --allow-empty -m "$(printf 'feat(2.9): a\n\nReview: PASS(3 findings, 2 rounds)')"
+  git -c user.email=t@t -c user.name=t commit -q --allow-empty -m "$(printf 'fix(2.9): b\n\nReview: PASS(1 findings, 4 rounds)')"
+  git -c user.email=t@t -c user.name=t commit -q --allow-empty -m "$(printf 'feat(2.9): c\n\nReview: PASS(5 findings fixed)')"
+  git -c user.email=t@t -c user.name=t commit -q --allow-empty -m 'chore(X): bookkeeping'
+  git -c user.email=t@t -c user.name=t commit -q --allow-empty -m "$(printf 'docs(X): a note\n\nDecision: D-1')"
+) >/dev/null 2>&1
+GR_OUT="$(cd "$GR" && GOV_BUDGET_REF=main bash "$REPO/scripts/gov-ratio.sh" 2>/dev/null)"
+expect "gov-ratio: total commits = 5"              0 "$(printf '%s' "$GR_OUT" | grep -qE 'total commits +: 5'; echo $?)"
+expect "gov-ratio: feat/fix(<WBS>) commits = 3"    0 "$(printf '%s' "$GR_OUT" | grep -qE 'feat/fix\(<WBS>\) commits +: 3'; echo $?)"
+expect "gov-ratio: ratio 60.0% (3/5, meets target)" 0 "$(printf '%s' "$GR_OUT" | grep -q '60.0% feat/fix'; echo $?)"
+expect "gov-ratio: avg rounds 3.00 over 2 new-form" 0 "$(printf '%s' "$GR_OUT" | grep -q 'avg 3.00 over 2 commit'; echo $?)"
+expect "gov-ratio: 1 old-form trailer excluded"     0 "$(printf '%s' "$GR_OUT" | grep -q '1 old-form trailer(s) excluded'; echo $?)"
+expect "gov-ratio: chore(X)/docs(X) = 2 today"      0 "$(printf '%s' "$GR_OUT" | grep -q ': 2$'; echo $?)"
+expect "gov-ratio: unknown ref exits 2"             2 "$(cd "$GR" && GOV_BUDGET_REF=no-such-ref bash "$REPO/scripts/gov-ratio.sh" >/dev/null 2>&1; echo $?)"
 
 echo
 echo "hooks tests: $pass passed, $failn failed"
