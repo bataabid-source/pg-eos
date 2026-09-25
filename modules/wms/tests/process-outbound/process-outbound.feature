@@ -7,9 +7,9 @@ Feature: Process outbound order — create, ten-condition check, approve, cancel
   # checks_pending, credit_rejected, approved, allocated, partially_allocated, cancelled — every
   # other status (picking...delivered) still has no producing edge (2.12's job).
 
-  As the warehouse system, create a draft outbound order, run nine of the ten pre-dispatch
-  conditions (the tenth is blocked, no schema source), let WH_MGR approve, and allow cancellation
-  before allocation exists
+  As the warehouse system, create a draft outbound order, run all ten pre-dispatch conditions
+  (condition 10, the per-contract per-SKU order limit, D-189, added part 5), let WH_MGR approve,
+  and allow cancellation before allocation exists
 
   Background:
     Given entity PST, a qualified account "ACC-OUT" with an active priced contract, seeded
@@ -24,7 +24,7 @@ Feature: Process outbound order — create, ten-condition check, approve, cancel
     When CreateOutbound is called
     Then it is rejected with ClientNotQualifiedError and no order is written
 
-  Scenario: All nine conditions pass — reaches checks_pending
+  Scenario: All ten conditions pass — reaches checks_pending
     Given every condition's prerequisite is satisfied
     When RunOutboundChecks is called
     Then status is "checks_pending", credit_check_passed is true, credit_checked_at is set
@@ -121,11 +121,30 @@ Feature: Process outbound order — create, ten-condition check, approve, cancel
     Then it is rejected with NoServicePriceError carrying i18n key
       "wms.outbound.check.noServicePrice" quoting "OF-01", and status stays "draft"
 
-  Scenario: Condition 10 is never evaluated — documents the deliberate gap
-    Given an order whose ordered quantity would exceed any plausible per-order limit
+  Scenario: Condition 10 passes when the SKU has no contract limit row
+    Given the client's contract has no sales.contract_sku_limits row for this SKU
     When RunOutboundChecks is called
-    Then it is NOT rejected on account of condition 10 — condition 10 has no implementation this
-      slice (BLOCKED, no schema source, G-01 batched)
+    Then condition 10 does not fail (no limit means no cap)
+
+  Scenario: Condition 10 passes when the ordered quantity is within the limit
+    Given a sales.contract_sku_limits row for this contract/SKU with max_order_qty 100
+    And the line orders 50
+    When RunOutboundChecks is called
+    Then condition 10 does not fail
+
+  Scenario: Condition 10 fails when the ordered quantity exceeds the limit
+    Given a sales.contract_sku_limits row for this contract/SKU with max_order_qty 10
+    And the line orders 15
+    When RunOutboundChecks is called
+    Then it is rejected with the order-quantity-exceeded error naming the SKU code, the ordered
+      quantity, and the limit — status stays "draft", nothing written to outbox or audit
+
+  Scenario: Condition 10's limit is exact — ordered equal to the limit still passes
+    Given max_order_qty 10, the line orders exactly 10
+    When RunOutboundChecks is called
+    Then condition 10 does not fail (the limit is inclusive)
+
+  # All ten conditions now have a failing test with the correct message (doc 38 row 2.11)
 
   Scenario: WH_MGR approves a checks_pending order
     When ApproveOutbound is called

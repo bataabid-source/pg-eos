@@ -51,4 +51,4 @@ GM chose option ب: condition 10's source is **a per-contract, per-SKU quantity 
 | classification | one `identity.column_classification` row per column |
 | consumer | WBS 2.11 part 5 — `RunOutboundChecks` reads it read-only inside `withContext` from the wms repository (same pattern as the other cross-module condition reads); no sales code is written |
 
-Migration number **0026** issued to lane 1 (`0026_1_contract-sku-limits.sql`); the MIGRATION-REQUEST-1 row must name the RED test paths first (D-179). Status: **requested** → `approved` at the pre-migration PASS → `applied` when the migration lands.
+Migration number **0026** issued to lane 1 (`0026_1_contract-sku-limits.sql`); the MIGRATION-REQUEST-1 row must name the RED test paths first (D-179). Status: **applied** — migration 0026 landed as WBS 2.11 part 5 (`<this commit>`); `RunOutboundChecks` reads `sales.contract_sku_limits` read-only for condition 10; WBS 2.11's doc-38 row is DONE (all ten conditions).

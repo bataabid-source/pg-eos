@@ -9,8 +9,8 @@
 // order transitions to 'checks_pending'; (6) the unconditional version bump with
 // credit_check_passed/credit_checked_at; (7) the outbox event ('wms.outbound.checks_started' on
 // pass, 'wms.outbound.credit_rejected' on condition-2 failure); (8) the audit row (last,
-// ADR-0002). Condition 10 (quantity within the agreed order limit) is SKIPPED — no schema source
-// (brief Scope, G-01 batched, not counted toward the ten).
+// ADR-0002). Condition 10 (WBS 2.11 part 5, D-189): the per-contract, per-SKU order-quantity limit
+// from `sales.contract_sku_limits`, read via the SAME contract condition 1 already resolved.
 //
 // This layer is ORCHESTRATION ONLY (fix round 1 finding 11): it fetches every condition's data via
 // wms's own repository (../../infrastructure/process-outbound/repository.ts, no cross-module
@@ -33,6 +33,7 @@ import {
   assertContractActive,
   assertDeliveryAddressComplete,
   assertNonBlockedLocationsSufficient,
+  assertOrderQuantityWithinLimit,
   assertServicePriced,
   assertShelfLifeSufficient,
   assertSkuBelongsToOrderClient,
@@ -197,7 +198,19 @@ export async function runOutboundChecks(
         : false;
     assertServicePriced(hasPricedLine, hasPriceException, SERVICE_CODE_OF01, input.orderId);
 
-    // --- condition 10: BLOCKED — no schema source (brief Scope, G-01 batched). Never evaluated.
+    // --- condition 10: per-contract, per-SKU order-quantity limit, every line (WBS 2.11 part 5,
+    // D-189) -----------------------------------------------------------------------------------
+    // Reuses the SAME contract condition 1 already resolved (`contract.id`) — never re-derives via
+    // `order.contractId`, which may be null when condition 1 resolved the contract by client/
+    // entity instead (finding 1).
+    for (const line of lines) {
+      const limitRow = await deps.repo.getContractSkuLimit(tx, { contractId: contract.id, skuId: line.skuId });
+      assertOrderQuantityWithinLimit({
+        skuCode: skuChecks.get(line.skuId)?.code ?? line.skuId,
+        ordered: line.qtyOrdered,
+        limit: limitRow?.maxOrderQty ?? null,
+      });
+    }
 
     // --- condition 2: credit hold, checked LAST — failure transitions, never throws ---------
     const account = await deps.repo.getAccountCredit(tx, order.clientId);

@@ -40,6 +40,7 @@ import type {
   ClientQualificationRow,
   ConsumedLineRow,
   ContractCheckRow,
+  ContractSkuLimitRow,
   IncrementLotAllocatedParams,
   OrderLineRow,
   OrderRow,
@@ -247,9 +248,12 @@ async function getContractCheck(
 ): Promise<ContractCheckRow | null> {
   // Fix round 1 finding 4: looked up by (account_id=clientId, entity_id) — `contractId` narrows
   // the same query WHEN the order carries one, never replaces the lookup key. An order created
-  // without a contractId still resolves the client's own active contract.
-  const result = await tx.execute<{ end_date: string | null; price_list_id: string | null }>(sql`
-    select end_date::text as end_date, price_list_id
+  // without a contractId still resolves the client's own active contract. WBS 2.11 part 5 finding
+  // 1: `id` is selected too — condition 10 needs to know WHICH contract resolved (an order may
+  // carry no contractId at all) so it can look up sales.contract_sku_limits by THIS resolved
+  // contract_id, not by order.contractId directly.
+  const result = await tx.execute<{ id: string; end_date: string | null; price_list_id: string | null }>(sql`
+    select id, end_date::text as end_date, price_list_id
       from sales.contracts
      where account_id = ${params.clientId}::uuid and entity_id = ${params.entityId}::uuid
        and status = ${CONTRACT_STATUS_ACTIVE}
@@ -258,7 +262,23 @@ async function getContractCheck(
      limit 1
   `);
   const row = result.rows[0];
-  return row ? { endDate: row.end_date, priceListId: row.price_list_id } : null;
+  return row ? { id: row.id, endDate: row.end_date, priceListId: row.price_list_id } : null;
+}
+
+/** condition 10 (WBS 2.11 part 5, D-189, SCR-WMS-OUT-02 §6): read-only, cross-schema, same
+ *  pattern as getContractCheck above — no `modules/sales` TypeScript import. `null` when no row
+ *  exists for (contractId, skuId) — no cap for that line. */
+async function getContractSkuLimit(
+  tx: NodePgDatabase,
+  params: { readonly contractId: string; readonly skuId: string },
+): Promise<ContractSkuLimitRow | null> {
+  const result = await tx.execute<{ max_order_qty: string }>(sql`
+    select max_order_qty::text as max_order_qty
+      from sales.contract_sku_limits
+     where contract_id = ${params.contractId}::uuid and sku_id = ${params.skuId}::uuid
+  `);
+  const row = result.rows[0];
+  return row ? { maxOrderQty: row.max_order_qty } : null;
 }
 
 async function getAccountCredit(tx: NodePgDatabase, clientId: string): Promise<AccountCreditRow | null> {
@@ -562,6 +582,7 @@ export const outboundOrderRepository: OutboundOrderRepository = {
   getServiceIdByCode,
   hasPricedLine,
   hasPriceException,
+  getContractSkuLimit,
   getOrderLinesForAllocation,
   getSkuPickingPolicy,
   getCandidateLots,

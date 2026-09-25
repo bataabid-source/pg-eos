@@ -68,10 +68,21 @@ export interface ClientQualificationRow {
 }
 
 export interface ContractCheckRow {
+  /** WBS 2.11 part 5 (D-189, finding 1): the resolved contract's own id — condition 10 looks up
+   *  `sales.contract_sku_limits` by THIS resolved contract_id, never by `order.contractId` directly
+   *  (which may be null when the order was created without one and condition 1 resolved it by
+   *  client/entity instead). */
+  readonly id: string;
   /** ISO date (`YYYY-MM-DD`) or null — never a Date instance (CLAUDE.md "no Date in domain/";
    *  kept as the raw SQL text form up through the application layer for a stable string compare). */
   readonly endDate: string | null;
   readonly priceListId: string | null;
+}
+
+/** Condition 10 (WBS 2.11 part 5, D-189): `sales.contract_sku_limits.max_order_qty` for a
+ *  (contract_id, sku_id) pair, or `null` when no row exists (no cap). */
+export interface ContractSkuLimitRow {
+  readonly maxOrderQty: string;
 }
 
 export interface AccountCreditRow {
@@ -264,6 +275,13 @@ export interface OutboundOrderRepository {
     tx: NodePgDatabase,
     params: { readonly entityId: string; readonly clientId: string; readonly serviceId: string; readonly asOfDate: string },
   ): Promise<boolean>;
+  /** condition 10 (WBS 2.11 part 5, D-189): `sales.contract_sku_limits` for the SAME contract
+   *  condition 1 already resolved (`contractId` is that row's own `id`, never `order.contractId`
+   *  directly) and the line's `skuId`. `null` when no row exists — no cap for that line. */
+  getContractSkuLimit(
+    tx: NodePgDatabase,
+    params: { readonly contractId: string; readonly skuId: string },
+  ): Promise<ContractSkuLimitRow | null>;
 
   // --- Allocate (brief Master decision 2) -----------------------------------------------------
   getOrderLinesForAllocation(tx: NodePgDatabase, orderId: string): Promise<readonly AllocationLineRow[]>;

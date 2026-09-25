@@ -209,6 +209,19 @@ export class NoServicePriceError extends OutboundCheckError {
   }
 }
 
+/** Condition 10 (WBS 2.11 part 5, D-189, SCR-WMS-OUT-02 §6): the line's ordered quantity exceeds
+ *  the per-contract, per-SKU `sales.contract_sku_limits.max_order_qty` cap. A missing limit row
+ *  means no cap at all (never thrown in that case) — see
+ *  ../../domain/process-outbound/invariants.ts's `assertOrderQuantityWithinLimit`. */
+export class OrderQuantityExceededError extends OutboundCheckError {
+  readonly i18nKey = 'wms.outbound.check.orderQuantityExceeded';
+
+  constructor(message: string, params: Readonly<Record<string, unknown>>) {
+    super(message, params);
+    this.name = 'OrderQuantityExceededError';
+  }
+}
+
 /** WBS 2.11 part 2 fix round 1, finding 2: Allocate's `incrementLotAllocated` / CancelOutbound's
  *  `decrementLotAllocated` targeted one specific `wms.stock_balance` row (by client/sku/location/
  *  batch) — the row this same command already locked with `for update` a moment earlier — and the
