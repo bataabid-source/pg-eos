@@ -48,5 +48,10 @@ export const EVENT_CATALOG = [
   'hr.shift.assigned',
   // WBS 5.5a part 2: written once per EndShiftAssignment. Aggregate `hr.shift_assignments`.
   'hr.shift_assignment.ended',
+  // WBS 2.14 (lane 2, Master issue 2026-09-25): written once per TakeOccupancySnapshot call, same
+  // transaction as the snapshot insert. Aggregate `wms.occupancy_snapshots`. Named verbatim as
+  // doc 40 line 262 states it ("wms.occupancy.snapshot → ST-* daily") — present tense, not the
+  // usual past-tense convention, because the doc names it this way explicitly.
+  'wms.occupancy.snapshot',
 ] as const;
 export type CatalogedEventType = (typeof EVENT_CATALOG)[number];
