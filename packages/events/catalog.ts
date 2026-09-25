@@ -80,5 +80,11 @@ export const EVENT_CATALOG = [
   // name follows doc 40 l.157 `<module>.<aggregate>.<past_tense>` (a lane publishes its own module's
   // events — CLAUDE.md PARALLEL LANES). Added by the Master on lane 3's request.
   'fleet.vehicle.registered',
+  // WBS 4.2 (lane 2, Master ruling 2026-09-26): written once per billable_events insert by the
+  // repository insert function, same transaction as the insert. The row is "generated automatically
+  // from domain events — no manual entry (P10)" (01-Data-Model.sql:1047); its writers are 4.3's
+  // subscribers. Aggregate `billing.billable_events`; name per doc 40 §B3 `<module>.<aggregate>.<past_tense>`.
+  // Added by the Master on lane 2's request (packages/* is frozen).
+  'billing.billable_event.recorded',
 ] as const;
 export type CatalogedEventType = (typeof EVENT_CATALOG)[number];
