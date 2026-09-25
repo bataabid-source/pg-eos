@@ -9,8 +9,13 @@ Run WBS task $1 as ONE slice, then stop. Rules: `CLAUDE.md`. Module facts: `.cla
 Loop (BOOTSTRAP-v5 §2 — mandatory, in order):
   1. Read state (above).           2. Pick the next runnable WBS task (deps done; type 🤖 or ✅).
   3. Verify the acceptance criterion is runnable (command exists, data seeded).
-  4. Claim the module in LANE_LOCKS (§8). 5. Write the SLICE BRIEF (§5).
-  6. Delegate to **pg-tester** first → RED tests (pg-tester writes test files only).
+  4. Claim the module — or the module/use-case pair (`wms/put-away`) — in LANE_LOCKS (§8); `bash scripts/check-locks.sh` must print OK.
+  5. Write the SLICE BRIEF (§5) to `docs/notes/slice-briefs/_slice-<WBS>.brief.md`, then run
+     `bash scripts/brief-check.sh docs/notes/slice-briefs/_slice-<WBS>.brief.md`. OVER BUDGET → split into
+     two slices NOW (D-179); no worker is delegated to until it prints OK.
+  6. Delegate to **pg-tester** first → RED tests (pg-tester writes test files only). If the slice has a
+     migration, the MIGRATION-REQUEST row names the RED test paths pg-tester just wrote — `lane-guard.sh`
+     refuses the migration file until they exist.
   7. Delegate build to pg-backend / pg-frontend (never edits a test; a test defect goes back to pg-tester).
   8. Receive REPORT (§5).           9. **pg-tester** verifies: suite GREEN, no test weakened or edited by the builder.
  10. Review by **pg-reviewer** (opus) — also called BEFORE writing any migration that touches the schema, RLS or the audit chain.

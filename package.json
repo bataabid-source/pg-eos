@@ -17,6 +17,8 @@
     "lint:boundaries": "bash scripts/check-boundaries.sh",
     "guards:run": "bash scripts/guards-run.sh",
     "check:setup": "bash scripts/check-setup.sh",
+    "check:locks": "bash scripts/check-locks.sh tasks/LANE_LOCKS.md",
+    "test:hooks": "bash tests/hooks/run.sh",
     "test:isolation": "turbo run test:isolation --filter=@pg-eos/isolation-tests",
     "test:ops": "turbo run test:ops --filter=@pg-eos/ops-tests"
   },

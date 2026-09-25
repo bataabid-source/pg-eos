@@ -32,7 +32,10 @@ via stdin redirection (`psql < file`, never `-f file` — WBS 0.15 header explai
 A lane never issues its own migration number. Sequence:
 1. Lane sends the Master a MIGRATION-REQUEST with its draft SQL and pg-reviewer's pre-migration
    verdict (CLAUDE.md · BUILD METHOD: pg-reviewer runs BEFORE any migration touching schema/RLS/
-   the audit chain).
+   the audit chain). D-179: the lane lists EVERY migration of its whole task list in one table at
+   lane start (the Master issues the numbers in one batch), and each row names the RED test paths
+   pg-tester wrote (`modules/<m>/tests/<uc>/*.feature|*.test.ts`) — `.claude/hooks/lane-guard.sh`
+   refuses the migration file until those files exist.
 2. Master issues the next free `NNNN` (`tasks/LANE_LOCKS.md` "Migrations issued" — next free
    number recorded there and in `docs/PROJECT_STATE.md` Schema row), lane writes
    `database/migrations/NNNN_<lane>_<slug>.sql`.

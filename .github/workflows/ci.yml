@@ -30,6 +30,10 @@ jobs:
       - run: pnpm lint
       - run: pnpm lint:boundaries
       - run: pnpm typecheck
+      - name: Hooks and bookkeeping gates (lane-guard, commit-msg, check-locks, brief-check — D-179)
+        run: bash tests/hooks/run.sh
+      - name: LANE_LOCKS.md is valid (D-179)
+        run: bash scripts/check-locks.sh tasks/LANE_LOCKS.md
 
   test:
     name: "②③ unit + integration (as pgeos_app)"

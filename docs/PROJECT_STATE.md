@@ -6,7 +6,7 @@ Maintained by pg-scribe only, in the same commit as the task it records.
 | field | value |
 |---|---|
 | Phase | **0 — Foundation CLOSED (0.20 sealed, D-176)** → 1 — Commercial Core (buildable rows done except 1.11, Master-only) → 2 — Warehouse (in progress, 8/19) · **pilot-first (D-127): seed 019 + synthetic data; field/human/sign-off/training/Tier-0 provisioning DEFERRED-POST-PILOT** |
-| Current task | **D-176 (2026-09-25): finish phases in order.** Phase 1 lane-1 rows (1.4/1.6/1.7/1.8/1.9) all DONE @ `90faea3`. **1.11 is BLOCKED (D-178)** — investigated on GM instruction, not fabricated: its real prerequisites (doc 40 S6/S10) span 2.11 (Phase 2, in progress), `modules/tms` + `modules/cc` (don't exist), `billing.*`/a nightly job (Phase 4, not started), an admin quote-entry UI — evidence `docs/notes/2026-09-25-wbs-1.11-premature.md`. Phase 1's buildable rows are therefore exhausted for now. Phase 2: 2.13/2.14 DONE (lane 2), 2.15 in flight (lane 2, `wms`). **Lane 1 is queued waiting on the `wms` lock** for 2.10/2.11 — releases when lane 2's 2.15 merges. Lane 3 finishes 3.14 part 2 in flight, then idles pending a GM answer. Completion 35/136. Previous governance commit: `4469505` (PR #44). |
+| Current task | **D-176 (2026-09-25): finish phases in order.** Phase 1 lane-1 rows (1.4/1.6/1.7/1.8/1.9) all DONE @ `90faea3`. **1.11 is BLOCKED (D-178)** — investigated on GM instruction, not fabricated: its real prerequisites (doc 40 S6/S10) span 2.11 (Phase 2, in progress), `modules/tms` + `modules/cc` (don't exist), `billing.*`/a nightly job (Phase 4, not started), an admin quote-entry UI — evidence `docs/notes/2026-09-25-wbs-1.11-premature.md`. Phase 1's buildable rows are therefore exhausted for now. Phase 2: 2.13/2.14 DONE (lane 2), 2.15 built + committed (lane 2, `1ed8b41`, awaiting merge). **D-179 (2026-09-25, GM "نفذ التوصيات كاملة"): pace mechanisms landed @ `<this commit>`** — use-case locks (lane 1 builds 2.10 in `wms/put-away` NOW, concurrent with lane 2), lane worktree enforced by hook, `brief-check.sh` + `check-locks.sh` in pre-commit/CI, RED-before-migration in `lane-guard.sh`, `docs(X)` needs a directive trailer, `tests/hooks/run.sh` (48 cases) in gate ①. Measured finding: every brief since 1.2 was over the 12-file/1,500-line budget (1.8: 47 files / 5,094 lines) — forward-only enforcement from this commit. Completion 35/136. Previous governance commit: `eaa3394`. |
 | Golden slice (2.9) | **ACCEPTED** · `.golden-slice-accepted` committed · `scripts/new-slice.sh` active (registers contract exports itself since `412708a`) · `.githooks/pre-commit` active (①lint/boundaries/types ②touched-module unit tests ③guards:run when database/ staged) · scope backend only, no PDA UI. R1: an all-zero order gets no GRN and no `wms.inbound.received` event. |
 | Deployment tier | **Pilot Tier 0 = local Docker `postgres:16` (D-129)**; Oracle Tier 0 after the pilot (0.3, 0.5, 0.7, 0.6b DEFERRED-POST-PILOT) — procedures placeholder in `docs/RUNBOOK.md` §8 |
 | Schema | `database/schema/01 · 13 · 13B · 019` — the ONLY permitted schema (migrations 0001–0021 applied: see `docs/CHANGELOG.md` for the full list) · DB locale UTF8 / collate C / ctype C.UTF-8 · next free migration **0022** · **SCR-HR-ATT-01 APPROVED (D-131)** — migration number not yet issued |
@@ -18,9 +18,9 @@ Maintained by pg-scribe only, in the same commit as the task it records.
 
 | lane | task | module lock | worktree | status |
 |---|---|---|---|---|
-| 1 | Phase 1 buildable rows DONE. **Queued** for Phase 2: 2.10 (put-away) → 2.11 (outbound order) | `sales`+`admin` (to release) | `../pg-eos-lane-1` | idle — waiting on `wms` lock (held by lane 2); moves as soon as lane 2 releases it |
-| 2 | Phase 2: 2.13 DONE, 2.14 DONE, 2.15 in flight (space management) | `wms` | `../pg-eos-lane-2` | building 2.15; release `wms` on merge so lane 1 can proceed |
-| 3 | 3.14 part 2 — `services/agent` pull loop (in flight) — then **idle pending GM answer to D-176's batched question** | `imile` | shared `claude-kit` | queued — next lane-3 session; part 1 (health reporting) committed NOT DONE @ `8b12d60`, pg-reviewer PASS round 4 |
+| 1 | Phase 2: 2.10 (put-away) → 2.11 (outbound order, as `wms/outbound-order`) | `wms/put-away` | `../pg-eos-lane-1` | **runnable now** (D-179 use-case lock) — start the lane-1 session, `/lane 1` |
+| 2 | Phase 2: 2.13 DONE, 2.14 DONE, 2.15 built + committed `1ed8b41` (`lane/2-2.15`) | `wms/manage-space` | `../pg-eos-lane-2` | awaiting Master PR/merge; lock released on merge |
+| 3 | 3.14 part 2 — `services/agent` pull loop (in flight) — then **idle pending GM answer to D-176's batched question** | `imile` | `../pg-eos-lane-3` | next lane-3 session runs in its own worktree (branch `lane/3`, hook-enforced); part 1 NOT DONE @ `8b12d60` |
 
 ## Last 5 DONE (newest first)
 
@@ -46,9 +46,9 @@ Maintained by pg-scribe only, in the same commit as the task it records.
 
 ## Next 3 tasks (D-176 — phase-sequential)
 
-1. Lane 1: queued for `wms` — 2.10 (put-away) then 2.11 (outbound order) once lane 2 releases the lock
-2. Lane 2: 2.15 (space management: allocations, reservations, `check_space_available()`) — release `wms` on merge
-3. Lane 3: finish 3.14 part 2 (in flight) — then idle pending the GM's D-176 answer
+1. Lane 1: 2.10 (put-away) in `wms/put-away` — concurrent with lane 2 — then 2.11 as `wms/outbound-order`
+2. Master: open + merge lane 2's `lane/2-2.15` PR (2.15) — release `wms/manage-space`
+3. Lane 3: finish 3.14 part 2 in `../pg-eos-lane-3` — then idle pending the GM's D-176 answer
 
 ## Notes
 
