@@ -1,0 +1,18 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true
+  },
+  "include": [
+    "index.ts",
+    "*.ts",
+    "tests/**/*.ts",
+    "tests/schedule-inbound/**/*.ts",
+    "tests/count-inventory/**/*.ts",
+    "tests/take-occupancy-snapshot/**/*.ts",
+    "tests/manage-space/**/*.ts",
+    "tests/process-outbound/**/*.ts",
+    "vitest.config.ts"
+  ],
+  "exclude": ["dist", "node_modules"]
+}
