@@ -37,6 +37,10 @@
     "./sales/resolve-price": {
       "types": "./dist/sales/resolve-price.d.ts",
       "default": "./dist/sales/resolve-price.js"
+    },
+    "./hr/maintain-shift": {
+      "types": "./dist/hr/maintain-shift.d.ts",
+      "default": "./dist/hr/maintain-shift.js"
     }
   },
   "scripts": {
