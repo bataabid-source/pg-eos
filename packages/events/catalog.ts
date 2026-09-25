@@ -53,5 +53,15 @@ export const EVENT_CATALOG = [
   // doc 40 line 262 states it ("wms.occupancy.snapshot → ST-* daily") — present tense, not the
   // usual past-tense convention, because the doc names it this way explicitly.
   'wms.occupancy.snapshot',
+  // WBS 2.9b (SCR-WMS-INB-01 §7, D-168/D-169): written once per ScheduleInbound, and again by
+  // ApproveInbound when it is given an `expectedAt`, same transaction as the order update.
+  // Aggregate `wms.inbound_orders`. Added by the Master on lane 2's request (packages/* is frozen).
+  'wms.inbound.scheduled',
+  // WBS 2.9b (SCR-WMS-INB-01 §7): written once per ApproveInbound (draft → approved), same
+  // transaction as the status change. Aggregate `wms.inbound_orders`.
+  'wms.inbound.approved',
+  // WBS 2.9b (SCR-WMS-INB-01 §7): written once per CancelInbound; carries the now-mandatory
+  // `cancelReason` to the client. Aggregate `wms.inbound_orders`.
+  'wms.inbound.cancelled',
 ] as const;
 export type CatalogedEventType = (typeof EVENT_CATALOG)[number];
