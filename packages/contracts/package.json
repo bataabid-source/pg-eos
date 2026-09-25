@@ -33,6 +33,10 @@
     "./imile/report-agent-health": {
       "types": "./dist/imile/report-agent-health.d.ts",
       "default": "./dist/imile/report-agent-health.js"
+    },
+    "./sales/resolve-price": {
+      "types": "./dist/sales/resolve-price.d.ts",
+      "default": "./dist/sales/resolve-price.js"
     }
   },
   "scripts": {
