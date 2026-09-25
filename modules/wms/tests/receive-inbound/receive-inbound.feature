@@ -176,3 +176,58 @@ Feature: Receive inbound order (WBS 2.9, golden slice)
     When ReceiveLine is called on a NON-variance receipt with a photo pair
     Then it is rejected with VariancePhotoWithoutVarianceError
     And an invalid variancePhotoSha256 is rejected by the contract schema before either command runs
+
+  # ================================================================================================
+  # WBS 2.10 — Put-away with automatic location suggestion (conditions + ABC), an in-place
+  # enhancement of this file's own SuggestLocation command (doc 38 row 2.10, doc 40 §C3 "A2:
+  # conditions, ABC, proximity to shipping, capacity, client assignment").
+  # ================================================================================================
+
+  Scenario: A class-A SKU prefers a closer, slightly tighter location over a roomier, farther one
+    Given SKU "SKU-A1" has abc_class 'A'
+    And location "L-NEAR" (position_no 1) has 60% remaining capacity for this SKU/qty
+    And location "L-FAR" (position_no 20) has 90% remaining capacity for the same SKU/qty
+    When SuggestLocation is called for SKU-A1
+    Then L-NEAR is ranked before L-FAR (proximity outranks capacity for class A)
+
+  Scenario: A class-C SKU keeps the 2.9 capacity-first order
+    Given SKU "SKU-C1" has abc_class 'C', the same two candidate locations as above
+    When SuggestLocation is called for SKU-C1
+    Then L-FAR is ranked before L-NEAR (capacity outranks proximity, unchanged from 2.9)
+
+  Scenario: A SKU with no abc_class set behaves exactly like 2.9 (regression guarantee)
+    Given SKU "SKU-NULL" has abc_class null
+    When SuggestLocation is called for SKU-NULL against the same two candidates
+    Then the ranking is identical to the class-C case
+
+  Scenario: A temperature-sensitive SKU excludes an incompatible zone
+    Given SKU "SKU-COLD" requires temp_min -18, temp_max -18 (frozen)
+    And zone "Z-AMBIENT" has no temp_min/temp_max set (ambient, no cold chain)
+    And zone "Z-FROZEN" has temp_min -25, temp_max -15 (covers the SKU's requirement)
+    When SuggestLocation is called for SKU-COLD against locations in both zones
+    Then only the Z-FROZEN location(s) appear in the candidate list; the Z-AMBIENT location is
+      absent entirely, not merely ranked last
+
+  Scenario: A temperature-sensitive SKU excludes a zone with BOTH bounds set that does not cover its range
+    Given SKU "SKU-COLD" requires temp_min -18, temp_max -18 (frozen)
+    And zone "Z-CHILLED" has temp_min 0, temp_max 8 (a chilled zone, both bounds set, but does not
+      cover a -18 requirement)
+    When SuggestLocation is called for SKU-COLD against a location in Z-CHILLED
+    Then the Z-CHILLED location is absent entirely — having both bounds set is not enough; the
+      range itself must cover the SKU's requirement
+
+  Scenario: A SKU with no temperature requirement is unaffected by zone temperature
+    Given SKU "SKU-AMBIENT" has temp_min and temp_max both null
+    When SuggestLocation is called against the same Z-AMBIENT and Z-FROZEN locations
+    Then both appear as candidates (no temperature filter applies)
+
+  Scenario: A SKU with only ONE temperature bound set matches on that bound independently
+    Given SKU "SKU-MIN-ONLY" requires temp_min -18 with temp_max left null (no upper requirement)
+    And zone "Z-FROZEN" has temp_min -25, temp_max -15 (compatible on the min bound)
+    When SuggestLocation is called for SKU-MIN-ONLY against a location in Z-FROZEN
+    Then the Z-FROZEN location appears as a candidate — the SKU's unset temp_max imposes no
+      constraint on the zone's own temp_max, each bound is compared independently
+
+  # WBS 2.10 — every existing 2.9 SuggestLocation scenario above this marker still passes
+  # unmodified; this is the existing suite (receive-inbound.test.ts) re-run in full, not a new
+  # scenario — no Given/When/Then steps belong here (the brief's own regression-guarantee gate).

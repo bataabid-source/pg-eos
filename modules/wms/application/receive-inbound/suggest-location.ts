@@ -3,6 +3,13 @@
 // A pure read — no lock, no write, no ledger row, no expectedVersion (it does not mutate the
 // order). Fetches an already-filtered candidate set through the InboundOrderRepository port and
 // ranks it with the pure domain function ../../domain/receive-inbound/suggest-location-ranking.ts.
+//
+// WBS 2.10 (docs/notes/slice-briefs/_slice-2.10.brief.md, Master decision 4): `abcClass` is a
+// per-CALL constant (one call = one skuId), read from the already-fetched candidate rows rather
+// than a second query — ../../infrastructure/receive-inbound/repository.ts's
+// suggestLocationCandidatesQuery already cross-joins wms.skus, so every row already carries the
+// same abc_class; reading it off the first row avoids a redundant round trip when the candidate
+// set is non-empty, and defaults to `null` (2.9's own ranking order) when it is empty.
 
 import { withContext, type WithContextCtx } from '@pg-eos/db';
 
@@ -21,6 +28,8 @@ export interface LocationCandidate {
   readonly locationType: string;
   readonly clientAssignedMatch: boolean;
   readonly positionNo: number;
+  /** WBS 2.10: informational — the SKU's abc_class, same value on every candidate of one call. */
+  readonly abcClass: 'A' | 'B' | 'C' | null;
 }
 
 export interface SuggestLocationResult {
@@ -41,7 +50,9 @@ export async function suggestLocation(
       clientId,
     });
     const byLocationId = new Map(rows.map((row) => [row.locationId, row]));
-    const ranked = rankLocationCandidates(rows);
+    // Every row shares the same skuId, so the same abc_class — read once (WBS 2.10 Scope).
+    const abcClass = rows[0]?.abcClass ?? null;
+    const ranked = rankLocationCandidates(rows, abcClass);
 
     const candidates: LocationCandidate[] = ranked.map((candidate) => {
       const raw = byLocationId.get(candidate.locationId);
@@ -55,6 +66,7 @@ export async function suggestLocation(
         locationType: raw.locationType,
         clientAssignedMatch: candidate.clientAssignedMatch,
         positionNo: candidate.positionNo,
+        abcClass: raw.abcClass,
       };
     });
 

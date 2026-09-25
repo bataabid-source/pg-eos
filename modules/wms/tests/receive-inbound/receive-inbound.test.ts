@@ -29,6 +29,33 @@
 // PG_APP_USER=pgeos_app is REQUIRED to run this suite (every command call goes through
 // withContext(ctx, fn) as pgeos_app, genuinely subject to RLS). platform.audit_log rows are NEVER
 // deleted.
+//
+// ------------------------------------------------------------------------------------------------
+// WBS 2.10 EXTENSION (pg-tester, RED-first) — docs/notes/slice-briefs/_slice-2.10.brief.md, doc 38
+// row 2.10 "Suggestion respects conditions, ABC, capacity, client assignment". EVERY scenario above
+// this marker is UNCHANGED (2.9's own acceptance, re-run in full as the regression guarantee, Master
+// decision 6) — only new `describe` blocks are appended below for the 5 new Gherkin scenarios in
+// ./receive-inbound.feature. The new surface these scenarios exercise (RED until pg-backend builds
+// it, Master decisions 1/4/5):
+//   - `wms.skus.abc_class` ('A'|'B'|'C'|null) now drives `suggestLocation`'s ranking: for an 'A'
+//     SKU, a closer (lower position_no) location outranks a roomier one; for 'B'/'C'/null, 2.9's
+//     own capacity-first order is UNCHANGED.
+//   - `suggestLocationCandidatesQuery` gains a temperature-condition filter: a candidate location's
+//     zone must be able to satisfy the SKU's declared temp_min/temp_max (when the SKU declares
+//     one) — an incompatible zone's locations are EXCLUDED FROM THE CANDIDATE LIST ENTIRELY, not
+//     merely ranked last. A SKU with no temperature requirement (`temp_min`/`temp_max` both null)
+//     is unaffected — every zone remains a candidate, exactly 2.9's existing behaviour. NOTE (open
+//     question, batched for the GM, default taken below): the brief's own Master decision 4 SQL text
+//     ("a null zone bound means 'no constraint on that side'") would let a zone with NO temperature
+//     bounds at all (an ordinary ambient zone) pass for ANY SKU including a frozen one — which
+//     contradicts the brief's own Scenario ("a temperature-sensitive SKU excludes an incompatible
+//     [ambient] zone entirely"). This file's tests bind to the SCENARIO (the acceptance criterion):
+//     an ambient zone (temp_min AND temp_max both null) does NOT satisfy a SKU that itself declares
+//     a temperature requirement; a zone with no bounds is only a valid candidate for a SKU that
+//     ALSO has no temperature requirement. Default taken: the zone must have an explicit range
+//     that covers the SKU's declared range, OR the SKU has no requirement at all.
+//   - `LocationCandidate`/`SuggestLocationResult` (application layer) gain `abcClass` on every
+//     candidate — informational, read once per call, same value on every row.
 
 import { createHash, randomUUID } from 'node:crypto';
 
@@ -134,6 +161,10 @@ const fixtureSkuIds: string[] = [];
 const fixtureOrderIds: string[] = [];
 const usedCorrelationIds = new Set<string>();
 const usedLocationIds: string[] = [];
+// WBS 2.10: own zone/location fixtures for the ABC-ranking and temperature-filter scenarios below
+// — deleted in afterAll, never left behind (locations first, FK to zones).
+const fixtureZoneIds: string[] = [];
+const fixtureLocationIds: string[] = [];
 
 function nextCorrelationId(): string {
   const id = randomUUID();
@@ -167,6 +198,68 @@ async function insertSku(clientId: string, code: string, grossWeightKg: string, 
   if (!row) throw new Error('fixture wms.skus insert returned no row');
   fixtureSkuIds.push(row.id);
   return row.id;
+}
+
+// --- WBS 2.10 fixtures: own zones/locations for ABC-ranking + temperature-filter scenarios -------
+
+const ABC_ZONE_TYPE = 'storage'; // wms.zones.zone_type — any non-'receiving' value; unused by the query.
+
+async function insertZone(params: {
+  readonly code: string;
+  readonly tempMin: string | null;
+  readonly tempMax: string | null;
+}): Promise<string> {
+  const result: QueryResult<{ id: string }> = await pool.query(
+    `insert into wms.zones (warehouse_id, code, name_ar, zone_type, temp_min, temp_max)
+     values ($1, $2, $3, $4, $5::numeric, $6::numeric) returning id`,
+    [warehouseId, params.code, `منطقة اختبار ${params.code}`, ABC_ZONE_TYPE, params.tempMin, params.tempMax],
+  );
+  const row = result.rows[0];
+  if (!row) throw new Error('fixture wms.zones insert returned no row');
+  fixtureZoneIds.push(row.id);
+  return row.id;
+}
+
+// 019-Warehouse-WH1-Setup.sql:57-64 chk_locations_code_format: for location_type in ('pallet',
+// 'shelf'), code MUST match `^[PGMT][1-9]-[0-9]{2}-[1-9]$` (fixed 7 chars). Codes are drawn from
+// 'T9-<seq>-8'/'T9-<seq>-9' (seq 00..99, level 8 or 9) — a 200-code block reserved for this
+// fixture, never used by 019's own real WH1 layout (which fills sections/aisles/levels
+// systematically from low numbers), so collision-free.
+let nextFixtureLocationIndex = 0;
+function nextFixtureLocationCode(): string {
+  const index = nextFixtureLocationIndex;
+  nextFixtureLocationIndex += 1;
+  const seq = String(index % 100).padStart(2, '0');
+  const level = index < 100 ? 8 : 9;
+  return `T9-${seq}-${level}`;
+}
+
+async function insertLocationInZone(params: {
+  readonly zoneId: string;
+  readonly positionNo: number;
+  readonly maxWeightKg: string | null;
+}): Promise<string> {
+  const result: QueryResult<{ id: string }> = await pool.query(
+    `insert into wms.locations (warehouse_id, zone_id, code, location_type, position_no, max_weight_kg)
+     values ($1, $2, $3, 'pallet', $4, $5::numeric) returning id`,
+    [warehouseId, params.zoneId, nextFixtureLocationCode(), params.positionNo, params.maxWeightKg],
+  );
+  const row = result.rows[0];
+  if (!row) throw new Error('fixture wms.locations insert returned no row');
+  fixtureLocationIds.push(row.id);
+  return row.id;
+}
+
+async function setSkuAbcClass(skuId: string, abcClass: 'A' | 'B' | 'C' | null): Promise<void> {
+  await pool.query(`update wms.skus set abc_class = $1 where id = $2`, [abcClass, skuId]);
+}
+
+async function setSkuTempRange(skuId: string, tempMin: string | null, tempMax: string | null): Promise<void> {
+  await pool.query(`update wms.skus set temp_min = $1::numeric, temp_max = $2::numeric where id = $3`, [
+    tempMin,
+    tempMax,
+    skuId,
+  ]);
 }
 
 async function pickFreshWh1Location(locationType: 'pallet' | 'shelf'): Promise<{ id: string; code: string }> {
@@ -415,6 +508,13 @@ afterAll(async () => {
     }
   }
   if (fixtureSkuIds.length > 0) await pool.query(`delete from wms.skus where id = any($1::uuid[])`, [fixtureSkuIds]);
+  // WBS 2.10 fixtures — locations before zones (FK).
+  if (fixtureLocationIds.length > 0) {
+    await pool.query(`delete from wms.locations where id = any($1::uuid[])`, [fixtureLocationIds]);
+  }
+  if (fixtureZoneIds.length > 0) {
+    await pool.query(`delete from wms.zones where id = any($1::uuid[])`, [fixtureZoneIds]);
+  }
   if (fixtureClientId) await pool.query(`delete from sales.accounts where id = $1`, [fixtureClientId]);
   if (fixtureClientIdY) await pool.query(`delete from sales.accounts where id = $1`, [fixtureClientIdY]);
   if (grnTemplateId) await pool.query(`delete from platform.document_templates where id = $1`, [grnTemplateId]);
@@ -1292,5 +1392,207 @@ describe('Scenario: two concurrent ApproveInbound calls with the SAME expectedVe
     expect(rejected).toHaveLength(1);
     expect((rejected[0] as PromiseRejectedResult).reason).toBeInstanceOf(StaleVersionError);
     expect((await getOrder(orderId)).status).toBe('approved');
+  });
+});
+
+// ==================================================================================================
+// WBS 2.10 — new scenarios (docs/notes/slice-briefs/_slice-2.10.brief.md, "Scenario" section).
+// Every scenario above this marker is 2.9's own suite, unmodified — the regression guarantee (Master
+// decision 6) is this whole file re-run in full, not a new assertion.
+// ==================================================================================================
+
+// wms.skus.gross_weight_kg used for every fixture SKU in this file: SAFE_SKU_GROSS_WEIGHT_KG ('1.000').
+// remainingCapacityRatio = 1 - (qty * gross_weight_kg) / max_weight_kg when max_volume_cbm is null
+// (volume component is then 1, so weight is the only binding dimension) — QTY_ORDERED = '10.000'.
+// 1 - 10/25 = 0.60; 1 - 10/100 = 0.90 (brief Scenario's own 60%/90% figures).
+const ABC_NEAR_LOCATION_MAX_WEIGHT_KG = '25.000';
+const ABC_FAR_LOCATION_MAX_WEIGHT_KG = '100.000';
+const ABC_NEAR_POSITION_NO = 1;
+const ABC_FAR_POSITION_NO = 20;
+
+const FROZEN_SKU_TEMP_C = '-18.00'; // brief Scenario: "requires temp_min -18, temp_max -18 (frozen)".
+const FROZEN_ZONE_TEMP_MIN_C = '-25.00'; // brief Scenario: "Z-FROZEN has temp_min -25, temp_max -15".
+const FROZEN_ZONE_TEMP_MAX_C = '-15.00';
+// Fix round 1 (pg-reviewer FAIL, item 4): a zone with BOTH bounds set but a range that does not
+// cover the SKU's requirement — a 0..8°C chilled zone for a -18°C frozen SKU.
+const CHILLED_ZONE_TEMP_MIN_C = '0.00';
+const CHILLED_ZONE_TEMP_MAX_C = '8.00';
+
+describe('Scenario: a class-A SKU prefers a closer, slightly tighter location over a roomier, farther one (WBS 2.10)', () => {
+  it('ranks the position_no=1/60%-capacity location before the position_no=20/90%-capacity location for an abc_class A SKU', async () => {
+    const sku = await insertSku(fixtureClientId, `RECVINB-ABC-A-${randomUUID()}`, SAFE_SKU_GROSS_WEIGHT_KG, SAFE_SKU_VOLUME_CBM);
+    await setSkuAbcClass(sku, 'A');
+    const zone = await insertZone({ code: `_ABC_A_ZONE_${randomUUID()}`, tempMin: null, tempMax: null });
+    const near = await insertLocationInZone({
+      zoneId: zone,
+      positionNo: ABC_NEAR_POSITION_NO,
+      maxWeightKg: ABC_NEAR_LOCATION_MAX_WEIGHT_KG,
+    });
+    const far = await insertLocationInZone({
+      zoneId: zone,
+      positionNo: ABC_FAR_POSITION_NO,
+      maxWeightKg: ABC_FAR_LOCATION_MAX_WEIGHT_KG,
+    });
+
+    const suggestion = await suggestLocation(roleCtx, { skuId: sku, qty: QTY_ORDERED, warehouseId }, deps);
+    const ids = suggestion.candidates.map((c) => c.locationId);
+    expect(ids.indexOf(near)).toBeGreaterThanOrEqual(0);
+    expect(ids.indexOf(far)).toBeGreaterThanOrEqual(0);
+    expect(ids.indexOf(near)).toBeLessThan(ids.indexOf(far));
+
+    const nearCandidate = suggestion.candidates.find((c) => c.locationId === near) as { abcClass: string | null };
+    expect(nearCandidate.abcClass).toBe('A');
+  });
+});
+
+describe('Scenario: a class-C SKU keeps the 2.9 capacity-first order (WBS 2.10)', () => {
+  it('ranks the position_no=20/90%-capacity location before the position_no=1/60%-capacity location for an abc_class C SKU', async () => {
+    const sku = await insertSku(fixtureClientId, `RECVINB-ABC-C-${randomUUID()}`, SAFE_SKU_GROSS_WEIGHT_KG, SAFE_SKU_VOLUME_CBM);
+    await setSkuAbcClass(sku, 'C');
+    const zone = await insertZone({ code: `_ABC_C_ZONE_${randomUUID()}`, tempMin: null, tempMax: null });
+    const near = await insertLocationInZone({
+      zoneId: zone,
+      positionNo: ABC_NEAR_POSITION_NO,
+      maxWeightKg: ABC_NEAR_LOCATION_MAX_WEIGHT_KG,
+    });
+    const far = await insertLocationInZone({
+      zoneId: zone,
+      positionNo: ABC_FAR_POSITION_NO,
+      maxWeightKg: ABC_FAR_LOCATION_MAX_WEIGHT_KG,
+    });
+
+    const suggestion = await suggestLocation(roleCtx, { skuId: sku, qty: QTY_ORDERED, warehouseId }, deps);
+    const ids = suggestion.candidates.map((c) => c.locationId);
+    expect(ids.indexOf(near)).toBeGreaterThanOrEqual(0);
+    expect(ids.indexOf(far)).toBeGreaterThanOrEqual(0);
+    expect(ids.indexOf(far)).toBeLessThan(ids.indexOf(near));
+  });
+});
+
+describe('Scenario: a SKU with no abc_class set behaves exactly like the class-C case (regression guarantee, WBS 2.10)', () => {
+  it('ranks the position_no=20/90%-capacity location before the position_no=1/60%-capacity location when abc_class is null, identically to class C', async () => {
+    const sku = await insertSku(fixtureClientId, `RECVINB-ABC-NULL-${randomUUID()}`, SAFE_SKU_GROSS_WEIGHT_KG, SAFE_SKU_VOLUME_CBM);
+    // abc_class left at its default (null) — no setSkuAbcClass call, deliberately.
+    const zone = await insertZone({ code: `_ABC_NULL_ZONE_${randomUUID()}`, tempMin: null, tempMax: null });
+    const near = await insertLocationInZone({
+      zoneId: zone,
+      positionNo: ABC_NEAR_POSITION_NO,
+      maxWeightKg: ABC_NEAR_LOCATION_MAX_WEIGHT_KG,
+    });
+    const far = await insertLocationInZone({
+      zoneId: zone,
+      positionNo: ABC_FAR_POSITION_NO,
+      maxWeightKg: ABC_FAR_LOCATION_MAX_WEIGHT_KG,
+    });
+
+    const suggestion = await suggestLocation(roleCtx, { skuId: sku, qty: QTY_ORDERED, warehouseId }, deps);
+    const ids = suggestion.candidates.map((c) => c.locationId);
+    expect(ids.indexOf(near)).toBeGreaterThanOrEqual(0);
+    expect(ids.indexOf(far)).toBeGreaterThanOrEqual(0);
+    expect(ids.indexOf(far)).toBeLessThan(ids.indexOf(near));
+
+    const nearCandidate = suggestion.candidates.find((c) => c.locationId === near) as { abcClass: string | null };
+    expect(nearCandidate.abcClass).toBeNull();
+  });
+});
+
+describe('Scenario: a temperature-sensitive SKU excludes an incompatible zone entirely (WBS 2.10)', () => {
+  it('excludes the ambient-zone location from the candidate list while including the frozen-zone location, for a frozen SKU', async () => {
+    const sku = await insertSku(fixtureClientId, `RECVINB-TEMP-COLD-${randomUUID()}`, SAFE_SKU_GROSS_WEIGHT_KG, SAFE_SKU_VOLUME_CBM);
+    await setSkuTempRange(sku, FROZEN_SKU_TEMP_C, FROZEN_SKU_TEMP_C);
+    const ambientZone = await insertZone({ code: `_TEMP_AMBIENT_${randomUUID()}`, tempMin: null, tempMax: null });
+    const frozenZone = await insertZone({
+      code: `_TEMP_FROZEN_${randomUUID()}`,
+      tempMin: FROZEN_ZONE_TEMP_MIN_C,
+      tempMax: FROZEN_ZONE_TEMP_MAX_C,
+    });
+    const ambientLoc = await insertLocationInZone({
+      zoneId: ambientZone,
+      positionNo: 1,
+      maxWeightKg: null,
+    });
+    const frozenLoc = await insertLocationInZone({
+      zoneId: frozenZone,
+      positionNo: 1,
+      maxWeightKg: null,
+    });
+
+    const suggestion = await suggestLocation(roleCtx, { skuId: sku, qty: QTY_ORDERED, warehouseId }, deps);
+    const ids = suggestion.candidates.map((c) => c.locationId);
+    expect(ids).toContain(frozenLoc);
+    expect(ids).not.toContain(ambientLoc);
+  });
+});
+
+// Fix round 1 (pg-reviewer FAIL, item 4): a filter that only checks "zone has bounds set at all"
+// would pass every test above (the ambient zone has NO bounds). This scenario proves the range
+// itself, not merely the presence of bounds, is what's checked.
+describe('Scenario: a temperature-sensitive SKU excludes a zone with BOTH bounds set that does not cover its range (WBS 2.10, fix round 1)', () => {
+  it('excludes a 0..8°C chilled-zone location for a -18°C frozen SKU, even though the zone has both temp_min and temp_max set', async () => {
+    const sku = await insertSku(fixtureClientId, `RECVINB-TEMP-CHILLED-${randomUUID()}`, SAFE_SKU_GROSS_WEIGHT_KG, SAFE_SKU_VOLUME_CBM);
+    await setSkuTempRange(sku, FROZEN_SKU_TEMP_C, FROZEN_SKU_TEMP_C);
+    const chilledZone = await insertZone({
+      code: `_TEMP_CHILLED_${randomUUID()}`,
+      tempMin: CHILLED_ZONE_TEMP_MIN_C,
+      tempMax: CHILLED_ZONE_TEMP_MAX_C,
+    });
+    const chilledLoc = await insertLocationInZone({
+      zoneId: chilledZone,
+      positionNo: 1,
+      maxWeightKg: null,
+    });
+
+    const suggestion = await suggestLocation(roleCtx, { skuId: sku, qty: QTY_ORDERED, warehouseId }, deps);
+    const ids = suggestion.candidates.map((c) => c.locationId);
+    expect(ids).not.toContain(chilledLoc);
+  });
+});
+
+describe('Scenario: a SKU with only ONE temperature bound set matches on that bound independently (WBS 2.10, fix round 1)', () => {
+  it('includes a Z-FROZEN location for a SKU that declares only temp_min (-18, no temp_max) when the zone is compatible on that bound', async () => {
+    const sku = await insertSku(fixtureClientId, `RECVINB-TEMP-MINONLY-${randomUUID()}`, SAFE_SKU_GROSS_WEIGHT_KG, SAFE_SKU_VOLUME_CBM);
+    await setSkuTempRange(sku, FROZEN_SKU_TEMP_C, null);
+    const frozenZone = await insertZone({
+      code: `_TEMP_MINONLY_FROZEN_${randomUUID()}`,
+      tempMin: FROZEN_ZONE_TEMP_MIN_C,
+      tempMax: FROZEN_ZONE_TEMP_MAX_C,
+    });
+    const frozenLoc = await insertLocationInZone({
+      zoneId: frozenZone,
+      positionNo: 1,
+      maxWeightKg: null,
+    });
+
+    const suggestion = await suggestLocation(roleCtx, { skuId: sku, qty: QTY_ORDERED, warehouseId }, deps);
+    const ids = suggestion.candidates.map((c) => c.locationId);
+    expect(ids).toContain(frozenLoc);
+  });
+});
+
+describe('Scenario: a SKU with no temperature requirement is unaffected by zone temperature (WBS 2.10)', () => {
+  it('includes both the ambient-zone and frozen-zone locations as candidates when the SKU has no temp_min/temp_max', async () => {
+    const sku = await insertSku(fixtureClientId, `RECVINB-TEMP-AMBIENT-${randomUUID()}`, SAFE_SKU_GROSS_WEIGHT_KG, SAFE_SKU_VOLUME_CBM);
+    // temp_min/temp_max left at their default (null) — no setSkuTempRange call, deliberately.
+    const ambientZone = await insertZone({ code: `_TEMP_NOREQ_AMBIENT_${randomUUID()}`, tempMin: null, tempMax: null });
+    const frozenZone = await insertZone({
+      code: `_TEMP_NOREQ_FROZEN_${randomUUID()}`,
+      tempMin: FROZEN_ZONE_TEMP_MIN_C,
+      tempMax: FROZEN_ZONE_TEMP_MAX_C,
+    });
+    const ambientLoc = await insertLocationInZone({
+      zoneId: ambientZone,
+      positionNo: 1,
+      maxWeightKg: null,
+    });
+    const frozenLoc = await insertLocationInZone({
+      zoneId: frozenZone,
+      positionNo: 1,
+      maxWeightKg: null,
+    });
+
+    const suggestion = await suggestLocation(roleCtx, { skuId: sku, qty: QTY_ORDERED, warehouseId }, deps);
+    const ids = suggestion.candidates.map((c) => c.locationId);
+    expect(ids).toContain(ambientLoc);
+    expect(ids).toContain(frozenLoc);
   });
 });

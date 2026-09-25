@@ -255,6 +255,13 @@ async function findRcvBalanceLocation(
   return row ? { id: row.id } : null;
 }
 
+// wms.skus.abc_class is an unconstrained char(1) (no CHECK constraint) — a defensive read against
+// a value outside the domain set (e.g. a stray lowercase 'a' or an unexpected 'D') normalizes to
+// `null` rather than silently carrying a false type past this boundary (pg-reviewer round 1).
+function normalizeAbcClass(value: string | null): SuggestLocationCandidateRow['abcClass'] {
+  return value === 'A' || value === 'B' || value === 'C' ? value : null;
+}
+
 async function suggestLocationCandidatesQuery(
   tx: NodePgDatabase,
   params: { readonly skuId: string; readonly qty: string; readonly warehouseId: string; readonly clientId: string },
@@ -266,6 +273,7 @@ async function suggestLocationCandidatesQuery(
     position_no: number | null;
     client_assigned_match: boolean;
     remaining_capacity_ratio: string;
+    abc_class: string | null;
   }>(sql`
     select l.id as location_id, l.code, l.location_type, coalesce(l.position_no, 0) as position_no,
            (l.assigned_client_id = ${params.clientId}::uuid) as client_assigned_match,
@@ -276,8 +284,10 @@ async function suggestLocationCandidatesQuery(
                case when l.max_volume_cbm is null or l.max_volume_cbm = 0 then 1
                     else 1 - (coalesce(agg.volume_cbm, 0) + ${params.qty}::numeric * coalesce(s.volume_cbm, 0)) / l.max_volume_cbm end
              ), 0
-           )::text as remaining_capacity_ratio
+           )::text as remaining_capacity_ratio,
+           s.abc_class
       from wms.locations l
+      join wms.zones z on z.id = l.zone_id
       cross join wms.skus s
       left join lateral (
         select sum(sb.qty_on_hand * coalesce(sk.gross_weight_kg, 0)) as weight_kg,
@@ -292,6 +302,16 @@ async function suggestLocationCandidatesQuery(
             or (coalesce(agg.weight_kg, 0) + ${params.qty}::numeric * coalesce(s.gross_weight_kg, 0)) <= l.max_weight_kg)
        and (l.max_volume_cbm is null
             or (coalesce(agg.volume_cbm, 0) + ${params.qty}::numeric * coalesce(s.volume_cbm, 0)) <= l.max_volume_cbm)
+       -- WBS 2.10 (brief Master decision 4, corrected round 1 — pg-reviewer finding 2): a
+       -- candidate's zone must independently satisfy EACH side of the SKU's declared temperature
+       -- requirement that is actually set. A side the SKU does not declare (null) is unconstrained;
+       -- a side the SKU DOES declare needs the zone's matching bound to be explicitly set and wide
+       -- enough — a zone with no bounds at all (ambient, uncontrolled) can never satisfy either
+       -- clause once the SKU declares even one bound, so it is still fully excluded for any
+       -- temperature-sensitive SKU (2.9's own behaviour for a SKU with no requirement at all is
+       -- unchanged: both clauses vacuously pass).
+       and (s.temp_min is null or (z.temp_min is not null and z.temp_min <= s.temp_min))
+       and (s.temp_max is null or (z.temp_max is not null and z.temp_max >= s.temp_max))
      order by l.code
   `);
 
@@ -302,6 +322,7 @@ async function suggestLocationCandidatesQuery(
     clientAssignedMatch: row.client_assigned_match,
     remainingCapacityRatio: Number(row.remaining_capacity_ratio),
     positionNo: row.position_no ?? 0,
+    abcClass: normalizeAbcClass(row.abc_class),
   }));
 }
 
