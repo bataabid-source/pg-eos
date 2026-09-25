@@ -20,7 +20,13 @@ jobs:
     name: "① lint + boundaries + typecheck"
     runs-on: ubuntu-24.04
     steps:
+      # fetch-depth: 0 — scripts/resolve-hashes.mjs runs `git blame` on docs/PROJECT_STATE.md,
+      # tasks/MASTER_BACKLOG.md, tasks/LANE_LOCKS.md and docs/CHANGELOG.md to find each `<this
+      # commit>` placeholder's introducing commit; a shallow checkout would blame lines onto the
+      # synthetic grafted-history commit instead of their real one.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -34,6 +40,8 @@ jobs:
         run: bash tests/hooks/run.sh
       - name: LANE_LOCKS.md is valid (D-179)
         run: bash scripts/check-locks.sh tasks/LANE_LOCKS.md
+      - name: No stale `<this commit>` placeholders (P3, CLAUDE.md · GIT)
+        run: node scripts/resolve-hashes.mjs --check
 
   test:
     name: "②③ unit + integration (as pgeos_app)"

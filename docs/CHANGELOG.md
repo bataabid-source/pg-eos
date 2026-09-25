@@ -4,6 +4,40 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — P3: hash resolver, CI check, governance ratio (2026-09-26)
+
+- `scripts/resolve-hashes.mjs`: resolves the literal placeholder text (angle-bracket `this commit`,
+  CLAUDE.md · GIT) in `docs/PROJECT_STATE.md`, `tasks/MASTER_BACKLOG.md`, `tasks/LANE_LOCKS.md`,
+  `docs/CHANGELOG.md`. For every line still carrying it, `git blame --porcelain -L n,n` finds the
+  introducing commit on whatever is currently checked out (never a fixed ref — a rebase-merge
+  rewrites lane hashes). `--write` replaces the placeholder with that commit's 7-char short hash (a
+  line blame attributes to uncommitted work — the all-zero hash — is left alone). `--check` makes no
+  edits and exits 1 listing `file:line` for every STALE placeholder: one whose introducing commit
+  (a) is an ancestor of the base ref (`$RESOLVE_BASE`, default `origin/main`, falls back to `main`,
+  0-with-a-note if neither exists) AND (b) is not HEAD — not simply "!= HEAD" (Master review round 1
+  BLOCKER: on a `pull_request` build the checkout is a synthetic merge commit, so a naive "!= HEAD"
+  check would attribute every lane PR's own new placeholders to their lane commits and turn every
+  lane PR red; restricting staleness to placeholders already reachable from base means a PR's own
+  new placeholders pass and old ones already on base still get caught).
+- CI gate ① (`.github/workflows/ci.yml`, `static` job): new step `node scripts/resolve-hashes.mjs --check`;
+  its checkout gets `fetch-depth: 0` (blame/merge-base need full history, not the default shallow
+  clone). Ran `--write` once in this commit so main starts clean: **24 stale placeholders resolved**
+  across `docs/PROJECT_STATE.md` (2), `tasks/MASTER_BACKLOG.md` (16, one line carried two),
+  `tasks/LANE_LOCKS.md` (7) — mostly `8d2ead9` (WBS 3.1 part 2) and earlier lane-part commits never
+  followed up by a next-task commit; `docs/CHANGELOG.md` had none outstanding. `--check` verified
+  clean afterward.
+- **Missing wire (Master review round 1):** the GIT rule ("the previous task's commit hash is
+  recorded in PROJECT_STATE inside the NEXT task's commit") needs someone to actually run the
+  resolver. `.claude/commands/slice.md` step 11 and `.claude/agents/pg-scribe.md`'s ROLE list both
+  now say to run `node scripts/resolve-hashes.mjs --write` after `git rebase origin/main` and before
+  staging (AGENT CONSTRAINTS block untouched, byte-identical, md5 `feb08014` in all five agent files).
+- `scripts/gov-ratio.sh`: prints, for `${GOV_BUDGET_REF:-origin/main}` over the last 7 days — total commits, `feat/fix(<WBS>)` count (WBS ≠ X, the commits commit-msg requires a Review trailer on), that ratio as a percent against the ≥ 60% GOVERNANCE BUDGET target, `chore(X)`/`docs(X)` count per calendar day, and the average review rounds across those feat/fix commits, parsed via `scripts/lib/review-trailer.sh`'s `review_trailer_line`/`review_trailer_form`/`review_rounds` (old-form trailers carry no round count and are excluded from the average — reported separately, along with feat/fix commits with no Review trailer at all). Pure bash + git + awk, `set -euo pipefail`, no python/node dependency — runs the same under Git Bash on Windows and in CI.
+- `.claude/commands/pg-state.md`: step 4 now runs `bash scripts/gov-ratio.sh` and prints its output verbatim, replacing the old inline `git log`/count one-liner.
+- `.claude/commands/pg-resume.md` and `pg-state.md`: both now read ONLY `docs/PROJECT_STATE.md`, `tasks/LANE_LOCKS.md` and the module brief `.claude/briefs/<module>.brief.md` (CLAUDE.md · OPERATING RULES · START/BRIEFS: "PROJECT_STATE.md ... already carries what the slice needs"). pg-resume no longer reads `CLAUDE.md` (already loaded as project instructions) or `tasks/MASTER_BACKLOG.md` (the "Next 3 tasks" section of PROJECT_STATE already carries what's runnable); `allowed-tools` trimmed to match (Grep/Glob dropped from pg-resume).
+- **Default taken (not a D-id — an operational default, CLAUDE.md · OPERATING RULES · DECISIONS):** `scripts/resolve-hashes.mjs` needs the `process` global, which nothing in `eslint.config.mjs` declared for plain `.mjs` scripts (`scripts/` sits outside the pnpm workspace, so `typecheck` never reaches it, but repo-wide `pnpm lint` does). Rather than an `eslint-disable` (banned, AGENT CONSTRAINTS) or a new `globals` dependency, added one scoped config block declaring just `process: 'readonly'` for `scripts/**/*.mjs`.
+- `tests/hooks/run.sh` +14 cases (resolve-hashes: write replaces a placeholder with the introducing hash, literal placeholder gone, check refuses a stale older-base placeholder / passes clean after write; ancestor-of-base staleness rule — a PR-branch placeholder checked out from a merge commit is clean, a placeholder introduced by HEAD on the base is clean; gov-ratio: total/feat-fix counts, ratio at target, average rounds over new-form trailers only, old-form-excluded count, chore/docs-per-day count, unknown-ref exit 2) — **105/105**.
+- Model: sonnet · Delegated: none · tokens ~95k.
+
 ## 2.11 part 5 — condition 10: per-contract, per-SKU order limit — **WBS 2.11 DONE (all ten conditions)** (2026-09-26)
 
 - **Closes WBS 2.11's doc-38 row.** Per D-189 (GM ruling, SCR-WMS-OUT-02 §6, "1- موافق  2 ب"), condition 10 ("quantity within the agreed order limit") reads a per-contract, per-SKU quantity limit; null = no limit; message «الكمية تتجاوز الحد المتفق [كمية]» with the limit substituted. `RunOutboundChecks` reads `sales.contract_sku_limits` read-only from wms's own repository (same cross-module read pattern as the other nine conditions) — no sales code written.

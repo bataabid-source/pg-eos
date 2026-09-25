@@ -104,6 +104,17 @@ export default tseslint.config(
   js.configs.recommended,
   ...tseslint.configs.recommended,
 
+  // ── plain Node scripts (scripts/**/*.mjs — install-hooks.mjs, resolve-hashes.mjs, …) run
+  // outside the workspace (pnpm-workspace.yaml does not list scripts/), so nothing else here
+  // declares the Node globals they use; js.configs.recommended's no-undef would otherwise flag
+  // `process` itself. No dependency added for this — just the couple of globals actually used.
+  {
+    files: ['scripts/**/*.mjs'],
+    languageOptions: {
+      globals: { process: 'readonly' },
+    },
+  },
+
   // ── no opting out of any of the above ──────────────────────────────────────
   {
     linterOptions: {
