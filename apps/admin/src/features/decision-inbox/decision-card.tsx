@@ -5,7 +5,7 @@ import { Card, CardContent, CardFooter, CardHeader } from '../../components/ui/c
 import { Button } from '../../components/ui/button';
 import type { Locale } from '../../i18n/t';
 import { t } from '../../i18n/t';
-import { ACCENTED_URGENCIES, CURRENCY_CODE } from './constants';
+import { ACCENTED_URGENCIES } from './constants';
 import type { DecisionItem } from './contract';
 
 export interface DecisionCardProps {
@@ -15,9 +15,12 @@ export interface DecisionCardProps {
 
 // "N.NNN KWD" — Money.of/.toString() gives the numeric(14,3) formatting (packages/domain-kit);
 // this brief's Master decision 5 requires exact numeric(14,3) precision, which rules out
-// Number()/parseFloat() on the value itself.
+// Number()/parseFloat() on the value itself. No local CURRENCY_CODE constant — Money.of(value)
+// .currency is the one source of truth for the currency code (packages/domain-kit/money.ts),
+// never duplicated (pg-reviewer WBS 1.9 round 2, finding R3).
 function formatKwd(value: string): string {
-  return `${Money.of(value).toString()} ${CURRENCY_CODE}`;
+  const amount = Money.of(value);
+  return `${amount.toString()} ${amount.currency}`;
 }
 
 // `context` is jsonb (z.record(z.string(), z.unknown()) — Master decision 2 fix round 1): render
