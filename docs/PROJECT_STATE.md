@@ -18,7 +18,7 @@ Maintained by pg-scribe only, in the same commit as the task it records.
 
 | lane | task | module lock | worktree | status |
 |---|---|---|---|---|
-| 1 | Phase 1, in order: 1.4 pricing engine → 1.6 → 1.7 → 1.8 → 1.9 → 1.11 (D-176) | `sales` (to claim) | `../pg-eos-lane-1` | queued — next lane-1 session; 0.19 DONE @ `80e827f` |
+| 1 | 1.4 pricing engine (sales) | `sales` | `../pg-eos-lane-1` | feat(1.4) committed on lane/1 @ `<this commit>`, PR pending Master merge; next per D-176: 1.6 quotes |
 | 2 | 5.5a part 2: `hr.shifts` / `shift_assignments` / `shift_groups` (in flight) — then Phase 2: 2.13, 2.14 (D-176) | `hr` | `../pg-eos-lane-2` | queued — next lane-2 session; part 1 (`platform.sites`) DONE @ `3679b70`; next free migration **0016** |
 | 3 | 3.14 part 2 — `services/agent` pull loop (in flight) — then **idle pending GM answer to D-176's batched question** | `imile` | shared `claude-kit` | queued — next lane-3 session; part 1 (health reporting) committed NOT DONE @ `8b12d60`, pg-reviewer PASS round 4 |
 
@@ -26,11 +26,11 @@ Maintained by pg-scribe only, in the same commit as the task it records.
 
 | task | commit |
 |---|---|
+| 1.4 — pricing engine: exception → contract → segment → list → pending (lane 1), DONE pending merge | `<this commit>` |
 | 0.20 — Runbook v1 (`docs/RUNBOOK.md`, eight procedures), closes Phase 0 (D-176) | `<this commit>` |
 | 0.19 — admin app shell: nav, Decision Inbox, empty-state, design system (lane 1, first frontend slice), DONE | `80e827f` |
 | 3.14 part 1 — iMile health reporting mechanism (`ReportAgentHealth`), NOT DONE | `8b12d60` |
 | 5.5a part 1 — `platform.sites` (SCR-HR-SHIFT-01 §2.4), migration 0015, DONE (part 2 pending) | `3679b70` |
-| 3.3 — hr.employees (drivers), documents, hard gate (lane 2, first replicated slice) — DONE | `9616422` |
 
 ## Blockers (settle BEFORE any lane opens — reviewer's project-wide items)
 
