@@ -134,7 +134,7 @@ Type: 🧑 human decision/data · 🤖 AI-buildable slice · 🔧 infra · ✅ v
 | ID | Task | Type | Depends on | Lane | Owner | Acceptance | Status |
 |---|---|---|---|---|---|---|---|
 | 4.1 | Chart of accounts (uniform structure per entity) | 🧑 | 1.1 | **A** | CFO | Loaded for all four entities | DEFERRED-POST-PILOT — D-127 (human entry) |
-| 4.2 | `billing.billable_events` with unique (source, service) index | 🤖 | 0.12, 1.4 | **M** | CFO | Same event cannot bill twice | TODO |
+| 4.2 | `billing.billable_events` with unique (source, service) index | 🤖 | 0.12, 1.4 | **M** | CFO | Same event cannot bill twice | IN PROGRESS — lane 2 (D-186: Lane M row reassigned by the GM; brief + RED first, build after wave 1) |
 | 4.3 | Billing subscribers: WMS, TMS, CC, iMile events → billable events | 🤖 | 4.2, 2.14, 3.4 | **M** | CFO | Every closed operation produces its events | TODO |
 | 4.4 | Invoice generation: monthly aggregation, `doc_no` only at approval (DB constraint) | 🤖 | 4.3, 0.15 | **M** | CFO | Draft has no number; approved cannot be edited | TODO |
 | 4.5 | Auto-approval under threshold; human above | 🤖 | 4.4, 0.10 | **M** | CFO | Threshold change effective without deploy | TODO |
