@@ -53,6 +53,10 @@
     "./sales/manage-contract": {
       "types": "./dist/sales/manage-contract.d.ts",
       "default": "./dist/sales/manage-contract.js"
+    },
+    "./sales/manage-account-credit": {
+      "types": "./dist/sales/manage-account-credit.d.ts",
+      "default": "./dist/sales/manage-account-credit.js"
     }
   },
   "scripts": {
