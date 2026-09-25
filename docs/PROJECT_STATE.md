@@ -18,7 +18,7 @@ Maintained by pg-scribe only, in the same commit as the task it records.
 
 | lane | task | module lock | worktree | status |
 |---|---|---|---|---|
-| 1 | Phase 1 buildable rows DONE @ `90faea3` (1.11 BLOCKED, D-178). **Queued** for Phase 2: 2.10 (put-away) → 2.11 (outbound order) | `wms` | `../pg-eos-lane-1` | queued — `wms` claimed for lane 1; next lane-1 session starts 2.10 |
+| 1 | 2.10 put-away suggestion (wms) | `wms` | `../pg-eos-lane-1` | feat(2.10) committed on lane/1 @ `<this commit>`, PR pending Master merge; next per D-176: 2.11 outbound order |
 | 2 | Phase 2 for lane 2 COMPLETE: 2.13 DONE @ `ca9a109` · 2.14 DONE @ `eec1618` · 2.15 DONE @ `dc0515c` (space mgmt) | — (released) | `../pg-eos-lane-2` | idle — awaiting Master direction on next task |
 | 3 | 3.14 part 2 — `services/agent` pull loop (in flight) — then **idle pending GM answer to D-176's batched question** | `imile` | shared `claude-kit` | queued — next lane-3 session; part 1 (health reporting) committed NOT DONE @ `8b12d60`, pg-reviewer PASS round 4 |
 
@@ -26,11 +26,11 @@ Maintained by pg-scribe only, in the same commit as the task it records.
 
 | task | commit |
 |---|---|
+| 2.10 — put-away automatic location suggestion: conditions + ABC, golden-slice enhancement (lane 1), DONE pending merge | `<this commit>` |
 | 2.15 — space management: allocations, reservations, check_space_available() guard (INV-C3-8), no migration (lane 2), DONE — 6 review rounds, round 3 escalated to opus per D-117 | `dc0515c` |
 | 1.9 — Customer 360 screen (sales data + admin UI, second frontend slice) (lane 1), DONE | `90faea3` |
 | 1.8 — group-level credit limit and hold; found + fixed a real RLS gap on sales.accounts (D-177) (lane 1), DONE | `7fa0c43` |
 | 2.14 — daily occupancy snapshot + overflow (ST-12) billable event, no migration (lane 2), DONE | `eec1618` |
-| 1.7 — M02 contracts, price annexes, SLA definitions, billing flags (lane 1), DONE | `e3ced50` |
 
 ## Blockers (settle BEFORE any lane opens — reviewer's project-wide items)
 
@@ -46,7 +46,7 @@ Maintained by pg-scribe only, in the same commit as the task it records.
 
 ## Next 3 tasks (D-176 — phase-sequential)
 
-1. Lane 1: `wms` now free — claim it for 2.10 (put-away) then 2.11 (outbound order)
+1. Lane 1: 2.10 DONE pending merge — next is 2.11 (outbound order)
 2. Lane 2: **idle — Phase 2 complete (2.13, 2.14, 2.15 all DONE); awaiting Master direction on next task**
 3. Lane 3: finish 3.14 part 2 (in flight) — then idle pending the GM's D-176 answer
 
@@ -55,6 +55,5 @@ Maintained by pg-scribe only, in the same commit as the task it records.
 - main is PR-protected — commit on a branch, push, open a PR, merge on green CI. Lane PRs are opened and merged by the Master (`gh`, rebase merge); a lane branch that conflicts after another merges is rebased by the Master and re-pushed as `<branch>-rN` (D-173). Full mechanics: `docs/RUNBOOK.md`.
 - Doc 38 is **v4.4 (136 rows, D-173)**. Its Lane column is the single source for lane assignment — always check `tasks/LANE_LOCKS.md` module availability before redirecting a lane (2026-09-25 near-miss: `wms` briefly double-assigned to lanes 1 and 2, caught before either wrote code).
 - **D-176 (2026-09-25): finish phases in order** — supersedes the phase-jumping exceptions of D-172/D-173/D-175 for any *new* row a lane picks up; in-flight multi-part slices are finished first.
-- 0.9 closed at `aa46787` with two unmerged WIP branches (`0217e85`, `f127ab2`) — `docs/notes/0.9-abandoned-wip.md`; never merge, never delete.
 - GIT rule (GM 2026-09-23 B3): task ↔ code link is `git log` with `type(WBS):`; previous task's hash recorded here inside the next task's commit.
 - GM decision sheet: `docs/notes/2026-09-23-gm-decision-sheet.md` · cleanup dispositions: `docs/notes/2026-09-24-cleanup-candidates.md` §4.
