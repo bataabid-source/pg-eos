@@ -111,11 +111,72 @@ export interface StockedLocationBlockRow {
   readonly qtyAvailable: string;
 }
 
+// --- WBS 2.11 part 2: Allocate / GeneratePickList / extended CancelOutbound (brief Master
+// decisions 2/3/4) --------------------------------------------------------------------------------
+
+export interface AllocationLineRow {
+  readonly lineId: string;
+  readonly lineNo: number;
+  readonly skuId: string;
+  readonly qtyOrdered: string;
+}
+
+/** `wms.stock_balance` candidate lot for Allocate, ALREADY ordered by the repository's own SQL
+ *  per the SKU's `picking_policy` (brief Master decision 2); Allocate reserves at most ONE of them
+ *  per line (single-lot rule). */
+export interface CandidateLotRow {
+  readonly locationId: string;
+  readonly batchNo: string;
+  readonly qtyAvailable: string;
+}
+
+export interface IncrementLotAllocatedParams {
+  readonly clientId: string;
+  readonly skuId: string;
+  readonly locationId: string;
+  readonly batchNo: string;
+  readonly qty: string;
+}
+
+export interface UpdateOrderLineAllocationParams {
+  readonly lineId: string;
+  readonly status: string;
+  readonly locationId: string | null;
+  readonly batchNo: string | null;
+  readonly qtyActual: string;
+  readonly varianceReason: string | null;
+}
+
+export interface PickListLineRow {
+  readonly lineId: string;
+  readonly lineNo: number;
+  readonly skuId: string;
+  readonly qtyOrdered: string;
+  readonly locationId: string;
+  readonly locationCode: string;
+  readonly positionNo: number | null;
+  readonly batchNo: string | null;
+}
+
+/** Master decision 4: one `order_lines` row on this order with a non-null `location_id` — the
+ *  SINGLE lot Allocate reserved for that line (single-lot rule) and the `qty_actual` it reserved
+ *  there — a release candidate for CancelOutbound's own extension. */
+export interface ConsumedLineRow {
+  readonly lineId: string;
+  readonly skuId: string;
+  readonly locationId: string;
+  readonly batchNo: string;
+  readonly qtyActual: string;
+}
+
 /** Every DB statement the process-outbound use case needs (part 1). Implemented by
  *  ../../infrastructure/process-outbound/repository.ts. */
 export interface OutboundOrderRepository {
   /** order-row lock, FIRST — `select ... for update`. */
   getOrderForUpdate(tx: NodePgDatabase, orderId: string): Promise<OrderRow>;
+  /** WBS 2.11 part 2 (Master decision 3): a plain, unlocked read of the order row —
+   *  GeneratePickList is read-only, no row lock. */
+  getOrderForRead(tx: NodePgDatabase, orderId: string): Promise<OrderRow>;
   /** unconditional version bump — the caller already validated expectedVersion against the
    *  locked row and holds that lock for the whole transaction. */
   updateOrder(tx: NodePgDatabase, orderId: string, columns: OrderUpdateColumns): Promise<number>;
@@ -203,4 +264,40 @@ export interface OutboundOrderRepository {
     tx: NodePgDatabase,
     params: { readonly entityId: string; readonly clientId: string; readonly serviceId: string; readonly asOfDate: string },
   ): Promise<boolean>;
+
+  // --- Allocate (brief Master decision 2) -----------------------------------------------------
+  getOrderLinesForAllocation(tx: NodePgDatabase, orderId: string): Promise<readonly AllocationLineRow[]>;
+  /** `wms.skus.picking_policy` ('FIFO'|'FEFO'|'LIFO', schema default 'FIFO'). */
+  getSkuPickingPolicy(tx: NodePgDatabase, skuId: string): Promise<string>;
+  /** Every candidate lot (`qty_available > 0`) for (clientId, skuId) in the warehouse, ordered
+   *  FEFO/FIFO/LIFO per `pickingPolicy` — the SAME ordering this function's own SQL applies,
+   *  never re-ordered by the caller. */
+  getCandidateLots(
+    tx: NodePgDatabase,
+    params: { readonly clientId: string; readonly skuId: string; readonly warehouseId: string; readonly pickingPolicy: string },
+  ): Promise<readonly CandidateLotRow[]>;
+  /** Increments the `qty_allocated` of the ONE `wms.stock_balance` row a line reserves (single-lot
+   *  rule) by the quantity taken from it; the row is already locked by `getCandidateLots`' own
+   *  `for update of sb`. Throws `StockBalanceRowMissingError` when the UPDATE matches no row. */
+  incrementLotAllocated(tx: NodePgDatabase, params: IncrementLotAllocatedParams): Promise<void>;
+  /** Sets an order line's own `location_id`/`batch_no` (the SINGLE reserved lot, or null when no
+   *  lot had stock), `status`, `qty_actual` (the quantity reserved from that one lot) and
+   *  `variance_reason` (required by `wms.order_lines`' own `variance_needs_reason` check whenever
+   *  `qty_actual <> qty_ordered`). */
+  updateOrderLineAllocation(tx: NodePgDatabase, params: UpdateOrderLineAllocationParams): Promise<void>;
+
+  // --- GeneratePickList (brief Master decision 3) ---------------------------------------------
+  /** Every allocated `order_lines` row (`location_id is not null`) on this order, joined to its
+   *  location's `position_no`, ordered `position_no` ascending (nulls last), ties broken by
+   *  `line_no` — already sorted server-side, never re-ordered by the caller. */
+  getAllocatedPickListLines(tx: NodePgDatabase, orderId: string): Promise<readonly PickListLineRow[]>;
+
+  // --- CancelOutbound's release step (brief Master decision 4) ---------------------------------
+  /** Every `order_lines` row on this order with a non-null `location_id` — one per allocated
+   *  line, each naming the single lot Allocate reserved for it. */
+  getConsumedLinesForRelease(tx: NodePgDatabase, orderId: string): Promise<readonly ConsumedLineRow[]>;
+  /** The reverse of `incrementLotAllocated` — decrements the line's single reserved
+   *  `wms.stock_balance` row's `qty_allocated` by the line's `qty_actual`. Throws
+   *  `StockBalanceRowMissingError` when the UPDATE matches no row. */
+  decrementLotAllocated(tx: NodePgDatabase, params: IncrementLotAllocatedParams): Promise<void>;
 }

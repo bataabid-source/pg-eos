@@ -208,3 +208,28 @@ export class NoServicePriceError extends OutboundCheckError {
     this.name = 'NoServicePriceError';
   }
 }
+
+/** WBS 2.11 part 2 fix round 1, finding 2: Allocate's `incrementLotAllocated` / CancelOutbound's
+ *  `decrementLotAllocated` targeted one specific `wms.stock_balance` row (by client/sku/location/
+ *  batch) — the row this same command already locked with `for update` a moment earlier — and the
+ *  UPDATE matched zero rows. Should never happen inside the same transaction; thrown defensively
+ *  rather than silently doing nothing (which would leave `qty_allocated` un-adjusted with no trace).
+ *  Carries an i18n key + params like every OutboundCheckError subclass (CLAUDE.md "No embedded UI
+ *  strings — i18n"); `wms.outbound.allocation.stockBalanceRowMissing` is a code-referenced key
+ *  recorded for the i18n batch. */
+export class StockBalanceRowMissingError extends OutboundCheckError {
+  readonly i18nKey = 'wms.outbound.allocation.stockBalanceRowMissing';
+
+  constructor(
+    message: string,
+    params: {
+      readonly clientId: string;
+      readonly skuId: string;
+      readonly locationId: string;
+      readonly batchNo: string | null;
+    },
+  ) {
+    super(message, params);
+    this.name = 'StockBalanceRowMissingError';
+  }
+}

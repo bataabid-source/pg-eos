@@ -28,18 +28,23 @@ import { IDEMPOTENCY_KEY_HEADER_NAME } from '@pg-eos/contracts';
 // A Logger port-shaped spy — ProcessOutboundDeps carries `logger: Logger`
 // (../../application/process-outbound/ports.ts), and createProcessOutboundDeps({ clock, ids, logger })
 // accepts an injected one instead of always defaulting to a real pino-backed logger.
-import type { Logger } from '../../application/process-outbound/ports.js';
+import type { IncrementLotAllocatedParams, Logger } from '../../application/process-outbound/ports.js';
 // G1 fix (same as ./process-outbound.test.ts's own seedStockViaReceipt): stock is seeded through a
 // REAL 'receipt' movement via the module's own public postMovement — never a direct
 // wms.stock_balance INSERT, which leaves a ledgerless balance row and fails guard G1
 // (wms.verify_balance_integrity()).
 import { postMovement, type LedgerDeps } from '../../index.js';
+import { StockBalanceRowMissingError } from '../../domain/process-outbound/errors.js';
 
 // The module under test — does not exist yet with this error-mapping behaviour (RED).
+// handleAllocate/handleGeneratePickList are WBS 2.11 part 2's own additions to this barrel
+// (_slice-2.11.brief.md part 2, Master decisions 2/3/5) — RED until pg-backend adds them.
 import {
+  handleAllocate,
   handleApproveOutbound,
   handleCancelOutbound,
   handleCreateOutbound,
+  handleGeneratePickList,
   handleRunOutboundChecks,
   type ApiRequest,
 } from '../../api/process-outbound/handlers.js';
@@ -181,6 +186,53 @@ async function insertFreshChecksPendingOrder(): Promise<{ id: string; version: n
   const row = orderResult.rows[0] as { id: string; version: number };
   extraOrderIds.push(row.id);
   return row;
+}
+
+/** WBS 2.11 part 2: a fresh order forced directly to 'approved' (bypassing RunOutboundChecks/
+ *  ApproveOutbound — same shortcut insertFreshChecksPendingOrder already takes for 'checks_pending'),
+ *  carrying ONE order_line for fixtureSkuId, with enough stock posted at fixtureLocationId (via the
+ *  real ledger, G1) to allocate it in full. */
+async function insertFreshApprovedOrderWithLine(qtyOrdered = '1.000'): Promise<{ id: string; version: number; lineId: string }> {
+  const docNoResult: QueryResult<{ doc_no: string }> = await pool.query(`select platform.next_doc_no($1, 'OUT') as doc_no`, [entityId]);
+  const orderResult: QueryResult<{ id: string; version: number }> = await pool.query(
+    `insert into wms.outbound_orders
+       (entity_id, doc_no, client_id, contract_id, warehouse_id, order_type, status,
+        credit_check_passed, credit_checked_at, ship_to_name, ship_to_phone, ship_to_address, ship_to_area)
+     values ($1, $2, $3, $4, $5, 'standard', 'approved', true, now(), 'x', 'x', 'x', 'x')
+     returning id, version`,
+    [entityId, docNoResult.rows[0]?.doc_no, fixtureClientId, fixtureContractId, warehouseId],
+  );
+  const row = orderResult.rows[0] as { id: string; version: number };
+  extraOrderIds.push(row.id);
+
+  const lineResult: QueryResult<{ id: string }> = await pool.query(
+    `insert into wms.order_lines (order_table, order_id, line_no, sku_id, qty_ordered, uom)
+     values ('wms.outbound_orders', $1, 1, $2, $3::numeric, 'EA') returning id`,
+    [row.id, fixtureSkuId, qtyOrdered],
+  );
+  const lineRow = lineResult.rows[0] as { id: string };
+
+  await postMovement(
+    ctx,
+    {
+      entityId,
+      entry: {
+        clientId: fixtureClientId,
+        skuId: fixtureSkuId,
+        fromLocationId: null,
+        toLocationId: fixtureLocationId,
+        qty: Quantity.of(qtyOrdered),
+        batchNo: '',
+        movementType: RECEIPT_MOVEMENT_TYPE,
+        uom: 'EA',
+      },
+      correlationId: nextCorrelationId(),
+      performedBy: FIXTURE_ACTOR_UUID,
+    },
+    ledgerDeps,
+  );
+
+  return { id: row.id, version: row.version, lineId: lineRow.id };
 }
 
 beforeAll(async () => {
@@ -504,5 +556,204 @@ describe('createProcessOutboundDeps accepts an injected logger', () => {
     const defaultDeps = createProcessOutboundDeps({ clock, ids });
     expect(typeof defaultDeps.logger?.error).toBe('function');
     expect(typeof defaultDeps.logger?.info).toBe('function');
+  });
+});
+
+// --- WBS 2.11 part 2: handleAllocate / handleGeneratePickList wiring (_slice-2.11.brief.md part 2,
+// Master decisions 2/3/5) — RED until pg-backend adds both handlers + composition wiring. ----------
+
+describe('handleAllocate: a missing Idempotency-Key is rejected with a 400 Problem', () => {
+  it('no Idempotency-Key header -> 400', async () => {
+    const order = await insertFreshApprovedOrderWithLine();
+    const result = await handleAllocate(
+      requestWithoutKey({ orderId: order.id, expectedVersion: order.version, correlationId: nextCorrelationId() }),
+      deps,
+    );
+    expect(result.status).toBe(400);
+  });
+});
+
+describe('handleAllocate: IllegalTransitionError before approval maps to 422', () => {
+  it('a still-checks_pending order -> 422, title "IllegalTransitionError"', async () => {
+    const order = await insertFreshChecksPendingOrder();
+    const result = await handleAllocate(
+      requestWithKey({ orderId: order.id, expectedVersion: order.version, correlationId: nextCorrelationId() }),
+      deps,
+    );
+    expect(result.status).toBe(422);
+    expect(result.body).toMatchObject({ title: 'IllegalTransitionError' });
+  });
+});
+
+describe('handleAllocate: StaleVersionError maps to 409', () => {
+  it('a stale expectedVersion -> 409, title "StaleVersionError"', async () => {
+    const order = await insertFreshApprovedOrderWithLine();
+    const result = await handleAllocate(
+      requestWithKey({ orderId: order.id, expectedVersion: order.version + 999, correlationId: nextCorrelationId() }),
+      deps,
+    );
+    expect(result.status).toBe(409);
+    expect(result.body).toMatchObject({ title: 'StaleVersionError' });
+  });
+});
+
+describe('handleAllocate: a successful full allocation maps to 200, status "allocated"', () => {
+  it('an approved order with sufficient stock -> 200', async () => {
+    const order = await insertFreshApprovedOrderWithLine();
+    const result = await handleAllocate(
+      requestWithKey({ orderId: order.id, expectedVersion: order.version, correlationId: nextCorrelationId() }),
+      deps,
+    );
+    expect(result.status).toBe(200);
+    expect('body' in result ? result.body : null).toMatchObject({ status: 'allocated' });
+  });
+});
+
+describe('handleAllocate: the same Idempotency-Key and body twice replays the first response', () => {
+  it('identical key + body -> identical response, version bumped exactly once', async () => {
+    const order = await insertFreshApprovedOrderWithLine();
+    const idempotencyKey = randomUUID();
+    const body = { orderId: order.id, expectedVersion: order.version, correlationId: nextCorrelationId() };
+
+    const first = await handleAllocate(requestWithKey(body, idempotencyKey), deps);
+    expect(first.status).toBe(200);
+    const second = await handleAllocate(requestWithKey(body, idempotencyKey), deps);
+    expect(second).toEqual(first);
+
+    const versionResult: QueryResult<{ version: number }> = await pool.query(`select version from wms.outbound_orders where id = $1`, [order.id]);
+    expect(versionResult.rows[0]?.version).toBe((order.version as number) + 1);
+  });
+
+  it('the same key with a DIFFERENT body -> 409 IdempotencyConflictError', async () => {
+    const order = await insertFreshApprovedOrderWithLine();
+    const idempotencyKey = randomUUID();
+    const body = { orderId: order.id, expectedVersion: order.version, correlationId: nextCorrelationId() };
+    const first = await handleAllocate(requestWithKey(body, idempotencyKey), deps);
+    expect(first.status).toBe(200);
+
+    const differentBody = { orderId: order.id, expectedVersion: order.version, correlationId: nextCorrelationId() };
+    const result = await handleAllocate(requestWithKey(differentBody, idempotencyKey), deps);
+    expect(result.status).toBe(409);
+    expect(result.body).toMatchObject({ title: 'IdempotencyConflictError' });
+  });
+});
+
+describe('handleGeneratePickList: illegal before allocation maps to 422', () => {
+  it('an approved-but-not-yet-allocated order -> 422, title "IllegalTransitionError"', async () => {
+    const order = await insertFreshApprovedOrderWithLine();
+    const result = await handleGeneratePickList(
+      requestWithoutKey({ orderId: order.id, correlationId: nextCorrelationId() }),
+      deps,
+    );
+    expect(result.status).toBe(422);
+    expect(result.body).toMatchObject({ title: 'IllegalTransitionError' });
+  });
+});
+
+describe('handleGeneratePickList: read-only, works WITHOUT an Idempotency-Key header (Master decision 5)', () => {
+  it('an allocated order -> 200, no Idempotency-Key required', async () => {
+    const order = await insertFreshApprovedOrderWithLine();
+    const allocateResult = await handleAllocate(
+      requestWithKey({ orderId: order.id, expectedVersion: order.version, correlationId: nextCorrelationId() }),
+      deps,
+    );
+    expect(allocateResult.status).toBe(200);
+
+    const result = await handleGeneratePickList(
+      requestWithoutKey({ orderId: order.id, correlationId: nextCorrelationId() }),
+      deps,
+    );
+    expect(result.status).toBe(200);
+  });
+});
+
+// --- Round 3: StockBalanceRowMissingError (Allocate's increment / CancelOutbound's decrement matched
+// no wms.stock_balance row) is a TYPED domain error — handlers.ts maps it to 422, never the unknown-
+// error 500 path. The repository port is swapped for one whose lot write throws the real error class,
+// the same deps-override pattern the 500 test above uses. -------------------------------------------
+
+// errors.ts: StockBalanceRowMissingError.i18nKey (extends OutboundCheckError, Master round 3).
+const STOCK_BALANCE_ROW_MISSING_I18N_KEY = 'wms.outbound.allocation.stockBalanceRowMissing';
+
+describe('StockBalanceRowMissingError maps to 422 carrying its i18n key + params, never 500', () => {
+  it('handleAllocate: incrementLotAllocated throws StockBalanceRowMissingError -> 422, title "StockBalanceRowMissingError", i18nKey + { clientId, skuId, locationId, batchNo } of the lot, not logged as unknown, order stays "approved"', async () => {
+    const order = await insertFreshApprovedOrderWithLine();
+    const logger = spyLogger();
+    const depsWithSpyLogger = createProcessOutboundDeps({ clock, ids, logger });
+    const brokenDeps = {
+      ...depsWithSpyLogger,
+      repo: {
+        ...depsWithSpyLogger.repo,
+        // Throws exactly what the real repository throws: the params of the row it was asked to update.
+        incrementLotAllocated: async (_tx: unknown, params: IncrementLotAllocatedParams): Promise<never> => {
+          throw new StockBalanceRowMissingError('incrementLotAllocated matched no wms.stock_balance row', {
+            clientId: params.clientId,
+            skuId: params.skuId,
+            locationId: params.locationId,
+            batchNo: params.batchNo,
+          });
+        },
+      },
+    };
+
+    const result = await handleAllocate(
+      requestWithKey({ orderId: order.id, expectedVersion: order.version, correlationId: nextCorrelationId() }),
+      brokenDeps,
+    );
+
+    expect(result.status).toBe(422);
+    expect(result.body).toMatchObject({
+      title: 'StockBalanceRowMissingError',
+      i18nKey: STOCK_BALANCE_ROW_MISSING_I18N_KEY,
+      // The one lot insertFreshApprovedOrderWithLine stocked: this file's own client/SKU/location, batch ''.
+      params: { clientId: fixtureClientId, skuId: fixtureSkuId, locationId: fixtureLocationId, batchNo: '' },
+    });
+    expect(logger.errorCalls).toHaveLength(0);
+    const statusResult: QueryResult<{ status: string }> = await pool.query(`select status from wms.outbound_orders where id = $1`, [order.id]);
+    expect(statusResult.rows[0]?.status).toBe('approved');
+  });
+
+  it('handleCancelOutbound: decrementLotAllocated throws StockBalanceRowMissingError -> 422, title "StockBalanceRowMissingError", i18nKey + { clientId, skuId, locationId, batchNo } of the lot, not logged as unknown, order stays "allocated"', async () => {
+    const order = await insertFreshApprovedOrderWithLine();
+    const allocateResult = await handleAllocate(
+      requestWithKey({ orderId: order.id, expectedVersion: order.version, correlationId: nextCorrelationId() }),
+      deps,
+    );
+    expect(allocateResult.status).toBe(200);
+    const allocatedVersion = (allocateResult.body as { version: number }).version;
+
+    const logger = spyLogger();
+    const depsWithSpyLogger = createProcessOutboundDeps({ clock, ids, logger });
+    const brokenDeps = {
+      ...depsWithSpyLogger,
+      repo: {
+        ...depsWithSpyLogger.repo,
+        // Throws exactly what the real repository throws: the params of the row it was asked to update.
+        decrementLotAllocated: async (_tx: unknown, params: IncrementLotAllocatedParams): Promise<never> => {
+          throw new StockBalanceRowMissingError('decrementLotAllocated matched no wms.stock_balance row', {
+            clientId: params.clientId,
+            skuId: params.skuId,
+            locationId: params.locationId,
+            batchNo: params.batchNo,
+          });
+        },
+      },
+    };
+
+    const result = await handleCancelOutbound(
+      requestWithKey({ orderId: order.id, expectedVersion: allocatedVersion, reason: 'test release failure', correlationId: nextCorrelationId() }),
+      brokenDeps,
+    );
+
+    expect(result.status).toBe(422);
+    expect(result.body).toMatchObject({
+      title: 'StockBalanceRowMissingError',
+      i18nKey: STOCK_BALANCE_ROW_MISSING_I18N_KEY,
+      // The one lot insertFreshApprovedOrderWithLine stocked: this file's own client/SKU/location, batch ''.
+      params: { clientId: fixtureClientId, skuId: fixtureSkuId, locationId: fixtureLocationId, batchNo: '' },
+    });
+    expect(logger.errorCalls).toHaveLength(0);
+    const statusResult: QueryResult<{ status: string }> = await pool.query(`select status from wms.outbound_orders where id = $1`, [order.id]);
+    expect(statusResult.rows[0]?.status).toBe('allocated');
   });
 });

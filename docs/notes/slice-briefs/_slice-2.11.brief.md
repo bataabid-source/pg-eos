@@ -1,155 +1,95 @@
-# SLICE BRIEF — WBS 2.11 part 1 · Outbound order: create + ten-condition check + approve + cancel
+# SLICE BRIEF — WBS 2.11 part 2 · Allocate, GeneratePickList, allocation-aware CancelOutbound
 
-Task: 2.11 part 1 — Outbound order create, RunOutboundChecks (nine of ten conditions), ApproveOutbound, CancelOutbound (pre-allocation statuses only)      Lane: 1      Lock: `wms/process-outbound` (tasks/LANE_LOCKS.md)
-Owner: WH_MGR      Deps: 2.9 DONE (golden slice, `78c640e`), 1.8 DONE (`cedd4bf`, group-level credit hold), 1.7 DONE (contracts)      Worktree: `../pg-eos-lane-1`, branch `lane/1` (on origin/main `5644b5c`)
-Model routing (D-174): pg-tester sonnet → pg-backend sonnet → pg-tester verify → pg-reviewer opus → pg-scribe sonnet. Lane session sonnet, effort medium — orchestrates only.
-Use case (kebab): **`process-outbound`** — already scaffolded by `scripts/new-slice.sh wms process-outbound` (contracts export self-registered). This is a SPLIT of the original over-budget 2.11 brief (D-179): **part 1** delivers `CreateOutbound`, `RunOutboundChecks`, `ApproveOutbound`, `CancelOutbound` (scoped to the six pre-allocation/pre-pick statuses this part can reach: `draft, checks_pending, credit_rejected, approved` → `cancelled`). **Part 2** (separate brief, separate commit, `... (part 2, DONE)`) adds `Allocate`, `GeneratePickList`, and extends `CancelOutbound` to the `allocated`/`partially_allocated` release path. Part 1 lands as `feat(2.11): ... (part 1, NOT DONE)` — row stays open until part 2.
+Task: 2.11 part 2 — Allocate (FEFO/FIFO), GeneratePickList (shortest path), CancelOutbound extended to allocated/partially_allocated (release) — closes WBS 2.11      Lane: 1      Lock: `wms/process-outbound` (whole part) + `wms/receive-inbound` (test-files-only, item 0 below; released with this slice's commit)
+Owner: WH_MGR      Deps: 2.11 part 1 DONE (`a96b013`)      Worktree: `../pg-eos-lane-1`, branch `lane/1-2.11p2` (on origin/main `119f65d`)
+Model routing: pg-tester sonnet → pg-backend sonnet → pg-tester verify → pg-reviewer opus → pg-scribe sonnet. Lane session sonnet, effort medium — orchestrates only.
+Master-set bound for this slice: brief ≤ 8 files / 1,000 lines, **two review rounds max** (tighter than the usual budget) — a third FAIL escalates straight to the Master, no third worker round.
+No new use case, no `scripts/new-slice.sh` run — this extends the existing `process-outbound` tree (part 1) in place.
 
-## Scope taken by the lane (SCOPE DEFAULTS — recorded in CHANGELOG, batched for the GM)
-- **No cross-module TypeScript import.** `RunOutboundChecks` needs contract-active (sales.contracts), credit-hold (sales.accounts), and price-exists (catalog price chain) facts. Instead of importing `@pg-eos/sales` application code (forbidden — CLAUDE.md "No cross-module import. Use an event or a contract."; `eslint-plugin-boundaries` fails the build), `wms`'s own `infrastructure/process-outbound/repository.ts` runs read-only SQL directly against `sales.contracts`/`sales.accounts`/`catalog.*` inside the SAME `withContext(ctx, fn)` transaction, RLS-scoped exactly like the existing `take-occupancy-snapshot/repository.ts` precedent (reads `sales.contracts`, `catalog.services`, `billing.billable_events` today). Condition 9 (price) is reduced to: does an active, dated price-list line (or price exception) exist for service `OF-01` at this account/entity as-of today — a narrower read than calling `resolvePrice`, but the acceptance line only requires "no price for service X" to be detectable, not a full tiered-pricing computation; recorded as a default, not a G-01 gap (no invented column, purely a read of existing tables the golden-slice pattern already reads cross-schema).
-- **Condition 10** ("quantity within the agreed order limit") stays BLOCKED — no schema source in 01/13/13B/019/40 (searched, confirmed by the discarded original brief). Not built. Recorded in code/CHANGELOG, not counted toward the ten.
-- **Condition messages are typed errors carrying an i18n key + params, not hardcoded Arabic strings** (CLAUDE.md "No embedded UI strings — i18n"). Each condition's typed error class exposes `.i18nKey` (e.g. `wms.outbound.check.contractExpired`) and a `.params` object (e.g. `{ expiryDate }`); the API layer's Problem envelope carries both. The literal Arabic template in the D-blueprint is the KEY'S DEFINITION, not code to embed — actual translated strings (ar/en/hi/ur/bn/am) are a module-wide `apps/admin/src/i18n/*.json` addition, which this use-case lock may NOT write (module-wide file) — the full key→ar-template list goes in this session's closing report for the Master to add in one batch, same as every prior slice's i18n keys.
-- **`chk_outbound_orders_status` (13B, live CHECK) is authoritative** — 14 values: `draft · checks_pending · credit_rejected · approved · allocated · partially_allocated · picking · picked · checked · packed · loaded · dispatched · delivered · cancelled`. Part 1's XState machine covers only: `draft --RUN_CHECKS_PASS--> checks_pending`, `draft --RUN_CHECKS_CREDIT_FAIL--> credit_rejected`, `checks_pending --APPROVE--> approved`, `{draft, checks_pending, credit_rejected, approved} --CANCEL--> cancelled`. `allocated`/`partially_allocated` and their own CANCEL edge belong to part 2 (they don't exist yet in this part — machine has no producing edge into them).
-- **A qualified-account check for `CreateOutbound`** — the client must exist, not be soft-deleted (`deleted_at is null`), `status='active'` — a plain SQL read in wms's own repository (no cross-module call), same class of check as condition 1/2's SQL reads.
+## Item 0 — 2.10 fixture fix (pg-tester, test-files-only, `wms/receive-inbound` lock)
+`modules/wms/tests/receive-inbound/receive-inbound.test.ts`'s `pickFreshWh1Location` currently does `select ... where w.code='WH1' and l.location_type=$1 and l.is_blocked=false and l.id <> all($2::uuid[]) order by l.code desc limit 1` — picking ANY unblocked WH1 location, descending by code, excluding only already-used-by-this-test ids. This is the SAME class of bug as part 1's own finding 1 (handlers.test.ts's `LIMIT 1` on a shared row): it can pick a real WH1 production location OR another test file's leftover fixture location, and `order by code desc limit 1` means an orphan location whose code sorts high (e.g. a stray `T9-*` row) is picked FIRST — pg-reviewer traced this to 2.9b round 5's 8 failures (7 location-ranking + 1 `ConfirmPutaway` `LocationLimitExceededError`, both from `maxWeightKg: null` on locations this picker handed out and count mismatches from orphaned rows). Fix: this function must create its OWN dedicated location under a distinct code prefix (`M9-` block — the same block part 1's own `handlers.test.ts`/`process-outbound.test.ts` fixtures now use, already proven collision-free under concurrent runs) instead of selecting an existing row, mirroring part 1's own fix for the identical class of bug. Write ONLY `modules/wms/tests/receive-inbound/receive-inbound.test.ts` — no other receive-inbound file, no domain/application/api file. Verify: `PGHOST=localhost PGUSER=postgres PGDATABASE=pgeos PG_APP_USER=pgeos_app pnpm --filter @pg-eos/wms test -- receive-inbound` full pass, twice in a row (collision check), before moving to item 1+.
 
-## Read ONLY (workers) — kept under the 12-file / 1,500-line budget
+## Item 1+ — Allocate, GeneratePickList, CancelOutbound extension (pg-backend + pg-tester, `wms/process-outbound` lock)
+
+### Scope taken by the lane (SCOPE DEFAULTS — recorded in CHANGELOG)
+- **Allocation is a soft reservation, not a physical movement** (unchanged from the original, discarded 32-file brief's own decision, re-confirmed against the D-blueprint this session): `Allocate` increments `wms.stock_balance.qty_allocated` and sets `order_lines.location_id`/`batch_no`; it writes NO `wms.stock_movements` row — the doc's own flow places the `pick` movement type at the PICKING step (2.12), not at allocation.
+- **Allocation rule (Master ruling, verbatim)**: "a line is allocated from a single lot. FEFO/FIFO picks the first lot whose qty_available covers the line; if none covers it, the best single lot supplies min(available, ordered) → `partially_allocated` with the `insufficient_stock` variance constant; if no lot has stock the line stays unallocated; a line is never split across two lots." `order_lines.location_id`/`batch_no` always records that single lot (the DDL gives one `location_id`/`batch_no` per line). Per-lot split is a G-01 item — SCR-WMS-OUT-01.
+- **"Shortest path" pick sequencing reuses `wms.locations.position_no`** — the same proximity proxy 2.9/2.10's `SuggestLocation` already uses, no routing-graph invention.
+- **CancelOutbound's release path**: cancelling an `allocated`/`partially_allocated` order must not leak a permanent reservation — for every order line that consumed a lot (fully or partially allocated; a line left unallocated has nothing to release), that single lot's `qty_allocated` is decremented back, same rows, same transaction, before the status flips to `cancelled`.
+
+## Read ONLY (workers) — kept under the 8-file / 1,000-line budget
 1. `CLAUDE.md`
 2. `.claude/briefs/wms.brief.md`
-3. `modules/wms/domain/receive-inbound/errors.ts` (typed-error idiom — `name` set explicitly, Problem-mapping convention)
-4. `modules/wms/domain/receive-inbound/machine.ts` (XState v5 machine-tag idiom, the direct template for this part's smaller machine)
-5. `modules/wms/application/receive-inbound/approve-inbound.ts` lines 1-150 (command shape: version-lock, role gate, audit-in-transaction, outbox-in-transaction, idempotency-in-transaction, inline — this IS the ports/outbox/idempotency usage pattern, no separate ports.ts/outbox.ts read needed; range trimmed 2026-09-25 — 2.9b extended this file past the original citation's line count, only the core command pattern is needed here)
-6. `modules/wms/application/receive-inbound/cancel-inbound.ts` (same, for the CancelOutbound template — reason-required, multi-source-status transition)
-7. `modules/wms/infrastructure/take-occupancy-snapshot/repository.ts` lines 1-136 (the cross-schema read-only SQL precedent this part follows for `sales.contracts`/`sales.accounts`/`catalog.*` reads — role/entity helpers + the `sales.contracts`-joining query)
-8. `database/schema/01-Data-Model.sql` lines 420-446 (`sales.accounts`), 553-580 (`sales.contracts`), 752-800 (`wms.outbound_orders`, `wms.order_lines`)
-9. `database/schema/13B-Schema-Reference-Consolidation.sql` lines 2320-2334 (`chk_outbound_orders_status`, `chk_order_lines_status`)
-10. `docs/package/D-blueprints/03-Operations-Warehouse.md` lines 277-360 (§4.2 outbound flow + §4.2.1 ten conditions, verbatim below)
-11. `packages/db/src/idempotency.ts`
-12. `modules/wms/tests/receive-inbound/receive-inbound.test.ts` lines 1-60 (pg-tester only: admin-pool fixture pattern, real `identity.users`/`user_entities` rows, `PG_APP_USER=pgeos_app`)
+3. `docs/package/D-blueprints/03-Operations-Warehouse.md` lines 277-291 (§4.2 flow table rows 3-4b — approved → allocated/partially_allocated, verbatim, already quoted below)
+4. `docs/package/40-Build-Specification-EN.md` lines 260-260 (the `Allocate (FEFO/FIFO)` / `GeneratePickList (shortest path)` command names, verbatim)
+5. `database/schema/01-Data-Model.sql` lines 717-728 (`wms.stock_balance`, verbatim DDL), 648-680 (`wms.skus`, verbatim DDL), 630-645 (`wms.locations`, verbatim DDL)
+6. `modules/wms/tests/receive-inbound/receive-inbound.test.ts` lines 260-330 (item 0's `pickFreshWh1Location` plus the `insertZone`/`insertLocation`-shaped M9 fixture helpers it must mirror, from this same file's neighbourhood) — pg-tester (item 0) only
 
-## Not separately read (low marginal value, budget-traded away)
-`packages/events/src/outbox.ts` (its call shape is already visible inline in items 5/6) · `modules/wms/application/receive-inbound/ports.ts` (write process-outbound's own ports.ts fresh, following the Clock/IdGenerator/Logger/repository-port shape visible in items 5/6's imports) · `modules/wms/{package.json,tsconfig.json,tsconfig.test.json,index.ts}` (scaffold already correct from `scripts/new-slice.sh`; extend `index.ts`'s barrel using the SAME named-export-with-prefix pattern count-inventory already established there — view the current barrel directly when editing it, that is not a precedent read) · `database/migrations/0020_1_accounts-version.sql` (the lane session, not a delegated worker, writes the migration — already read this session).
+## Not separately read (viewed directly when editing, not a precedent study)
+`modules/wms/domain/process-outbound/{machine.ts, errors.ts}`, `modules/wms/application/process-outbound/{ports.ts, cancel-outbound.ts, index.ts}`, `modules/wms/infrastructure/process-outbound/repository.ts`, `modules/wms/api/process-outbound/{handlers.ts, composition.ts}`, `packages/contracts/wms/process-outbound.ts` — every file this slice extends is already this lock's own reviewed code from part 1; pg-backend views each directly before editing it, matching the SAME field/error/i18n conventions those files already established (version-lock, `withIdempotentContext`, outbox+audit same transaction, `Quantity` decimal arithmetic — never a raw `Number()` on a quantity, per part 1's own fix-round finding 7). `modules/wms/tests/process-outbound/*` (all four existing test files) — pg-tester extends these directly, same reasoning.
 
 ## Write ONLY
-- pg-tester: `modules/wms/tests/process-outbound/*` · nothing else.
-- pg-backend: `modules/wms/{domain,application,infrastructure,api}/process-outbound/*` · `modules/wms/index.ts` (extend barrel — allowed for a use-case lock only to ADD named exports, same pattern as 2.13's own index.ts edit) · `packages/contracts/wms/process-outbound.ts` · `modules/wms/package.json` (deps only if missing, then `pnpm install`).
-- Lane session only: `database/migrations/0022_1_outbound-orders-version.sql` (after pg-reviewer pre-migration PASS) · `tasks/backlog/MIGRATION-REQUEST-1.md` · this brief.
-Forbidden for every worker: `database/schema/**`, `packages/**` other than `packages/contracts/wms/process-outbound.ts`, `packages/events/catalog.ts`, other modules, any OTHER golden-slice file (do not touch `receive-inbound/*`), `apps/**` (i18n JSON is module-wide, Master batch only), `docs/**` other than this brief, `scripts/**`, `CLAUDE.md`, `.claude/**`. A test defect goes back to pg-tester; pg-backend never edits a test.
+- pg-tester: `modules/wms/tests/receive-inbound/receive-inbound.test.ts` (item 0 ONLY) · `modules/wms/tests/process-outbound/*` (item 1+, extend existing files, do not weaken any of the 126 existing passing tests).
+- pg-backend: `modules/wms/domain/process-outbound/{machine.ts, errors.ts, invariants.ts}` · `modules/wms/application/process-outbound/{ports.ts, index.ts, allocate.ts, generate-pick-list.ts, cancel-outbound.ts}` (allocate.ts/generate-pick-list.ts are NEW files, cancel-outbound.ts is EDITED) · `modules/wms/infrastructure/process-outbound/repository.ts` · `modules/wms/api/process-outbound/{handlers.ts, composition.ts}` · `packages/contracts/wms/process-outbound.ts` (add `AllocateInputSchema`, `GeneratePickListInputSchema` only — the four part-1 schemas stay unchanged).
+Forbidden for every worker: `database/schema/**` (no migration this part — `qty_allocated`/`position_no`/`picking_policy` all already exist), `packages/**` other than the one named contract file, `packages/events/catalog.ts`, other modules, any golden-slice `receive-inbound/*` file other than item 0's one named test file, `docs/**` other than this brief, `scripts/**`, `CLAUDE.md`, `.claude/**`.
 
-## Acceptance criterion (doc 38 row 2.11, verbatim — part 1's share)
-"Each of ten conditions has a failing test with the correct message" — nine of ten conditions get a real failing test with an i18n-keyed message; condition 10 is explicitly BLOCKED (not counted, not silently dropped).
-Gates: `pnpm --filter @pg-eos/wms typecheck && lint && test` green as `pgeos_app` · `pnpm guards:run` green (isolated DB, this branch's own migrations) · pg-reviewer PASS · pre-migration pg-reviewer PASS before the migration file is written.
+## Acceptance criterion (doc 38 row 2.11, verbatim — this closes the row)
+"Each of ten conditions has a failing test with the correct message" — nine of ten already met (part 1); condition 10 stays explicitly BLOCKED (no schema source, unchanged). This part's own delivery is judged against doc 40's command list: `Allocate` and `GeneratePickList` exist, are tested, and `CancelOutbound` correctly releases an allocation.
+Gates: `pnpm --filter @pg-eos/wms typecheck && lint` green · **FULL `pnpm --filter @pg-eos/wms test` (unfiltered module suite, not `-- process-outbound`) green — mandatory this slice, per the CHANGELOG process note part 1's own regression added** · `pnpm guards:run` green (re-check G1 before the first run — shared-DB pollution is GM/Master-owned cleanup, not this slice's job to fix, but a red G1 from LEAKED rows this slice's own fixtures cause is this slice's job) · pg-reviewer PASS (two rounds max this slice).
 
-## D-blueprint 03 §4.2 steps 1-3 (verbatim, part 1's share) + §4.2.1 the ten conditions
-| # | من يفعلها | ما الذي يتغيّر | الحدث |
+## D-blueprint 03 §4.2 rows 3-4b (verbatim, already used to derive the Master decisions below)
+| # | من يفعلها | ما الذي يتغيّر في القاعدة | الحدث المنشور |
 |---|---|---|---|
-| 1 | `WH_OP` / العميل | `outbound_orders` صف `status='draft'` · `doc_no` سلسلة `OUT` | `wms.outbound.drafted` |
-| 2 | النظام آلياً | `status='checks_pending'` — حارس على الانتقال لا مرحلة عمل · تشغيل الشروط العشرة | `wms.outbound.checks_started` |
-| 2ب | النظام | فشل الشرط 2 ⇒ `status='credit_rejected'` · `credit_check_passed=false` | `wms.outbound.credit_rejected` |
-| 3 | `WH_MGR` | صندوق القرارات · `status='approved'` | `wms.outbound.approved` |
-
-| # | الشرط | i18n key (ar template below is the key's definition) |
-|---|---|---|
-| 1 | العقد ساري | `wms.outbound.check.contractExpired` — «عقد العميل منتهٍ في [تاريخ] — يلزم التجديد» |
-| 2 | لا حجز ائتماني | `wms.outbound.check.creditHold` — «العميل تحت حجز ائتماني: [السبب]» |
-| 3 | الرصيد كافٍ | `wms.outbound.check.insufficientStock` — «المتاح [كمية] فقط من المطلوب [كمية] في [موقع]» |
-| 4 | الصنف يخص العميل | `wms.outbound.check.skuClientMismatch` — «الصنف [كود] مسجَّل لعميل آخر» |
-| 5 | الصلاحية المتبقية كافية | `wms.outbound.check.shelfLifeTooShort` — «الدفعة [رقم] صلاحيتها [أيام] أقل من الحد [أيام]» |
-| 6 | الصنف غير موقوف | `wms.outbound.check.skuBlocked` — «الصنف موقوف: [السبب]» |
-| 7 | الموقع غير محجوب | `wms.outbound.check.locationBlocked` — «الموقع [كود] محجوب: [السبب]» |
-| 8 | العنوان مكتمل — إن كان للتوصيل | `wms.outbound.check.deliveryAddressIncomplete` — «عنوان التسليم ناقص: [الحقول]» |
-| 9 | سعر الخدمة موجود | `wms.outbound.check.noServicePrice` — «لا سعر لخدمة [كود] في عقد العميل» |
-| 10 | الكمية ضمن حد الطلب | **BLOCKED this slice** — no schema source (G-01 batched) |
-"الشرط 2 على مستوى المجموعة: حجز ائتماني على عميل متعدد الكيانات يرفض أمر صرف PST ومهمة توصيل PDL وطابور PCC بالسبب نفسه (S6)."
+| 3 | `WH_MGR` | `status='approved'` | `wms.outbound.approved` ← قائمة التقاط |
+| 4 | النظام + `WH_SUP` | **FEFO** للأصناف ذات الصلاحية · **FIFO** لغيرها · `stock_balance.qty_allocated` يرتفع · `order_lines.location_id` | `wms.outbound.allocated` |
+| 4ب | النظام | نجاح جزئي ⇒ `status='partially_allocated'` · السطر `order_lines.status='partial'` · لا يُقفل تلقائياً · ينبّه المشرف | `wms.outbound.partially_allocated` |
 
 ## Master decisions the workers copy (not re-derive)
-1. **`OUTBOUND_STATUS` verbatim from `chk_outbound_orders_status`** (14 values). Machine edges this part builds: `draft --RUN_CHECKS_PASS--> checks_pending`, `draft --RUN_CHECKS_CREDIT_FAIL--> credit_rejected`, `checks_pending --APPROVE--> approved`, `{draft, checks_pending, credit_rejected, approved} --CANCEL--> cancelled`. Every other status is a legal enum value with no producing edge in this part (part 2's job).
-2. **`CreateOutbound`**: `entityId`, `clientId` (must resolve, `deleted_at is null`, `status='active'` — plain SQL read, not a cross-module call), `warehouseId`, `contractId?`, `orderType` (`'standard'|'rush'|'transfer'|'return_to_client'`, application-level Zod enum — `outbound_orders.order_type` has no DB CHECK, known schema gap SCH-4, not fixed this slice), `requiredBy?`, `shipToName?/Phone?/Address?/Area?`, `clientRef?`. Status `draft`, `version` 1, `doc_no` via `platform.next_doc_no(entityId, 'OUT')` (series confirmed present in the seed, verified this session).
-3. **`RunOutboundChecks`** (any internal caller, transition-guard — `draft → checks_pending` or `draft → credit_rejected`): locks the order row, checks `expectedVersion`, runs conditions 1, 3-9 in order as pure pre-checks (first failure throws its typed error, order stays `draft`, nothing persisted); condition 2 checked separately and last — failure transitions to `credit_rejected` (persisted `credit_check_passed=false`, `credit_checked_at=now()`) instead of throwing; all pass → `checks_pending` (`credit_check_passed=true`, `credit_checked_at=now()`). Condition 10 skipped (code comment states why). Per-condition SQL (all inside wms's own repository, read-only, same transaction):
-   - **1 (contract active):** `sales.contracts` row for `(account_id=clientId, entity_id)` with `status='active'` and (`end_date is null or end_date >= current_date`) — `ContractNotActiveError`/`ContractExpiredError` (new typed errors in this use case, NOT imported from sales).
-   - **2 (no credit hold):** `sales.accounts.credit_hold`/`hold_reason` for `clientId` — `CreditHoldError` (new typed error here).
-   - **3 (sufficient stock):** `sum(wms.stock_balance.qty_available)` for `(client_id=clientId, sku_id)` across all locations in `warehouseId` `>= qty_ordered` for every line — message names SKU code, available sum, ordered qty, and the single location code if exactly one location holds any stock.
-   - **4 (SKU belongs to client):** every line's `sku.client_id = order.clientId` (INV-C3-3 pattern, reused from 2.9's own check).
-   - **5 (shelf life):** for a line whose SKU has `track_expiry=true`, every candidate lot (`stock_balance` row, `qty_available>0`) must have `expiry_date - current_date >= sku.min_remaining_life_issue_days`; null threshold = no requirement.
-   - **6 (SKU not blocked):** `sku.status='active'`; message names SKU code + actual status.
-   - **7 (location not blocked):** every location currently holding `qty_available>0` for this client/SKU that is `is_blocked=true`, UNLESS an alternative non-blocked location also has enough stock (fail only if EVERY stocked location is blocked).
-   - **8 (delivery address complete):** only when `orderType` implies delivery (any type other than `'transfer'`/`'return_to_client'`, recorded default) — all four `shipTo*` fields non-empty; message names missing fields.
-   - **9 (service price exists):** read-only SQL: does an active priced-list line (or price exception) exist for service `OF-01` (`catalog.services` lookup by code) at this `clientId`/`entityId` as-of `current_date`, per the same table chain `resolve-price/repository.ts` reads (`catalog.price_lists`/`price_list_lines`/`price_exceptions`, `sales.contracts.price_list_id`) — a `pending`/not-found result fails condition 9, quoting `OF-01`.
-   - **10:** skipped (Scope).
-4. **`ApproveOutbound`** (role WH_MGR, `checks_pending → approved`): no extra business check beyond role/version/machine gates.
-5. **`CancelOutbound`** (role WH_MGR, reason required, from `{draft, checks_pending, credit_rejected, approved}` → `cancelled` — the four statuses THIS part can reach; `IllegalTransitionError` from any other status, including `allocated`/`partially_allocated` which don't exist yet in this part). No stock to release at this part's statuses (nothing has been allocated).
-6. **Actor:** always `ctx.userId`; no `performedBy` field anywhere.
-7. **Idempotency:** every write handler (`CreateOutbound`, `RunOutboundChecks`, `ApproveOutbound`, `CancelOutbound`) builds `IdempotencyInput` via `packages/db/src/idempotency.ts`.
-8. **Errors → Problem statuses:** Zod → 400; `StaleVersionError`/`IdempotencyConflictError` → 409; every other typed domain error (all nine condition-failure errors, `CreditHoldError`, etc.) → 422; unknown → 500 logged via pino.
-9. **NO MIGRATION.** Corrected 2026-09-25 (pg-reviewer pre-migration FAIL round 1, finding 3): `wms.outbound_orders.version int not null default 1` already exists — `database/schema/13B-Schema-Reference-Consolidation.sql` lines 164-166 already carries it (`alter table ... add column if not exists ...` + comment), the same statement 0008/0013/0017/0019/0020 each cite as their own precedent. Migration number 0022 is returned to the Master unused (`tasks/backlog/MIGRATION-REQUEST-1.md` row 6 updated). `packages/contracts/wms/process-outbound.ts`'s header comment cites `13B-Schema-Reference-Consolidation.sql:164` as the version column's source, not a migration number.
-10. **Events this part publishes** (already in `packages/events/catalog.ts`, frozen, confirmed present): `wms.outbound.drafted`, `wms.outbound.checks_started`, `wms.outbound.credit_rejected`, `wms.outbound.approved`, `wms.outbound.cancelled` (verify presence; if any is missing, STOP and report — new catalog entries are a Master task, this use-case lock cannot write `packages/events/catalog.ts`).
+1. **Machine edges added this part**: `approved --ALLOCATE_FULL--> allocated`, `approved --ALLOCATE_PARTIAL--> partially_allocated`, `{allocated, partially_allocated} --CANCEL--> cancelled` (extends the existing `{draft, checks_pending, credit_rejected, approved} --CANCEL--> cancelled` set from part 1 — CancelOutbound now legal from six statuses total, not four). Every other status (`picking`…`delivered`) still has no producing edge — 2.12's job.
+2. **`Allocate`** (`approved → allocated` or `partially_allocated`): for each order line, select candidate `stock_balance` rows for `(client_id=order.clientId, sku_id=line.skuId)` in this warehouse with `qty_available > 0`, ordered: `picking_policy='FEFO'` → `expiry_date` ascending (nulls last); `'FIFO'` → `stock_balance.last_movement_at` ascending (oldest first, no separate "received_at" column exists, recorded default); `'LIFO'` → reverse of FIFO. **Allocation rule (Master ruling, verbatim)**: "a line is allocated from a single lot. FEFO/FIFO picks the first lot whose qty_available covers the line; if none covers it, the best single lot supplies min(available, ordered) → `partially_allocated` with the `insufficient_stock` variance constant; if no lot has stock the line stays unallocated; a line is never split across two lots." `for update` lock the consumed row; increment its `qty_allocated` by the amount taken; set `order_lines.location_id`/`batch_no` to that lot's values. Per-lot split is a G-01 item — SCR-WMS-OUT-01. Line status: `'complete'` if fully satisfied, `'partial'` if partially, stays `'open'` if nothing allocated. Order status: `'allocated'` if every line `'complete'`, else `'partially_allocated'`. One outbox event `wms.outbound.allocated` OR `wms.outbound.partially_allocated` (aggregate `wms.outbound_orders`) + one audit row, same correlation_id, same transaction. No `stock_movements` row (Scope). Version-lock + Idempotency-Key as every other command in this use case.
+3. **`GeneratePickList`** (read-only, no lock, `allocated`/`partially_allocated` only — else `IllegalTransitionError`): returns every allocated `order_lines` row (this order only) joined to its `location`'s `position_no`, sorted by `position_no` ascending (shortest-path proxy, Scope), ties broken by `line_no`. No Idempotency-Key (read-only, no state change).
+4. **`CancelOutbound` extension**: unchanged role/reason-required contract from part 1; the two new source statuses (`allocated`, `partially_allocated`) trigger a release step BEFORE the status flip — for every `order_lines` row on this order with a non-null `location_id`/`batch_no` (i.e. each line's own single consumed lot from `Allocate`, per the single-lot rule above — a line that stayed unallocated has neither `location_id` nor `batch_no` and is skipped), decrement that `stock_balance` row's `qty_allocated` back by the amount this line consumed (same transaction, `for update` locked) — same shape as `Allocate`'s own lot-locking, in reverse. One outbox event `wms.outbound.cancelled` (already exists) + one audit row.
+5. **Actor**: always `ctx.userId`. **Idempotency**: `Allocate` and `CancelOutbound` build `IdempotencyInput`; `GeneratePickList` does not (read-only).
+6. **Errors → Problem statuses**: unchanged part-1 convention — `StaleVersionError`/`IdempotencyConflictError` → 409, every other typed domain error → 422, unknown → 500.
+7. **`Quantity` decimal arithmetic everywhere a quantity is summed or compared** (part 1's own fix-round finding 7 — never a raw `Number()` on a `qty_*` string).
 
-## Scenario (Gherkin — pg-tester pastes into `process-outbound.feature`)
+## Scenario (Gherkin — pg-tester adds to the existing `process-outbound.feature`/`process-outbound.test.ts`, does not remove any of the 126 existing tests)
 ```gherkin
-Feature: Process outbound order — part 1: create, ten-condition check, approve, cancel (WBS 2.11)
-  As the warehouse system, create a draft outbound order, run nine of the ten pre-dispatch
-  conditions (the tenth is blocked, no schema source), let WH_MGR approve, and allow cancellation
-  before allocation exists
+  Scenario: FEFO allocation picks the earliest-expiring lot first
+    Given two lots of the same SKU with different expiry dates, picking_policy 'FEFO'
+    When Allocate is called on an approved order
+    Then the earlier-expiring lot is the single lot consumed (per the single-lot rule), order_lines
+      gets that lot's location/batch, status is "allocated"
 
-  Background:
-    Given entity PST, a qualified account "ACC-OUT" with an active priced contract, seeded
-      services including OF-01, a warehouse with locations, and a WH_MGR user
+  Scenario: FIFO allocation for a non-expiry SKU picks the oldest-moved lot first
 
-  Scenario: Create a draft order
-    When CreateOutbound is called for ACC-OUT
-    Then status is "draft", version 1, doc_no from the OUT series
+  Scenario: Partial allocation when stock runs out mid-line
+    Then status is "partially_allocated", the line is "partial", the order is not auto-closed
 
-  Scenario: All nine conditions pass — reaches checks_pending
-    Given every condition's prerequisite is satisfied
-    When RunOutboundChecks is called
-    Then status is "checks_pending", credit_check_passed is true
+  Scenario: Allocate is illegal before approval (still draft or checks_pending)
 
-  Scenario: Condition 1 fails — expired contract
-  Scenario: Condition 2 fails — credit hold moves the order to its own status, not a thrown error
-    Given ACC-OUT is on credit hold with reason "overdue"
-    When RunOutboundChecks is called
-    Then status becomes "credit_rejected", credit_check_passed is false, the reason is recorded
+  Scenario: GeneratePickList orders by position_no (shortest path), not line order
+  Scenario: GeneratePickList is illegal before allocation
 
-  Scenario: Condition 3 fails — insufficient stock
-  Scenario: Condition 4 fails — SKU belongs to a different client
-  Scenario: Condition 5 fails — remaining shelf life too short
-  Scenario: Condition 6 fails — SKU blocked
-  Scenario: Condition 7 fails — every candidate location is blocked
-  Scenario: Condition 8 fails — delivery order with an incomplete address
-  Scenario: Condition 9 fails — no price for OF-01 in the client's contract
-  Scenario: Condition 10 is never evaluated — documents the deliberate gap
+  Scenario: Cancelling an allocated order releases the reservation
+    When CancelOutbound is called on an allocated order
+    Then qty_allocated on each line's single consumed lot returns to its pre-allocation value,
+      status is "cancelled"
 
-  Scenario: WH_MGR approves a checks_pending order
-    When ApproveOutbound is called
-    Then status is "approved"
-
-  Scenario: Cancelling a draft/checks_pending/credit_rejected/approved order
-    When CancelOutbound is called with a reason
-    Then status is "cancelled"
-
-  Scenario: Cancel from an unreachable status is illegal (part 2's statuses don't exist yet)
-  Scenario: Stale version is rejected on every mutating command
-  Scenario: An unknown order is rejected
-  Scenario: Idempotent replay and conflicting replay
-  Scenario: RLS — a caller scoped to another entity cannot see or write the order
+  Scenario: Cancelling a partially_allocated order releases the lots consumed by lines that were
+    allocated (fully or partially), and leaves untouched any line that stayed unallocated (no lot consumed)
+  Scenario: Stale version is rejected on Allocate and the extended CancelOutbound
+  Scenario: Idempotent replay and conflicting replay on Allocate
+  Scenario: RLS — a caller scoped to another entity cannot see or allocate the order
 ```
 
-## Contract — `packages/contracts/wms/process-outbound.ts`
-One `<Command>InputSchema` per command (`CreateOutboundInputSchema`, `RunOutboundChecksInputSchema`, `ApproveOutboundInputSchema`, `CancelOutboundInputSchema`), `.meta({id})` each. (`AllocateInputSchema`/`GeneratePickListInputSchema` are part 2's — do not add them here.)
-
 ## Deliver
-- `packages/contracts/wms/process-outbound.ts` (four schemas only)
-- `modules/wms/domain/process-outbound/{errors.ts, machine.ts}`
-- `modules/wms/application/process-outbound/{ports.ts, index.ts, create-outbound.ts, run-outbound-checks.ts, approve-outbound.ts, cancel-outbound.ts}`
-- `modules/wms/infrastructure/process-outbound/{repository.ts, logger.ts}`
-- `modules/wms/api/process-outbound/{composition.ts, handlers.ts}`
-- `modules/wms/tests/process-outbound/{process-outbound.feature, process-outbound.test.ts, process-outbound-machine.unit.test.ts, handlers.test.ts}`
-- `modules/wms/index.ts` (barrel, extended) · NO migration file (see Master decision 9 — 0022 withdrawn, column already exists in 13B)
+- `modules/wms/domain/process-outbound/{machine.ts, errors.ts, invariants.ts}` (edited)
+- `modules/wms/application/process-outbound/{ports.ts, index.ts, allocate.ts, generate-pick-list.ts, cancel-outbound.ts}` (allocate.ts, generate-pick-list.ts new; rest edited)
+- `modules/wms/infrastructure/process-outbound/repository.ts` (edited)
+- `modules/wms/api/process-outbound/{handlers.ts, composition.ts}` (edited)
+- `packages/contracts/wms/process-outbound.ts` (edited — two new schemas)
+- `modules/wms/tests/process-outbound/*` (edited/extended) · `modules/wms/tests/receive-inbound/receive-inbound.test.ts` (item 0, edited)
 
-Migration number: **none** — 0022 was issued, then found redundant and returned unused (MIGRATION-REQUEST-1.md #6, pg-reviewer pre-migration FAIL round 1 finding 3).
-Stop-and-ask if: any table/column/rule not in 01 / 13 / 13B / 019 / 40 — file under G-01; never invent. (Condition 10 is the one live example this part already tracks.)
-
-## Fix round 1 (pg-reviewer FAIL, 16 findings — 2026-09-25)
-Findings 1,6(test asserts),9(test asserts),10,11(property tests),12,13,14,15 → pg-tester.
-Findings 4,5,6(repo/params),7,8,9(result shape),11(move logic to domain/process-outbound/invariants.ts) → pg-backend.
-Findings 2,3,16 → resolved by the lane session (this file + MIGRATION-REQUEST-1.md; guard G1 cleanup routed to pg-tester's fixture fix + Master/GM for the already-leaked shared-DB rows).
-The RLS scenario (point 10 of the review) stays RED, tracked as SCR-RLS-03/D-181 (migration 0025_M, Master-owned) — not a fix-round item, but the scenario must run green before the closing review per the reviewer's sequencing note (0025_M merges first, lane rebases).
+Migration number: none — every column this part needs (`qty_allocated`, `position_no`, `picking_policy`, `last_movement_at`) already exists.
+Stop-and-ask if: any table/column/rule not in 01/13/13B/019/40 — file under G-01; never invent.

@@ -31,20 +31,26 @@ const AUDIT_ACTOR_TYPE_USER = 'user';
 import { sql } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 
-import { OrderNotFoundError } from '../../domain/process-outbound/errors.js';
+import { OrderNotFoundError, StockBalanceRowMissingError } from '../../domain/process-outbound/errors.js';
 import type { OutboundOrderStatus } from '../../domain/process-outbound/machine.js';
 import type {
   AccountCreditRow,
+  AllocationLineRow,
+  CandidateLotRow,
   ClientQualificationRow,
+  ConsumedLineRow,
   ContractCheckRow,
+  IncrementLotAllocatedParams,
   OrderLineRow,
   OrderRow,
   OrderUpdateColumns,
   OutboundOrderRepository,
+  PickListLineRow,
   SkuCheckRow,
   StockAvailabilityRow,
   StockedLocationBlockRow,
   StockLotRow,
+  UpdateOrderLineAllocationParams,
 } from '../../application/process-outbound/ports.js';
 
 async function getOrderForUpdate(tx: NodePgDatabase, orderId: string): Promise<OrderRow> {
@@ -65,6 +71,48 @@ async function getOrderForUpdate(tx: NodePgDatabase, orderId: string): Promise<O
     select id, entity_id, client_id, contract_id, warehouse_id, order_type, status, version,
            ship_to_name, ship_to_phone, ship_to_address, ship_to_area
       from ${sql.raw(ORDER_TABLE)} where id = ${orderId}::uuid for update
+  `);
+  const row = result.rows[0];
+  if (!row) {
+    throw new OrderNotFoundError(`no ${ORDER_TABLE} row visible for id ${orderId} (Allowed: an existing order in the caller's entities)`);
+  }
+  return {
+    id: row.id,
+    entityId: row.entity_id,
+    clientId: row.client_id,
+    contractId: row.contract_id,
+    warehouseId: row.warehouse_id,
+    orderType: row.order_type,
+    status: row.status as OutboundOrderStatus,
+    version: row.version,
+    shipToName: row.ship_to_name,
+    shipToPhone: row.ship_to_phone,
+    shipToAddress: row.ship_to_address,
+    shipToArea: row.ship_to_area,
+  };
+}
+
+/** WBS 2.11 part 2 (Master decision 3): a plain, unlocked read — GeneratePickList takes no row
+ *  lock (read-only, no state change). Same row shape/errors as getOrderForUpdate, minus `for
+ *  update`. */
+async function getOrderForRead(tx: NodePgDatabase, orderId: string): Promise<OrderRow> {
+  const result = await tx.execute<{
+    id: string;
+    entity_id: string;
+    client_id: string;
+    contract_id: string | null;
+    warehouse_id: string;
+    order_type: string;
+    status: string;
+    version: number;
+    ship_to_name: string | null;
+    ship_to_phone: string | null;
+    ship_to_address: string | null;
+    ship_to_area: string | null;
+  }>(sql`
+    select id, entity_id, client_id, contract_id, warehouse_id, order_type, status, version,
+           ship_to_name, ship_to_phone, ship_to_address, ship_to_area
+      from ${sql.raw(ORDER_TABLE)} where id = ${orderId}::uuid
   `);
   const row = result.rows[0];
   if (!row) {
@@ -338,8 +386,166 @@ async function hasPriceException(
   return result.rows[0]?.exists ?? false;
 }
 
+// --- WBS 2.11 part 2: Allocate / GeneratePickList / extended CancelOutbound (brief Master
+// decisions 2/3/4) --------------------------------------------------------------------------------
+
+async function getOrderLinesForAllocation(tx: NodePgDatabase, orderId: string): Promise<readonly AllocationLineRow[]> {
+  const result = await tx.execute<{ id: string; line_no: number; sku_id: string; qty_ordered: string }>(sql`
+    select id, line_no, sku_id, qty_ordered::text as qty_ordered
+      from ${sql.raw(LINE_TABLE)}
+     where order_table = ${ORDER_TABLE} and order_id = ${orderId}::uuid
+     order by line_no
+  `);
+  return result.rows.map((row) => ({ lineId: row.id, lineNo: row.line_no, skuId: row.sku_id, qtyOrdered: row.qty_ordered }));
+}
+
+const SKU_PICKING_POLICY_DEFAULT = 'FIFO';
+
+async function getSkuPickingPolicy(tx: NodePgDatabase, skuId: string): Promise<string> {
+  const result = await tx.execute<{ picking_policy: string }>(sql`
+    select picking_policy from wms.skus where id = ${skuId}::uuid
+  `);
+  return result.rows[0]?.picking_policy ?? SKU_PICKING_POLICY_DEFAULT;
+}
+
+const PICKING_POLICY_FEFO = 'FEFO';
+const PICKING_POLICY_LIFO = 'LIFO';
+
+async function getCandidateLots(
+  tx: NodePgDatabase,
+  params: { readonly clientId: string; readonly skuId: string; readonly warehouseId: string; readonly pickingPolicy: string },
+): Promise<readonly CandidateLotRow[]> {
+  // brief Master decision 2: FEFO -> expiry_date ascending (nulls last); FIFO ->
+  // stock_balance.last_movement_at ascending; LIFO -> reverse of FIFO. Chosen in TS (not a
+  // parameterized dynamic ORDER BY) since `pickingPolicy` is an internal, already-validated SKU
+  // column value, never end-user input.
+  const orderBy =
+    params.pickingPolicy === PICKING_POLICY_FEFO
+      ? sql`sb.expiry_date asc nulls last, sb.location_id, sb.batch_no`
+      : params.pickingPolicy === PICKING_POLICY_LIFO
+        ? sql`sb.last_movement_at desc nulls last, sb.location_id, sb.batch_no`
+        : sql`sb.last_movement_at asc nulls last, sb.location_id, sb.batch_no`;
+  // Fix round 1 finding 2: `for update of sb` locks every candidate `wms.stock_balance` row for
+  // the rest of this transaction BEFORE any increment — the standard read-then-update-under-lock
+  // pattern (../manage-space/repository.ts's own `getBlockEntityId` precedent), here on a joined
+  // query so the lock is scoped to `sb` alone, never the joined `wms.locations` rows. A second,
+  // concurrent Allocate on the same lot(s) now blocks here until the first transaction commits,
+  // instead of both reading the same stale `qty_available` and both reserving it.
+  const result = await tx.execute<{ location_id: string; batch_no: string; qty_available: string }>(sql`
+    select sb.location_id, sb.batch_no, sb.qty_available::text as qty_available
+      from wms.stock_balance sb
+      join wms.locations l on l.id = sb.location_id
+     where sb.client_id = ${params.clientId}::uuid and sb.sku_id = ${params.skuId}::uuid
+       and l.warehouse_id = ${params.warehouseId}::uuid and sb.qty_available > 0
+     order by ${orderBy}
+     for update of sb
+  `);
+  return result.rows.map((row) => ({ locationId: row.location_id, batchNo: row.batch_no, qtyAvailable: row.qty_available }));
+}
+
+async function incrementLotAllocated(tx: NodePgDatabase, params: IncrementLotAllocatedParams): Promise<void> {
+  const result = await tx.execute(sql`
+    update wms.stock_balance
+       set qty_allocated = qty_allocated + ${params.qty}::numeric
+     where client_id = ${params.clientId}::uuid and sku_id = ${params.skuId}::uuid
+       and location_id = ${params.locationId}::uuid and batch_no = ${params.batchNo}
+  `);
+  // Fix round 1 finding 2: the targeted row was just locked by getCandidateLots' own `for update
+  // of sb` in this same transaction — zero rows matched here should never happen. Thrown rather
+  // than silently doing nothing, which would leave qty_allocated un-adjusted with no trace.
+  if ((result.rowCount ?? 0) === 0) {
+    throw new StockBalanceRowMissingError(
+      `Allocate: no stock balance found for client ${params.clientId} / sku ${params.skuId} / ` +
+        `location ${params.locationId} / batch "${params.batchNo}" (the lot selected for this line).`,
+      { clientId: params.clientId, skuId: params.skuId, locationId: params.locationId, batchNo: params.batchNo },
+    );
+  }
+}
+
+async function decrementLotAllocated(tx: NodePgDatabase, params: IncrementLotAllocatedParams): Promise<void> {
+  const result = await tx.execute(sql`
+    update wms.stock_balance
+       set qty_allocated = qty_allocated - ${params.qty}::numeric
+     where client_id = ${params.clientId}::uuid and sku_id = ${params.skuId}::uuid
+       and location_id = ${params.locationId}::uuid and batch_no = ${params.batchNo}
+  `);
+  // Same defensive rowCount check as incrementLotAllocated above (fix round 1 finding 2) — the
+  // CancelOutbound release step must not silently skip a lot it expected to find.
+  if ((result.rowCount ?? 0) === 0) {
+    throw new StockBalanceRowMissingError(
+      `CancelOutbound: no stock balance found for client ${params.clientId} / sku ${params.skuId} / ` +
+        `location ${params.locationId} / batch "${params.batchNo}" (the lot reserved on this line).`,
+      { clientId: params.clientId, skuId: params.skuId, locationId: params.locationId, batchNo: params.batchNo },
+    );
+  }
+}
+
+async function updateOrderLineAllocation(tx: NodePgDatabase, params: UpdateOrderLineAllocationParams): Promise<void> {
+  await tx.execute(sql`
+    update ${sql.raw(LINE_TABLE)}
+       set status = ${params.status}, location_id = ${params.locationId}::uuid,
+           batch_no = ${params.batchNo}, qty_actual = ${params.qtyActual}::numeric,
+           variance_reason = ${params.varianceReason}
+     where id = ${params.lineId}::uuid
+  `);
+}
+
+async function getAllocatedPickListLines(tx: NodePgDatabase, orderId: string): Promise<readonly PickListLineRow[]> {
+  const result = await tx.execute<{
+    line_id: string;
+    line_no: number;
+    sku_id: string;
+    qty_ordered: string;
+    location_id: string;
+    location_code: string;
+    position_no: number | null;
+    batch_no: string | null;
+  }>(sql`
+    select ol.id as line_id, ol.line_no, ol.sku_id, ol.qty_ordered::text as qty_ordered,
+           ol.location_id, l.code as location_code, l.position_no, ol.batch_no
+      from ${sql.raw(LINE_TABLE)} ol
+      join wms.locations l on l.id = ol.location_id
+     where ol.order_table = ${ORDER_TABLE} and ol.order_id = ${orderId}::uuid
+       and ol.location_id is not null
+     order by l.position_no asc nulls last, ol.line_no asc
+  `);
+  return result.rows.map((row) => ({
+    lineId: row.line_id,
+    lineNo: row.line_no,
+    skuId: row.sku_id,
+    qtyOrdered: row.qty_ordered,
+    locationId: row.location_id,
+    locationCode: row.location_code,
+    positionNo: row.position_no,
+    batchNo: row.batch_no,
+  }));
+}
+
+async function getConsumedLinesForRelease(tx: NodePgDatabase, orderId: string): Promise<readonly ConsumedLineRow[]> {
+  const result = await tx.execute<{
+    line_id: string;
+    sku_id: string;
+    location_id: string;
+    batch_no: string | null;
+    qty_actual: string | null;
+  }>(sql`
+    select id as line_id, sku_id, location_id, batch_no, qty_actual::text as qty_actual
+      from ${sql.raw(LINE_TABLE)}
+     where order_table = ${ORDER_TABLE} and order_id = ${orderId}::uuid
+       and location_id is not null
+  `);
+  return result.rows.map((row) => ({
+    lineId: row.line_id,
+    skuId: row.sku_id,
+    locationId: row.location_id,
+    batchNo: row.batch_no ?? '',
+    qtyActual: row.qty_actual ?? '0',
+  }));
+}
+
 export const outboundOrderRepository: OutboundOrderRepository = {
   getOrderForUpdate,
+  getOrderForRead,
   updateOrder,
   hasRole,
   writeAuditRow,
@@ -356,6 +562,14 @@ export const outboundOrderRepository: OutboundOrderRepository = {
   getServiceIdByCode,
   hasPricedLine,
   hasPriceException,
+  getOrderLinesForAllocation,
+  getSkuPickingPolicy,
+  getCandidateLots,
+  incrementLotAllocated,
+  updateOrderLineAllocation,
+  getAllocatedPickListLines,
+  getConsumedLinesForRelease,
+  decrementLotAllocated,
 };
 
 export { ORDER_SCHEMA, ORDER_TABLE_NAME, ORDER_TABLE, LINE_TABLE };

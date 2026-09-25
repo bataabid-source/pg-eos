@@ -29,11 +29,15 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { FixedClock, Quantity, SequentialIdGenerator } from '@pg-eos/domain-kit';
 import { IdempotencyConflictError, type IdempotencyInput } from '@pg-eos/db';
 
-// The modules under test — part 1's four commands only (Allocate/GeneratePickList are part 2).
+// The modules under test — part 1's four commands, plus part 2's own Allocate/GeneratePickList
+// (_slice-2.11.brief.md part 2, Master decisions 2/3) — RED until pg-backend adds both to the
+// application/process-outbound barrel.
 import {
+  allocate,
   approveOutbound,
   cancelOutbound,
   createOutbound,
+  generatePickList,
   runOutboundChecks,
 } from '../../application/process-outbound/index.js';
 import { createProcessOutboundDeps } from '../../api/process-outbound/composition.js';
@@ -96,6 +100,9 @@ const PRICE_LIST_PRICE = '25.000';
 const ORDER_TYPE_STANDARD = 'standard';
 const ORDER_TYPE_TRANSFER = 'transfer'; // Master decision 3, condition 8: no delivery address required.
 const CREDIT_HOLD_REASON = 'overdue';
+// _slice-2.11.brief.md, Allocation rule (Master ruling, verbatim): a partially-allocated line carries
+// "the `insufficient_stock` variance constant".
+const INSUFFICIENT_STOCK_VARIANCE_REASON = 'insufficient_stock';
 
 // pg-reviewer round 2 finding 1 (parallel-safety): per-RUN random actor ids, never a fixed UUID —
 // two concurrent runs of this same file (or of this file and ./handlers.test.ts) never share, delete
@@ -257,13 +264,24 @@ async function insertSku(
     readonly status?: string;
     readonly trackExpiry?: boolean;
     readonly minRemainingLifeIssueDays?: number | null;
+    // WBS 2.11 part 2, Master decision 2: wms.skus.picking_policy ('FIFO'|'FEFO'|'LIFO'), default
+    // 'FIFO' (schema default) — Allocate's own FEFO/FIFO ordering scenarios override this.
+    readonly pickingPolicy?: 'FIFO' | 'FEFO' | 'LIFO';
   } = {},
 ): Promise<string> {
   const code = `PROCOUT-${randomUUID()}`;
   const result: QueryResult<{ id: string }> = await pool.query(
-    `insert into wms.skus (client_id, code, name_ar, status, track_expiry, min_remaining_life_issue_days)
-     values ($1, $2, $3, $4, $5, $6) returning id`,
-    [clientId, code, `صنف اختبار صرف صادر ${code}`, opts.status ?? 'active', opts.trackExpiry ?? false, opts.minRemainingLifeIssueDays ?? null],
+    `insert into wms.skus (client_id, code, name_ar, status, track_expiry, min_remaining_life_issue_days, picking_policy)
+     values ($1, $2, $3, $4, $5, $6, $7) returning id`,
+    [
+      clientId,
+      code,
+      `صنف اختبار صرف صادر ${code}`,
+      opts.status ?? 'active',
+      opts.trackExpiry ?? false,
+      opts.minRemainingLifeIssueDays ?? null,
+      opts.pickingPolicy ?? 'FIFO',
+    ],
   );
   const row = result.rows[0];
   if (!row) throw new Error('fixture wms.skus insert returned no row');
@@ -305,15 +323,24 @@ async function insertZone(): Promise<string> {
   return row.id;
 }
 
-async function insertLocation(zoneId: string, opts: { readonly isBlocked?: boolean; readonly blockReason?: string } = {}): Promise<string> {
+async function insertLocation(
+  zoneId: string,
+  opts: {
+    readonly isBlocked?: boolean;
+    readonly blockReason?: string;
+    // WBS 2.11 part 2, Master decision 3 (GeneratePickList "shortest path"): wms.locations.position_no,
+    // the same proximity proxy 2.9/2.10's own SuggestLocation already uses.
+    readonly positionNo?: number | null;
+  } = {},
+): Promise<string> {
   for (let attempt = 0; attempt < FIXTURE_LOCATION_MAX_ATTEMPTS; attempt += 1) {
     const code = randomFixtureLocationCode();
     const result: QueryResult<{ id: string }> = await pool.query(
-      `insert into wms.locations (warehouse_id, zone_id, code, location_type, is_blocked, block_reason)
-       values ($1, $2, $3, 'pallet', $4, $5)
+      `insert into wms.locations (warehouse_id, zone_id, code, location_type, is_blocked, block_reason, position_no)
+       values ($1, $2, $3, 'pallet', $4, $5, $6)
        on conflict (warehouse_id, code) do nothing
        returning id`,
-      [warehouseId, zoneId, code, opts.isBlocked ?? false, opts.blockReason ?? null],
+      [warehouseId, zoneId, code, opts.isBlocked ?? false, opts.blockReason ?? null, opts.positionNo ?? null],
     );
     const row = result.rows[0];
     if (row) {
@@ -354,6 +381,12 @@ async function seedStockViaReceipt(params: {
   readonly qtyOnHand?: string;
   readonly batchNo?: string;
   readonly expiryDate?: string | null;
+  // WBS 2.11 part 2 (Master decision 2, FIFO): postMovement always sets last_movement_at = now()
+  // (the FIXED clock's own instant) — two lots seeded in the same test run land on the SAME
+  // instant, which can never exercise FIFO ordering. This override applies a direct follow-up
+  // UPDATE, same mechanism as `expiryDate` above (postMovement's own LedgerEntry carries no
+  // override field for either).
+  readonly lastMovementAt?: string;
 }): Promise<void> {
   const batchNo = params.batchNo ?? '';
   await postMovement(
@@ -380,6 +413,13 @@ async function seedStockViaReceipt(params: {
       `update wms.stock_balance set expiry_date = $1::date
         where client_id = $2 and sku_id = $3 and location_id = $4 and batch_no = $5`,
       [params.expiryDate, params.clientId, params.skuId, params.locationId, batchNo],
+    );
+  }
+  if (params.lastMovementAt !== undefined) {
+    await pool.query(
+      `update wms.stock_balance set last_movement_at = $1::timestamptz
+        where client_id = $2 and sku_id = $3 and location_id = $4 and batch_no = $5`,
+      [params.lastMovementAt, params.clientId, params.skuId, params.locationId, batchNo],
     );
   }
 }
@@ -446,6 +486,107 @@ async function createDraftOutboundOrderFixture(params: {
   }
 
   return { orderId: orderRow.id, version: orderRow.version, lineIds };
+}
+
+// --- WBS 2.11 part 2 fixture helpers (Allocate / GeneratePickList / extended CancelOutbound) -------
+
+/** Walks buildValidScenario's order through RunOutboundChecks + ApproveOutbound (the real
+ *  commands, not a shortcut) to 'approved' — Allocate's own precondition. */
+async function buildApprovedOrder(
+  overrides: Parameters<typeof buildValidScenario>[0] = {},
+): Promise<Awaited<ReturnType<typeof buildValidScenario>>> {
+  const built = await buildValidScenario(overrides);
+  const afterChecks = await runOutboundChecks(
+    roleCtx,
+    { orderId: built.orderId, expectedVersion: built.version, correlationId: nextCorrelationId() },
+    deps,
+  );
+  const afterApprove = await approveOutbound(
+    roleCtx,
+    { orderId: built.orderId, expectedVersion: afterChecks.version, correlationId: nextCorrelationId() },
+    deps,
+  );
+  return { ...built, version: afterApprove.version };
+}
+
+async function getOrderLine(lineId: string): Promise<{
+  status: string;
+  location_id: string | null;
+  batch_no: string | null;
+  qty_actual: string | null;
+  variance_reason: string | null;
+}> {
+  const result: QueryResult<{
+    status: string;
+    location_id: string | null;
+    batch_no: string | null;
+    qty_actual: string | null;
+    variance_reason: string | null;
+  }> = await pool.query(
+    `select status, location_id, batch_no, qty_actual::text as qty_actual, variance_reason
+       from wms.order_lines where id = $1`,
+    [lineId],
+  );
+  const row = result.rows[0];
+  if (!row) throw new Error(`no wms.order_lines row for id ${lineId}`);
+  return row;
+}
+
+async function getStockBalanceQtyAllocated(clientId: string, skuId: string, locationId: string, batchNo: string): Promise<string> {
+  const result: QueryResult<{ qty_allocated: string }> = await pool.query(
+    `select qty_allocated::text as qty_allocated from wms.stock_balance
+      where client_id = $1 and sku_id = $2 and location_id = $3 and batch_no = $4`,
+    [clientId, skuId, locationId, batchNo],
+  );
+  const row = result.rows[0];
+  if (!row) throw new Error(`no wms.stock_balance row for client ${clientId} sku ${skuId} location ${locationId} batch ${batchNo}`);
+  return row.qty_allocated;
+}
+
+async function stockMovementCountForClient(clientId: string): Promise<number> {
+  const result: QueryResult<{ n: string }> = await pool.query(
+    `select count(*)::text as n from wms.stock_movements where client_id = $1`,
+    [clientId],
+  );
+  return Number(result.rows[0]?.n ?? '0');
+}
+
+/** Round 3: every wms.stock_balance row of a client/SKU — proves Allocate never creates or touches
+ *  a balance row for a SKU that has no stock. */
+async function stockBalanceRowCountForSku(clientId: string, skuId: string): Promise<number> {
+  const result: QueryResult<{ n: string }> = await pool.query(
+    `select count(*)::text as n from wms.stock_balance where client_id = $1 and sku_id = $2`,
+    [clientId, skuId],
+  );
+  return Number(result.rows[0]?.n ?? '0');
+}
+
+/** Forces a draft fixture order straight to 'approved' (admin pool) — the same shortcut the
+ *  partial-allocation scenarios below already take to reach Allocate without RunOutboundChecks'
+ *  own condition-3 gate. Returns the order's version for Allocate's expectedVersion. */
+async function forceApprove(orderId: string): Promise<number> {
+  const approvedResult: QueryResult<{ version: number }> = await pool.query(
+    `update wms.outbound_orders set status = 'approved', credit_check_passed = true, credit_checked_at = now()
+      where id = $1 returning version`,
+    [orderId],
+  );
+  const row = approvedResult.rows[0];
+  if (!row) throw new Error(`no wms.outbound_orders row for id ${orderId}`);
+  return row.version;
+}
+
+/** Round 3 (doc 40 §A1 P7): the `new_value` of the ONE wms.outbound_orders audit row a command
+ *  wrote under `correlationId` — read on the admin pool, never deleted. */
+async function auditNewValueForCorrelation(correlationId: string): Promise<Record<string, unknown>> {
+  const result: QueryResult<{ new_value: Record<string, unknown> }> = await pool.query(
+    `select new_value from platform.audit_log
+      where correlation_id = $1 and schema_name = 'wms' and table_name = 'outbound_orders'`,
+    [correlationId],
+  );
+  expect(result.rows).toHaveLength(1);
+  const row = result.rows[0];
+  if (!row) throw new Error(`no platform.audit_log row for correlation ${correlationId}`);
+  return row.new_value;
 }
 
 async function getOrder(orderId: string): Promise<{
@@ -1354,14 +1495,18 @@ describe('Scenario: CancelOutbound without a reason is rejected', () => {
   });
 });
 
-describe("Scenario: Cancel from an unreachable status is illegal (part 2's statuses don't exist yet)", () => {
-  it('an order forced to "allocated" rejects CancelOutbound with IllegalTransitionError', async () => {
+describe("Scenario: Cancel from an unreachable status is illegal (picking onward — 2.12's job)", () => {
+  // WBS 2.11 part 2 (Master decision 1): `allocated`/`partially_allocated` are NOW legal
+  // CancelOutbound sources (see "Scenario: Cancelling an allocated order releases the reservation"
+  // below) — this scenario moves to `picking`, the first status past allocation that still has NO
+  // CANCEL edge (2.12's own job).
+  it('an order forced to "picking" rejects CancelOutbound with IllegalTransitionError', async () => {
     const { orderId, version } = await buildValidScenario();
-    // No Allocate command exists in this part (part 2's job) — the admin pool sets the status
+    // No PickList/StartPicking command exists yet (2.12's job) — the admin pool sets the status
     // directly to exercise the machine's own refusal, exactly as receive-inbound's own
     // "CancelInbound on an order still receiving" scenario forces status via SQL, not a shortcut
     // command that doesn't exist yet.
-    await pool.query(`update wms.outbound_orders set status = 'allocated' where id = $1`, [orderId]);
+    await pool.query(`update wms.outbound_orders set status = 'picking' where id = $1`, [orderId]);
     await expect(
       cancelOutbound(roleCtx, { orderId, expectedVersion: version, reason: 'test', correlationId: nextCorrelationId() }, deps),
     ).rejects.toBeInstanceOf(IllegalTransitionError);
@@ -1423,9 +1568,9 @@ describe('Scenario: A failed CancelOutbound writes ZERO outbox and ZERO audit ro
     );
   });
 
-  it('illegal source status (forced "allocated") -> IllegalTransitionError, nothing written', async () => {
+  it('illegal source status (forced "picking", part 2\'s allocated/partially_allocated are now legal) -> IllegalTransitionError, nothing written', async () => {
     const { orderId, version } = await buildValidScenario();
-    await pool.query(`update wms.outbound_orders set status = 'allocated' where id = $1`, [orderId]);
+    await pool.query(`update wms.outbound_orders set status = 'picking' where id = $1`, [orderId]);
     const correlationId = nextCorrelationId();
     await expectFailedAttemptRolledBack(orderId, correlationId, IllegalTransitionError, () =>
       cancelOutbound(roleCtx, { orderId, expectedVersion: version, reason: 'test', correlationId }, deps),
@@ -1542,5 +1687,857 @@ describe('Scenario: RLS — a caller scoped to another entity cannot see or writ
       approveOutbound(outsiderCtx, { orderId, expectedVersion: afterChecks.version, correlationId: nextCorrelationId() }, deps),
     ).rejects.toBeInstanceOf(OrderNotFoundError);
     expect((await getOrder(orderId)).status).toBe('checks_pending');
+  });
+});
+
+// ================================================================================================
+// WBS 2.11 part 2 — Allocate, GeneratePickList, CancelOutbound extension
+// (_slice-2.11.brief.md part 2, Master decisions 2-7). RED until pg-backend adds allocate.ts,
+// generate-pick-list.ts, and edits cancel-outbound.ts/machine.ts/invariants.ts/repository.ts.
+// Every scenario below EXTENDS this file — nothing above this marker is touched except the two
+// "unreachable status" tests updated above (allocated/partially_allocated are now legal Cancel
+// sources, so those tests moved to 'picking').
+// ================================================================================================
+
+// --- Scenario: FEFO allocation picks the earliest-expiring lot first ----------------------------
+
+describe('Scenario: FEFO allocation picks the earliest-expiring lot first (WBS 2.11 part 2)', () => {
+  async function runFefoScenario(lotQty: string): Promise<void> {
+    const clientId = await insertClient();
+    const priceListId = await insertPriceList();
+    const contractId = await insertContract(clientId, { priceListId });
+    const skuId = await insertSku(clientId, { trackExpiry: true, pickingPolicy: 'FEFO' });
+    const zoneId = await insertZone();
+    const nearExpiryLocationId = await insertLocation(zoneId);
+    const farExpiryLocationId = await insertLocation(zoneId);
+    const NEAR_EXPIRY_DATE = '2026-10-01';
+    const FAR_EXPIRY_DATE = '2027-01-01';
+    const nearBatch = `LOT-NEAR-${randomUUID().slice(0, 8)}`;
+    const farBatch = `LOT-FAR-${randomUUID().slice(0, 8)}`;
+    await seedStockViaReceipt({ clientId, skuId, locationId: nearExpiryLocationId, qtyOnHand: lotQty, batchNo: nearBatch, expiryDate: NEAR_EXPIRY_DATE });
+    await seedStockViaReceipt({ clientId, skuId, locationId: farExpiryLocationId, qtyOnHand: lotQty, batchNo: farBatch, expiryDate: FAR_EXPIRY_DATE });
+
+    const { orderId, version, lineIds } = await createDraftOutboundOrderFixture({
+      clientId,
+      contractId,
+      shipToName: 'x',
+      shipToPhone: 'x',
+      shipToAddress: 'x',
+      shipToArea: 'x',
+      lines: [{ skuId, qtyOrdered: lotQty }],
+    });
+    const afterChecks = await runOutboundChecks(roleCtx, { orderId, expectedVersion: version, correlationId: nextCorrelationId() }, deps);
+    const afterApprove = await approveOutbound(roleCtx, { orderId, expectedVersion: afterChecks.version, correlationId: nextCorrelationId() }, deps);
+
+    const result = await allocate(roleCtx, { orderId, expectedVersion: afterApprove.version, correlationId: nextCorrelationId() }, deps);
+    expect(result.status).toBe('allocated');
+
+    const line = await getOrderLine(lineIds[0] as string);
+    expect(line.status).toBe('complete');
+    expect(line.location_id).toBe(nearExpiryLocationId);
+    expect(line.batch_no).toBe(nearBatch);
+    expect(await getStockBalanceQtyAllocated(clientId, skuId, nearExpiryLocationId, nearBatch)).toBe(lotQty);
+    expect(await getStockBalanceQtyAllocated(clientId, skuId, farExpiryLocationId, farBatch)).toBe('0.000');
+  }
+
+  it('consumes the earlier-expiring lot first, sets order_lines location/batch, status "allocated"', async () => {
+    await runFefoScenario('6.000');
+  });
+
+  it('fractional (3-decimal) quantities allocate correctly with FEFO ordering (finding-7 regression guard)', async () => {
+    await runFefoScenario('6.375');
+  });
+});
+
+// --- Scenario: FIFO allocation for a non-expiry SKU picks the oldest-moved lot first ------------
+
+describe('Scenario: FIFO allocation for a non-expiry SKU picks the oldest-moved lot first (WBS 2.11 part 2)', () => {
+  it('consumes the lot with the earliest last_movement_at first', async () => {
+    const clientId = await insertClient();
+    const priceListId = await insertPriceList();
+    const contractId = await insertContract(clientId, { priceListId });
+    const skuId = await insertSku(clientId, { pickingPolicy: 'FIFO' });
+    const zoneId = await insertZone();
+    const olderLocationId = await insertLocation(zoneId);
+    const newerLocationId = await insertLocation(zoneId);
+    const olderBatch = `LOT-OLDER-${randomUUID().slice(0, 8)}`;
+    const newerBatch = `LOT-NEWER-${randomUUID().slice(0, 8)}`;
+    const LOT_QTY = '4.500';
+    await seedStockViaReceipt({
+      clientId,
+      skuId,
+      locationId: olderLocationId,
+      qtyOnHand: LOT_QTY,
+      batchNo: olderBatch,
+      lastMovementAt: '2026-01-01T00:00:00.000Z',
+    });
+    await seedStockViaReceipt({
+      clientId,
+      skuId,
+      locationId: newerLocationId,
+      qtyOnHand: LOT_QTY,
+      batchNo: newerBatch,
+      lastMovementAt: '2026-09-01T00:00:00.000Z',
+    });
+
+    const { orderId, version, lineIds } = await createDraftOutboundOrderFixture({
+      clientId,
+      contractId,
+      shipToName: 'x',
+      shipToPhone: 'x',
+      shipToAddress: 'x',
+      shipToArea: 'x',
+      lines: [{ skuId, qtyOrdered: LOT_QTY }],
+    });
+    const afterChecks = await runOutboundChecks(roleCtx, { orderId, expectedVersion: version, correlationId: nextCorrelationId() }, deps);
+    const afterApprove = await approveOutbound(roleCtx, { orderId, expectedVersion: afterChecks.version, correlationId: nextCorrelationId() }, deps);
+
+    const result = await allocate(roleCtx, { orderId, expectedVersion: afterApprove.version, correlationId: nextCorrelationId() }, deps);
+    expect(result.status).toBe('allocated');
+
+    const line = await getOrderLine(lineIds[0] as string);
+    expect(line.location_id).toBe(olderLocationId);
+    expect(line.batch_no).toBe(olderBatch);
+    expect(await getStockBalanceQtyAllocated(clientId, skuId, olderLocationId, olderBatch)).toBe(LOT_QTY);
+    expect(await getStockBalanceQtyAllocated(clientId, skuId, newerLocationId, newerBatch)).toBe('0.000');
+  });
+});
+
+// --- Scenario: partial allocation when stock runs out mid-line -----------------------------------
+
+describe('Scenario: Partial allocation when stock runs out mid-line (WBS 2.11 part 2)', () => {
+  async function runPartialScenario(available: string, ordered: string): Promise<{ orderId: string; lineId: string }> {
+    const clientId = await insertClient();
+    const priceListId = await insertPriceList();
+    const contractId = await insertContract(clientId, { priceListId });
+    const skuId = await insertSku(clientId);
+    const zoneId = await insertZone();
+    const locationId = await insertLocation(zoneId);
+    await seedStockViaReceipt({ clientId, skuId, locationId, qtyOnHand: available });
+
+    // condition 3 sums ALL locations including blocked (Master decision 3, part 1) — to reach
+    // Allocate with LESS than `ordered` truly available, this line must skip RunOutboundChecks'
+    // own condition 3 gate: the order is force-approved directly (admin pool), matching this file's
+    // own "Cancel from an unreachable status" pattern of forcing a status a command can't reach any
+    // other way — condition 3's own sufficiency check is part 1's job, already covered there;
+    // Allocate's OWN partial-allocation path (this scenario) is a distinct code path this part adds.
+    const { orderId, lineIds } = await createDraftOutboundOrderFixture({
+      clientId,
+      contractId,
+      shipToName: 'x',
+      shipToPhone: 'x',
+      shipToAddress: 'x',
+      shipToArea: 'x',
+      lines: [{ skuId, qtyOrdered: ordered }],
+    });
+    const approvedResult: QueryResult<{ version: number }> = await pool.query(
+      `update wms.outbound_orders set status = 'approved', credit_check_passed = true, credit_checked_at = now()
+        where id = $1 returning version`,
+      [orderId],
+    );
+    const version = (approvedResult.rows[0] as { version: number }).version;
+
+    const result = await allocate(roleCtx, { orderId, expectedVersion: version, correlationId: nextCorrelationId() }, deps);
+    expect(result.status).toBe('partially_allocated');
+
+    const line = await getOrderLine(lineIds[0] as string);
+    expect(line.status).toBe('partial');
+    expect((await getOrder(orderId)).status).toBe('partially_allocated');
+    return { orderId, lineId: lineIds[0] as string };
+  }
+
+  it('status is "partially_allocated", the line is "partial", the order is not auto-closed', async () => {
+    await runPartialScenario('3.000', '10.000');
+  });
+
+  it('fractional shortfall (3 decimals) still partially allocates correctly (finding-7 regression guard)', async () => {
+    await runPartialScenario('3.125', '10.375');
+  });
+});
+
+// --- Scenario: Allocate is illegal before approval ------------------------------------------------
+
+describe('Scenario: Allocate is illegal before approval (WBS 2.11 part 2)', () => {
+  it('rejects with IllegalTransitionError when the order is still "draft"', async () => {
+    const { orderId, version } = await buildValidScenario();
+    await expect(
+      allocate(roleCtx, { orderId, expectedVersion: version, correlationId: nextCorrelationId() }, deps),
+    ).rejects.toBeInstanceOf(IllegalTransitionError);
+    expect((await getOrder(orderId)).status).toBe('draft');
+  });
+
+  it('rejects with IllegalTransitionError when the order is "checks_pending"', async () => {
+    const { orderId, version } = await buildValidScenario();
+    const afterChecks = await runOutboundChecks(roleCtx, { orderId, expectedVersion: version, correlationId: nextCorrelationId() }, deps);
+    await expect(
+      allocate(roleCtx, { orderId, expectedVersion: afterChecks.version, correlationId: nextCorrelationId() }, deps),
+    ).rejects.toBeInstanceOf(IllegalTransitionError);
+    expect((await getOrder(orderId)).status).toBe('checks_pending');
+  });
+});
+
+// --- Scenario: Allocate version-lock + idempotency ------------------------------------------------
+
+describe('Scenario: Allocate version-lock + idempotency (WBS 2.11 part 2)', () => {
+  it('rejects a stale expectedVersion with StaleVersionError, nothing written', async () => {
+    const { orderId, version } = await buildApprovedOrder();
+    const correlationId = nextCorrelationId();
+    await expectFailedAttemptRolledBack(orderId, correlationId, StaleVersionError, () =>
+      allocate(roleCtx, { orderId, expectedVersion: version + 999, correlationId }, deps),
+    );
+  });
+
+  it('replays the stored result for the same key + same body', async () => {
+    const { orderId, version } = await buildApprovedOrder();
+    const idemKey = `allocate-replay-${randomUUID()}`;
+    const body = { orderId, expectedVersion: version, correlationId: nextCorrelationId() };
+    const first = await allocate(roleCtx, { ...body, idem: idemFor('allocate', idemKey, body) }, deps);
+    const second = await allocate(roleCtx, { ...body, idem: idemFor('allocate', idemKey, body) }, deps);
+    expect(second).toEqual(first);
+    expect((await getOrder(orderId)).status).toBe('allocated');
+  });
+
+  it('rejects a conflicting replay (same key, different body) with IdempotencyConflictError', async () => {
+    const { orderId, version } = await buildApprovedOrder();
+    const idemKey = `allocate-mismatch-${randomUUID()}`;
+    const firstBody = { orderId, expectedVersion: version, correlationId: nextCorrelationId() };
+    await allocate(roleCtx, { ...firstBody, idem: idemFor('allocate', idemKey, firstBody) }, deps);
+
+    const differentBody = { orderId, expectedVersion: version, correlationId: nextCorrelationId() };
+    await expect(
+      allocate(roleCtx, { ...differentBody, idem: idemFor('allocate', idemKey, differentBody) }, deps),
+    ).rejects.toBeInstanceOf(IdempotencyConflictError);
+  });
+});
+
+// --- Scenario: Allocate writes outbox + audit, never a stock_movements row -----------------------
+
+describe('Scenario: Allocate writes outbox + audit, never a stock_movements row (WBS 2.11 part 2, Master decision 2)', () => {
+  it('full allocation writes exactly one wms.outbound.allocated event + one audit row, no stock_movements row', async () => {
+    const { orderId, version, clientId } = await buildApprovedOrder();
+    const before = await stockMovementCountForClient(clientId);
+    const correlationId = nextCorrelationId();
+    const result = await allocate(roleCtx, { orderId, expectedVersion: version, correlationId }, deps);
+    expect(result.status).toBe('allocated');
+
+    expect(await outboxRowsForCorrelationAndType(correlationId, 'wms.outbound.allocated')).toHaveLength(1);
+    expect(await outboxRowsForCorrelationAndType(correlationId, 'wms.outbound.partially_allocated')).toHaveLength(0);
+    expect(await auditCountForCorrelation(correlationId)).toBe(1);
+    expect(await stockMovementCountForClient(clientId)).toBe(before);
+  });
+
+  it('partial allocation writes exactly one wms.outbound.partially_allocated event + one audit row, no stock_movements row', async () => {
+    const clientId = await insertClient();
+    const priceListId = await insertPriceList();
+    const contractId = await insertContract(clientId, { priceListId });
+    const skuId = await insertSku(clientId);
+    const zoneId = await insertZone();
+    const locationId = await insertLocation(zoneId);
+    await seedStockViaReceipt({ clientId, skuId, locationId, qtyOnHand: '2.000' });
+    const { orderId } = await createDraftOutboundOrderFixture({
+      clientId,
+      contractId,
+      shipToName: 'x',
+      shipToPhone: 'x',
+      shipToAddress: 'x',
+      shipToArea: 'x',
+      lines: [{ skuId, qtyOrdered: '9.000' }],
+    });
+    const approvedResult: QueryResult<{ version: number }> = await pool.query(
+      `update wms.outbound_orders set status = 'approved', credit_check_passed = true, credit_checked_at = now()
+        where id = $1 returning version`,
+      [orderId],
+    );
+    const version = (approvedResult.rows[0] as { version: number }).version;
+    const before = await stockMovementCountForClient(clientId);
+
+    const correlationId = nextCorrelationId();
+    const result = await allocate(roleCtx, { orderId, expectedVersion: version, correlationId }, deps);
+    expect(result.status).toBe('partially_allocated');
+
+    expect(await outboxRowsForCorrelationAndType(correlationId, 'wms.outbound.partially_allocated')).toHaveLength(1);
+    expect(await outboxRowsForCorrelationAndType(correlationId, 'wms.outbound.allocated')).toHaveLength(0);
+    expect(await auditCountForCorrelation(correlationId)).toBe(1);
+    expect(await stockMovementCountForClient(clientId)).toBe(before);
+  });
+});
+
+// --- Scenario: GeneratePickList orders by position_no, not line order ----------------------------
+
+describe('Scenario: GeneratePickList orders by position_no (shortest path), not line order (WBS 2.11 part 2)', () => {
+  it('returns lines ordered by location position_no ascending, ties broken by line_no', async () => {
+    const clientId = await insertClient();
+    const priceListId = await insertPriceList();
+    const contractId = await insertContract(clientId, { priceListId });
+    const skuA = await insertSku(clientId);
+    const skuB = await insertSku(clientId);
+    const skuC = await insertSku(clientId);
+    const zoneId = await insertZone();
+    // Far location gets line 1 (declared first), near location gets line 2 — GeneratePickList must
+    // still return the NEAR location's line first (position_no, not declaration/line order).
+    const farLocationId = await insertLocation(zoneId, { positionNo: 90 });
+    const nearLocationId = await insertLocation(zoneId, { positionNo: 5 });
+    // A second line sharing the near location's position_no (tie), with a HIGHER line_no — must
+    // sort AFTER the near location's own first line.
+    const tieLocationId = await insertLocation(zoneId, { positionNo: 5 });
+    const QTY = '2.000';
+    await seedStockViaReceipt({ clientId, skuId: skuA, locationId: farLocationId, qtyOnHand: QTY });
+    await seedStockViaReceipt({ clientId, skuId: skuB, locationId: nearLocationId, qtyOnHand: QTY });
+    await seedStockViaReceipt({ clientId, skuId: skuC, locationId: tieLocationId, qtyOnHand: QTY });
+
+    const { orderId, version, lineIds } = await createDraftOutboundOrderFixture({
+      clientId,
+      contractId,
+      shipToName: 'x',
+      shipToPhone: 'x',
+      shipToAddress: 'x',
+      shipToArea: 'x',
+      lines: [
+        { skuId: skuA, qtyOrdered: QTY }, // line 1, far (position_no 90)
+        { skuId: skuB, qtyOrdered: QTY }, // line 2, near (position_no 5)
+        { skuId: skuC, qtyOrdered: QTY }, // line 3, tie with line 2 (position_no 5)
+      ],
+    });
+    const afterChecks = await runOutboundChecks(roleCtx, { orderId, expectedVersion: version, correlationId: nextCorrelationId() }, deps);
+    const afterApprove = await approveOutbound(roleCtx, { orderId, expectedVersion: afterChecks.version, correlationId: nextCorrelationId() }, deps);
+    const afterAllocate = await allocate(roleCtx, { orderId, expectedVersion: afterApprove.version, correlationId: nextCorrelationId() }, deps);
+    expect(afterAllocate.status).toBe('allocated');
+
+    // Local shape mirroring the contract GeneratePickList's result is expected to carry (brief
+    // Master decision 3: "every allocated order_lines row ... joined to its location's position_no,
+    // sorted ascending, ties broken by line_no") — documents the expectation, keeps this callback
+    // explicitly typed (CLAUDE.md: no implicit `any`).
+    const pickList: { readonly lines: ReadonlyArray<{ readonly lineId: string }> } = await generatePickList(
+      roleCtx,
+      { orderId, correlationId: nextCorrelationId() },
+      deps,
+    );
+    expect(pickList.lines.map((l: { readonly lineId: string }) => l.lineId)).toEqual([lineIds[1], lineIds[2], lineIds[0]]);
+  });
+});
+
+describe('Scenario: GeneratePickList is illegal before allocation (WBS 2.11 part 2)', () => {
+  it('rejects with IllegalTransitionError when the order is "approved" but not yet allocated', async () => {
+    const { orderId } = await buildApprovedOrder();
+    await expect(
+      generatePickList(roleCtx, { orderId, correlationId: nextCorrelationId() }, deps),
+    ).rejects.toBeInstanceOf(IllegalTransitionError);
+  });
+});
+
+// --- Scenario: Cancelling an allocated / partially_allocated order releases the reservation -------
+
+describe('Scenario: Cancelling an allocated order releases the reservation (WBS 2.11 part 2, Master decision 4)', () => {
+  it('qty_allocated on the consumed lot returns to its pre-allocation value, status is "cancelled"', async () => {
+    const clientId = await insertClient();
+    const priceListId = await insertPriceList();
+    const contractId = await insertContract(clientId, { priceListId });
+    const skuId = await insertSku(clientId);
+    const zoneId = await insertZone();
+    const locationId = await insertLocation(zoneId);
+    const batchNo = '';
+    const LOT_QTY = '5.000';
+    await seedStockViaReceipt({ clientId, skuId, locationId, qtyOnHand: LOT_QTY });
+
+    const { orderId, version } = await createDraftOutboundOrderFixture({
+      clientId,
+      contractId,
+      shipToName: 'x',
+      shipToPhone: 'x',
+      shipToAddress: 'x',
+      shipToArea: 'x',
+      lines: [{ skuId, qtyOrdered: LOT_QTY }],
+    });
+    const afterChecks = await runOutboundChecks(roleCtx, { orderId, expectedVersion: version, correlationId: nextCorrelationId() }, deps);
+    const afterApprove = await approveOutbound(roleCtx, { orderId, expectedVersion: afterChecks.version, correlationId: nextCorrelationId() }, deps);
+    const afterAllocate = await allocate(roleCtx, { orderId, expectedVersion: afterApprove.version, correlationId: nextCorrelationId() }, deps);
+    expect(afterAllocate.status).toBe('allocated');
+    expect(await getStockBalanceQtyAllocated(clientId, skuId, locationId, batchNo)).toBe(LOT_QTY);
+
+    const result = await cancelOutbound(
+      roleCtx,
+      { orderId, expectedVersion: afterAllocate.version, reason: 'test release', correlationId: nextCorrelationId() },
+      deps,
+    );
+    expect(result.status).toBe('cancelled');
+    expect(await getStockBalanceQtyAllocated(clientId, skuId, locationId, batchNo)).toBe('0.000');
+  });
+});
+
+describe('Scenario: Cancelling a partially_allocated order releases only the lot it reserved', () => {
+  it('a SECOND lot of the SAME client/SKU at another location that Allocate never reached is unaffected; the consumed lot returns to its pre-allocation value', async () => {
+    const clientId = await insertClient();
+    const priceListId = await insertPriceList();
+    const contractId = await insertContract(clientId, { priceListId });
+    const skuId = await insertSku(clientId, { pickingPolicy: 'FIFO' });
+    const zoneId = await insertZone();
+    const consumedLocationId = await insertLocation(zoneId);
+    const untouchedLocationId = await insertLocation(zoneId);
+    const batchNo = '';
+    // The FIRST lot in FIFO order (earlier last_movement_at) — Allocate's single-lot rule (Master
+    // ruling, fix round 1 findings 1/3) always picks the first-in-policy-order lot when no lot
+    // fully covers the line, so this is the one that gets consumed.
+    await seedStockViaReceipt({
+      clientId,
+      skuId,
+      locationId: consumedLocationId,
+      qtyOnHand: '3.000',
+      lastMovementAt: '2026-01-01T00:00:00.000Z',
+    });
+    // A SECOND lot of the SAME client/SKU (fix round 1 finding 4: the previous fixture used a
+    // DIFFERENT client's SKU here, which Allocate could never reach anyway — the assertion could
+    // never meaningfully fail). This lot is ordered AFTER the consumed lot by FIFO and, on its own,
+    // is too small to be chosen as a "fully covering" lot ahead of it — a real, reachable candidate
+    // that the single-lot rule correctly leaves untouched.
+    await seedStockViaReceipt({
+      clientId,
+      skuId,
+      locationId: untouchedLocationId,
+      qtyOnHand: '2.000',
+      lastMovementAt: '2026-06-01T00:00:00.000Z',
+    });
+
+    const { orderId } = await createDraftOutboundOrderFixture({
+      clientId,
+      contractId,
+      shipToName: 'x',
+      shipToPhone: 'x',
+      shipToAddress: 'x',
+      shipToArea: 'x',
+      lines: [{ skuId, qtyOrdered: '9.000' }],
+    });
+    const approvedResult: QueryResult<{ version: number }> = await pool.query(
+      `update wms.outbound_orders set status = 'approved', credit_check_passed = true, credit_checked_at = now()
+        where id = $1 returning version`,
+      [orderId],
+    );
+    const approvedVersion = (approvedResult.rows[0] as { version: number }).version;
+    const afterAllocate = await allocate(roleCtx, { orderId, expectedVersion: approvedVersion, correlationId: nextCorrelationId() }, deps);
+    expect(afterAllocate.status).toBe('partially_allocated');
+    expect(await getStockBalanceQtyAllocated(clientId, skuId, consumedLocationId, batchNo)).toBe('3.000');
+    expect(await getStockBalanceQtyAllocated(clientId, skuId, untouchedLocationId, batchNo)).toBe('0.000');
+
+    const result = await cancelOutbound(
+      roleCtx,
+      { orderId, expectedVersion: afterAllocate.version, reason: 'test partial release', correlationId: nextCorrelationId() },
+      deps,
+    );
+    expect(result.status).toBe('cancelled');
+    expect(await getStockBalanceQtyAllocated(clientId, skuId, consumedLocationId, batchNo)).toBe('0.000');
+    expect(await getStockBalanceQtyAllocated(clientId, skuId, untouchedLocationId, batchNo)).toBe('0.000');
+  });
+});
+
+// --- Scenario: a line larger than any single lot — partial allocation from ONE lot (single-lot rule,
+// Master ruling; round 3 finding 4 maps it to its own Gherkin scenario) --------------------------------
+
+describe('Scenario: A line larger than any single lot is partially allocated from one lot, the remainder unallocated', () => {
+  it('order lands "partially_allocated", the line is "partial", qty_actual equals the first-in-FIFO-order lot\'s availability (not the sum) with variance reason "insufficient_stock", and the other lot is completely untouched', async () => {
+    const clientId = await insertClient();
+    const priceListId = await insertPriceList();
+    const contractId = await insertContract(clientId, { priceListId });
+    const skuId = await insertSku(clientId, { pickingPolicy: 'FIFO' });
+    const zoneId = await insertZone();
+    const largerLocationId = await insertLocation(zoneId); // first in FIFO order (the best single lot).
+    const smallerLocationId = await insertLocation(zoneId); // second in FIFO order, the smaller lot.
+    const batchNo = '';
+    const LARGER_QTY = '5.000';
+    const SMALLER_QTY = '4.000';
+    const ORDERED_QTY = '8.000'; // neither lot alone covers 8.000; the SUM (9.000) would.
+    await seedStockViaReceipt({
+      clientId,
+      skuId,
+      locationId: largerLocationId,
+      qtyOnHand: LARGER_QTY,
+      lastMovementAt: '2026-01-01T00:00:00.000Z',
+    });
+    await seedStockViaReceipt({
+      clientId,
+      skuId,
+      locationId: smallerLocationId,
+      qtyOnHand: SMALLER_QTY,
+      lastMovementAt: '2026-06-01T00:00:00.000Z',
+    });
+
+    const { orderId, lineIds } = await createDraftOutboundOrderFixture({
+      clientId,
+      contractId,
+      shipToName: 'x',
+      shipToPhone: 'x',
+      shipToAddress: 'x',
+      shipToArea: 'x',
+      lines: [{ skuId, qtyOrdered: ORDERED_QTY }],
+    });
+    const approvedResult: QueryResult<{ version: number }> = await pool.query(
+      `update wms.outbound_orders set status = 'approved', credit_check_passed = true, credit_checked_at = now()
+        where id = $1 returning version`,
+      [orderId],
+    );
+    const approvedVersion = (approvedResult.rows[0] as { version: number }).version;
+    const afterAllocate = await allocate(roleCtx, { orderId, expectedVersion: approvedVersion, correlationId: nextCorrelationId() }, deps);
+    expect(afterAllocate.status).toBe('partially_allocated');
+
+    const line = await getOrderLine(lineIds[0] as string);
+    expect(line.status).toBe('partial');
+    expect(line.location_id).toBe(largerLocationId);
+    expect(line.batch_no).toBe(batchNo);
+    expect(line.qty_actual).toBe(LARGER_QTY);
+    expect(line.variance_reason).toBe(INSUFFICIENT_STOCK_VARIANCE_REASON);
+    expect(await getStockBalanceQtyAllocated(clientId, skuId, largerLocationId, batchNo)).toBe(LARGER_QTY);
+    expect(await getStockBalanceQtyAllocated(clientId, skuId, smallerLocationId, batchNo)).toBe('0.000');
+
+    // --- cancelling this partially-allocated order releases exactly the one lot that was touched,
+    //     leaving the untouched lot exactly as it was.
+    const result = await cancelOutbound(
+      roleCtx,
+      { orderId, expectedVersion: afterAllocate.version, reason: 'test single-lot partial release', correlationId: nextCorrelationId() },
+      deps,
+    );
+    expect(result.status).toBe('cancelled');
+    expect(await getStockBalanceQtyAllocated(clientId, skuId, largerLocationId, batchNo)).toBe('0.000');
+    expect(await getStockBalanceQtyAllocated(clientId, skuId, smallerLocationId, batchNo)).toBe('0.000');
+  });
+});
+
+// --- Scenario: two concurrent Allocate calls drawing from the SAME single lot never double-book it
+// (WBS 2.11 part 2, `for update` lock on getCandidateLots — Promise.allSettled pattern from
+// receive-inbound.test.ts's own concurrent-ApproveInbound scenario) ---------------------------------
+
+describe('Scenario: Two concurrent Allocates on the same lot never over-reserve it', () => {
+  it('exactly one order fully allocates the lot; the other ends up "partially_allocated" with its line still "open" — the lot is never oversold, qty_allocated never exceeds its own availability', async () => {
+    const clientId = await insertClient();
+    const priceListId = await insertPriceList();
+    const contractId = await insertContract(clientId, { priceListId });
+    const skuId = await insertSku(clientId);
+    const zoneId = await insertZone();
+    const locationId = await insertLocation(zoneId);
+    const batchNo = '';
+    const LOT_QTY = '5.000'; // only ONE order's worth of stock exists.
+    await seedStockViaReceipt({ clientId, skuId, locationId, qtyOnHand: LOT_QTY });
+
+    async function buildForceApprovedOrder(): Promise<{ orderId: string; lineId: string; version: number }> {
+      const { orderId, lineIds } = await createDraftOutboundOrderFixture({
+        clientId,
+        contractId,
+        shipToName: 'x',
+        shipToPhone: 'x',
+        shipToAddress: 'x',
+        shipToArea: 'x',
+        lines: [{ skuId, qtyOrdered: LOT_QTY }],
+      });
+      const approvedResult: QueryResult<{ version: number }> = await pool.query(
+        `update wms.outbound_orders set status = 'approved', credit_check_passed = true, credit_checked_at = now()
+          where id = $1 returning version`,
+        [orderId],
+      );
+      const version = (approvedResult.rows[0] as { version: number }).version;
+      return { orderId, lineId: lineIds[0] as string, version };
+    }
+
+    const orderA = await buildForceApprovedOrder();
+    const orderB = await buildForceApprovedOrder();
+
+    const [resultA, resultB] = await Promise.allSettled([
+      allocate(roleCtx, { orderId: orderA.orderId, expectedVersion: orderA.version, correlationId: nextCorrelationId() }, deps),
+      allocate(roleCtx, { orderId: orderB.orderId, expectedVersion: orderB.version, correlationId: nextCorrelationId() }, deps),
+    ]);
+
+    // The `for update` lock on wms.stock_balance serialises the two calls — neither can ever
+    // observe the other's still-in-flight consumption, so both calls always FULFIL (they are
+    // different orders, no version conflict), but the second one to acquire the lock sees
+    // qty_available already at 0 and allocates nothing.
+    expect(resultA.status).toBe('fulfilled');
+    expect(resultB.status).toBe('fulfilled');
+    const statusA = (resultA as PromiseFulfilledResult<Awaited<ReturnType<typeof allocate>>>).value.status;
+    const statusB = (resultB as PromiseFulfilledResult<Awaited<ReturnType<typeof allocate>>>).value.status;
+    expect([statusA, statusB].sort()).toEqual(['allocated', 'partially_allocated']);
+
+    const emptyLine = statusA === 'partially_allocated' ? orderA.lineId : orderB.lineId;
+    expect((await getOrderLine(emptyLine)).status).toBe('open');
+
+    // Exactly the lot's own availability was consumed in total — never negative, never double-sold.
+    const allocatedTotal = await getStockBalanceQtyAllocated(clientId, skuId, locationId, batchNo);
+    expect(allocatedTotal).toBe(LOT_QTY);
+  });
+});
+
+// --- Round 3 finding 4: the single-lot allocation rule, one test per Gherkin scenario ---------------
+// _slice-2.11.brief.md, Allocation rule (Master ruling, verbatim): "a line is allocated from a single
+// lot. FEFO/FIFO picks the first lot whose qty_available covers the line; if none covers it, the best
+// single lot supplies min(available, ordered) → `partially_allocated` with the `insufficient_stock`
+// variance constant; if no lot has stock the line stays unallocated; a line is never split across two
+// lots." Every fixture below owns its client/SKU/zone/M9 locations (insertLocation), tracked in the
+// fixture arrays afterAll unwinds.
+
+// Fixture expiry dates, both after CLOCK_DATE — the same pair the FEFO scenario above uses.
+const SINGLE_LOT_NEAR_EXPIRY_DATE = '2026-10-01';
+const SINGLE_LOT_FAR_EXPIRY_DATE = '2027-01-01';
+
+interface TwoLotFefoFixture {
+  readonly clientId: string;
+  readonly contractId: string;
+  readonly skuId: string;
+  readonly nearLocationId: string;
+  readonly nearBatch: string;
+  readonly farLocationId: string;
+  readonly farBatch: string;
+}
+
+/** A FEFO SKU with two lots at two of this run's own M9 locations: `near` expires first. */
+async function buildTwoLotFefoStock(nearQty: string, farQty: string): Promise<TwoLotFefoFixture> {
+  const clientId = await insertClient();
+  const priceListId = await insertPriceList();
+  const contractId = await insertContract(clientId, { priceListId });
+  const skuId = await insertSku(clientId, { trackExpiry: true, pickingPolicy: 'FEFO' });
+  const zoneId = await insertZone();
+  const nearLocationId = await insertLocation(zoneId);
+  const farLocationId = await insertLocation(zoneId);
+  const nearBatch = `LOT-NEAR-${randomUUID().slice(0, 8)}`;
+  const farBatch = `LOT-FAR-${randomUUID().slice(0, 8)}`;
+  await seedStockViaReceipt({ clientId, skuId, locationId: nearLocationId, qtyOnHand: nearQty, batchNo: nearBatch, expiryDate: SINGLE_LOT_NEAR_EXPIRY_DATE });
+  await seedStockViaReceipt({ clientId, skuId, locationId: farLocationId, qtyOnHand: farQty, batchNo: farBatch, expiryDate: SINGLE_LOT_FAR_EXPIRY_DATE });
+  return { clientId, contractId, skuId, nearLocationId, nearBatch, farLocationId, farBatch };
+}
+
+/** One force-approved order with ONE line of `skuId` for `qtyOrdered`. */
+async function buildForceApprovedSingleLineOrder(
+  clientId: string,
+  contractId: string,
+  skuId: string,
+  qtyOrdered: string,
+): Promise<{ orderId: string; lineId: string; version: number }> {
+  const { orderId, lineIds } = await createDraftOutboundOrderFixture({
+    clientId,
+    contractId,
+    shipToName: 'x',
+    shipToPhone: 'x',
+    shipToAddress: 'x',
+    shipToArea: 'x',
+    lines: [{ skuId, qtyOrdered }],
+  });
+  const version = await forceApprove(orderId);
+  return { orderId, lineId: lineIds[0] as string, version };
+}
+
+describe('Scenario: A line fully covered by the FEFO-first lot is reserved from that lot alone', () => {
+  it('only the earlier-expiring lot\'s qty_allocated grows, by exactly the ordered quantity; the line is "complete" with that lot\'s location/batch and no variance reason; status "allocated"; the later-expiring lot is untouched', async () => {
+    const LOT_QTY = '8.000';
+    const ORDERED_QTY = '5.250'; // < each lot alone.
+    const stock = await buildTwoLotFefoStock(LOT_QTY, LOT_QTY);
+    const order = await buildForceApprovedSingleLineOrder(stock.clientId, stock.contractId, stock.skuId, ORDERED_QTY);
+
+    const result = await allocate(roleCtx, { orderId: order.orderId, expectedVersion: order.version, correlationId: nextCorrelationId() }, deps);
+    expect(result.status).toBe('allocated');
+
+    const line = await getOrderLine(order.lineId);
+    expect(line.status).toBe('complete');
+    expect(line.location_id).toBe(stock.nearLocationId);
+    expect(line.batch_no).toBe(stock.nearBatch);
+    expect(line.qty_actual).toBe(ORDERED_QTY);
+    expect(line.variance_reason).toBeNull();
+    expect(await getStockBalanceQtyAllocated(stock.clientId, stock.skuId, stock.nearLocationId, stock.nearBatch)).toBe(ORDERED_QTY);
+    expect(await getStockBalanceQtyAllocated(stock.clientId, stock.skuId, stock.farLocationId, stock.farBatch)).toBe('0.000');
+  });
+});
+
+describe('Scenario: When the FEFO-first lot cannot cover the line, the first lot that covers it whole is reserved', () => {
+  it('the later-expiring lot alone is reserved for the whole line, the line is "complete", and the earlier-expiring lot is untouched (never split across two lots)', async () => {
+    const NEAR_QTY = '2.000'; // too small for the line on its own.
+    const FAR_QTY = '6.000'; // covers the line on its own.
+    const ORDERED_QTY = '5.000';
+    const stock = await buildTwoLotFefoStock(NEAR_QTY, FAR_QTY);
+    const order = await buildForceApprovedSingleLineOrder(stock.clientId, stock.contractId, stock.skuId, ORDERED_QTY);
+
+    const result = await allocate(roleCtx, { orderId: order.orderId, expectedVersion: order.version, correlationId: nextCorrelationId() }, deps);
+    expect(result.status).toBe('allocated');
+
+    const line = await getOrderLine(order.lineId);
+    expect(line.status).toBe('complete');
+    expect(line.location_id).toBe(stock.farLocationId);
+    expect(line.batch_no).toBe(stock.farBatch);
+    expect(line.qty_actual).toBe(ORDERED_QTY);
+    expect(await getStockBalanceQtyAllocated(stock.clientId, stock.skuId, stock.farLocationId, stock.farBatch)).toBe(ORDERED_QTY);
+    expect(await getStockBalanceQtyAllocated(stock.clientId, stock.skuId, stock.nearLocationId, stock.nearBatch)).toBe('0.000');
+  });
+});
+
+describe('Scenario: A line with no stock stays unallocated', () => {
+  it('status is "partially_allocated", the line stays "open" with no location and no batch, and no stock_balance row is created or changed', async () => {
+    const clientId = await insertClient();
+    const priceListId = await insertPriceList();
+    const contractId = await insertContract(clientId, { priceListId });
+    const skuId = await insertSku(clientId); // never stocked.
+    const order = await buildForceApprovedSingleLineOrder(clientId, contractId, skuId, '4.000');
+
+    const result = await allocate(roleCtx, { orderId: order.orderId, expectedVersion: order.version, correlationId: nextCorrelationId() }, deps);
+    expect(result.status).toBe('partially_allocated');
+    expect((await getOrder(order.orderId)).status).toBe('partially_allocated');
+
+    const line = await getOrderLine(order.lineId);
+    expect(line.status).toBe('open');
+    expect(line.location_id).toBeNull();
+    expect(line.batch_no).toBeNull();
+    expect(await stockBalanceRowCountForSku(clientId, skuId)).toBe(0);
+  });
+});
+
+describe("Scenario: Allocate's audit row records the reserved lot per line", () => {
+  it('exactly one audit row; its lines carry the reserved lot\'s locationId/batchNo for the covered line and null/null for the unallocated line', async () => {
+    const clientId = await insertClient();
+    const priceListId = await insertPriceList();
+    const contractId = await insertContract(clientId, { priceListId });
+    const stockedSkuId = await insertSku(clientId);
+    const emptySkuId = await insertSku(clientId); // never stocked.
+    const zoneId = await insertZone();
+    const locationId = await insertLocation(zoneId);
+    const batchNo = `LOT-AUD-${randomUUID().slice(0, 8)}`;
+    const STOCKED_QTY = '3.000';
+    await seedStockViaReceipt({ clientId, skuId: stockedSkuId, locationId, qtyOnHand: STOCKED_QTY, batchNo });
+
+    const { orderId, lineIds } = await createDraftOutboundOrderFixture({
+      clientId,
+      contractId,
+      shipToName: 'x',
+      shipToPhone: 'x',
+      shipToAddress: 'x',
+      shipToArea: 'x',
+      lines: [
+        { skuId: stockedSkuId, qtyOrdered: STOCKED_QTY },
+        { skuId: emptySkuId, qtyOrdered: '2.000' },
+      ],
+    });
+    const [coveredLineId, emptyLineId] = lineIds as [string, string];
+    const version = await forceApprove(orderId);
+
+    const correlationId = nextCorrelationId();
+    const result = await allocate(roleCtx, { orderId, expectedVersion: version, correlationId }, deps);
+    expect(result.status).toBe('partially_allocated');
+
+    const newValue = await auditNewValueForCorrelation(correlationId);
+    const lines = newValue['lines'];
+    expect(lines).toHaveLength(2);
+    expect(lines).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ lineId: coveredLineId, locationId, batchNo }),
+        expect.objectContaining({ lineId: emptyLineId, locationId: null, batchNo: null }),
+      ]),
+    );
+  });
+});
+
+describe('Scenario: Cancel after allocation releases exactly the one reserved lot', () => {
+  it('the shared lot\'s qty_allocated drops by exactly the cancelled order\'s reserved quantity, the other order\'s reservation on it stays, and the second lot is untouched', async () => {
+    const LOT_QTY = '10.000';
+    const ORDER_A_QTY = '4.000';
+    const ORDER_B_QTY = '3.000'; // A + B still fit inside the FEFO-first lot alone.
+    const stock = await buildTwoLotFefoStock(LOT_QTY, LOT_QTY);
+    const orderA = await buildForceApprovedSingleLineOrder(stock.clientId, stock.contractId, stock.skuId, ORDER_A_QTY);
+    const orderB = await buildForceApprovedSingleLineOrder(stock.clientId, stock.contractId, stock.skuId, ORDER_B_QTY);
+
+    const allocatedA = await allocate(roleCtx, { orderId: orderA.orderId, expectedVersion: orderA.version, correlationId: nextCorrelationId() }, deps);
+    const allocatedB = await allocate(roleCtx, { orderId: orderB.orderId, expectedVersion: orderB.version, correlationId: nextCorrelationId() }, deps);
+    expect(allocatedA.status).toBe('allocated');
+    expect(allocatedB.status).toBe('allocated');
+    expect(await getStockBalanceQtyAllocated(stock.clientId, stock.skuId, stock.nearLocationId, stock.nearBatch)).toBe(
+      Quantity.of(ORDER_A_QTY).add(Quantity.of(ORDER_B_QTY)).toString(),
+    );
+    expect(await getStockBalanceQtyAllocated(stock.clientId, stock.skuId, stock.farLocationId, stock.farBatch)).toBe('0.000');
+
+    const cancelled = await cancelOutbound(
+      roleCtx,
+      { orderId: orderA.orderId, expectedVersion: allocatedA.version, reason: 'test exact single-lot release', correlationId: nextCorrelationId() },
+      deps,
+    );
+    expect(cancelled.status).toBe('cancelled');
+    expect(await getStockBalanceQtyAllocated(stock.clientId, stock.skuId, stock.nearLocationId, stock.nearBatch)).toBe(ORDER_B_QTY);
+    expect(await getStockBalanceQtyAllocated(stock.clientId, stock.skuId, stock.farLocationId, stock.farBatch)).toBe('0.000');
+
+    const lineB = await getOrderLine(orderB.lineId);
+    expect(lineB.status).toBe('complete');
+    expect(lineB.location_id).toBe(stock.nearLocationId);
+    expect((await getOrder(orderB.orderId)).status).toBe('allocated');
+  });
+});
+
+describe("Scenario: CancelOutbound's audit row records exactly the released lot per line", () => {
+  it('from "allocated": released is exactly [{ lineId, locationId, batchNo, qty }] of the one lot the line reserved', async () => {
+    const built = await buildApprovedOrder();
+    const afterAllocate = await allocate(roleCtx, { orderId: built.orderId, expectedVersion: built.version, correlationId: nextCorrelationId() }, deps);
+    expect(afterAllocate.status).toBe('allocated');
+    const line = await getOrderLine(built.lineIds[0] as string);
+
+    const correlationId = nextCorrelationId();
+    await cancelOutbound(roleCtx, { orderId: built.orderId, expectedVersion: afterAllocate.version, reason: 'test audit release', correlationId }, deps);
+
+    const newValue = await auditNewValueForCorrelation(correlationId);
+    expect(newValue['released']).toEqual([
+      { lineId: built.lineIds[0], locationId: built.locationId, batchNo: line.batch_no, qty: QTY_ORDERED },
+    ]);
+  });
+
+  it('from "approved" (nothing allocated yet): released is empty', async () => {
+    const built = await buildApprovedOrder();
+    const correlationId = nextCorrelationId();
+    await cancelOutbound(roleCtx, { orderId: built.orderId, expectedVersion: built.version, reason: 'test audit no release', correlationId }, deps);
+
+    const newValue = await auditNewValueForCorrelation(correlationId);
+    expect(newValue['released']).toEqual([]);
+  });
+
+  it('from "partially_allocated" whose only line was never allocated (no stock): released is empty', async () => {
+    const clientId = await insertClient();
+    const priceListId = await insertPriceList();
+    const contractId = await insertContract(clientId, { priceListId });
+    const skuId = await insertSku(clientId); // never stocked.
+    const order = await buildForceApprovedSingleLineOrder(clientId, contractId, skuId, '4.000');
+    const afterAllocate = await allocate(roleCtx, { orderId: order.orderId, expectedVersion: order.version, correlationId: nextCorrelationId() }, deps);
+    expect(afterAllocate.status).toBe('partially_allocated');
+
+    const correlationId = nextCorrelationId();
+    await cancelOutbound(roleCtx, { orderId: order.orderId, expectedVersion: afterAllocate.version, reason: 'test audit nothing reserved', correlationId }, deps);
+
+    const newValue = await auditNewValueForCorrelation(correlationId);
+    expect(newValue['released']).toEqual([]);
+  });
+});
+
+describe('Scenario: Stale version is rejected on the extended CancelOutbound (allocated source, WBS 2.11 part 2)', () => {
+  it('rejects a stale expectedVersion with StaleVersionError, nothing released, nothing written', async () => {
+    const { orderId, version } = await buildApprovedOrder();
+    const afterAllocate = await allocate(roleCtx, { orderId, expectedVersion: version, correlationId: nextCorrelationId() }, deps);
+    expect(afterAllocate.status).toBe('allocated');
+    const correlationId = nextCorrelationId();
+    await expectFailedAttemptRolledBack(orderId, correlationId, StaleVersionError, () =>
+      cancelOutbound(roleCtx, { orderId, expectedVersion: afterAllocate.version + 999, reason: 'test', correlationId }, deps),
+    );
+  });
+});
+
+// --- Scenario: RLS on Allocate ---------------------------------------------------------------------
+
+describe('Scenario: RLS — a caller scoped to another entity cannot see or allocate the order (WBS 2.11 part 2)', () => {
+  it('READ isolation: an approved order is invisible to a pgeos_app query scoped to the outsider', async () => {
+    const { orderId } = await buildApprovedOrder();
+
+    const client = await appPool.connect();
+    try {
+      await client.query('begin');
+      await client.query(`select set_config('app.user_id', $1, true)`, [OUTSIDER_ACTOR_UUID]);
+      await client.query(`select set_config('app.client_id', $1, true)`, [null]);
+      await client.query(`select set_config('app.is_internal', 'true', true)`);
+      const visible: QueryResult<{ id: string }> = await client.query(`select id from wms.outbound_orders where id = $1`, [orderId]);
+      expect(visible.rows).toHaveLength(0);
+      await client.query('rollback');
+    } finally {
+      client.release();
+    }
+  });
+
+  it('WRITE isolation: Allocate as the outsider fails with OrderNotFoundError, status unchanged', async () => {
+    const { orderId, version } = await buildApprovedOrder();
+    await expect(
+      allocate(outsiderCtx, { orderId, expectedVersion: version, correlationId: nextCorrelationId() }, deps),
+    ).rejects.toBeInstanceOf(OrderNotFoundError);
+    expect((await getOrder(orderId)).status).toBe('approved');
   });
 });

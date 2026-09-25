@@ -11,6 +11,8 @@
 //   - every other typed domain error (IllegalTransitionError, RoleRequiredError,
 //     OrderNotFoundError, MissingActorError, ClientNotQualifiedError, CancelReasonRequiredError,
 //     and all nine condition-check errors) -> 422;
+//   - every OutboundCheckError subclass (the nine condition-check errors and
+//     StockBalanceRowMissingError) -> 422 carrying its i18nKey + params in the Problem body;
 //   - an UNKNOWN error -> 500, generic detail, logged server-side via deps.logger.error;
 //   - `title` is always `error.name` (or `'ZodError'` / `'InternalServerError'`).
 
@@ -20,17 +22,21 @@ import { ZodError } from 'zod';
 
 import { IDEMPOTENCY_KEY_HEADER_NAME, PROBLEM_STATUS, type Problem } from '@pg-eos/contracts';
 import {
+  AllocateInputSchema,
   ApproveOutboundInputSchema,
   CancelOutboundInputSchema,
   CreateOutboundInputSchema,
+  GeneratePickListInputSchema,
   RunOutboundChecksInputSchema,
 } from '@pg-eos/contracts/wms/process-outbound';
 import { IdempotencyConflictError, type IdempotencyInput, type WithContextCtx } from '@pg-eos/db';
 
 import {
+  allocate,
   approveOutbound,
   cancelOutbound,
   createOutbound,
+  generatePickList,
   runOutboundChecks,
   type ProcessOutboundDeps,
 } from '../../application/process-outbound/index.js';
@@ -49,6 +55,7 @@ const IDEMPOTENCY_ENDPOINT_CREATE = 'wms.process-outbound.create-outbound';
 const IDEMPOTENCY_ENDPOINT_RUN_CHECKS = 'wms.process-outbound.run-outbound-checks';
 const IDEMPOTENCY_ENDPOINT_APPROVE = 'wms.process-outbound.approve-outbound';
 const IDEMPOTENCY_ENDPOINT_CANCEL = 'wms.process-outbound.cancel-outbound';
+const IDEMPOTENCY_ENDPOINT_ALLOCATE = 'wms.process-outbound.allocate';
 
 export interface ApiHeaders {
   readonly [headerName: string]: string | undefined;
@@ -176,6 +183,7 @@ function errorToApiFailure(error: unknown): ApiFailure {
   if (error instanceof StaleVersionError || error instanceof IdempotencyConflictError) {
     return problem(PROBLEM_STATUS.CONFLICT, error.name, error.message);
   }
+  // OutboundCheckError covers the nine condition-check errors AND StockBalanceRowMissingError.
   if (error instanceof OutboundCheckError) {
     return problem(PROBLEM_STATUS.UNPROCESSABLE_ENTITY, error.name, error.message, {
       i18nKey: error.i18nKey,
@@ -277,6 +285,41 @@ export async function handleCancelOutbound(
       const input = CancelOutboundInputSchema.parse(request.body);
       const idem = buildIdem(request, IDEMPOTENCY_ENDPOINT_CANCEL, input);
       return cancelOutbound(request.ctx, { ...input, idem }, deps);
+    },
+    deps,
+    extractCorrelationId(request.body),
+  );
+}
+
+// --- WBS 2.11 part 2: Allocate / GeneratePickList (brief Master decisions 2/3/5) ------------------
+
+export async function handleAllocate(
+  request: ApiRequest<unknown>,
+  deps: ProcessOutboundDeps,
+): Promise<ApiResult<Awaited<ReturnType<typeof allocate>>>> {
+  const missingKey = requireIdempotencyKey(request.headers);
+  if (missingKey) return missingKey;
+  return handle(
+    () => {
+      const input = AllocateInputSchema.parse(request.body);
+      const idem = buildIdem(request, IDEMPOTENCY_ENDPOINT_ALLOCATE, input);
+      return allocate(request.ctx, { ...input, idem }, deps);
+    },
+    deps,
+    extractCorrelationId(request.body),
+  );
+}
+
+/** Read-only — no Idempotency-Key requirement (brief Master decision 5: GeneratePickList never
+ *  writes, so it needs no optimistic lock / idempotency replay). */
+export async function handleGeneratePickList(
+  request: ApiRequest<unknown>,
+  deps: ProcessOutboundDeps,
+): Promise<ApiResult<Awaited<ReturnType<typeof generatePickList>>>> {
+  return handle(
+    () => {
+      const input = GeneratePickListInputSchema.parse(request.body);
+      return generatePickList(request.ctx, input, deps);
     },
     deps,
     extractCorrelationId(request.body),
