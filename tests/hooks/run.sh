@@ -145,6 +145,22 @@ expect "psql select on pgeos allowed"             0 "$(dbg "" "psql -d pgeos -At
 expect "psql delete on throwaway db allowed"      0 "$(dbg "" "psql -d pgeos_scr03 -c 'delete from a'")"
 expect "psql drop database throwaway allowed"     0 "$(dbg pgeos "psql -d postgres -c 'drop database if exists pgeos_scr03'")"
 expect "-d flag beats env PGDATABASE"             0 "$(dbg pgeos "psql -d pgeos_tmp -c 'delete from a'")"
+# D-188: the Master (session project dir basename = pg-eos-gov) may clean the shared DB with the marker.
+dbgm() { # dbgm <project-dir basename> <command>  → exit code (session PGDATABASE unset)
+  local proj="$TMP/$1" cmd="$2"; mkdir -p "$proj"
+  local payload; payload="$(printf '%s' "$cmd" | "$PYBIN" -c 'import json,sys; print(json.dumps({"tool_name":"Bash","tool_input":{"command":sys.stdin.read()}}))')"
+  printf '%s' "$payload" | CLAUDE_PROJECT_DIR="$proj" env -u PGDATABASE bash "$REPO/.claude/hooks/db-guard.sh" 2>/dev/null; echo $?
+}
+MARK='-- MASTER-CLEANUP (D-188)'
+expect "D-188: Master worktree + marker allowed"       0 "$(dbgm pg-eos-gov "psql -d pgeos -c \"$MARK
+delete from sales.accounts where code like 'x%'\"")"
+expect "D-188: Master worktree without marker refused" 2 "$(dbgm pg-eos-gov "psql -d pgeos -c 'delete from a'")"
+expect "D-188: lane worktree with marker refused"      2 "$(dbgm pg-eos-lane-1 "psql -d pgeos -c \"$MARK
+delete from a\"")"
+expect "D-188: look-alike worktree name refused"       2 "$(dbgm pg-eos-gov-x "psql -d pgeos -c \"$MARK
+delete from a\"")"
+expect "D-188: wrong marker text refused"              2 "$(dbgm pg-eos-gov "psql -d pgeos -c \"-- MASTER-CLEANUP D-188
+delete from a\"")"
 expect "no db anywhere: allowed"                  0 "$(dbg "" "psql -c 'delete from a'")"
 expect "non-psql command with drop allowed"       0 "$(dbg pgeos "git branch -D drop-me && echo 'drop '")"
 expect "apply.sh invocation allowed"              0 "$(dbg pgeos "bash database/schema/apply.sh --recreate")"
