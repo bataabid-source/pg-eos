@@ -4,6 +4,13 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — A1: ADR-0004 general ledger as single source of truth (D-187) — DONE (2026-09-25)
+
+- GM (verbatim, via the session «تقييم المشروع والمسار القادم») "قرار GM على استبيان A0: اعتماد كل التوصيات (a–l) وكل الافتراضات (OD-01…OD-18). ابدأ A1 (ADR-0004)." → D-187; `docs/adr/ADR-0004-general-ledger-single-source.md` Accepted. D1 = A0 §6's ten bullets verbatim; D2 = the twelve A0 §4 resolutions; D3 = OD-01…OD-18 as standing defaults (nothing seeded); consequences (doc 38 v4.6 rows, 29 G-01 candidates, package amendments, the `journal_lines` cascade / missing REVOKE fixed in 4.20) listed, not applied — they land in A2.
+- pg-reviewer (opus) round 1: FAIL (9 findings — 3 medium: an untraceable "not run as a new project" phrase, a widened BOOTSTRAP-v4 l.299 quote, an incomplete References line; 6 low: two dropped A0 clauses, two dropped cross-references, one table-count imprecision, this missing CHANGELOG entry, a mis-named "frozen area"). All 9 fixed; round 2 PASS (0 open).
+- PROJECT_STATE: lane 2's next line now lists the accounting core 4.1a → 4.1b → 4.19 → 4.20 after 4.2.
+- Model: claude-opus-5-5 (Master, ADR class) · Delegated: pg-reviewer (opus, ~60k) · Master ~20k.
+
 ## 2.11 part 2 — Outbound allocation: Allocate (single-lot FEFO/FIFO), GeneratePickList, cancel-release — DONE-in-part (2026-09-25)
 
 - Delivered: `Allocate` (single-lot FEFO/FIFO — the first lot whose `qty_available` covers the line is consumed; if none covers it, the best single lot supplies `min(available, ordered)` and the order goes `partially_allocated` with the `insufficient_stock` variance constant, remainder stays unallocated, a line is never split across two lots; candidate `stock_balance` rows are locked with `select … for update` before the increment), `GeneratePickList` (read-only, `position_no` shortest-path proxy), and `CancelOutbound` extended to release exactly the reserved lot on an `allocated`/`partially_allocated` order before the status flips to `cancelled`. Events `wms.outbound.allocated` / `wms.outbound.partially_allocated` (catalog entry `2a9883a`). Audit rows carry the per-line `locationId`/`batchNo` on allocate and the `released` list on cancel. `StockBalanceRowMissingError` maps to 422 with i18nKey `wms.outbound.allocation.stockBalanceRowMissing`.
