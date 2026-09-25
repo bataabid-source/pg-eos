@@ -4,6 +4,10 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — D-182: GM answers Q1/Q2 — lane 3 continues Phase 3, 0.19 backlog checker fixed — DONE (2026-09-25)
+
+- GM (verbatim) "Q1: أ · Q2: أ". Q1: D-180 item 3 confirmed — lane 3 takes 3.15 → 3.19 after 3.14 part 2. Q2: `scripts/gen-backlog.py --check` no longer asserts "0.19 must be DEFERRED" (stale since D-172); 0.19 row filled with its real hash `cd00c51`; header string aligned in the script and `tasks/MASTER_BACKLOG.md`; `--check` green (136 rows). Model: claude-fable-5-1 (Master) · Delegated: none · ~5k tokens.
+
 ## X — SCR-RLS-03 / D-181: internal sessions could read every entity's rows on seven client-scoped tables — migration 0025 — DONE (2026-09-25)
 
 - Reported by lane 1 (WBS 2.11 part 1, RED scenario "entity-A internal user cannot read entity B's outbound order"); reproduced by the Master on the live DB (an internal user with `allowed_entities() = '{}'` read probe rows of `wms.outbound_orders` and `wms.occupancy_snapshots`); systemic — seven tables, not one (`wms.outbound_orders`, `wms.work_orders`, `wms.occupancy_snapshots`, `wms.space_allocations`, `wms.space_reservations`, `tms.delivery_tasks`, `billing.invoices`). `sales.accounts` and `wms.skus` excluded by design (D-177 / "نمط 3").
