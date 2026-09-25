@@ -30,7 +30,8 @@ Not a lock table — deliberately not a `|`-prefixed markdown table, since
 `.claude/hooks/lane-guard.sh` parses every such line in this file as a
 module-lock row (see Rules below). One line per migration, newest first:
 
-- `0022` — next free number.
+- `0023` — next free number.
+- `0022_1_outbound-orders-version.sql` — lane 1, task 2.11 (`wms.outbound_orders.version` + classification row; shape of 0008/0013/0017/0019/0020), issued by the Master 2026-09-25 on MIGRATION-REQUEST-1 (#6, pre-migration review to be run by the lane before the file is written).
 - `0021_1_accounts-internal-write-policy.sql` — lane 1, task 1.8, G-01 schema-change (SCR-SALES-ACCT-01, `docs/notes/`): `sales.accounts` had no internal write RLS policy at all (silent no-op UPDATE for every role). Fix APPROVED by the Master: `internal_only for all using (platform.is_internal())`, additive, matches every other non-entity-scoped internal table's policy. Issued 2026-09-25; RLS-touching, pre-migration review mandatory, run by the lane before the file is written. Applied 2026-09-25 (pg-reviewer pre-migration APPROVED WITH CHANGES; number issued by the Master).
 - `0020_1_accounts-version.sql` — lane 1, task 1.8 (`sales.accounts.version` + classification row; shape of 0008/0013/0017/0019), issued by the Master 2026-09-25 on MIGRATION-REQUEST-1 (#4, pre-migration review to be run by the lane before the file is written). Applied 2026-09-25 (pg-reviewer pre-migration APPROVED WITH CHANGES; number issued by the Master, MIGRATION-REQUEST-1.md).
 - `0019_1_contracts-version.sql` — lane 1, task 1.7 (`sales.contracts.version` + classification row; shape of 0008/0013/0017), issued by the Master 2026-09-25 on MIGRATION-REQUEST-1 (pre-migration review to be run by the lane before the file is written, same as 1.2/1.6).
