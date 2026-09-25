@@ -19,7 +19,7 @@ Maintained by pg-scribe only, in the same commit as the task it records.
 | lane | task | module lock | worktree | status |
 |---|---|---|---|---|
 | 1 | 2.11 outbound order (ten-condition check, FEFO, pick sequence) → 2.12 | `wms/process-outbound` | `../pg-eos-lane-1` | **runnable now** — 2.10 DONE @ `95a33b8`; migration 0022 issued; scaffold + RED tests on disk |
-| 2 | 2.9b DONE @ `<this commit>` — module locks `wms/schedule-inbound`/`wms/receive-inbound` released; next lane-2 task pending Master assignment | — | `../pg-eos-lane-2` | idle, awaiting next lock |
+| 2 | 4.2 `billing.billable_events` (doc-38 Lane M → lane 2, D-186) — 2.9b DONE @ `716bf8e` | `billing` | `../pg-eos-lane-2` | brief + RED only until wave 1 (P1, P7) merges; budget 8 files / 1,000 lines, two review rounds (D-186) |
 | 3 | 3.14 part 2 — `services/agent` pull loop — then 3.17 → 3.1 (D-184) | `imile` | `../pg-eos-lane-3` | own worktree (hook-enforced); part 1 done-in-part on main |
 
 ## Last 5 DONE (newest first)
@@ -47,7 +47,7 @@ Maintained by pg-scribe only, in the same commit as the task it records.
 ## Next 3 tasks (D-176 phase order + D-180 session plan)
 
 1. Lane 1: 2.11 (outbound order) in `wms/process-outbound` — then 2.12
-2. Lane 2: idle, next task pending Master assignment (2.9b DONE, module locks released)
+2. Lane 2: 4.2 (`billing.billable_events`) in `billing` — brief + RED now, build after wave 1 (D-186)
 3. Lane 3: 3.14 part 2 (`services/agent` pull loop) — then 3.17 → 3.1 (D-184)
 
 ## Notes
