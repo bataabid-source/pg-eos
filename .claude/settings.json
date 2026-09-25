@@ -55,6 +55,15 @@
             "command": ".claude/hooks/lane-guard.sh"
           }
         ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/db-guard.sh"
+          }
+        ]
       }
     ],
     "Stop": [

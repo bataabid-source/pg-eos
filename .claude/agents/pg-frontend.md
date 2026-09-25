@@ -42,3 +42,4 @@ AGENT CONSTRAINTS (doc 40 §A5) — copied into every agent file
 - No Math.random() / new Date() in domain/ — inject generator and clock.
 - Never fabricate a number, name, or decision. Numbers come from the system.
 - Never soften a rule ("unless the pattern is clear" is a violation). Rules are copied verbatim.
+- لا DELETE / DROP / TRUNCATE على القاعدة المشتركة خارج afterAll لحزمة الاختبار نفسها؛ صف غريب يُبلَّغ للـ Master ولا يُمسّ. (D-183 — enforced by `.claude/hooks/db-guard.sh` on every Bash `psql`)
