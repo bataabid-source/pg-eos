@@ -4,6 +4,15 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## 0.20 — Runbook v1: eight procedures, closes Phase 0 (D-176) — DONE (2026-09-25)
+
+- GM directive D-176 ("finish the phases in sequence") applied: Phase 0 closes now (0.20 was its only remaining row; every other Phase-0 row was already DONE or DEFERRED-POST-PILOT), and the standing task-order rule becomes phase-sequential going forward, superseding the phase-jumping exceptions of D-172/D-173/D-175 for any *new* row a lane picks up (in-flight multi-part slices — lane 2's 5.5a part 2, lane 3's 3.14 part 2 — are finished first, not aborted).
+- `docs/RUNBOOK.md` v1 drafted and sealed directly by the Master (doc 38 row 0.20's own text — "drafted as soon as 0.6a is green, sealed only after 0.8 restore succeeds" — governs over its literal `Depends on: 0.6b` cell, itself DEFERRED-POST-PILOT). Eight procedures, each previously exercised at least once: (1) local environment bootstrap, (2) schema/migration deploy to the shared dev database, (3) CI pipeline / merge to `main` (the `ghx()` wrapper, the `-rN` rebase pattern), (4) backup, (5) restore/rollback (migrations are forward-only, so restore-from-backup IS rollback), (6) guards re-verification on an isolated throwaway database, (7) secrets and credentials at pilot Tier 0 (nothing to rotate — local trust auth, GCM-held GitHub token), (8) placeholder for the Oracle-tier procedures, DEFERRED-POST-PILOT (0.3/0.5/0.6b/0.7, D-129) — not invented ahead of that work. Plus an incident quick-reference section (stale git locks, duplicate sessions, the `pnpm-lock.yaml` rebase-corruption class from PR #23, the jsdom/Node-engines class from PR #21).
+- Lane reassignment (D-176): lane 1's next task becomes Phase 1 in dependency order (1.4 → 1.6 → 1.7 → 1.8 → 1.9 → 1.11, all doc-38 lane 1) instead of 3.1 (Phase 3); lane 2 finishes 5.5a part 2 in flight, then takes Phase 2's two ready lane-2 rows (2.13, 2.14) instead of a new Phase-5/6 row; lane 3 finishes 3.14 part 2 in flight, then has no ready Phase-1/2 row under its own lane column and idles pending the GM's answer to a batched, non-blocking question (accept the idle, or let lane 3 take a later-phase row out of strict order). `tasks/LANE_LOCKS.md` / `docs/PROJECT_STATE.md` updated; `tasks/MASTER_BACKLOG.md` regenerated (0.20 → DONE).
+- Model: claude-sonnet-5 (Master session) · Delegated: none (governance + direct docs authorship — a runbook needs no pg-tester/pg-reviewer machinery, it documents already-exercised procedures) · Review: n/a (no code/schema change) · tokens ≈ 15k (estimate)
+
+---
+
 ## 0.19 — Admin app shell: navigation, Decision Inbox, empty-state, design system (2026-09-24)
 
 - First-ever frontend slice: `apps/` was empty repo-wide; no golden UI precedent existed, so this brief was written with golden-slice-level care and its file tree is the template future `apps/*` slices replicate (not a formal golden-slice designation — doc 38 names only 2.9 as that).
