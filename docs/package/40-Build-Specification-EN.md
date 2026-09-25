@@ -50,7 +50,7 @@
 
 ### A3. Money, Time, Identity
 
-- Money: `numeric(14,3)`, currency KWD, three decimals. Never `float`.
+- Money: `numeric(14,3)`, ~~currency KWD~~ **SUPERSEDED — ADR-0004 D2 (k) (D-187):** functional currency KWD; transaction currency recorded, three decimals. Never `float`.
 - Time: `timestamptz`, stored UTC, displayed `Asia/Kuwait`. Domain code receives a `Clock` port; never `new Date()`.
 - Keys: `uuid` (`gen_random_uuid()`). Human numbers via `platform.next_doc_no(entity, doc_type)` — atomic, never reused, **assigned to invoices only at approval**.
 - Soft delete (`deleted_at`) only where stated; **no hard delete in stock or financial schemas**.
@@ -315,7 +315,7 @@ All three are decided by the system from `contact_log` and GPS — never by opin
 - INV-C6-3 `sum(debit) = sum(credit)` per entry (guard test).
 - INV-C6-4 Auto-approval when `total ≤ thresholds.invoice.auto_approve_max`; else CFO decision item.
 - INV-C6-5 Receipts recorded by PRO; bank reconciliation by CFO; invoice approval by CFO — SoD enforced via `sod_rules`.
-- INV-C6-6 Group P&L eliminates rows where `is_intercompany = true`.
+- INV-C6-6 ~~Group P&L eliminates rows where `is_intercompany = true`.~~ **SUPERSEDED — ADR-0004 D2 (g) (D-187):** a separate consolidation book with explicit elimination entries; `is_intercompany` stays the selector.
 
 **Month-end (3 automated steps under P11):** (1) close events + occupancy + SLA penalties; (2) price, aggregate, draft, auto-approve under threshold, route the rest to Decision Inbox; (3) post journals, allocate costs, compute profitability, emit Lost Revenue report.
 

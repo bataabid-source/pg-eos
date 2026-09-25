@@ -1,8 +1,8 @@
 # MASTER_BACKLOG — PG-EOS
 
-**Generated from `docs/package/38-WBS.md` (Document 38 v4.0) by `scripts/gen-backlog.py` — IDs, type markers, dependencies, lanes, owners and acceptance criteria are copied verbatim; doc 38 governs on any difference.**
+**Generated from `docs/package/38-WBS.md` (Document 38 v4.6) by `scripts/gen-backlog.py` — IDs, type markers, dependencies, lanes, owners and acceptance criteria are copied verbatim; doc 38 governs on any difference.**
 
-**137 doc-38 tasks (v4.5: 0.6 → 0.6a / 0.6b, D-124; 5.3b added, D-167; 5.5a + 5.18 added, D-173; 2.9b added, D-185) + X.1–X.6 CONTINUOUS + DEFERRED-POST-PILOT rows (D-127)** — eight phases (0–7) + cross-cutting X-tasks; X.1–X.6 are counted inside the 137 (0.19 was DEFERRED until D-172; DONE @ `cd00c51`, D-182). No 18-phase roadmap, no separate database phase (BOOTSTRAP-v4 §8).
+**154 doc-38 tasks (v4.6: 0.6 → 0.6a / 0.6b, D-124; 5.3b added, D-167; 5.5a + 5.18 added, D-173; 2.9b added, D-185; 4.1a, 4.1b, 4.19–4.24, 4.7a, 4.12a, 4.12b, 3.6a, 5.6a, 5.11a, 5.11b, 7.13, 7.14 added, D-187 / ADR-0004) + X.1–X.6 CONTINUOUS + DEFERRED-POST-PILOT rows (D-127)** — eight phases (0–7) + cross-cutting X-tasks; X.1–X.6 are counted inside the 154 (0.19 was DEFERRED until D-172; DONE @ `cd00c51`, D-182). No 18-phase roadmap, no separate database phase (BOOTSTRAP-v4 §8).
 
 | Status | Meaning |
 |---|---|
@@ -11,7 +11,7 @@
 | `ACTIVE` | claimed in `tasks/LANE_LOCKS.md`; one per lane |
 | `WAITING_GM` | 🧑 / 🔧 lane-A task: runbook or script produced, waits for the GM; never blocks a code lane |
 | `BLOCKED` | REAL BLOCKER recorded in `docs/PROJECT_STATE.md` |
-| `SUPERSEDED — <id>` | row kept for the 137 count; replaced by the named ADR / GM decision, never picked (D-125) |
+| `SUPERSEDED — <id>` | row kept for the 154 count; replaced by the named ADR / GM decision, never picked (D-125) |
 | `DEFERRED-POST-PILOT — <id>` | pilot-first rule (D-127): field data, human entry, sign-off, training, naming and Tier-0 provisioning wait until the pilot system is complete; the pilot runs on seed 019 + synthetic data only; the row keeps its phase and is listed again under Phase 7; never picked before the pilot |
 | `DONE @ <hash>` | acceptance criterion passed, pg-reviewer PASS, gates green — written by pg-scribe in the same commit |
 
@@ -108,6 +108,7 @@ Type: 🧑 human decision/data · 🤖 AI-buildable slice · 🔧 infra · ✅ v
 | 3.4 | Delivery tasks, routes, POD (GPS + signature/photo + server timestamp), exceptions | 🤖 | 2.12, 3.1 | **1** | DEL_MGR | POD without GPS rejected | TODO |
 | 3.5 | Failure-reason tree **7 parents × 25 children** with `counts_against_driver` and conditional auto-attribution — **exactly three reasons count against the driver** (`door_not_opened`, `building_not_found`, `shift_time_exhausted`); breakdown and accident never do | 🤖 | 3.4 | **1** | DEL_MGR | "No answer" without two logged contact attempts flagged; `tms.failure_reasons` holds 7 + 25 rows | TODO |
 | 3.6 | COD reconciliation + day-close gates (five) | 🤖 | 3.4 | **1** | CFO | Day cannot close with COD variance | TODO |
+| 3.6a | COD clearing, settlement, automatic journals | 🤖 | 3.6, 4.20 | **1** | CFO | COD never posts to revenue; second settlement of a task rejected | TODO |
 | 3.7 | Driver app: core (login, device binding, tasks, offline, scan-to-deliver) | 🤖 | 3.4 | **1** | DEL_MGR | Delivery ≤ 6 taps, ≤ 45 s in lab | TODO |
 | 3.8 | Driver app: contact layer (pluggable provider, `direct` mode, contact_log) | 🤖 | 3.7 | **1** | DEL_MGR | Customer number never stored on device | TODO |
 | 3.9 | Driver app: payment engine (cash live, link behind flag, partial rejected) | 🤖 | 3.7 | **1** | CFO | Link delivery impossible without gateway ref | TODO |
@@ -133,26 +134,37 @@ Type: 🧑 human decision/data · 🤖 AI-buildable slice · 🔧 infra · ✅ v
 
 | ID | Task | Type | Depends on | Lane | Owner | Acceptance | Status |
 |---|---|---|---|---|---|---|---|
-| 4.1 | Chart of accounts (uniform structure per entity) | 🧑 | 1.1 | **A** | CFO | Loaded for all four entities | DEFERRED-POST-PILOT — D-127 (human entry) |
+| 4.1 | ~~Chart of accounts (uniform structure per entity)~~ Chart of accounts — real data (ADR-0004, D-187) | 🧑 | 1.1 | **A** | CFO | ~~Loaded for all four entities~~ Loaded for all **five** entities (ADR-0004, D-187) | DEFERRED-POST-PILOT — D-127 (human entry) |
+| 4.1a | CoA structure X-XX-XXX-XXX + class 1–9; synthetic pilot chart | 🤖 | 0.12 | **2** | CFO | Off-format code rejected by CHECK; no account-code literal in `modules/` | READY — lane 2 after 4.2 (D-187) |
+| 4.1b | Dimensions: types + line dimensions | 🤖 | 4.1a | **2** | CFO | New dimension added with zero migration; undefined value rejected | TODO |
 | 4.2 | `billing.billable_events` with unique (source, service) index | 🤖 | 0.12, 1.4 | **M** | CFO | Same event cannot bill twice | IN PROGRESS — lane 2 (D-186: Lane M row reassigned by the GM; brief + RED first, build after wave 1) |
 | 4.3 | Billing subscribers: WMS, TMS, CC, iMile events → billable events | 🤖 | 4.2, 2.14, 3.4 | **M** | CFO | Every closed operation produces its events | TODO |
 | 4.4 | Invoice generation: monthly aggregation, `doc_no` only at approval (DB constraint) | 🤖 | 4.3, 0.15 | **M** | CFO | Draft has no number; approved cannot be edited | TODO |
 | 4.5 | Auto-approval under threshold; human above | 🤖 | 4.4, 0.10 | **M** | CFO | Threshold change effective without deploy | TODO |
 | 4.6 | Invoice PDF + detail sheet (every line → events → evidence) | 🤖 | 4.4 | **M** | CFO | Disputed line opens its events in one click | TODO |
 | 4.7 | Receipts, allocation, bank statement import + auto-match (I-08) | 🤖 | 4.4 | **M** | ACCOUNTANT | Unmatched go to accountant queue; CFO ≠ ACCOUNTANT enforced | TODO |
+| 4.7a | Banking: accounts, transactions, transfers, reconciliation | 🤖 | 4.7, 4.20 | **M** | CFO | Reconciliation posts only when an adjustment exists | TODO |
 | 4.8 | Credit notes (GM approval only) | 🤖 | 4.4 | **M** | GM | Requires original invoice reference | TODO |
 | 4.9 | Aging, reminders (−3, 0, +7, +15, +30), automatic group-level hold | 🤖 | 4.7, 1.8 | **M** | CFO | Hold blocks all entities | TODO |
 | 4.10 | SLA measurement + penalty line on invoice | 🤖 | 1.7, 3.4 | **M** | CFO | Computed from data, appears as invoice line | TODO |
-| 4.11 | Journal entries auto-posted; `verify_journal_balance()` | 🤖 | 4.1, 4.4 | **M** | CFO | Zero unbalanced entries | TODO |
+| 4.11 | ~~Journal entries auto-posted; `verify_journal_balance()`~~ Journal entries auto-posted from billing events via outbox (ADR-0004, D-187) | 🤖 | ~~4.1, 4.4~~ 4.20, 4.4 (ADR-0004, D-187) | **M** | CFO | Zero unbalanced entries | TODO |
 | 4.12 | Intercompany: flagged transactions, transfer pricing list, consolidation elimination | 🤖 | 4.11 | **M** | CFO | Group P&L excludes intercompany | TODO |
+| 4.12a | Intercompany pairing, due-from/to, IC reconciliation | 🤖 | 4.20 | **M** | CFO | Every IC entry has one paired leg; IC reconciliation difference 0 on seed | TODO |
+| 4.12b | Consolidation book + elimination entries | 🤖 | 4.12a | **M** | CFO | Company ledgers unchanged; group P&L excludes intercompany | TODO |
 | 4.13 | Cost allocation + profitability per client/contract | 🤖 | 4.11, 3.13 | **M** | COST_ANALYST | Margin computed monthly | TODO |
 | 4.14 | Lost-revenue report | 🤖 | 4.3 | **M** | CFO | Unpriced and non-contracted events listed with estimated value | TODO |
 | 4.15 | Partners: contracts, price lines, payable events, invoice matching (≤2% auto) | 🤖 | 4.2 | **M** | CFO | Invoice line without our event rejected | TODO |
 | 4.16 | Month-end (three steps under P11) | 🤖 | 4.5–4.14 | **M** | CFO | Full cycle runs on seed data | TODO |
 | 4.17 | Scenarios **S8, S11, S19, S20** pass — S19 and S20 are written out in doc 40 Part E v4 from doc 12 (س19، س20) | ✅ | 4.16 | **M** | CFO | Playwright green | TODO |
 | 4.18 | **First real automated invoice matches operations** | ✅ | 4.17 | **M** | CFO | Signed by CFO | TODO |
+| 4.19 | Fiscal years + periods (open/closed/locked) | 🤖 | 4.1a | **2** | CFO | Posting into closed/locked period rejected by the DB | TODO |
+| 4.20 | Posting engine: entry types, reversal/adjustment, balance at commit, posted immutable | 🤖 | 4.19, 4.1b | **2** | CFO | Unbalanced entry refused at commit; UPDATE/DELETE on posted refused; G2 = 0 | TODO |
+| 4.21 | Multi-currency lines + exchange rates | 🤖 | 4.20 | **2** | CFO | Line without currency or rate rejected | TODO |
+| 4.22 | AP: vendor bills, payments, allocations, aging, statement | 🤖 | 4.20, 4.15 | **M** | CFO | Duplicate vendor bill reference rejected; overpayment rejected | TODO |
+| 4.23 | Statements from the GL: TB, GL, BS, IS, CF, SCE per entity + group; PDF/Excel/CSV | 🤖 | 4.20, 4.12b | **M** | CFO | Every total reproduces from `journal_lines` | TODO |
+| 4.24 | Accounting-rules section in doc 06 (spec §41 format) | 🧑 | 4.20 | **M** | CFO | Every automatic journal has one rule row | TODO |
 
-**Phase gate:** 4.11 zero rows · 4.18 signed.
+**Phase gate:** ~~4.11 zero rows · 4.18 signed.~~ 4.11 zero rows · 4.18 signed · 4.20 immutability test green · 4.23 statements reproduce from the GL (Phase 4 gate amendment, A0 §6 — ADR-0004, D-187).
 
 ---
 
@@ -168,11 +180,14 @@ Type: 🧑 human decision/data · 🤖 AI-buildable slice · 🔧 infra · ✅ v
 | 5.5 | Shifts and rest rotation (A3) | 🤖 | 5.3 | **2** | OPS_DIR | Rotation fair; exceptions logged | TODO |
 | 5.5a | Shifts, shift groups, work sites — `hr.shifts`, `hr.shift_assignments`, `hr.shift_groups`, `platform.sites` (SCR-HR-SHIFT-01 §2.1–§2.4; pulled into the pilot by D-144, row issued by the Master D-173) | 🤖 | 3.3 | **2** | HR_MGR | One active shift assignment per employee per date (exclusion constraint on the date range); `platform.sites` is the single sites table (`kind ∈ {warehouse · office · client_pickup · housing · other}`, `radius_m` defaulting from `platform.thresholds` `att.geofence_radius_m`) referenced by `hr.employees.default_site_id`; a shift group carries its own attendance site and lead driver; every state change → outbox + audit in one transaction; G1, G6, G9, G11 green | DONE @ `ffab3bf` — lane 2, both parts (`platform.sites` @ `3679b70` PR #19, `hr.shifts`/`hr.shift_groups`/`hr.shift_assignments` @ `ffab3bf` PR #30); migrations 0015/0016 |
 | 5.6 | Payroll ledger (auto-calc, CFO approval, month lock) | 🤖 | 5.3, 3.13 | **2** | CFO | Locked month immutable | TODO |
+| 5.6a | Payroll → GL posting | 🤖 | 5.6, 4.20 | **2** | CFO | Locked month posts one balanced entry per entity | TODO |
 | 5.7 | Penalty schedule (**77 items**, `is_fraud` flagged on CLI-02/03/04/06/09 · ATT-07/08 · WRK-08), Art. 35–41 guards, **hierarchical authority enforced by trigger on `hr.disciplinary_cases.signed_by` with `routed_to` recorded** (supervisor D1–D2, manager D1–D3, GM D1–D4, dismissal GM only), grievance to the level above the signer, hash-chained | 🤖 | 5.3 | **2** | GM | `select count(*) from hr.penalty_schedule` = 77; deduction without Art. 37 steps rejected; Art. 35 15-day limit enforced; 5-day cap enforced; signer outside authority auto-routed up, never silently rejected | TODO |
 | 5.8 | Recruitment cases (**17 stages with fixed English codes per doc 10 v4 / 13B check constraint**, owner per stage, SLA, cost tracking, `due_at` maintained by trigger — not a generated column) | 🤖 | 5.3 | **2** | PRO | Stage without owner impossible; a stage code outside the 17 is rejected by the check constraint; escalation fires on day 11 (7-day SLA + `recruitment.escalate_pct` = 50) | TODO |
 | 5.9 | Government transactions module | 🤖 | 5.8 | **2** | PRO | Overdue auto-flags | TODO |
 | 5.10 | Housing: properties, units, rooms, beds, assignments, maintenance, inspections | 🤖 | 5.3 | **1** | HOUSING_SUP | Bed = unit of assignment; clearance blocked until bed released | TODO |
 | 5.11 | Administrative: purchase requests, three-way match, petty cash, assets/custody, approvals, correspondence | 🤖 | 4.1 | **3** | Admin Mgr | PO paid without match impossible | TODO |
+| 5.11a | Fixed assets: categories, configurable depreciation, disposal, impairment | 🤖 | 5.11, 4.20 | **3** | CFO | Depreciation idempotent per period; method from configuration | TODO |
+| 5.11b | Expense claims + recurring/prepaid/accrued | 🤖 | 5.11, 4.20 | **3** | CFO | Claim cannot post before its approval chain completes | TODO |
 | 5.12 | Fleet: maintenance plans (km-based), orders, accidents, fuel ledger (I-03 import) | 🤖 | 3.1 | **3** | FLEET_MGR | Fuel entry without odometer rejected; anomaly > 20% flagged | TODO |
 | 5.13 | Alerts engine (**22 rules — N-01…N-18 plus N-19…N-22 from doc 23 §4**), report catalog (24), scheduled delivery | 🤖 | 0.10 | **M** | SYSADMIN | Alert without action link impossible; no alert targets an unfilled position | IN PROGRESS — part 1 @ `a66ea8c` (alert evaluation mechanism: EvaluateAlertRules + AcknowledgeAlert, migrations 0011/0012); part 2 = delivery · escalation · dynamic recipients · report catalog · job |
 | 5.14 | M13 Governance: budgets/variance, KPI tree, OKRs, risk register, NCR, policies, board pack, decisions | 🤖 | 4.11 | **3** | GM | Board pack generates from live data | TODO |
@@ -217,6 +232,8 @@ Type: 🧑 human decision/data · 🤖 AI-buildable slice · 🔧 infra · ✅ v
 | 7.10 | ~~Structural verification~~ → **Closed (verified; drawing + licence on file)** | 🧑 | — | **A** | GM | ✅ | DONE @ `<this commit>` — closure confirmed by the GM (D-115, 2026-09-23) |
 | 7.11 | Adoption metrics live (weekly active 100%, screens unused 30 d) | 🤖 | 5.13 | **M** | GM | Report scheduled | TODO |
 | 7.12 | Launch checklist (doc 28 §11, 18 items) all ticked | ✅ | 7.1–7.11 | **M** | GM | Signed | TODO |
+| 7.13 | IFRS mapping layer (IFRS 18 per OD-02) | 🤖 | 4.23 | **M** | CFO | Mapping change needs no deploy; unmapped accounts listed | TODO |
+| 7.14 | XBRL layer: mapping, validation, export | 🤖 | 7.13 | **M** | CFO | Taxonomy swap is data only | TODO |
 
 ### Deferred post-pilot (D-127) — pilot-exit items, listed here from every phase (derived from status; not counted)
 
@@ -235,7 +252,7 @@ Type: 🧑 human decision/data · 🤖 AI-buildable slice · 🔧 infra · ✅ v
 | ↩ 2.19 | Super-user sign-off + 90-min PDA training delivered | WH_MGR | DEFERRED-POST-PILOT — D-127 (sign-off + training) |
 | ↩ 3.2 | **Data gate M09:** all vehicles with valid documents | FLEET_MGR | DEFERRED-POST-PILOT — D-127 (data gate) |
 | ↩ 3.22 | Driver training (60 min, 6 languages) + super-user sign-off | DEL_MGR | DEFERRED-POST-PILOT — D-127 (training + sign-off) |
-| ↩ 4.1 | Chart of accounts (uniform structure per entity) | CFO | DEFERRED-POST-PILOT — D-127 (human entry) |
+| ↩ 4.1 | ~~Chart of accounts (uniform structure per entity)~~ Chart of accounts — real data (ADR-0004, D-187) | CFO | DEFERRED-POST-PILOT — D-127 (human entry) |
 | ↩ 5.15 | **Data gates M08, M09 (documents 100%)** | HR_MGR, FLEET_MGR | DEFERRED-POST-PILOT — D-127 (data gates) |
 | ↩ 6.6 | Three real clients onboarded and operating | GM | DEFERRED-POST-PILOT — D-134 (pilot: three synthetic clients from seed 019; real clients are a Phase-7 item) |
 | ↩ 7.5 | Manual fallback kits in four locations; **one manual-mode drill executed** | OPS_DIR | DEFERRED-POST-PILOT — D-127 (field drill) |
@@ -258,7 +275,7 @@ Type: 🧑 human decision/data · 🤖 AI-buildable slice · 🔧 infra · ✅ v
 
 ---
 
-## Staged — not in doc 38, admitted here once the GM approves the task AND its policy decisions (BOOTSTRAP-v5 §1 item 4). Never counted in the 132.
+## Staged — not in doc 38, admitted here once the GM approves the task AND its policy decisions (BOOTSTRAP-v5 §1 item 4). Never counted in the 154.
 
 | ID | Task | Type | Depends on | Lane | Owner | Acceptance | Status |
 |---|---|---|---|---|---|---|---|
@@ -266,4 +283,4 @@ Type: 🧑 human decision/data · 🤖 AI-buildable slice · 🔧 infra · ✅ v
 | 6.2b | Client store connectors (I-12) — `tasks/backlog/6.2b-store-connectors.md`, source D-11 | 🤖 | 6.1, 6.2 | **1** | SYSADMIN + SALES_MGR (shared, D-11 §7 ق-4) | A store order posted by the test connector appears as one PG-EOS order with the D-11 §5-2 minimum fields, idempotent under replay, a forced failure follows the D-11 §5-5 nine-field policy and shows in the integration monitor; client isolation holds (G14) | TODO — admitted 2026-09-23 (D-115): option ③ approved per D-11 §7 (B in Phase 3, A in Phase 6, C = 6.2b); blocked on 6.1, 6.2, neither built; D-11 §5-4 schema additions still need a G-01 filing once 6.2b starts |
 | SC-01 | Sales commission activation (SCR-SC-01) — `tasks/backlog/SC-01-sales-commission.md`, source D-14 | 🤖 | 4.9, 1.7 | **2** | SALES_MGR | For a contract signed by one rep and later executed under another, the monthly run splits per `sales.account_ownership_history` exactly as D-14 §3, honours the cap and minimum-margin rule, reverses correctly on a credit note, exposes the statement only to the rep, SALES_MGR, CFO and GM; G2, G11, G14 green, no number written outside `platform.thresholds` | TODO — admitted 2026-09-23 (D-115); dependency on the "sales contracts slice" bound to WBS **1.7** (D-123, `docs/package/38-WBS.md` line 68); structure approved (recurring, `collected` basis, 24 months, no cap year 1, half rate 12 months for existing clients, SCR-SC-01 approved); rates and the 0.5% manager share approved provisionally for year 1 with a 6-month review; blocked on 4.9 and 1.7, neither built |
 
-**Rows: 137** (expected 137 — `--check` fails otherwise; the Staged rows above are never part of this count).
+**Rows: 154** (expected 154 — `--check` fails otherwise; the Staged rows above are never part of this count).

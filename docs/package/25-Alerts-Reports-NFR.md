@@ -357,7 +357,7 @@ create index on platform.alert_log (rule_code, entity_ref, fired_at desc);
 
 | البند | القاعدة |
 |---|---|
-| المصدر | **قاعدة البيانات مباشرة** — لا يُبنى تقرير على تقرير |
+| المصدر | ~~**قاعدة البيانات مباشرة**~~ **SUPERSEDED — ADR-0004 D2 (f) (D-187):** Financial statements read `journal_lines` only; subledger reports allowed only with a zero-row guard proving they tie to GL control accounts. — لا يُبنى تقرير على تقرير |
 | الصيغة | شاشة + PDF + Excel · الأرقام `tabular-nums` |
 | الترويسة | بيانات الكيان تلقائياً |
 | المجدولة | تُرسل بريداً في موعدها · الفشل يُنبّه |
