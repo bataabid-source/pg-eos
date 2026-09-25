@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # PG-EOS · tests/hooks/run.sh — regression tests for the versioned hooks and bookkeeping gates
 # (D-179, 2026-09-25). Pure bash, no database, no node. Runs in CI gate ① and via `pnpm test:hooks`.
-#   .claude/hooks/lane-guard.sh · .githooks/commit-msg · scripts/check-locks.sh · scripts/brief-check.sh
+#   .claude/hooks/lane-guard.sh · .claude/hooks/db-guard.sh · .githooks/commit-msg · scripts/check-locks.sh · scripts/brief-check.sh
 # Every rule these files enforce has a case here; a change that drops a rule turns a case red.
 set -uo pipefail
 
@@ -116,6 +116,33 @@ expect "line budget: range counted"             0 "$(bc 'Read ONLY:\n- `docs/big
 expect "line budget: two ranges summed"         1 "$(bc 'Read ONLY:\n- `docs/big.md` lines 1-800, 900-1700\nWrite ONLY: x')"
 expect "block ends at Write ONLY"               0 "$(bc 'Read ONLY:\n- `modules/m/domain/uc/f1.ts`\nWrite ONLY: `docs/big.md`\n')"
 expect "## heading form parsed"                 0 "$(bc '## Read ONLY (workers)\n1. `modules/m/domain/uc/f1.ts`\n\n## Facts\n- `docs/big.md`')"
+
+# ---- db-guard.sh (D-183): psql DELETE/DROP/TRUNCATE against the shared `pgeos` is refused ------------
+echo "db-guard.sh"
+dbg() { # dbg <session PGDATABASE|""> <command>  → exit code
+  local envdb="$1" cmd="$2"
+  local payload; payload="$(printf '%s' "$cmd" | "$PYBIN" -c 'import json,sys; print(json.dumps({"tool_name":"Bash","tool_input":{"command":sys.stdin.read()}}))')"
+  if [ -n "$envdb" ]; then printf '%s' "$payload" | PGDATABASE="$envdb" bash "$REPO/.claude/hooks/db-guard.sh" 2>/dev/null; echo $?
+  else printf '%s' "$payload" | env -u PGDATABASE bash "$REPO/.claude/hooks/db-guard.sh" 2>/dev/null; echo $?; fi
+}
+PYBIN="$(command -v python3 || command -v python)"
+expect "psql delete on -d pgeos blocked"          2 "$(dbg "" "psql -h localhost -U postgres -d pgeos -c \"delete from wms.stock_balance where x\"")"
+expect "psql DROP on --dbname=pgeos blocked"      2 "$(dbg "" "psql --dbname=pgeos -c 'DROP TABLE wms.x'")"
+expect "psql truncate via env PGDATABASE blocked" 2 "$(dbg pgeos "psql -c 'truncate wms.x'")"
+expect "psql inline PGDATABASE=pgeos blocked"     2 "$(dbg "" "PGDATABASE=pgeos psql -c 'delete from a'")"
+expect "psql heredoc body delete blocked"         2 "$(dbg "" "psql -d pgeos -v ON_ERROR_STOP=1 <<'SQL'
+begin;
+delete from sales.accounts where code like 'x%';
+commit;
+SQL")"
+expect "psql select on pgeos allowed"             0 "$(dbg "" "psql -d pgeos -At -c 'select count(*) from wms.skus'")"
+expect "psql delete on throwaway db allowed"      0 "$(dbg "" "psql -d pgeos_scr03 -c 'delete from a'")"
+expect "psql drop database throwaway allowed"     0 "$(dbg pgeos "psql -d postgres -c 'drop database if exists pgeos_scr03'")"
+expect "-d flag beats env PGDATABASE"             0 "$(dbg pgeos "psql -d pgeos_tmp -c 'delete from a'")"
+expect "no db anywhere: allowed"                  0 "$(dbg "" "psql -c 'delete from a'")"
+expect "non-psql command with drop allowed"       0 "$(dbg pgeos "git branch -D drop-me && echo 'drop '")"
+expect "apply.sh invocation allowed"              0 "$(dbg pgeos "bash database/schema/apply.sh --recreate")"
+expect "empty payload allowed"                    0 "$(printf '{}' | bash "$REPO/.claude/hooks/db-guard.sh" 2>/dev/null; echo $?)"
 
 echo
 echo "hooks tests: $pass passed, $failn failed"

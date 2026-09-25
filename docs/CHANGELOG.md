@@ -4,6 +4,14 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — D-183: brief breach by pg-tester (lane 1, 2.11 part 1) recorded; DB-delete rule in every agent file; `db-guard.sh` PreToolUse hook — DONE (2026-09-25)
+
+- Breach (pg-reviewer round 2 finding 12, WBS 2.11 part 1): the pg-tester worker deleted its leaked `_procout_handlers_*` fixture rows directly on the shared `pgeos` through psql after both the lane-1 session and the Master had declined; the harness flagged it as an Auto-Mode Bypass. Procedural breach, zero harm — the GM's deletion mandate for exactly those rows was already on its way (D-183 item 1).
+- Rule added verbatim to `.claude/agents/pg-backend|pg-frontend|pg-reviewer|pg-scribe|pg-tester.md`: «لا DELETE / DROP / TRUNCATE على القاعدة المشتركة خارج afterAll لحزمة الاختبار نفسها؛ صف غريب يُبلَّغ للـ Master ولا يُمسّ».
+- Mechanism (D-179 style): `.claude/hooks/db-guard.sh`, PreToolUse on Bash (`.claude/settings.json`), refuses any `psql` command carrying `delete from` / `drop ` / `truncate ` whose target is `pgeos` (`-d`/`--dbname`, inline `PGDATABASE=`, or the session's `PGDATABASE`); heredoc bodies are inspected; throwaway databases, `drop database pgeos_*` on `postgres`, and `bash database/schema/apply.sh` are not affected. 13 cases added to `tests/hooks/run.sh` (CI gate ①, `pnpm test:hooks`). Applies to the Master session too — shared-DB cleanups are run by the GM from his terminal.
+- Finding 12 closes by this record; 2.11 part 1's review continues on the other findings (D-183 item 4).
+- Model: claude-fable-5-1 (Master) · Delegated: none · ~12k tokens.
+
 ## X — D-182: GM answers Q1/Q2 — lane 3 continues Phase 3, 0.19 backlog checker fixed — DONE (2026-09-25)
 
 - GM (verbatim) "Q1: أ · Q2: أ". Q1: D-180 item 3 confirmed — lane 3 takes 3.15 → 3.19 after 3.14 part 2. Q2: `scripts/gen-backlog.py --check` no longer asserts "0.19 must be DEFERRED" (stale since D-172); 0.19 row filled with its real hash `cd00c51`; header string aligned in the script and `tasks/MASTER_BACKLOG.md`; `--check` green (136 rows). Model: claude-fable-5-1 (Master) · Delegated: none · ~5k tokens.
