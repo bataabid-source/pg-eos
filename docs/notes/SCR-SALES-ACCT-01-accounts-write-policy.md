@@ -11,20 +11,26 @@ limit and hold), a REAL BLOCKER: `sales.accounts` carries no `for all`/write RLS
 write silently no-ops for any role, including internal staff, because Postgres RLS with no
 matching write policy denies by default rather than erroring.
 
-## Root cause
+## Root cause (corrected — pg-reviewer caught an error in the first version of this note)
 
-13B's dynamic policy-generation loop grants `internal_only for all using (platform.is_internal())`
-to every non-entity-scoped, non-reference operational table (e.g. `wms.work_order_tasks`,
-`wms.work_order_events`). `sales.accounts` has no `entity_id` column, so it falls outside the
-loop's entity-scope branch; it received a hand-added `client_portal_scope` SELECT-only policy for
-the client-portal read use case instead of going through the generic loop that would also have
-added `internal_only for all` alongside it. An oversight in the table's original policy authoring,
-not a deliberate restriction — no doc (01/13/13B/019/40) states accounts should be internal-write-
-blocked.
+**Not** "no `entity_id` column, so it fell outside the loop's entity-scope branch" — the loop's own
+`internal_only` branch is precisely the no-`entity_id` branch, so a missing `entity_id` alone would
+have routed `sales.accounts` INTO that branch, not out of it. The actual cause (13B:3101–3105): the
+generator loop `continue`s for any table that **already has any policy** on it, and
+`01-Data-Model.sql:1486` had already created `client_portal_scope` on `sales.accounts` — so the
+loop skipped the table entirely before its no-`entity_id` / `internal_only` branch ever ran. An
+oversight in the table's original policy authoring (the hand-added portal policy pre-empted the
+generic loop instead of coexisting with it), not a deliberate restriction — no doc (01/13/13B/019/
+40) states accounts should be internal-write-blocked.
 
 ## Fix (APPROVED)
 
+Idempotent, matching the repo's own pattern (13B-SP-3 / migrations 0003, 0007 — `apply.sh` re-runs
+every `database/migrations/*.sql` file on every apply, so a bare `create policy` with no guard
+fails on the second run):
+
 ```sql
+drop policy if exists internal_only on sales.accounts;
 create policy internal_only on sales.accounts for all using (platform.is_internal());
 ```
 
