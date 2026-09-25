@@ -81,6 +81,10 @@
     "./wms/process-outbound": {
       "types": "./dist/wms/process-outbound.d.ts",
       "default": "./dist/wms/process-outbound.js"
+    },
+    "./imile/evaluate-dtl-problem": {
+      "types": "./dist/imile/evaluate-dtl-problem.d.ts",
+      "default": "./dist/imile/evaluate-dtl-problem.js"
     }
   },
   "scripts": {
