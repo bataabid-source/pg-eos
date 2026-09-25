@@ -54,3 +54,47 @@ export {
   IllegalTransitionError as CountInventoryIllegalTransitionError,
   MissingActorError as CountInventoryMissingActorError,
 } from './domain/count-inventory/errors.js';
+
+// WBS 2.11 part 1 — process-outbound (create, ten-condition check, approve, cancel), replicating
+// the golden slice's own file tree. Named re-exports (not `export *`): ./domain/receive-inbound/
+// errors.js already exports StaleVersionError / IllegalTransitionError / RoleRequiredError /
+// OrderNotFoundError / MissingActorError / SkuClientMismatchError — a wildcard re-export from both
+// use cases would collide (same discipline as count-inventory's own `CountInventory` prefix
+// above). process-outbound's own colliding error names are aliased with a `ProcessOutbound` prefix
+// here so both use cases' typed errors stay reachable from this one module barrel.
+export {
+  createOutbound,
+  runOutboundChecks,
+  approveOutbound,
+  cancelOutbound,
+  type CreateOutboundInput,
+  type CreateOutboundResult,
+  type RunOutboundChecksInput,
+  type RunOutboundChecksResult,
+  type ApproveOutboundInput,
+  type ApproveOutboundResult,
+  type CancelOutboundInput,
+  type CancelOutboundResult,
+  type ProcessOutboundDeps,
+  type OutboundOrderRepository,
+} from './application/process-outbound/index.js';
+export {
+  ClientNotQualifiedError,
+  CancelReasonRequiredError,
+  ContractNotActiveError,
+  ContractExpiredError,
+  CreditHoldError,
+  InsufficientStockError,
+  ShelfLifeTooShortError,
+  SkuBlockedError,
+  LocationBlockedError,
+  DeliveryAddressIncompleteError,
+  NoServicePriceError,
+  StaleVersionError as ProcessOutboundStaleVersionError,
+  IllegalTransitionError as ProcessOutboundIllegalTransitionError,
+  RoleRequiredError as ProcessOutboundRoleRequiredError,
+  OrderNotFoundError as ProcessOutboundOrderNotFoundError,
+  MissingActorError as ProcessOutboundMissingActorError,
+  SkuClientMismatchError as ProcessOutboundSkuClientMismatchError,
+  SkuNotFoundError as ProcessOutboundSkuNotFoundError,
+} from './domain/process-outbound/errors.js';
