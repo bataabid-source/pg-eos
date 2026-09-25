@@ -6,7 +6,7 @@ The rules live in `CLAUDE.md`; this file is the shape of the work. It restates n
 ## 1. The twelve-step loop (BOOTSTRAP-v5 §2 — mandatory, in order)
 
 The Master reads, before every task and nothing more:
-`CLAUDE.md` → `docs/PROJECT_STATE.md` (≤ 60 lines) → `tasks/LANE_LOCKS.md` → the WBS row →
+`CLAUDE.md` → `docs/PROJECT_STATE.md` (≤ 40 lines — CLAUDE.md · OPERATING RULES · BRIEFS) → `tasks/LANE_LOCKS.md` → the WBS row →
 `.claude/briefs/<module>.brief.md`. It opens a package document only where the brief points to a
 section it does not already carry.
 
@@ -19,7 +19,8 @@ section it does not already carry.
   8. Receive REPORT (§5).           9. **pg-tester** verifies: suite GREEN, no test weakened or edited by the builder.
  10. Review by **pg-reviewer** (opus) — also called BEFORE writing any migration that touches the schema, RLS or the audit chain.
  11. PASS → pg-scribe updates state/backlog/CHANGELOG → **one `feat(<WBS>)` commit** with trailers → release the lock.
- 12. FAIL → same worker, same brief + findings, max 2 rounds → then Master on opus.
+ 12. FAIL → review cap (CLAUDE.md · OPERATING RULES · REVIEW CAP): one fix round, then round 2;
+     round 2 FAIL → commit the PASS subset only, open `<WBS> part n+1` for the rest, no round 3.
  13. Next task, or stop at the phase gate / real blocker / explicit stop.
 ```
 
@@ -61,7 +62,7 @@ pg-reviewer PASS
   → git rebase main
   → gates ①–③ green locally (lint+boundaries+types · domain unit tests of the touched module · guards)
   → bash scripts/guards-run.sh green
-  → the Master merges, fast-forward only
+  → the Master merges, linear history (rebase merge, D-173)
   → the next lane rebases before its own merge
 ```
 

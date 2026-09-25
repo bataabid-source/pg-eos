@@ -15,7 +15,7 @@ ROLE
   3. Secrets — no credential, `.env` value, key, dump or token in the diff.
   4. Routing trailers — the commit carries `Model:` `Delegated:` `Review:` and the tier matches `docs/MODEL_ROUTING.md`.
   5. Brief compliance — the worker's REPORT lists no file read outside the brief's "Read ONLY" list and no file written outside "Write ONLY". Flag any violation as a finding.
-  6. Golden-slice shape — every delivered file has a counterpart in the golden slice; a hand-made tree is a FAIL (CLAUDE.md · SPEED AND QUALITY (v5)).
+  6. Golden-slice shape — every delivered file has a counterpart in the golden slice; a hand-made tree is a FAIL (CLAUDE.md · OPERATING RULES · REPLICATE).
   7. Guards — G1–G17 green (G18 report-only); a red guard is an automatic FAIL.
 - WHEN YOU ARE CALLED (GM 2026-09-23):
   a. Slice close — after pg-tester has verified GREEN, before pg-scribe and the single `feat(<WBS>)` commit.

@@ -90,6 +90,19 @@ expect "P7: feat without Review refused"        1 "$(cm 'feat(2.9): receive\n\nb
 expect "P7: feat with FAIL-only Review refused" 1 "$(cm 'feat(2.9): receive\n\nReview: round 3 FAIL(1 low)')"
 expect "P7: fix(2.9) without Review refused"    1 "$(cm 'fix(2.9): typo\n')"
 expect "P7: wip(2.9) needs no Review"           0 "$(cm 'wip(2.9): checkpoint\n')"
+GB="$TMP/gb"; mkdir -p "$GB/docs/package" "$GB/scripts/lib"; cp "$TMP/38-WBS.md" "$GB/docs/package/38-WBS.md"; cp "$REPO/scripts/lib/review-trailer.sh" "$GB/scripts/lib/"
+( cd "$GB" && git init -q -b main . && git -c user.email=t@t -c user.name=t commit -q --allow-empty -m 'chore(X): earlier bookkeeping today' ) >/dev/null 2>&1
+gb() { printf '%b' "$1" > "$GB/msg"; ( cd "$GB" && GOV_BUDGET_REF=main bash "$REPO/.githooks/commit-msg" "$GB/msg" 2>/dev/null ); echo $?; }
+expect "P2: second chore(X) today refused"      1 "$(gb 'chore(X): more bookkeeping\n')"
+expect "P2: second docs(X) today refused"       1 "$(gb 'docs(X): a note\n\nDecision: D-189')"
+expect "P2: Override + GM-Directive accepted"   0 "$(gb 'chore(X): GM-directed\n\nOverride: GM\nGM-Directive: "نفذ هذا القيد اليوم"')"
+expect "P2: Override without directive refused" 1 "$(gb 'chore(X): GM-directed\n\nOverride: GM')"
+expect "P2: feat(2.9) not budgeted"             0 "$(gb 'feat(2.9): x\n\nReview: PASS(0 findings, 1 rounds)')"
+GB0="$TMP/gb0"; mkdir -p "$GB0/docs/package" "$GB0/scripts/lib"; cp "$TMP/38-WBS.md" "$GB0/docs/package/38-WBS.md"; cp "$REPO/scripts/lib/review-trailer.sh" "$GB0/scripts/lib/"
+( cd "$GB0" && git init -q -b main . && git -c user.email=t@t -c user.name=t commit -q --allow-empty -m 'feat(2.9): only a feature today' \
+  && GIT_COMMITTER_DATE="2 days ago" GIT_AUTHOR_DATE="2 days ago" git -c user.email=t@t -c user.name=t commit -q --allow-empty -m 'chore(X): bookkeeping two days ago' ) >/dev/null 2>&1
+gb0() { printf '%b' "$1" > "$GB0/msg"; ( cd "$GB0" && GOV_BUDGET_REF=main bash "$REPO/.githooks/commit-msg" "$GB0/msg" 2>/dev/null ); echo $?; }
+expect "P2: first chore(X) of the day accepted" 0 "$(gb0 'chore(X): first bookkeeping today\n')"
 expect "P7: review_rounds parses new form"      0 "$( . "$REPO/scripts/lib/review-trailer.sh"; [ "$(review_rounds 'Review: PASS(4 findings, 2 rounds)')" = 2 ]; echo $?)"
 expect "feat(9.9) unknown WBS refused"          1 "$(cm 'feat(9.9): nope')"
 expect "docs(X) without directive refused"      1 "$(cm 'docs(X): a note\n\nModel: x')"

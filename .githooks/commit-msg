@@ -22,7 +22,7 @@ fi
 wbs="${BASH_REMATCH[2]}"
 type="${BASH_REMATCH[1]}"
 
-# D-179 (2026-09-25) — CLAUDE.md · SESSION OPERATING DIRECTIVE: "A `docs(X)` commit happens only
+# D-179 (2026-09-25) — CLAUDE.md · OPERATING RULES · BUILD, DON'T GOVERN: "A `docs(X)` commit happens only
 # on a GM directive quoted verbatim." The body must carry the directive or the decision it records.
 if [[ "$type" == "docs" && "$wbs" == "X" ]]; then
   if ! grep -qE '^(GM-Directive: ".{8,}"|Decision: D-[0-9]{3,})' "$msg_file"; then
@@ -30,9 +30,34 @@ if [[ "$type" == "docs" && "$wbs" == "X" ]]; then
       echo "commit-msg: REFUSED — a docs(X) commit needs a body trailer line, one of:"
       echo "  GM-Directive: \"<the GM's words, verbatim>\""
       echo "  Decision: D-NNN            (the DECISION_LOG row this commit records)"
-      echo "  (CLAUDE.md · SESSION OPERATING DIRECTIVE · BUILD, DON'T GOVERN)"
+      echo "  (CLAUDE.md · OPERATING RULES · BUILD, DON'T GOVERN)"
     } >&2
     exit 1
+  fi
+fi
+
+# P2 (2026-09-26) — CLAUDE.md · OPERATING RULES · GOVERNANCE BUDGET (GM 2026-09-25): "at most one
+# chore(X)/docs(X) commit per calendar day on main; all bookkeeping is batched into it." A second one on
+# the same local calendar day is refused unless its body carries `Override: GM` AND a verbatim
+# `GM-Directive: "<the GM's words>"` line (the directive that ordered this commit today). Counted on
+# $GOV_BUDGET_REF (default origin/main, else main); no such ref → not checked.
+if [[ ( "$type" == "chore" || "$type" == "docs" ) && "$wbs" == "X" ]]; then
+  ref="${GOV_BUDGET_REF:-}"
+  if [[ -z "$ref" ]]; then
+    if git rev-parse -q --verify origin/main >/dev/null 2>&1; then ref=origin/main
+    elif git rev-parse -q --verify main >/dev/null 2>&1; then ref=main; fi
+  fi
+  if [[ -n "$ref" ]] && ! { grep -qE '^Override: GM' "$msg_file" && grep -qE '^GM-Directive: ".{8,}"' "$msg_file"; }; then
+    today_n="$(git log "$ref" --since=midnight --format=%s 2>/dev/null | grep -cE '^(chore|docs)\(X\): ' || true)"
+    if [[ "${today_n:-0}" -ge 1 ]]; then
+      {
+        echo "commit-msg: REFUSED — governance budget: ${today_n} chore(X)/docs(X) commit(s) already on ${ref} today."
+        echo "  Batch this bookkeeping into the next feat/fix commit or tomorrow's single chore(X),"
+        echo "  or add body lines 'Override: GM' and 'GM-Directive: \"<verbatim>\"' when the GM directed this commit today."
+        echo "  (CLAUDE.md · OPERATING RULES · GOVERNANCE BUDGET)"
+      } >&2
+      exit 1
+    fi
   fi
 fi
 

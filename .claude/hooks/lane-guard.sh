@@ -2,7 +2,7 @@
 # PG-EOS · lane-guard.sh — PreToolUse hook for Edit | Write | MultiEdit.
 #
 # Enforces, at the tool call, the rules CLAUDE.md states in prose:
-#   PARALLEL LANES — CONFLICT-FREE MECHANISM (v5): "A lane writes only inside its
+#   PARALLEL LANES: "A lane writes only inside its
 #   locked modules and tests/" · "Frozen during any parallel phase: packages/*,
 #   database/schema/*, packages/contracts/_shared/*, CLAUDE.md, .claude/*".
 #   D-179 (2026-09-25): a lane session runs ONLY in its own worktree ../pg-eos-lane-<id>;
@@ -117,7 +117,7 @@ case "$REL" in
     row="$(grep -F -- "$slug" "$REQ" | head -1)"
     [ -n "$row" ] || block "no row for slug '$slug' in tasks/backlog/MIGRATION-REQUEST-$LANE.md — request the number (with the RED test paths) before writing the migration."
     red_paths="$(printf '%s' "$row" | grep -oE '(modules|tests|apps)/[A-Za-z0-9_./-]+\.(feature|test\.ts|spec\.ts)' | sort -u)"
-    [ -n "$red_paths" ] || block "RED before migration (CLAUDE.md · SPEED AND QUALITY): the MIGRATION-REQUEST-$LANE.md row for '$slug' names no test file. pg-tester writes the Gherkin scenario, property tests and guard additions BEFORE the migration; list their paths (modules/<m>/tests/<uc>/*.feature|*.test.ts) in the row."
+    [ -n "$red_paths" ] || block "RED before migration (CLAUDE.md · OPERATING RULES · RED FIRST): the MIGRATION-REQUEST-$LANE.md row for '$slug' names no test file. pg-tester writes the Gherkin scenario, property tests and guard additions BEFORE the migration; list their paths (modules/<m>/tests/<uc>/*.feature|*.test.ts) in the row."
     while IFS= read -r p; do
       [ -f "$ROOT/$p" ] || block "RED before migration: '$p' is named in the MIGRATION-REQUEST-$LANE.md row for '$slug' but does not exist yet. pg-tester writes it first; the migration comes after."
     done <<< "$red_paths"

@@ -4,7 +4,7 @@
 # Prints the two facts the operator needs at the end of a session:
 #   1. how many files are still uncommitted — "Code that is not committed does
 #      not exist" (BOOTSTRAP-v5 §1);
-#   2. the one-task-per-session rule (CLAUDE.md · QUOTA DISCIPLINE (v5)).
+#   2. the one-task-per-session rule (CLAUDE.md · OPERATING RULES · START).
 #
 # This hook never blocks: it always exits 0.
 set -uo pipefail

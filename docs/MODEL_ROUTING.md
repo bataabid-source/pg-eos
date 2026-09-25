@@ -17,9 +17,9 @@ trailer is missing or whose tier contradicts this table.
 | Single-file edit ≤ 30 lines, no new logic   | Master, direct | session | —                                          |
 | Planning, briefs, locks, merges, commits    | Master, direct | session | —                                          |
 | ADR / architecture / security design        | Master on opus | opus    | —                                          |
-| Task failed twice on sonnet                 | Master on opus | opus    | —                                          |
+| Task failed twice on sonnet (unsplittable finding only — REVIEW CAP, D-186/P7) | Master on opus | opus    | —                                          |
 
-Budget is enforced by the brief: a brief whose "Read ONLY" list exceeds 12 files or 1,500 lines is split into two slices. pg-reviewer flags any delegation whose report shows reads outside the list.
+Budget is enforced by the brief: 8 files / 1,000 lines (CLAUDE.md · OPERATING RULES · SPLIT BEFORE, NOT AFTER). pg-reviewer flags any delegation whose report shows reads outside the list.
 
 Agents are pinned in `.claude/agents/`: pg-reviewer=opus · pg-backend/pg-frontend/pg-tester/pg-scribe=sonnet.
 `inherit` is forbidden; an unsupported alias is REPORTED, never silently
@@ -28,7 +28,7 @@ a security design, or for the WBS 2.9 session. Expected token distribution (EXEC
 Part 4): ~85% sonnet (workers + scribe) · ~10% opus (review) · ~5% session.
 
 **D-117 (GM, 2026-09-23) — standing permission for the two-failures escalation.** When a slice's
-review FAILs twice on the same worker (max 2 rounds, CLAUDE.md · BUILD METHOD), the Master switches
+review FAILs twice on the same worker (CLAUDE.md · OPERATING RULES · REVIEW CAP — only for a finding that cannot be split: security, audit chain, RLS; it is the last round), the Master switches
 its own session to `/model opus` for the fix step only, then returns to whatever model tier the
 session was on before — no question asked each time this happens, this permission is standing. If
 the Master's session was already on a tier other than opus by explicit user instruction (e.g. the

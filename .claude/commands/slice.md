@@ -21,7 +21,9 @@ Loop (BOOTSTRAP-v5 §2 — mandatory, in order):
   8. Receive REPORT (§5).           9. **pg-tester** verifies: suite GREEN, no test weakened or edited by the builder.
  10. Review by **pg-reviewer** (opus) — also called BEFORE writing any migration that touches the schema, RLS or the audit chain.
  11. PASS → pg-scribe updates state/backlog/CHANGELOG — including every worker's token estimate from its closing
-     REPORT line (pg-tester, pg-backend, pg-frontend, pg-reviewer; a missing estimate is asked for, never guessed) →
+     REPORT line (pg-tester, pg-backend, pg-frontend, pg-reviewer; a missing estimate is asked for, never guessed); the Master names the brief and SCR notes pg-scribe `git rm`s (NOTES).
+     In the slice's own commit, pg-scribe `git rm`s the slice brief and every SCR note the slice applied in full
+     (CLAUDE.md · OPERATING RULES · NOTES); an SCR with an open G-01 item stays. →
      **one `feat(<WBS>)` commit** with trailers, `Review: PASS(<n> findings, <r> rounds)` → release the lock.
  12. Review cap (P7): round 1 FAIL → ONE builder/tester fix round → round 2. Round 2 FAIL → STOP: commit and merge
      only the GREEN, PASS-reviewed subset (if any); every open finding becomes a `<WBS> part n+1` row in
