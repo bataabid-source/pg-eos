@@ -47,7 +47,7 @@ Maintained by pg-scribe only, in the same commit as the task it records.
 ## Next 3 tasks (D-176 phase order + D-180 session plan)
 
 1. Lane 1: 2.11 part 3 (describe names + 2.4 picker) → 2.12 in `wms/process-outbound`
-2. Lane 2: 4.2 (`billing.billable_events`) in `billing` — brief + RED now, build after wave 1 (D-186)
+2. Lane 2: 4.2 (`billing.billable_events`) in `billing` — brief + RED now, build after wave 1 (D-186); then the accounting core 4.1a → 4.1b → 4.19 → 4.20 (ADR-0004, D-187; rows land in doc 38 v4.6, A2)
 3. Lane 3: 3.1 (`tms.vehicles`) in module `fleet` — then 3.4 once 2.12 is DONE
 
 ## Notes
