@@ -4,6 +4,20 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — D-180 session plan: one Master session, use-case locks for lanes 1/2, lane 3 to its own worktree — DONE (2026-09-25)
+
+- GM directive (verbatim) "تولي اداره الجلسات وتعيين الوكلاء بما فيها جلستك هذه بدقه واحترافيه و اصدر قرارات الاغلاق والحذف لسرعه الانتاج بقدر الامكان والحفاظ علي الجوده و ترشيد استخدام الحصه" — manage sessions and agent assignment, including the Master's own session, with rigor; issue close/delete decisions for production speed while preserving quality and quota.
+- Master session is now the Claude Desktop session titled "إدارة الجلسات والوكلاء" (model claude-fable-5-1, the GM's own menu choice), working from `../pg-eos-gov`.
+- Sessions archived by the Master: "جلسة الحوكمة/Master" (sonnet, output PR #50 merged), "Postgres resume" (stale duplicate from 2026-09-24), "Imile" (lane 3 had been running in the shared `claude-kit` checkout, forbidden by D-179), "Remove duplicate CURRENCY_CODE constant" (PR #48 merged).
+- PRs merged: #50 → `81bc118` (D-179 pace mechanisms), #48 → `c1baa96` (fix(X) currency constant). 2.10 DONE @ `95a33b8` (PR #49, lane 1). Migration 0022 issued to lane 1 for 2.11 @ `8e5e867` (PR #51).
+- `tasks/LANE_LOCKS.md` re-keyed to D-179 module/use-case pairs, exactly three lane rows: `wms/process-outbound` (lane 1, 2.11, `../pg-eos-lane-1`), `wms/schedule-inbound` (lane 2, 2.9b, `../pg-eos-lane-2`), `imile` (lane 3, 3.14, `../pg-eos-lane-3`); prose lines describing lane 2 as idle and lane 3 in `claude-kit` corrected; Migrations-issued and Rules sections untouched. `scripts/check-locks.sh tasks/LANE_LOCKS.md` → OK.
+- D-180 item 3 (Master default, GM may veto): the D-176 open question ("lane 3 idles after 3.14 part 2 — accept, or let it take a later-phase row?") is answered — lane 3 continues its own doc-38 lane-3 rows in Phase 3 (3.15, 3.16, 3.17, 3.18, 3.19) after 3.14; an idle lane contradicts the pace goal, and phase order (D-176) governs the critical path carried by lanes 1 and 2, not idle capacity.
+- D-180 item 4: deletion of merged remote branches (24 branches whose PRs are MERGED) and the local reset of `lane/3` to `origin/main` are left to the GM — the session's permission classifier denied destructive git; commands recorded in the Master's closing report, not in the repo.
+- Bookkeeping: `docs/DECISION_LOG.md` D-180 row appended; `docs/PROJECT_STATE.md` current task / session model / Lanes table / Last 5 DONE (2.10 @ `95a33b8`) / Blockers (D-176 question resolved) / Next 3 tasks updated, ≤ 60 lines; `tasks/MASTER_BACKLOG.md` rows 2.10/2.11/2.9b updated to match.
+- Model: claude-fable-5-1 (Master session, GM's menu choice) · Delegated: pg-scribe (sonnet) · Review: n/a (bookkeeping) · tokens: Master ≈ 40k (given), pg-scribe ≈ 25k (estimate)
+
+---
+
 ## X — D-179 pace mechanisms: use-case locks, lane worktree guard, brief budget gate, RED-before-migration, docs(X) trailer, hook test suite — DONE (2026-09-25)
 
 - GM directive (verbatim) "نفذ التوصيات كامله مع ضمان عدم كسرها مستقبلا باحترافيه ودقه صارمه", after the Master's diagnosis of the build pace on the live state (lane 1 idle a full day waiting on lane 2's whole-`wms` lock; lane 3 running in the shared `claude-kit`; every recent brief far over budget; `docs(X)` commits outnumbering `feat` 8:2 in the last 15). Every recommendation is now a refusal in a hook, a script or a CI gate — never a sentence alone.

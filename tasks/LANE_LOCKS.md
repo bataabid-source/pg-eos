@@ -2,17 +2,17 @@
 
 | module | lane | task | claimed_at | worktree |
 |---|---|---|---|---|
-| wms/outbound-order | 1 | 2.11 | 2026-09-25 | ../pg-eos-lane-1 (use-case lock, D-179; 2.10 DONE @ `95a33b8`; Phase 2, D-176: 2.11 outbound order → 2.12 pick/check/pack/load next) |
-| wms/schedule-inbound | 2 | 2.9b | 2026-09-25 | ../pg-eos-lane-2 (use-case lock, D-179 — runs concurrently with lane 1 in `wms`; doc-38 lane 2, staged D-168, `tasks/backlog/2.9b-schedule-inbound.md`; migration number requested from the Master with its RED paths before the file is written) |
-| imile | 3 | 3.14 | 2026-09-24 | ../pg-eos-lane-3 (branch `lane/3` @ `85bbe83`; part 1 committed NOT DONE @ `8b12d60` — health-reporting mechanism, pg-reviewer PASS round 4; part 2 `services/agent` pull loop next; the shared `claude-kit` is the Master's, never a lane's — D-179) |
+| wms/process-outbound | 1 | 2.11 | 2026-09-25 | ../pg-eos-lane-1 (outbound order, migration 0022 issued; 2.11 scaffold + RED tests already on disk in that worktree, untracked; 2.10 DONE @ `95a33b8`) |
+| wms/schedule-inbound | 2 | 2.9b | 2026-09-25 | ../pg-eos-lane-2 (schedule inbound + logistics terms, tasks/backlog/2.9b-schedule-inbound.md, D-168/D-169; use-case lock so it runs concurrently with lane 1's 2.11) |
+| imile | 3 | 3.14 | 2026-09-25 | ../pg-eos-lane-3 (part 2, services/agent pull loop; part 1 DONE-in-part on main; then 3.15→3.19 per D-180 item 3) |
 
 WBS 1.11 is doc-38 Lane **M**, corrected 2026-09-25 from an earlier Master misassignment to lane 1, then investigated on GM instruction and found **BLOCKED** (D-178, `docs/notes/2026-09-25-wbs-1.11-premature.md`) — not a lane-1 row, not buildable today.
-`wms` (lane 1, task 2.10) released 2026-09-25 — 2.10 DONE @ `95a33b8`; re-claimed above as the use-case lock `wms/outbound-order` (D-179) so lane 2 can build 2.9b in the same module at the same time.
+`wms` (lane 1, task 2.10) released 2026-09-25 — 2.10 DONE @ `95a33b8`; re-claimed above as the use-case lock `wms/process-outbound` (D-179/D-180) so lane 2 can build 2.9b in the same module at the same time.
 
 - `0013_1_price-lists-version.sql` — lane 1, task 1.2, applied 2026-09-24 (pg-reviewer pre-migration APPROVED WITH CHANGES; number issued by the Master, MIGRATION-REQUEST-1.md).
 - `0019_1_contracts-version.sql` — lane 1, task 1.7, applied 2026-09-25 (pg-reviewer pre-migration APPROVED WITH CHANGES; number issued by the Master, MIGRATION-REQUEST-1.md).
 
-`wms` (lane 2, task 2.15) released 2026-09-25 — Phase 2 complete for lane 2 (2.13 DONE @ `ca9a109`, 2.14 DONE @ `eec1618`, 2.15 DONE @ `<this commit>`); lane 2 idle, awaiting Master direction on next task. `wms` now free — lane 1 claims it above for 2.10/2.11.
+`wms` (lane 2, task 2.15) released 2026-09-25 — Phase 2 complete for lane 2 (2.13 DONE @ `ca9a109`, 2.14 DONE @ `eec1618`, 2.15 DONE @ `<this commit>`); lane 2 now builds `wms/schedule-inbound` (2.9b, D-180) instead of idling. `wms` also freed for lane 1 — claimed above as `wms/process-outbound` for 2.10/2.11.
 `sales` + `admin` (lane 1, task 1.9) released 2026-09-25 — 1.9 DONE @ `90faea3` (PR #43).
 `hr` (lane 2, task 5.5a) released 2026-09-25 — 5.5a DONE in full @ `ffab3bf` (part 1 `3679b70` + part 2 `ffab3bf`, PRs #19/#30); re-claimed above (`wms`) for Phase 2 (D-176).
 `admin` (lane 1, task 0.19) released 2026-09-25 — 0.19 DONE @ `80e827f` (PR #24); re-claimed above (`sales`) for Phase 1 (D-176).
