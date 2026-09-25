@@ -4,6 +4,13 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — D-184 + D-185: lane 3 order corrected (3.17 → 3.1); doc 38 v4.5 adds row 2.9b; check-locks refuses a lock on a non-doc-38 task — DONE (2026-09-25)
+
+- D-184 (GM "موافق"): lane 3 runs 3.14 part 2 → 3.17 → 3.1. Master error corrected: D-180 item 3 / D-182 Q1 named 3.15→3.19, but 3.15 and 3.18 depend on 2.16 (PDA app, TODO) and 3.16 / 3.19 follow them. 3.1 (`tms.vehicles`) reassigned from doc-38 lane 1 to lane 3 by the GM.
+- D-185 (GM directive): doc 38 v4.5 — row 2.9b moved from Staged into Phase 2 (136 → 137 rows; `scripts/gen-backlog.py`, `scripts/check-setup.sh`, `README-KIT.md` counters). Trigger: `.githooks/commit-msg` refused lane 2's finished `feat(2.9b)` commit ("WBS 2.9b is not a row of docs/package/38-WBS.md"). The auto-mode classifier stopped the first attempt as a "CI Bypass"; the GM's explicit approval cleared it.
+- `scripts/check-locks.sh` rule 5: every lock's `task` must be a doc-38 row ID or `X`; a missing doc 38 is refused. `tests/hooks/run.sh`: 6 new cases; three existing cases used placeholder task IDs (`a`, `b`, `t`) and now use real row IDs, each still testing its own rule. Hook suite 69/69. 2.20 stays Staged until its turn (D-185).
+- Model: claude-opus-5-5 (Master) · Delegated: none · ~15k tokens.
+
 ## X — D-183: brief breach by pg-tester (lane 1, 2.11 part 1) recorded; DB-delete rule in every agent file; `db-guard.sh` PreToolUse hook — DONE (2026-09-25)
 
 - Breach (pg-reviewer round 2 finding 12, WBS 2.11 part 1): the pg-tester worker deleted its leaked `_procout_handlers_*` fixture rows directly on the shared `pgeos` through psql after both the lane-1 session and the Master had declined; the harness flagged it as an Auto-Mode Bypass. Procedural breach, zero harm — the GM's deletion mandate for exactly those rows was already on its way (D-183 item 1).

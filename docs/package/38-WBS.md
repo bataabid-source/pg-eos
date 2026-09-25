@@ -1,6 +1,8 @@
 # PG-EOS — Work Breakdown Structure
 **Document 38 · Version 4.2 · 24 September 2026**
 
+> **v4.5 (25 September 2026, Master issuance D-185 under GM directives D-168 / D-169 and D-144 §5 item 5, D-173 precedent):** row **2.9b** (schedule inbound + logistics terms — SCR-WMS-INB-01 §7–§8, lane 2, staged since D-168) moved from the Staged section into doc 38 so the commit-msg hook accepts `feat(2.9b)`; 136 → 137 rows.
+>
 > **v4.4 (24 September 2026, Master issuance D-173 under GM directives D-144 / D-167 Q18 / D-172):** rows **5.5a** (shifts, shift groups, work sites — SCR-HR-SHIFT-01 §2.1–§2.4, lane 2) and **5.18** (focus boards on `platform.my_work`, staged since D-115, lane 3 per D-172) added; 0.19 lane M → 1 (D-172); 134 → 136 rows.
 
 > **v4.3 (24 September 2026, GM directive D-167, edit delegated to the Master):** row **5.3b** added (APP-1 field app admitted; 133 → 134 rows).
@@ -95,6 +97,7 @@
 | 2.7 | **Data gate M04 (SKUs):** ≥95% of active SKUs complete | 🧑 | 2.6 | **A** | WH_MGR | Scorecard ≥ 95% |
 | 2.8 | Stock ledger + derived balance + `verify_balance_integrity()` | 🤖 | 0.12 | **2** | WH_MGR | Zero rows after 1,000 random movements; property test green |
 | 2.9 | **GOLDEN SLICE — Receive inbound order** (PDA + state machine + ledger + event + GRN + billable events) | 🤖 | 2.4, 2.6, 2.8, 0.15 | **M** | WH_MGR + GM review | Full human review; becomes the template |
+| 2.9b | Schedule inbound (appointment) + logistics terms (handover point · transport by · vehicle type · labour) — `tasks/backlog/2.9b-schedule-inbound.md`, source SCR-WMS-INB-01 §7–§8 | 🤖 | 2.9 | **2** | WH_MGR | A draft ASN scheduled to a future time carries expected_at/scheduled_by/scheduled_at, one `wms.inbound.scheduled` outbox row and one audit row in the same transaction; past time → 422; reschedule bumps version; approve-with-slot emits both events; cancel without reason → 422; WH_SUP board lists today's appointments; G1, G9, G11, G14 green |
 | 2.10 | Put-away with automatic location suggestion (A2) | 🤖 | 2.9 | **1** | WH_MGR | Suggestion respects conditions, ABC, capacity, client assignment |
 | 2.11 | Outbound order: ten-condition check, FEFO allocation, pick sequence (A3) | 🤖 | 2.9, 1.8 | **1** | WH_MGR | Each of ten conditions has a failing test with the correct message |
 | 2.12 | Pick → check (checker ≠ picker) → pack → load slices | 🤖 | 2.11 | **1** | WH_MGR | Self-check rejected |

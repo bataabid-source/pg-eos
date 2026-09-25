@@ -20,7 +20,7 @@ Maintained by pg-scribe only, in the same commit as the task it records.
 |---|---|---|---|---|
 | 1 | 2.11 outbound order (ten-condition check, FEFO, pick sequence) → 2.12 | `wms/process-outbound` | `../pg-eos-lane-1` | **runnable now** — 2.10 DONE @ `95a33b8`; migration 0022 issued; scaffold + RED tests on disk |
 | 2 | 2.9b schedule inbound + logistics terms (staged D-168/D-169, doc-38 lane 2) | `wms/schedule-inbound` | `../pg-eos-lane-2` | **runnable now**, concurrent with lane 1 (D-179 use-case locks); 2.13/2.14/2.15 DONE |
-| 3 | 3.14 part 2 — `services/agent` pull loop — then 3.15→3.19 (D-180 item 3) | `imile` | `../pg-eos-lane-3` | own worktree (hook-enforced); part 1 done-in-part on main |
+| 3 | 3.14 part 2 — `services/agent` pull loop — then 3.17 → 3.1 (D-184) | `imile` | `../pg-eos-lane-3` | own worktree (hook-enforced); part 1 done-in-part on main |
 
 ## Last 5 DONE (newest first)
 
@@ -41,19 +41,19 @@ Maintained by pg-scribe only, in the same commit as the task it records.
 - **Batched Master tasks (frozen paths, one Master-only window):** `entityId` on `WithContextCtx` (`packages/db`) · SCR-HR-EMP-01 three DB CHECKs · catalog events on first consumer.
 - **WBS 1.11 BLOCKED (D-178):** not a lane task, not buildable today by anyone — see Current task above and `docs/notes/2026-09-25-wbs-1.11-premature.md`. Re-attempt once Phase 2 (2.11), a `tms` module, a `cc` module and Phase 4 billing each have their first slice.
 - **Flagged, pre-existing, untouched:** ~7 failures in `tests/evaluate-alerts/**` and `tests/integration/{schema-invariants,audit-chain-*}.test.ts` — Master/GM attention needed. `pnpm --filter @pg-eos/hr test` transient failures under concurrent shared-Postgres access — isolated reruns 100% green. **2.15 side-note:** `count-inventory.test.ts`/`receive-inbound.test.ts` each have one assertion expecting an outdated error type where the code now throws a different, arguably more-correct one — pre-existing, untouched by 2.15.
-- **D-176 open question answered by D-180 item 3, GM confirmed (D-182, Q1: أ):** lane 3 continues its own doc-38 lane-3 rows (3.15, 3.16, 3.17, 3.18, 3.19) after 3.14 part 2, rather than idling.
+- **Lane 3 order (D-184, corrects D-182 Q1):** 3.14 part 2 → 3.17 → 3.1 (`tms.vehicles`, GM-reassigned from doc-38 lane 1). 3.15, 3.16, 3.18, 3.19 are blocked on 2.16 (PDA app, TODO).
 - **D-117 note:** lane 2 self-fixed past the two-round bound twice (2.13, 2.14); acknowledged as a judgment lapse. 2.15 (6 rounds/19 findings, a real BLOCKER in round 1) correctly escalated to opus at round 3 per D-117 — committed followed through this time. All three of 2.13/2.14/2.15 ran well past budget — SPEED AND QUALITY "split before, not after" default noted.
 
 ## Next 3 tasks (D-176 phase order + D-180 session plan)
 
 1. Lane 1: 2.11 (outbound order) in `wms/process-outbound` — then 2.12
 2. Lane 2: 2.9b (schedule inbound) in `wms/schedule-inbound`
-3. Lane 3: 3.14 part 2 (`services/agent` pull loop) — then 3.15
+3. Lane 3: 3.14 part 2 (`services/agent` pull loop) — then 3.17 → 3.1 (D-184)
 
 ## Notes
 
 - main is PR-protected — commit on a branch, push, open a PR, merge on green CI. Lane PRs are opened and merged by the Master (`gh`, rebase merge); a lane branch that conflicts after another merges is rebased by the Master and re-pushed as `<branch>-rN` (D-173). Full mechanics: `docs/RUNBOOK.md`.
-- Doc 38 is **v4.4 (136 rows, D-173)**. Its Lane column is the single source for lane assignment — always check `tasks/LANE_LOCKS.md` module availability before redirecting a lane (2026-09-25 near-miss: `wms` briefly double-assigned to lanes 1 and 2, caught before either wrote code).
+- Doc 38 is **v4.5 (137 rows, D-185)**. Its Lane column is the single source for lane assignment — always check `tasks/LANE_LOCKS.md` module availability before redirecting a lane (2026-09-25 near-miss: `wms` briefly double-assigned to lanes 1 and 2, caught before either wrote code).
 - **D-176 (2026-09-25): finish phases in order** — supersedes the phase-jumping exceptions of D-172/D-173/D-175 for any *new* row a lane picks up; in-flight multi-part slices are finished first.
 - GIT rule (GM 2026-09-23 B3): task ↔ code link is `git log` with `type(WBS):`; previous task's hash recorded here inside the next task's commit.
 - GM decision sheet: `docs/notes/2026-09-23-gm-decision-sheet.md` · cleanup dispositions: `docs/notes/2026-09-24-cleanup-candidates.md` §4.
