@@ -29,19 +29,19 @@
 | 14 | new `billing.consolidation_entries` (separate book) | Eliminations, investment in subsidiaries, NCI | §9 | D1 9 · D2 (g) | requested |
 | 15 | `partners.partners` (13:15, no `entity_id`) | Vendors per company or a company mapping | §1, §16 | D2 (h) · D3 OD-14 | requested |
 | 16 | new `billing.vendor_bills`, `vendor_payments`, `vendor_payment_allocations` | AP bills, payments, allocation, statements, aging | §16 | D1 1 · D1 2 | requested |
-| 17 | `admin.purchase_orders.received_*` (13:506) → new `admin.goods_receipts` | Receipt as a record for three-way match | §17 | Consequences 2 only | requested |
+| 17 | `admin.purchase_orders.received_*` (13:506) → new `admin.goods_receipts` | Receipt as a record for three-way match | §17 | Consequences 2 only | requested — scope of 4.22 |
 | 18 | new `billing.bank_accounts`, `bank_transactions`, `bank_reconciliations` | Banking (statement import itself is WBS 4.7) | §19 | D1 1 · D1 2 | requested |
-| 19 | `admin.petty_cash` (13:516) + new `admin.cash_counts` | Main cash, custodians, transfers, count, reconciliation | §20 | D1 1 · D1 2 | requested |
+| 19 | `admin.petty_cash` (13:516) + new `admin.cash_counts` | Main cash, custodians, transfers, count, reconciliation | §20 | D1 1 · D1 2 | requested — scope of 4.7a |
 | 20 | `admin.assets` (13:543) + new `admin.asset_categories`, `admin.depreciation_runs` | Categories, capitalization, configurable depreciation, disposal, transfer, impairment | §21 | D1 1 · D1 2 · D1 10 | requested |
 | 21 | new `admin.expense_claims` | Expense claims through approval chains | §22 | D1 1 · D1 2 | requested |
 | 22 | `hr.payroll_runs/lines` (absent, doc 10 l.48) | Payroll module posting to the GL | §23 | D1 2 · D1 10 | requested |
 | 23 | new `tms.cod_settlements` | COD value, collector, dates, remitted, shortage, variance, status; unique per task. Clearing accounts are CoA data | §12, §34 | D1 1 · D1 2 · D3 OD-11 | requested |
 | 24 | `platform.approval_chains` (13B:587-598) | Expense/PO/payment request types; entity scoping (need unverified) | §25 | Consequences 2 only | requested |
-| 25 | `billing.credit_notes` (01:1162) → new `billing.debit_notes` | Debit notes | §15, §18 | D1 1 · D1 2 | requested |
+| 25 | `billing.credit_notes` (01:1162) → new `billing.debit_notes` | Debit notes | §15, §18 | D1 1 · D1 2 | requested — scope of 4.22 |
 | 26 | new `billing.reporting_mappings` | Account → IFRS line / IFRS 18 category | §31 | D1 10 · D3 OD-02 | requested |
 | 27 | new `billing.xbrl_taxonomies`, `billing.xbrl_mappings` | XBRL layer outside the engine | §32 | D1 10 · D3 OD-04 | requested |
 | 28 | new `platform.tax_rules` (or `platform.settings` keys) | Configurable tax/invoice/government rules; none seeded (OD-01) | §33 | D1 10 · D3 OD-01 | requested |
-| 29 | `identity.roles` seed (13B:546-572) — data, not schema | Spec roles with no counterpart (#26) | §26 | D2 (i) · D3 OD-18 | requested |
+| 29 | `identity.roles` seed (13B:546-572) — data, not schema | Spec roles with no counterpart (#26) | §26 | D2 (i) · D3 OD-18 | requested — 4.1a (data) |
 
 ## 3 · RED tests that must exist before any migration
 
@@ -66,4 +66,4 @@ File names mirror the golden slice `modules/wms/tests/receive-inbound/` (`receiv
 
 ## 5 · Disposition
 
-Requested. Rows 1–9 are built by lane 2 (4.1a → 4.1b → 4.19 → 4.20, after 4.2, D2 (e)); rows 10–29 by the doc 38 v4.6 row that names them — except rows **17** (`admin.goods_receipts`), **19** (`admin.cash_counts`), **25** (`billing.debit_notes`) and **29** (`identity.roles` seed), which no v4.6 row names: *no doc 38 row — Master to assign (batched question)*. Rows 17 and 24 carry no ADR-0004 decision of their own ("Consequences 2 only"). Each row's status moves to `approved` at its pre-migration pg-reviewer PASS and to `applied` when its migration lands.
+Requested. Rows 1–9 are built by lane 2 (4.1a → 4.1b → 4.19 → 4.20, after 4.2, D2 (e)); rows 10–29 by the doc 38 v4.6 row that names them — rows **17** (`admin.goods_receipts`) and **25** (`billing.debit_notes`) are assigned to **4.22** (AP/vendor bills), row **19** (`admin.cash_counts`) to **4.7a** (banking), and row **29** (`identity.roles` seed) to **4.1a** as data, not schema (Master assignment, this commit). Rows 17 and 24 carry no ADR-0004 decision of their own ("Consequences 2 only"). Each row's status moves to `approved` at its pre-migration pg-reviewer PASS and to `applied` when its migration lands.

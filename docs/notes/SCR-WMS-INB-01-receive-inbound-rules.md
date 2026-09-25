@@ -1,6 +1,6 @@
 # SCR-WMS-INB-01 — receive-inbound rules not written in doc 40 §C3, and the variance photo
 
-**Status: §1–§6 RESOLVED.** §1–§4: GM decision sheet 3 (`docs/notes/2026-09-24-gm-decision-sheet-3.md`): §1 Q3
+**Status: §1–§6 RESOLVED.** §1–§4: GM decision sheet 3 (superseded — answers recorded verbatim as D-150–D-159 in `docs/DECISION_LOG.md`): §1 Q3
 ب, §2 Q4 أ, §3 Q5 أ, §4 Q6 أ. See each item's own "Resolution (sheet 3)" line below; item 4's
 schema addition is applied in `database/migrations/0010_M_idempotency-keys-variance-photo.sql`.
 Filed under **EXECUTION-MASTER-v4 §1.11 (G-01)** by the Master during WBS 2.9 (golden slice),
@@ -53,7 +53,7 @@ mechanism itself still arrives with the PDA screen slice.
 
 ## 5. Not in this request (recorded elsewhere)
 
-- Storing Idempotency-Key values for replay: requested in SCR-PLAT-IDEM-01 — **APPROVED**, sheet 3 Q1/Q2.
+- Storing Idempotency-Key values for replay: requested in SCR-PLAT-IDEM-01 — **APPROVED**, D-150 (table)/D-151 (30-day retention), `docs/DECISION_LOG.md`.
 - Observability (a logger and a monitoring dashboard, doc 36 §5-4 #10): sheet 3 Q7 أ — pino wired as `ReceiveInboundDeps.logger` via the shared `@pg-eos/logger` package (`modules/wms/infrastructure/receive-inbound/logger.ts`); every unknown (500) api error is logged. The monitoring dashboard remains a follow-up.
 - `audit_log.device_id` from the PDA (CHANGELOG carried item): arrives with the PDA screen slice, which is the first caller that has a device id.
 

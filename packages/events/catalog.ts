@@ -75,5 +75,10 @@ export const EVENT_CATALOG = [
   // on lane 1's request.
   'wms.outbound.allocated',
   'wms.outbound.partially_allocated',
+  // WBS 3.1 part 1 (lane 3, module `fleet`, D-184): written once per RegisterVehicle, same transaction
+  // as the `tms.vehicles` insert. Aggregate `fleet.vehicles`. The package names no fleet event; the
+  // name follows doc 40 l.157 `<module>.<aggregate>.<past_tense>` (a lane publishes its own module's
+  // events — CLAUDE.md PARALLEL LANES). Added by the Master on lane 3's request.
+  'fleet.vehicle.registered',
 ] as const;
 export type CatalogedEventType = (typeof EVENT_CATALOG)[number];
