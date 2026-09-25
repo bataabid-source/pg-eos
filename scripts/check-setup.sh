@@ -12,6 +12,38 @@ wrn()  { printf '  \033[33mWARN\033[0m  %s\n' "$1"; warn=1; }
 need_file() { [ -f "$1" ] && ok "$1" || miss "$1"; }
 need_dir()  { [ -d "$1" ] && ok "$1/" || miss "$1/"; }
 
+echo "== 0. Lane database isolation (P4a, GM 2026-09-26)"
+# A lane worktree (../pg-eos-lane-1/2/3) must not run against the shared `pgeos` database — that
+# is what polluted lane test fixtures before P4a. The Master checkout (pg-eos-gov / claude-kit)
+# keeps `pgeos`. This decides OK/MISS on the PROCESS ENV ONLY: packages/db, the vitest configs,
+# apply.sh and guards-run.sh all read PGDATABASE from the environment — nothing sources
+# infra/docker/.env automatically — so a lane whose .env says pgeos_lane<id> but whose shell has
+# no PGDATABASE still runs every test against the shared `pgeos`. infra/docker/.env is read below
+# only to make the MISS message more specific, never to decide OK/MISS.
+REPO_BASENAME="$(basename "$(pwd)")"
+case "$REPO_BASENAME" in
+  pg-eos-lane-1|pg-eos-lane-2|pg-eos-lane-3)
+    lane_id="${REPO_BASENAME##*-}"
+    env_db="${PGDATABASE:-}"
+    if [ -n "$env_db" ] && [ "$env_db" != "pgeos" ]; then
+      ok "$REPO_BASENAME uses its own database (PGDATABASE=$env_db in the process env)"
+    else
+      dotenv_db=""
+      [ -f infra/docker/.env ] && dotenv_db="$(grep -E '^PGDATABASE=' infra/docker/.env | tail -1 | cut -d= -f2-)"
+      if [ -n "$env_db" ]; then reason="PGDATABASE=pgeos in this shell"; else reason="PGDATABASE is unset in this shell"; fi
+      durable="add \"env\": {\"PGDATABASE\": \"pgeos_lane$lane_id\"} to this worktree's .claude/settings.local.json (Claude Code applies it to every Bash command), or export PGDATABASE=pgeos_lane$lane_id in your shell"
+      if [ -n "$dotenv_db" ] && [ "$dotenv_db" != "pgeos" ]; then
+        miss "$REPO_BASENAME is a lane worktree but $reason, so every command still runs against the shared 'pgeos' — infra/docker/.env holds PGDATABASE=$dotenv_db but nothing sources it automatically. Fix: $durable."
+      else
+        miss "$REPO_BASENAME is a lane worktree but $reason (shared with the Master) — run: bash scripts/lane-db.sh $lane_id, then $durable."
+      fi
+    fi
+    ;;
+  *)
+    ok "$REPO_BASENAME is not a lane worktree — keeps 'pgeos'"
+    ;;
+esac
+
 echo "== 1. Governing package (docs/package/) — precedence ladder R-01"
 for f in 40-Build-Specification-EN.md 36-Technical-Architecture-Audit.md EXECUTION-MASTER-v4.md \
          42-Oracle-Cloud-Deployment.md 38-WBS.md 22-Master-Data-Governance.md BOOTSTRAP-v5.md \
