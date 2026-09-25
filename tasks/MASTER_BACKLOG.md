@@ -63,7 +63,7 @@ Type: 🧑 human decision/data · 🤖 AI-buildable slice · 🔧 infra · ✅ v
 | 1.8 | Group-level credit limit and hold | 🤖 | 1.5 | **1** | CFO | Hold blocks orders in all four entities | DONE @ `<this commit>` — lane 1; automatic hold-trigger deferred to a billing-phase slice (batched GM question, see CHANGELOG); real G-01 schema gap found and fixed (D-177, migration 0021). |
 | 1.9 | Customer 360 screen | 🤖 | 1.7 | **1** | SALES_MGR | Shows contracts, readiness gaps with owners, finance, profitability placeholder | DONE @ `<this commit>` — lane 1; two-track slice (sales data + admin UI); live-ops/SLA/activity sections and a customer search screen deferred (batched GM questions, see CHANGELOG). |
 | 1.10 | **Data gate M02:** all current clients with CR and contact | 🧑 | 1.5 | **A** | CFO | Scorecard = 100% | DEFERRED-POST-PILOT — D-127 (data gate; Phase-1 gate item after the pilot) |
-| 1.11 | Scenario S6 (multi-entity) and S10 (price exception) pass | ✅ | 1.8 | **M** | CFO | Playwright green | TODO |
+| 1.11 | Scenario S6 (multi-entity) and S10 (price exception) pass | ✅ | 1.8 | **M** | CFO | Playwright green | BLOCKED (D-178) — its real prerequisites (doc 40 S6/S10) span 2.11, `modules/tms`, `modules/cc`, `billing.*` + a nightly job, and an admin quote-entry UI, none built yet; not a fabricated pass. Evidence: `docs/notes/2026-09-25-wbs-1.11-premature.md` |
 
 **Phase gate:** 1.3 and 1.10 gates met · 1.11 green.
 
