@@ -89,6 +89,10 @@
     "./fleet/register-vehicle": {
       "types": "./dist/fleet/register-vehicle.d.ts",
       "default": "./dist/fleet/register-vehicle.js"
+    },
+    "./fleet/assert-vehicle-assignable": {
+      "types": "./dist/fleet/assert-vehicle-assignable.d.ts",
+      "default": "./dist/fleet/assert-vehicle-assignable.js"
     }
   },
   "scripts": {

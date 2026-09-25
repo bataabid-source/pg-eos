@@ -14,17 +14,16 @@
 // row lock at all, since it only inserts).
 
 import { withIdempotentContext, type IdempotencyInput, type WithContextCtx } from '@pg-eos/db';
-import { writeOutboxEvent } from '@pg-eos/events';
+import { writeOutboxEvent, type CatalogedEventType } from '@pg-eos/events';
 
 import { hasExpiredDocument } from '../../domain/register-vehicle/invariants.js';
 import { MissingActorError } from '../../domain/register-vehicle/errors.js';
 import type { RegisterVehicleDeps, RegisterVehicleDocumentInput } from './ports.js';
 
 const AUDIT_OPERATION_INSERT = 'insert';
-// Event name to be added to packages/events/catalog.ts by the Master (frozen path, MIGRATION-
-// REQUEST — brief "Event" line: "reported to the Master for packages/events/catalog.ts"). Left as
-// a plain string literal (not typed CatalogedEventType) until that catalog entry lands.
-const VEHICLE_REGISTERED_EVENT_TYPE = 'fleet.vehicle.registered';
+// Event name added to packages/events/catalog.ts by the Master (3.1 part 2, P7) — now typed as
+// CatalogedEventType, same convention as every other module's own outbox event constant.
+const VEHICLE_REGISTERED_EVENT_TYPE: CatalogedEventType = 'fleet.vehicle.registered';
 const VEHICLES_AGGREGATE_TYPE = 'fleet.vehicles';
 
 export interface RegisterVehicleInput {

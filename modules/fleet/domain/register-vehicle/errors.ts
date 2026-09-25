@@ -48,12 +48,20 @@ export class DuplicatePlateNoError extends Error {
   }
 }
 
-/** pg-reviewer round 1, Finding 3: mapped from a row-level security violation (SQLSTATE 42501) on
- *  `tms.vehicle_documents` — that table's own `internal_only` RLS policy (`using
- *  (platform.is_internal())`, brief Scenario "A non-internal actor cannot write vehicle_documents")
- *  rejecting the insert. This class TRANSLATES the database's own rejection into a typed, plain-
- *  language error; it adds no new application-level "is internal" check — the RLS policy remains
- *  the sole enforcement layer. Maps to HTTP 422. */
+/** Two legitimate uses, both mapped to HTTP 422:
+ *  (a) WRITE path (pg-reviewer round 1, Finding 3, this module): mapped from a genuine row-level
+ *  security violation (SQLSTATE 42501) on `tms.vehicle_documents` — that table's own `internal_only`
+ *  RLS policy (`using (platform.is_internal())`, brief Scenario "A non-internal actor cannot write
+ *  vehicle_documents") rejecting the insert. This TRANSLATES the database's own loud rejection into
+ *  a typed, plain-language error; it adds no new application-level "is internal" check on the write
+ *  path — the RLS policy remains the sole enforcement layer there.
+ *  (b) READ path (WBS 3.1 part 2, assert-vehicle-assignable, reused as-is, no second class): a
+ *  non-internal caller's SELECT against `tms.vehicle_documents` is not rejected by RLS at all — the
+ *  same `internal_only` policy silently returns zero rows instead of erroring. Left unchecked, that
+ *  would let the expired-document gate pass vacuously for every vehicle. So the application layer
+ *  proactively checks `ctx.isInternal` BEFORE attempting the read and throws this same class to
+ *  refuse it — a genuine application-level check on this path, since RLS itself cannot signal a
+ *  hidden SELECT the way it signals a rejected INSERT. */
 export class VehicleDocumentAccessDeniedError extends Error {
   constructor(message: string, options?: { readonly cause?: unknown }) {
     super(message, options);
