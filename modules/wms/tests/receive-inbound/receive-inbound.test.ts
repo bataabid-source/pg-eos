@@ -98,8 +98,34 @@ import { LocationLimitExceededError } from '../../index.js';
 // path — packages/contracts/package.json's own `exports` map already carries this entry.
 import {
   ApproveInboundInputSchema,
+  CancelInboundInputSchema,
   ReceiveLineInputSchema,
 } from '@pg-eos/contracts/wms/receive-inbound';
+
+// ------------------------------------------------------------------------------------------------
+// WBS 2.9b EXTENSION (pg-tester, RED-first) — docs/notes/slice-briefs/_slice-2.9b.brief.md, D2/D3.
+// Reused typed errors for the two extended commands. Neither domain/receive-inbound/errors.ts nor
+// domain/receive-inbound/invariants.ts is in this slice's Write ONLY list (only
+// application/receive-inbound/{approve-inbound,cancel-inbound}.ts is, under the D-180 scoped
+// grant) — InvalidVehicleTypeError is therefore expected to live in the NEW, writable
+// modules/wms/domain/schedule-inbound/errors.ts and be imported by approve-inbound.ts (used below
+// for ApproveInbound's optional vehicleType slot). ScheduleInPastError applies only to
+// ScheduleInbound's own expectedAt validation — covered by
+// modules/wms/tests/schedule-inbound/schedule-inbound.test.ts, not this file, so it is not
+// imported here. CancelReasonRequiredError lives in the same domain/schedule-inbound/errors.ts
+// (round-1 review finding 7 moved it there; round-2 review finding 12: this import now points at
+// that real home, so cancel-inbound.ts's backward-compatibility re-export shim can be removed).
+// Round-2 review finding 3: the four logistics-term errors and LogisticsTermsRequireExpectedAtError
+// are imported from the same file (thrown by the extended approveInbound).
+import {
+  CancelReasonRequiredError,
+  InvalidHandoverPointError,
+  InvalidLabourByError,
+  InvalidLabourCountError,
+  InvalidTransportByError,
+  InvalidVehicleTypeError,
+  LogisticsTermsRequireExpectedAtError,
+} from '../../domain/schedule-inbound/errors.js';
 
 const pool = new Pool({
   host: process.env['PGHOST'] ?? 'localhost',
@@ -136,6 +162,28 @@ const GRN_TEMPLATE_CODE = 'GRN-01';
 const DOC_NO_PREFIX = 'PST-DC-'; // entity PST + doc_type DOC's own seeded prefix.
 const INBOUND_RECEIVED_EVENT_TYPE = 'wms.inbound.received';
 const INBOUND_VARIANCE_EVENT_TYPE = 'wms.inbound.variance';
+// WBS 2.9b — the three event names are live in packages/events/catalog.ts (added by the Master,
+// commit 5644b5c); kept as raw event_type strings here because they are queried straight off
+// platform.outbox.event_type.
+const INBOUND_SCHEDULED_EVENT_TYPE = 'wms.inbound.scheduled';
+const INBOUND_APPROVED_EVENT_TYPE = 'wms.inbound.approved';
+const INBOUND_CANCELLED_EVENT_TYPE = 'wms.inbound.cancelled';
+// migration 0023 CHECK chk_inbound_orders_vehicle_type — same closed list as
+// modules/wms/tests/schedule-inbound/schedule-inbound.test.ts.
+const SCHEDULE_SLOT_FUTURE_EXPECTED_AT = new Date(Date.parse('2026-09-24T00:00:00.000Z') + 6 * 24 * 60 * 60 * 1000).toISOString();
+const INVALID_VEHICLE_TYPE_2_9B = 'motorcycle';
+const CANCEL_REASON_2_9B = 'client requested cancellation';
+// Round-2 review finding 3: one value outside each migration 0023 CHECK — same literals as
+// modules/wms/tests/schedule-inbound/schedule-inbound.test.ts ('shared' is a legal labour_by but
+// NOT a legal transport_by; labour_count's CHECK is `>= 0`).
+const INVALID_HANDOVER_POINT_2_9B = 'airport';
+const INVALID_TRANSPORT_BY_2_9B = 'shared';
+const INVALID_LABOUR_BY_2_9B = 'contractor';
+const INVALID_LABOUR_COUNT_2_9B = -1;
+// Round-2 review finding 6: the sentinel platform.sanitize_audit substitutes for a
+// `commercial`-classified column (brief Schema section / pre-migration review finding 1) — the
+// same literal modules/wms/tests/schedule-inbound/schedule-inbound.test.ts asserts.
+const SANITIZE_AUDIT_MASK = '•••';
 
 const ROLE_ACTOR_UUID = '00000000-0000-4000-8000-0000000209a1';
 const NO_ROLE_ACTOR_UUID = '00000000-0000-4000-8000-0000000209a2';
@@ -716,7 +764,7 @@ describe('Scenario: a zero-quantity line with a varianceReason posts no ledger r
     // the order already reached 'received'.
     const cancelled = await cancelInbound(
       roleCtx,
-      { orderId, expectedVersion: (await getOrder(orderId)).version, correlationId: nextCorrelationId() },
+      { orderId, expectedVersion: (await getOrder(orderId)).version, correlationId: nextCorrelationId(), cancelReason: 'all-zero order, cancelling after received' },
       deps,
     );
     expect(cancelled.status).toBe('cancelled');
@@ -773,7 +821,7 @@ describe('an all-zero order reaches received with no GRN and no wms.inbound.rece
 
     const cancelled = await cancelInbound(
       roleCtx,
-      { orderId, expectedVersion: afterReceived.version, correlationId: nextCorrelationId() },
+      { orderId, expectedVersion: afterReceived.version, correlationId: nextCorrelationId(), cancelReason: 'both lines zero-qty, cancelling after received' },
       deps,
     );
     expect(cancelled.status).toBe('cancelled');
@@ -1059,7 +1107,7 @@ describe('Scenario: CancelInbound from draft is allowed', () => {
   it('sets status to cancelled', async () => {
     const sku = await insertSku(fixtureClientId, `RECVINB-CANCEL-DRAFT-${randomUUID()}`, SAFE_SKU_GROSS_WEIGHT_KG, SAFE_SKU_VOLUME_CBM);
     const { orderId, version } = await createDraftInboundOrder(fixtureClientId, [{ skuId: sku, qtyOrdered: QTY_ORDERED }]);
-    const result = await cancelInbound(roleCtx, { orderId, expectedVersion: version, correlationId: nextCorrelationId() }, deps);
+    const result = await cancelInbound(roleCtx, { orderId, expectedVersion: version, correlationId: nextCorrelationId(), cancelReason: 'draft order, no longer needed' }, deps);
     expect(result.status).toBe('cancelled');
   });
 });
@@ -1074,7 +1122,7 @@ describe('Scenario: CancelInbound after any line has been received is rejected',
     expect(receivedOrder.status).toBe('received');
 
     await expect(
-      cancelInbound(roleCtx, { orderId, expectedVersion: receivedOrder.version, correlationId: nextCorrelationId() }, deps),
+      cancelInbound(roleCtx, { orderId, expectedVersion: receivedOrder.version, correlationId: nextCorrelationId(), cancelReason: 'attempting cancel after line received' }, deps),
     ).rejects.toBeInstanceOf(CancelBlockedError);
   });
 });
@@ -1099,7 +1147,7 @@ describe('Scenario: CancelInbound on an order still receiving is rejected', () =
     expect(stillReceiving.status).toBe('receiving');
 
     await expect(
-      cancelInbound(roleCtx, { orderId, expectedVersion: stillReceiving.version, correlationId: nextCorrelationId() }, deps),
+      cancelInbound(roleCtx, { orderId, expectedVersion: stillReceiving.version, correlationId: nextCorrelationId(), cancelReason: 'attempting cancel while still receiving' }, deps),
     ).rejects.toBeInstanceOf(IllegalTransitionError);
 
     const after = await getOrder(orderId);
@@ -1144,7 +1192,7 @@ describe('Scenario: CancelInbound without role WH_MGR is rejected', () => {
     const { orderId, version } = await createDraftInboundOrder(fixtureClientId, [{ skuId: sku, qtyOrdered: QTY_ORDERED }]);
 
     await expect(
-      cancelInbound(noRoleCtx, { orderId, expectedVersion: version, correlationId: nextCorrelationId() }, deps),
+      cancelInbound(noRoleCtx, { orderId, expectedVersion: version, correlationId: nextCorrelationId(), cancelReason: 'attempting cancel without WH_MGR role' }, deps),
     ).rejects.toBeInstanceOf(RoleRequiredError);
 
     const after = await getOrder(orderId);
@@ -1594,5 +1642,435 @@ describe('Scenario: a SKU with no temperature requirement is unaffected by zone 
     const ids = suggestion.candidates.map((c) => c.locationId);
     expect(ids).toContain(ambientLoc);
     expect(ids).toContain(frozenLoc);
+  });
+});
+
+// ==================================================================================================
+// WBS 2.9b — new scenarios (docs/notes/slice-briefs/_slice-2.9b.brief.md, D2/D3). Every scenario
+// above this marker is 2.9's (and 2.10's) own suite, UNCHANGED — the regression guarantee is this
+// whole file re-run in full, not a new assertion (same discipline as the 2.10 marker above).
+// ==================================================================================================
+
+// Round-1 review finding 9: getOrder() (above) only selects 2.9's own columns — a dedicated query
+// for the nine WBS 2.9b logistics/appointment columns so the "sets expected_at" scenario below can
+// actually assert them, instead of only status/version.
+async function getScheduleColumns(orderId: string): Promise<{
+  expected_at: Date | null;
+  scheduled_by: string | null;
+  scheduled_at: Date | null;
+  dock_code: string | null;
+  handover_point: string | null;
+  transport_by: string | null;
+  vehicle_type: string | null;
+  labour_by: string | null;
+  labour_count: number | null;
+}> {
+  const result: QueryResult<{
+    expected_at: Date | null;
+    scheduled_by: string | null;
+    scheduled_at: Date | null;
+    dock_code: string | null;
+    handover_point: string | null;
+    transport_by: string | null;
+    vehicle_type: string | null;
+    labour_by: string | null;
+    labour_count: number | null;
+  }> = await pool.query(
+    `select expected_at, scheduled_by, scheduled_at, dock_code, handover_point, transport_by,
+            vehicle_type, labour_by, labour_count
+       from wms.inbound_orders where id = $1`,
+    [orderId],
+  );
+  const row = result.rows[0];
+  if (!row) throw new Error(`no wms.inbound_orders row for id ${orderId}`);
+  return row;
+}
+
+// Round-1 review finding 9: outboxRowsForCorrelationAndType() (above) only selects `id` — this
+// slice's new event-payload assertions need the payload column too.
+async function outboxPayloadsForCorrelationAndType(
+  correlationId: string,
+  eventType: string,
+): Promise<Array<{ id: string; payload: Record<string, unknown> }>> {
+  const result: QueryResult<{ id: string; payload: Record<string, unknown> }> = await pool.query(
+    `select id::text as id, payload from platform.outbox where correlation_id = $1 and event_type = $2`,
+    [correlationId, eventType],
+  );
+  return result.rows;
+}
+
+describe('Scenario: ApproveInbound with expectedAt present emits BOTH wms.inbound.approved and wms.inbound.scheduled (D2)', () => {
+  it('writes both events in the SAME transaction/correlationId, sets expected_at/scheduled_by/scheduled_at and the logistics columns, and bumps version once', async () => {
+    const sku = await insertSku(fixtureClientId, `RECVINB-APPROVESLOT-${randomUUID()}`, SAFE_SKU_GROSS_WEIGHT_KG, SAFE_SKU_VOLUME_CBM);
+    const { orderId, version } = await createDraftInboundOrder(fixtureClientId, [{ skuId: sku, qtyOrdered: QTY_ORDERED }]);
+    const correlationId = nextCorrelationId();
+
+    const approved = await approveInbound(
+      roleCtx,
+      {
+        orderId,
+        expectedVersion: version,
+        correlationId,
+        expectedAt: SCHEDULE_SLOT_FUTURE_EXPECTED_AT,
+        dockCode: 'D-09',
+        handoverPoint: 'client_site',
+        transportBy: 'premium',
+        vehicleType: 'truck',
+        labourBy: 'premium',
+        labourCount: 2,
+      },
+      deps,
+    );
+    expect(approved.status).toBe('approved');
+
+    const after = await getOrder(orderId);
+    expect(after.status).toBe('approved');
+    expect(after.version).toBe(approved.version);
+
+    // Round-1 review finding 9: actually read back expected_at/scheduled_by/scheduled_at and the
+    // logistics columns, not just status/version.
+    const scheduleColumns = await getScheduleColumns(orderId);
+    expect(scheduleColumns.expected_at?.toISOString()).toBe(SCHEDULE_SLOT_FUTURE_EXPECTED_AT);
+    expect(scheduleColumns.scheduled_by).toBe(ROLE_ACTOR_UUID);
+    expect(scheduleColumns.scheduled_at).not.toBeNull();
+    expect(scheduleColumns.dock_code).toBe('D-09');
+    expect(scheduleColumns.handover_point).toBe('client_site');
+    expect(scheduleColumns.transport_by).toBe('premium');
+    expect(scheduleColumns.vehicle_type).toBe('truck');
+    expect(scheduleColumns.labour_by).toBe('premium');
+    expect(scheduleColumns.labour_count).toBe(2);
+
+    expect(await outboxRowsForCorrelationAndType(correlationId, INBOUND_APPROVED_EVENT_TYPE)).toHaveLength(1);
+    const scheduledRows = await outboxPayloadsForCorrelationAndType(correlationId, INBOUND_SCHEDULED_EVENT_TYPE);
+    expect(scheduledRows).toHaveLength(1);
+    const scheduledPayload = scheduledRows[0]?.payload as Record<string, unknown>;
+    // Round-1 review finding 6 (pg-backend's parallel fix): the payload's expectedAt is built via
+    // `.toISOString()` on both emitting paths (ISO 8601), not an echo of Postgres's own
+    // `timestamptz::text` format — asserted as an exact ISO 8601 string match (round-3 finding 3:
+    // a Date-value-only comparison would pass a regression back to the old format undetected).
+    expect(scheduledPayload['expectedAt']).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
+    expect(scheduledPayload['expectedAt']).toBe(SCHEDULE_SLOT_FUTURE_EXPECTED_AT);
+    expect(scheduledPayload).toMatchObject({
+      orderId,
+      dockCode: 'D-09',
+      handoverPoint: 'client_site',
+      transportBy: 'premium',
+      vehicleType: 'truck',
+      labourBy: 'premium',
+      labourCount: 2,
+    });
+  });
+
+  it('rejects with InvalidVehicleTypeError when the optional slot carries a vehicleType outside the closed list, and writes nothing', async () => {
+    const sku = await insertSku(fixtureClientId, `RECVINB-APPROVESLOT-BADVEH-${randomUUID()}`, SAFE_SKU_GROSS_WEIGHT_KG, SAFE_SKU_VOLUME_CBM);
+    const { orderId, version } = await createDraftInboundOrder(fixtureClientId, [{ skuId: sku, qtyOrdered: QTY_ORDERED }]);
+
+    await expect(
+      approveInbound(
+        roleCtx,
+        {
+          orderId,
+          expectedVersion: version,
+          correlationId: nextCorrelationId(),
+          expectedAt: SCHEDULE_SLOT_FUTURE_EXPECTED_AT,
+          vehicleType: INVALID_VEHICLE_TYPE_2_9B,
+        },
+        deps,
+      ),
+    ).rejects.toBeInstanceOf(InvalidVehicleTypeError);
+
+    const after = await getOrder(orderId);
+    expect(after.status).toBe('draft');
+    expect(after.version).toBe(version);
+  });
+});
+
+// --- WBS 2.9b pg-reviewer round-3 finding 4c: approve-with-slot idempotent replay ----------------
+
+describe('Scenario: ApproveInbound-with-slot (D2) is idempotent — same Idempotency-Key + body replays the stored result', () => {
+  it('the second call returns the stored result, version bumps exactly once, and exactly one wms.inbound.approved + one wms.inbound.scheduled outbox row exist, not two of each', async () => {
+    const sku = await insertSku(fixtureClientId, `RECVINB-APPROVESLOT-REPLAY-${randomUUID()}`, SAFE_SKU_GROSS_WEIGHT_KG, SAFE_SKU_VOLUME_CBM);
+    const { orderId, version } = await createDraftInboundOrder(fixtureClientId, [{ skuId: sku, qtyOrdered: QTY_ORDERED }]);
+    const idemKey = `approve-slot-replay-${randomUUID()}`;
+    const correlationId = nextCorrelationId();
+    const body = {
+      orderId,
+      expectedVersion: version,
+      correlationId,
+      expectedAt: SCHEDULE_SLOT_FUTURE_EXPECTED_AT,
+      dockCode: 'D-11',
+      handoverPoint: 'client_site',
+      transportBy: 'premium',
+      vehicleType: 'truck',
+      labourBy: 'premium',
+      labourCount: 2,
+    };
+
+    const first = await approveInbound(roleCtx, { ...body, idem: idemFor('approve', idemKey, body) }, deps);
+    expect(first.status).toBe('approved');
+    const afterFirst = await getOrder(orderId);
+    expect(afterFirst.version).toBeGreaterThan(version);
+
+    const second = await approveInbound(roleCtx, { ...body, idem: idemFor('approve', idemKey, body) }, deps);
+    expect(second).toEqual(first);
+
+    const afterSecond = await getOrder(orderId);
+    expect(afterSecond.version).toBe(afterFirst.version); // bumped exactly once.
+
+    expect(await outboxRowsForCorrelationAndType(correlationId, INBOUND_APPROVED_EVENT_TYPE)).toHaveLength(1);
+    expect(await outboxRowsForCorrelationAndType(correlationId, INBOUND_SCHEDULED_EVENT_TYPE)).toHaveLength(1);
+  });
+});
+
+// --- Round-2 review finding 6: the approve-with-slot audit row's actual contents ----------------
+
+/** Every platform.audit_log row for a correlationId, returning BOTH the raw stored newValue and the
+ *  same value read back through platform.sanitize_audit — the masking is applied at read time (same
+ *  helper shape as modules/wms/tests/schedule-inbound/schedule-inbound.test.ts's own
+ *  sanitizedAuditNewValue), so the commercial-column assertion is only observable this way. */
+async function auditRowsWithSanitizedForCorrelation(
+  correlationId: string,
+): Promise<Array<{ raw: Record<string, unknown>; sanitized: Record<string, unknown> }>> {
+  const result: QueryResult<{ raw: Record<string, unknown>; sanitized: Record<string, unknown> }> = await pool.query(
+    `select new_value as raw, platform.sanitize_audit(schema_name, table_name, new_value) as sanitized
+       from platform.audit_log where correlation_id = $1`,
+    [correlationId],
+  );
+  return result.rows;
+}
+
+describe('Scenario: the approve-with-slot audit row carries the nine appointment/logistics columns, the four commercial ones masked (round-2 finding 6)', () => {
+  it('exactly one audit row; newValue carries expectedAt/scheduledBy/scheduledAt/dockCode/vehicleType + handover_point/transport_by/labour_by/labour_count; platform.sanitize_audit masks the four commercial keys to "•••" and leaves the five public ones raw', async () => {
+    const sku = await insertSku(fixtureClientId, `RECVINB-APPROVESLOT-AUDIT-${randomUUID()}`, SAFE_SKU_GROSS_WEIGHT_KG, SAFE_SKU_VOLUME_CBM);
+    const { orderId, version } = await createDraftInboundOrder(fixtureClientId, [{ skuId: sku, qtyOrdered: QTY_ORDERED }]);
+    const correlationId = nextCorrelationId();
+
+    const approved = await approveInbound(
+      roleCtx,
+      {
+        orderId,
+        expectedVersion: version,
+        correlationId,
+        expectedAt: SCHEDULE_SLOT_FUTURE_EXPECTED_AT,
+        dockCode: 'D-10',
+        handoverPoint: 'premium_warehouse',
+        transportBy: 'client',
+        vehicleType: 'van',
+        labourBy: 'shared',
+        labourCount: 5,
+      },
+      deps,
+    );
+
+    const auditRows = await auditRowsWithSanitizedForCorrelation(correlationId);
+    expect(auditRows).toHaveLength(1);
+    const { raw, sanitized } = auditRows[0] as { raw: Record<string, unknown>; sanitized: Record<string, unknown> };
+
+    // The nine columns this path writes (brief D1/D2) — every key present.
+    const NINE_COLUMN_KEYS = [
+      'expectedAt',
+      'scheduledBy',
+      'scheduledAt',
+      'dockCode',
+      'vehicleType',
+      'handover_point',
+      'transport_by',
+      'labour_by',
+      'labour_count',
+    ] as const;
+    for (const key of NINE_COLUMN_KEYS) {
+      expect(raw, `audit newValue is missing key "${key}"`).toHaveProperty(key);
+    }
+    // The status transition itself is still recorded alongside the slot.
+    expect(raw['status']).toBe('approved');
+    expect(raw['version']).toBe(approved.version);
+
+    // The four commercial-classified keys (migration 0023 classification) — masked at read time.
+    expect(sanitized['handover_point']).toBe(SANITIZE_AUDIT_MASK);
+    expect(sanitized['transport_by']).toBe(SANITIZE_AUDIT_MASK);
+    expect(sanitized['labour_by']).toBe(SANITIZE_AUDIT_MASK);
+    expect(sanitized['labour_count']).toBe(SANITIZE_AUDIT_MASK);
+    // ...and genuinely carried the supplied values before masking (the mask is not hiding a null).
+    expect(raw['handover_point']).toBe('premium_warehouse');
+    expect(raw['transport_by']).toBe('client');
+    expect(raw['labour_by']).toBe('shared');
+    expect(raw['labour_count']).toBe(5);
+
+    // The five public keys pass through sanitize_audit unmasked, with the stored values.
+    expect(new Date(sanitized['expectedAt'] as string).toISOString()).toBe(SCHEDULE_SLOT_FUTURE_EXPECTED_AT);
+    expect(sanitized['scheduledBy']).toBe(ROLE_ACTOR_UUID);
+    expect(new Date(sanitized['scheduledAt'] as string).toISOString()).toBe(clock.now().toISOString());
+    expect(sanitized['dockCode']).toBe('D-10');
+    expect(sanitized['vehicleType']).toBe('van');
+
+    // D5 — delivery_task_id is never written on this path, so it is never an audit key either.
+    expect('delivery_task_id' in raw).toBe(false);
+  });
+});
+
+// --- Round-2 review finding 3: invalid logistics terms / terms without expectedAt ---------------
+
+describe('Scenario: ApproveInbound rejects an invalid handoverPoint/transportBy/labourBy or a negative labourCount on its optional slot (migration 0023 CHECKs)', () => {
+  const invalidTermCases = [
+    { term: 'handoverPoint', patch: { handoverPoint: INVALID_HANDOVER_POINT_2_9B }, error: InvalidHandoverPointError },
+    { term: 'transportBy', patch: { transportBy: INVALID_TRANSPORT_BY_2_9B }, error: InvalidTransportByError },
+    { term: 'labourBy', patch: { labourBy: INVALID_LABOUR_BY_2_9B }, error: InvalidLabourByError },
+    { term: 'labourCount', patch: { labourCount: INVALID_LABOUR_COUNT_2_9B }, error: InvalidLabourCountError },
+  ] as const;
+
+  it.each(invalidTermCases)(
+    'an invalid $term rejects with its typed error (422) and writes nothing — status still draft, no version bump, no slot column, no event, no audit row',
+    async ({ term, patch, error }) => {
+      const sku = await insertSku(fixtureClientId, `RECVINB-APPROVESLOT-BAD-${term}-${randomUUID()}`, SAFE_SKU_GROSS_WEIGHT_KG, SAFE_SKU_VOLUME_CBM);
+      const { orderId, version } = await createDraftInboundOrder(fixtureClientId, [{ skuId: sku, qtyOrdered: QTY_ORDERED }]);
+      const correlationId = nextCorrelationId();
+
+      await expect(
+        approveInbound(
+          roleCtx,
+          { orderId, expectedVersion: version, correlationId, expectedAt: SCHEDULE_SLOT_FUTURE_EXPECTED_AT, ...patch },
+          deps,
+        ),
+      ).rejects.toBeInstanceOf(error);
+
+      const after = await getOrder(orderId);
+      expect(after.status).toBe('draft');
+      expect(after.version).toBe(version);
+      const slot = await getScheduleColumns(orderId);
+      expect(slot.expected_at).toBeNull();
+      expect(slot.scheduled_by).toBeNull();
+      expect(slot.handover_point).toBeNull();
+      expect(slot.transport_by).toBeNull();
+      expect(slot.labour_by).toBeNull();
+      expect(slot.labour_count).toBeNull();
+      expect(await outboxRowsForCorrelationAndType(correlationId, INBOUND_APPROVED_EVENT_TYPE)).toHaveLength(0);
+      expect(await outboxRowsForCorrelationAndType(correlationId, INBOUND_SCHEDULED_EVENT_TYPE)).toHaveLength(0);
+      expect(await auditCountForCorrelation(correlationId)).toBe(0);
+    },
+  );
+});
+
+describe('Scenario: ApproveInbound with a logistics term but NO expectedAt is rejected (round-1 finding 5 default: the slot is one atomic unit)', () => {
+  const termsWithoutExpectedAt = [
+    { term: 'dockCode', patch: { dockCode: 'D-11' } },
+    { term: 'handoverPoint', patch: { handoverPoint: 'client_site' } },
+    { term: 'transportBy', patch: { transportBy: 'premium' } },
+    { term: 'vehicleType', patch: { vehicleType: 'truck' } },
+    { term: 'labourBy', patch: { labourBy: 'premium' } },
+    { term: 'labourCount', patch: { labourCount: 2 } },
+  ] as const;
+
+  it.each(termsWithoutExpectedAt)(
+    'a valid $term without expectedAt rejects with LogisticsTermsRequireExpectedAtError (422) and writes nothing — status still draft, no version bump, no event, no audit row',
+    async ({ term, patch }) => {
+      const sku = await insertSku(fixtureClientId, `RECVINB-APPROVE-NOANCHOR-${term}-${randomUUID()}`, SAFE_SKU_GROSS_WEIGHT_KG, SAFE_SKU_VOLUME_CBM);
+      const { orderId, version } = await createDraftInboundOrder(fixtureClientId, [{ skuId: sku, qtyOrdered: QTY_ORDERED }]);
+      const correlationId = nextCorrelationId();
+
+      await expect(
+        approveInbound(roleCtx, { orderId, expectedVersion: version, correlationId, ...patch }, deps),
+      ).rejects.toBeInstanceOf(LogisticsTermsRequireExpectedAtError);
+
+      const after = await getOrder(orderId);
+      expect(after.status).toBe('draft');
+      expect(after.version).toBe(version);
+      const slot = await getScheduleColumns(orderId);
+      expect(slot.expected_at).toBeNull();
+      expect(slot.dock_code).toBeNull();
+      expect(slot.handover_point).toBeNull();
+      expect(slot.transport_by).toBeNull();
+      expect(slot.vehicle_type).toBeNull();
+      expect(slot.labour_by).toBeNull();
+      expect(slot.labour_count).toBeNull();
+      expect(await outboxRowsForCorrelationAndType(correlationId, INBOUND_APPROVED_EVENT_TYPE)).toHaveLength(0);
+      expect(await outboxRowsForCorrelationAndType(correlationId, INBOUND_SCHEDULED_EVENT_TYPE)).toHaveLength(0);
+      expect(await auditCountForCorrelation(correlationId)).toBe(0);
+    },
+  );
+});
+
+describe('Scenario: ApproveInbound WITHOUT expectedAt emits wms.inbound.approved only (regression, D2 — Master ruling on finding 8)', () => {
+  it('transitions to "approved" and writes exactly one wms.inbound.approved outbox row and NO wms.inbound.scheduled row', async () => {
+    const sku = await insertSku(fixtureClientId, `RECVINB-APPROVENOSLOT-${randomUUID()}`, SAFE_SKU_GROSS_WEIGHT_KG, SAFE_SKU_VOLUME_CBM);
+    const { orderId, version } = await createDraftInboundOrder(fixtureClientId, [{ skuId: sku, qtyOrdered: QTY_ORDERED }]);
+    const correlationId = nextCorrelationId();
+
+    const approved = await approveInbound(roleCtx, { orderId, expectedVersion: version, correlationId }, deps);
+    expect(approved.status).toBe('approved');
+
+    // Master ruling on finding 8: wms.inbound.approved fires on every successful ApproveInbound;
+    // wms.inbound.scheduled fires additionally only when expectedAt is present.
+    expect(await outboxRowsForCorrelationAndType(correlationId, INBOUND_APPROVED_EVENT_TYPE)).toHaveLength(1);
+    expect(await outboxRowsForCorrelationAndType(correlationId, INBOUND_SCHEDULED_EVENT_TYPE)).toHaveLength(0);
+  });
+});
+
+describe('Scenario: CancelInbound without cancelReason is rejected (D3 — now mandatory)', () => {
+  it('rejects with CancelReasonRequiredError, a 422, and writes nothing', async () => {
+    const sku = await insertSku(fixtureClientId, `RECVINB-CANCELNOREASON-${randomUUID()}`, SAFE_SKU_GROSS_WEIGHT_KG, SAFE_SKU_VOLUME_CBM);
+    const { orderId, version } = await createDraftInboundOrder(fixtureClientId, [{ skuId: sku, qtyOrdered: QTY_ORDERED }]);
+
+    await expect(
+      cancelInbound(roleCtx, { orderId, expectedVersion: version, correlationId: nextCorrelationId(), cancelReason: '' }, deps),
+    ).rejects.toBeInstanceOf(CancelReasonRequiredError);
+
+    const after = await getOrder(orderId);
+    expect(after.status).toBe('draft');
+    expect(after.version).toBe(version);
+  });
+
+  it('the contract schema itself rejects a missing cancelReason before the command runs', () => {
+    expect(() =>
+      CancelInboundInputSchema.parse({ orderId: randomUUID(), expectedVersion: 1, correlationId: randomUUID() }),
+    ).toThrow();
+    expect(() =>
+      CancelInboundInputSchema.parse({ orderId: randomUUID(), expectedVersion: 1, correlationId: randomUUID(), cancelReason: '' }),
+    ).toThrow();
+  });
+});
+
+describe('Scenario: CancelInbound with cancelReason persists cancel_reason and emits wms.inbound.cancelled (D3)', () => {
+  it('persists cancel_reason on the order row and writes exactly one wms.inbound.cancelled outbox row carrying it', async () => {
+    const sku = await insertSku(fixtureClientId, `RECVINB-CANCELREASON-${randomUUID()}`, SAFE_SKU_GROSS_WEIGHT_KG, SAFE_SKU_VOLUME_CBM);
+    const { orderId, version } = await createDraftInboundOrder(fixtureClientId, [{ skuId: sku, qtyOrdered: QTY_ORDERED }]);
+    const correlationId = nextCorrelationId();
+
+    const cancelled = await cancelInbound(
+      roleCtx,
+      { orderId, expectedVersion: version, correlationId, cancelReason: CANCEL_REASON_2_9B },
+      deps,
+    );
+    expect(cancelled.status).toBe('cancelled');
+
+    const result: QueryResult<{ cancel_reason: string | null }> = await pool.query(
+      `select cancel_reason from wms.inbound_orders where id = $1`,
+      [orderId],
+    );
+    expect(result.rows[0]?.cancel_reason).toBe(CANCEL_REASON_2_9B);
+
+    // Round-1 review finding 9: also assert the wms.inbound.cancelled event payload itself carries
+    // cancelReason (brief D3), not only the outbox row's existence.
+    const rows = await outboxPayloadsForCorrelationAndType(correlationId, INBOUND_CANCELLED_EVENT_TYPE);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.payload).toMatchObject({ orderId, status: 'cancelled', cancelReason: CANCEL_REASON_2_9B });
+  });
+});
+
+describe('Scenario: cross-entity isolation still holds for the extended commands (RLS regression, D2/D3)', () => {
+  it('ApproveInbound with expectedAt still rejects an outsider with OrderNotFoundError, and nothing is scheduled', async () => {
+    const sku = await insertSku(fixtureClientId, `RECVINB-RLS-SLOT-${randomUUID()}`, SAFE_SKU_GROSS_WEIGHT_KG, SAFE_SKU_VOLUME_CBM);
+    const { orderId, version } = await createDraftInboundOrder(fixtureClientId, [{ skuId: sku, qtyOrdered: QTY_ORDERED }]);
+
+    await expect(
+      approveInbound(
+        outsiderCtx,
+        { orderId, expectedVersion: version, correlationId: nextCorrelationId(), expectedAt: SCHEDULE_SLOT_FUTURE_EXPECTED_AT },
+        deps,
+      ),
+    ).rejects.toBeInstanceOf(OrderNotFoundError);
+
+    const after = await getOrder(orderId);
+    expect(after.status).toBe('draft');
+    expect(after.version).toBe(version);
   });
 });

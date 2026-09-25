@@ -231,3 +231,75 @@ Feature: Receive inbound order (WBS 2.9, golden slice)
   # WBS 2.10 — every existing 2.9 SuggestLocation scenario above this marker still passes
   # unmodified; this is the existing suite (receive-inbound.test.ts) re-run in full, not a new
   # scenario — no Given/When/Then steps belong here (the brief's own regression-guarantee gate).
+
+  # ================================================================================================
+  # WBS 2.9b — ApproveInbound/CancelInbound extensions (lane 2, scoped grant D-180), an in-place
+  # enhancement of THIS file's own ApproveInbound/CancelInbound commands. Everything above this
+  # marker (2.9's own acceptance AND 2.10's) is UNCHANGED — re-run in full as the regression
+  # guarantee. docs/notes/slice-briefs/_slice-2.9b.brief.md D2/D3.
+  # ================================================================================================
+
+  Scenario: ApproveInbound with an optional expectedAt approves AND schedules in one step
+    Given the caller holds role "WH_MGR"
+    When ApproveInbound is called with expectedAt set to a future timestamp
+    Then the order transitions to "approved" exactly as before
+    And expected_at is set on the order
+    And BOTH "wms.inbound.approved" and "wms.inbound.scheduled" events are written in the SAME
+      transaction, sharing the correlationId
+
+  Scenario: ApproveInbound's optional vehicleType slot rejects a value outside the closed list
+    When ApproveInbound is called with expectedAt and a vehicleType not in the closed list
+    Then it is rejected with a typed invalid-vehicle-type error and nothing is written
+
+  Scenario: The approve-with-slot audit row records the nine columns, commercial ones masked
+    When ApproveInbound is called with expectedAt and every logistics term
+    Then exactly one audit row is written whose newValue carries expectedAt, scheduledBy,
+      scheduledAt, dockCode, vehicleType, handover_point, transport_by, labour_by, labour_count
+    And platform.sanitize_audit masks handover_point/transport_by/labour_by/labour_count to "•••"
+    And the five public keys are read back unmasked
+
+  Scenario Outline: ApproveInbound's optional slot enforces the other logistics-term CHECKs
+    When ApproveInbound is called with expectedAt and <term> set to <value>
+    Then it is rejected with <error> (422)
+    And nothing is written — status still "draft", no version bump, no event, no audit row
+
+    Examples:
+      | term          | value        | error                     |
+      | handoverPoint | "airport"    | InvalidHandoverPointError |
+      | transportBy   | "shared"     | InvalidTransportByError   |
+      | labourBy      | "contractor" | InvalidLabourByError      |
+      | labourCount   | -1           | InvalidLabourCountError   |
+
+  Scenario Outline: ApproveInbound with a logistics term but no expectedAt is rejected
+    When ApproveInbound is called with <term> but without expectedAt
+    Then it is rejected with LogisticsTermsRequireExpectedAtError (422)
+    And nothing is written — status still "draft", no version bump, no event, no audit row
+
+    Examples:
+      | term          |
+      | dockCode      |
+      | handoverPoint |
+      | transportBy   |
+      | vehicleType   |
+      | labourBy      |
+      | labourCount   |
+
+  Scenario: ApproveInbound without expectedAt emits wms.inbound.approved only (regression)
+    When ApproveInbound is called with no expectedAt
+    Then the order transitions to "approved"
+    And exactly one "wms.inbound.approved" event is written
+    And no "wms.inbound.scheduled" event is written
+
+  Scenario: CancelInbound without cancelReason is rejected
+    When CancelInbound is called with no cancelReason (or an empty one)
+    Then it is rejected with a typed cancel-reason-required error (422) and nothing is written
+
+  Scenario: CancelInbound with cancelReason persists it and notifies the client
+    When CancelInbound is called with a cancelReason
+    Then cancel_reason is persisted on the order
+    And exactly one "wms.inbound.cancelled" event is written carrying the cancelReason
+
+  Scenario: RLS still governs the extended commands
+    Given a caller with no identity.user_entities row for the order's entity
+    When that caller calls ApproveInbound with an expectedAt slot
+    Then it is rejected with OrderNotFoundError and nothing is scheduled or approved

@@ -48,7 +48,23 @@ import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 
 import { LineNotFoundError, OrderNotFoundError } from '../../domain/receive-inbound/errors.js';
 import type { InboundOrderStatus } from '../../domain/receive-inbound/machine.js';
-import type { AuditTarget, InboundOrderRepository, OrderLineRow, OrderRow, OrderUpdateColumns, SuggestLocationCandidateRow } from '../../application/receive-inbound/ports.js';
+import {
+  InvalidHandoverPointError,
+  InvalidLabourByError,
+  InvalidLabourCountError,
+  InvalidTransportByError,
+  InvalidVehicleTypeError,
+} from '../../domain/schedule-inbound/errors.js';
+import type {
+  AuditTarget,
+  InboundOrderRepository,
+  OrderLineRow,
+  OrderRow,
+  OrderScheduleAndTermsUpdateColumns,
+  OrderScheduleAndTermsUpdateResult,
+  OrderUpdateColumns,
+  SuggestLocationCandidateRow,
+} from '../../application/receive-inbound/ports.js';
 
 async function getOrderForUpdate(tx: NodePgDatabase, orderId: string): Promise<OrderRow> {
   const result = await tx.execute<{
@@ -92,6 +108,143 @@ async function updateOrder(tx: NodePgDatabase, orderId: string, columns: OrderUp
     throw new Error(`updateOrder: no ${ORDER_TABLE} row for id ${orderId} (lock was already held)`);
   }
   return row.version;
+}
+
+// WBS 2.9b round-2 review finding 10: migration 0023's logistics-term CHECKs raise SQLSTATE 23514
+// (check_violation) — mapped by constraint name to the same typed 422 errors as
+// ../schedule-inbound/repository.ts's own backstop, behind approve-inbound.ts's domain pre-checks
+// (belt-and-braces), never an unmapped 500.
+const CHECK_VIOLATION_SQLSTATE = '23514';
+const VEHICLE_TYPE_CONSTRAINT = 'chk_inbound_orders_vehicle_type';
+const HANDOVER_POINT_CONSTRAINT = 'chk_inbound_orders_handover_point';
+const TRANSPORT_BY_CONSTRAINT = 'chk_inbound_orders_transport_by';
+const LABOUR_BY_CONSTRAINT = 'chk_inbound_orders_labour_by';
+const LABOUR_COUNT_CONSTRAINT = 'chk_inbound_orders_labour_count';
+
+/** Walks `error`'s own cause chain for a Postgres error with the given SQLSTATE — same
+ *  discipline as ../schedule-inbound/repository.ts's findRaisedException. Returns the MATCHING
+ *  error in the chain (never drizzle's own outer "Failed query: ..." wrapper). */
+function findRaisedException(error: unknown, sqlstate: string): Error | undefined {
+  const seen = new Set<unknown>();
+  let current: unknown = error;
+
+  while (current instanceof Error && !seen.has(current)) {
+    seen.add(current);
+    const code = 'code' in current ? current.code : undefined;
+    if (code === sqlstate) {
+      return current;
+    }
+    current = current.cause;
+  }
+
+  return undefined;
+}
+
+/** Maps a CHECK violation on `raised` to its typed error by constraint name — copied from
+ *  ../schedule-inbound/repository.ts's mapCheckViolation. Returns `undefined` (caller rethrows the
+ *  original error) when the constraint is not one of these five. */
+function mapScheduleTermsCheckViolation(
+  raised: Error,
+  columns: OrderScheduleAndTermsUpdateColumns,
+): Error | undefined {
+  const constraint = 'constraint' in raised ? raised.constraint : undefined;
+  switch (constraint) {
+    case VEHICLE_TYPE_CONSTRAINT:
+      return new InvalidVehicleTypeError(
+        `ApproveInbound: ${ORDER_TABLE}.vehicle_type must be one of the closed list; received ` +
+          `${columns.vehicleType}. (Allowed: container_20, container_40, truck, trailer, van, ` +
+          `pickup, other) — ${raised.message}`,
+      );
+    case HANDOVER_POINT_CONSTRAINT:
+      return new InvalidHandoverPointError(
+        `ApproveInbound: ${ORDER_TABLE}.handover_point must be one of the closed list; received ` +
+          `${columns.handoverPoint}. (Allowed: premium_warehouse, client_site) — ${raised.message}`,
+      );
+    case TRANSPORT_BY_CONSTRAINT:
+      return new InvalidTransportByError(
+        `ApproveInbound: ${ORDER_TABLE}.transport_by must be one of the closed list; received ` +
+          `${columns.transportBy}. (Allowed: client, premium) — ${raised.message}`,
+      );
+    case LABOUR_BY_CONSTRAINT:
+      return new InvalidLabourByError(
+        `ApproveInbound: ${ORDER_TABLE}.labour_by must be one of the closed list; received ` +
+          `${columns.labourBy}. (Allowed: client, premium, shared) — ${raised.message}`,
+      );
+    case LABOUR_COUNT_CONSTRAINT:
+      return new InvalidLabourCountError(
+        `ApproveInbound: ${ORDER_TABLE}.labour_count must be >= 0; received ` +
+          `${columns.labourCount}. — ${raised.message}`,
+      );
+    default:
+      return undefined;
+  }
+}
+
+/** WBS 2.9b round-1 review finding 2: ApproveInbound's optional appointment-slot path (D2) —
+ *  mirrors `updateOrder`'s own coalesce() style, but never touches `version` (the caller already
+ *  bumped it via `updateOrder` in the same transaction, before calling this). */
+async function updateOrderScheduleAndTerms(
+  tx: NodePgDatabase,
+  orderId: string,
+  columns: OrderScheduleAndTermsUpdateColumns,
+): Promise<OrderScheduleAndTermsUpdateResult> {
+  let result;
+  try {
+    result = await tx.execute<{
+      expected_at: string;
+      dock_code: string | null;
+      handover_point: string | null;
+      transport_by: string | null;
+      vehicle_type: string | null;
+      labour_by: string | null;
+      labour_count: number | null;
+    }>(sql`
+      update ${sql.raw(ORDER_TABLE)}
+         set expected_at = ${columns.expectedAt.toISOString()}::timestamptz,
+             scheduled_by = ${columns.scheduledBy}::uuid,
+             scheduled_at = ${columns.scheduledAt.toISOString()}::timestamptz,
+             dock_code = coalesce(${columns.dockCode ?? null}, dock_code),
+             handover_point = coalesce(${columns.handoverPoint ?? null}, handover_point),
+             transport_by = coalesce(${columns.transportBy ?? null}, transport_by),
+             vehicle_type = coalesce(${columns.vehicleType ?? null}, vehicle_type),
+             labour_by = coalesce(${columns.labourBy ?? null}, labour_by),
+             labour_count = coalesce(${columns.labourCount ?? null}, labour_count)
+       where id = ${orderId}::uuid
+      returning expected_at::text as expected_at, dock_code, handover_point, transport_by,
+                vehicle_type, labour_by, labour_count
+    `);
+  } catch (error) {
+    const raised = findRaisedException(error, CHECK_VIOLATION_SQLSTATE);
+    const mapped = raised ? mapScheduleTermsCheckViolation(raised, columns) : undefined;
+    if (mapped) throw mapped;
+    throw error;
+  }
+  const row = result.rows[0];
+  if (!row) {
+    throw new Error(`updateOrderScheduleAndTerms: no ${ORDER_TABLE} row for id ${orderId} (lock was already held)`);
+  }
+  return {
+    // Round-2 review finding 7: parsed to a Date, serialised by the caller via .toISOString().
+    expectedAt: new Date(row.expected_at),
+    dockCode: row.dock_code,
+    handoverPoint: row.handover_point,
+    transportBy: row.transport_by,
+    vehicleType: row.vehicle_type,
+    labourBy: row.labour_by,
+    labourCount: row.labour_count,
+  };
+}
+
+/** WBS 2.9b round-1 review finding 2: CancelInbound's `cancel_reason` persistence (D3) — no
+ *  `version` touch here (the caller already bumped it via `updateOrder` in the same transaction,
+ *  before calling this). */
+async function updateOrderCancelReason(tx: NodePgDatabase, orderId: string, cancelReason: string): Promise<void> {
+  const result = await tx.execute(sql`
+    update ${sql.raw(ORDER_TABLE)} set cancel_reason = ${cancelReason} where id = ${orderId}::uuid
+  `);
+  if ((result.rowCount ?? 0) === 0) {
+    throw new Error(`updateOrderCancelReason: no ${ORDER_TABLE} row for id ${orderId} (lock was already held)`);
+  }
 }
 
 async function getOrderLineForUpdate(tx: NodePgDatabase, orderId: string, lineId: string): Promise<OrderLineRow> {
@@ -474,6 +627,8 @@ async function writeAuditRow(
 export const inboundOrderRepository: InboundOrderRepository = {
   getOrderForUpdate,
   updateOrder,
+  updateOrderScheduleAndTerms,
+  updateOrderCancelReason,
   getOrderLineForUpdate,
   updateLineReceipt,
   updateLineLocation,

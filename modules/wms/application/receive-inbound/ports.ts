@@ -87,6 +87,41 @@ export interface OrderUpdateColumns {
   readonly closedBy?: string;
 }
 
+/** WBS 2.9b round-1 review finding 2: the columns ApproveInbound's optional appointment-slot path
+ *  (D2, ../../application/receive-inbound/approve-inbound.ts) writes — the same
+ *  expected_at/scheduled_by/scheduled_at/dock_code + four-logistics-term shape as
+ *  ../../application/schedule-inbound/schedule-inbound.ts's own update, WITHOUT touching `version`
+ *  a second time (the caller already bumped it via `updateOrder` in the same transaction). Every
+ *  optional field is coalesce()-preserved against the existing stored value when omitted, mirroring
+ *  `updateOrder`'s own coalesce() style. */
+export interface OrderScheduleAndTermsUpdateColumns {
+  readonly expectedAt: Date;
+  readonly scheduledBy: string;
+  readonly scheduledAt: Date;
+  readonly dockCode?: string | undefined | null;
+  readonly handoverPoint?: string | undefined | null;
+  readonly transportBy?: string | undefined | null;
+  readonly vehicleType?: string | undefined | null;
+  readonly labourBy?: string | undefined | null;
+  readonly labourCount?: number | undefined | null;
+}
+
+/** The RETURNING row of `updateOrderScheduleAndTerms` — the actual stored values (post-coalesce),
+ *  used to build the `wms.inbound.scheduled` event payload and the audit `newValue` (round-1 review
+ *  finding 6 — never built from raw `input`). `expectedAt` is a Date (round-2 review finding 7) —
+ *  the caller serialises it with `.toISOString()`, the same canonical ISO 8601 format
+ *  ../schedule-inbound/ports.ts's `ScheduleInboundUpdateResult` already yields, so
+ *  `wms.inbound.scheduled` carries one timestamp format whichever command emits it. */
+export interface OrderScheduleAndTermsUpdateResult {
+  readonly expectedAt: Date;
+  readonly dockCode: string | null;
+  readonly handoverPoint: string | null;
+  readonly transportBy: string | null;
+  readonly vehicleType: string | null;
+  readonly labourBy: string | null;
+  readonly labourCount: number | null;
+}
+
 /** Every DB statement the receive-inbound use case needs, as an interface — the port the
  *  application layer programs against. Implemented by
  *  ../../infrastructure/receive-inbound/repository.ts. */
@@ -96,6 +131,21 @@ export interface InboundOrderRepository {
   /** unconditional version bump — the caller already validated expectedVersion against the
    *  locked row and holds that lock for the whole transaction, so this never races. */
   updateOrder(tx: NodePgDatabase, orderId: string, columns: OrderUpdateColumns): Promise<number>;
+  /** WBS 2.9b round-1 review finding 2: ApproveInbound's optional appointment-slot path (D2) goes
+   *  through this port method instead of a raw `tx.execute()` in the application layer — no version
+   *  increment here (the caller already bumped it via `updateOrder` in the same transaction, before
+   *  calling this). Returns the RETURNING row (finding 6 — event/audit payloads built from the
+   *  actual stored values). */
+  updateOrderScheduleAndTerms(
+    tx: NodePgDatabase,
+    orderId: string,
+    columns: OrderScheduleAndTermsUpdateColumns,
+  ): Promise<OrderScheduleAndTermsUpdateResult>;
+  /** WBS 2.9b round-1 review finding 2: CancelInbound's `cancel_reason` persistence (D3) goes
+   *  through this port method instead of a raw `tx.execute()` in the application layer — no version
+   *  increment here (the caller already bumped it via `updateOrder` in the same transaction, before
+   *  calling this). */
+  updateOrderCancelReason(tx: NodePgDatabase, orderId: string, cancelReason: string): Promise<void>;
   /** line bound to its order AND locked — `select ... where id=$1 and order_id=$2 ...
    *  for update`. Throws LineNotFoundError when no row matches. */
   getOrderLineForUpdate(tx: NodePgDatabase, orderId: string, lineId: string): Promise<OrderLineRow>;

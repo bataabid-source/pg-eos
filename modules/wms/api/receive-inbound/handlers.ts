@@ -13,6 +13,11 @@
 //     VariancePhotoWithoutVarianceError and InvalidQuantityError are all mapped (422 —
 //     PROBLEM_STATUS has no 404, so LineNotFoundError also maps to 422, noted inline below, not
 //     invented as a new status constant);
+//   - WBS 2.9b round-1 review finding 1: ScheduleInPastError, InvalidVehicleTypeError,
+//     InvalidHandoverPointError, InvalidTransportByError, InvalidLabourByError,
+//     InvalidLabourCountError, LogisticsTermsRequireExpectedAtError (thrown by the extended
+//     approveInbound, D2) and CancelReasonRequiredError (thrown by the extended cancelInbound, D3)
+//     all map to 422 as well — same pattern as ../../api/schedule-inbound/handlers.ts's own map;
 //   - IdempotencyConflictError (SCR-PLAT-IDEM-01) maps to 409 — same status as StaleVersionError,
 //     both optimistic-concurrency style conflicts;
 //   - an UNKNOWN error maps to a 500 Problem — never rethrown, never crashes the caller, and is
@@ -69,6 +74,19 @@ import {
   VariancePhotoWithoutVarianceError,
 } from '../../domain/receive-inbound/errors.js';
 import { InvalidQuantityError, LocationBlockedError, LocationLimitExceededError } from '../../src/stock-ledger/errors.js';
+// WBS 2.9b round-1 review finding 1: thrown by the extended approveInbound (D2's optional slot)
+// and cancelInbound (D3's mandatory cancelReason) — mapped alongside every other 422 below, same
+// as ../../api/schedule-inbound/handlers.ts's own error map.
+import {
+  CancelReasonRequiredError,
+  InvalidHandoverPointError,
+  InvalidLabourByError,
+  InvalidLabourCountError,
+  InvalidTransportByError,
+  InvalidVehicleTypeError,
+  LogisticsTermsRequireExpectedAtError,
+  ScheduleInPastError,
+} from '../../domain/schedule-inbound/errors.js';
 
 // REPLACE-ON-COPY: this use case's own idempotency endpoint identifiers, one per write command.
 const IDEMPOTENCY_ENDPOINT_APPROVE = 'wms.receive-inbound.approve-inbound';
@@ -211,7 +229,16 @@ function errorToApiFailure(error: unknown): ApiFailure {
     error instanceof MissingActorError ||
     error instanceof InvalidQuantityError ||
     error instanceof LocationLimitExceededError ||
-    error instanceof LocationBlockedError
+    error instanceof LocationBlockedError ||
+    // WBS 2.9b round-1 review finding 1.
+    error instanceof ScheduleInPastError ||
+    error instanceof InvalidVehicleTypeError ||
+    error instanceof InvalidHandoverPointError ||
+    error instanceof InvalidTransportByError ||
+    error instanceof InvalidLabourByError ||
+    error instanceof InvalidLabourCountError ||
+    error instanceof LogisticsTermsRequireExpectedAtError ||
+    error instanceof CancelReasonRequiredError
   ) {
     return problem(PROBLEM_STATUS.UNPROCESSABLE_ENTITY, error.name, error.message);
   }

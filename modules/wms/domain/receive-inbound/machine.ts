@@ -48,6 +48,12 @@ export type InboundOrderStatus = (typeof INBOUND_ORDER_STATUS)[keyof typeof INBO
  */
 export const INBOUND_ORDER_EVENTS = {
   APPROVE: 'APPROVE_INBOUND',
+  // WBS 2.9b round-1 review finding 12: ScheduleInbound (and ApproveInbound's optional
+  // appointment-slot path, D2) is a fact-on-the-order, not a status transition — D1's own wording
+  // is "no machine state change" (no NEW state), not "skip the machine". SCHEDULE is a
+  // self-transition, legal from 'draft' and 'approved' only, landing on the SAME status — routed
+  // through canTransition/advanceInboundOrder like every other event, never a raw string compare.
+  SCHEDULE: 'SCHEDULE_INBOUND',
   RECEIVE_LINE_FIRST: 'RECEIVE_LINE_FIRST',
   RECEIVE_LINE: 'RECEIVE_LINE',
   RECEIVE_LINE_LAST: 'RECEIVE_LINE_LAST',
@@ -73,12 +79,16 @@ export const inboundOrderMachine = createMachine({
       on: {
         [INBOUND_ORDER_EVENTS.APPROVE]: INBOUND_ORDER_STATUS.APPROVED,
         [INBOUND_ORDER_EVENTS.CANCEL]: INBOUND_ORDER_STATUS.CANCELLED,
+        // WBS 2.9b round-1 review finding 12: self-transition, no state change.
+        [INBOUND_ORDER_EVENTS.SCHEDULE]: INBOUND_ORDER_STATUS.DRAFT,
       },
     },
     [INBOUND_ORDER_STATUS.APPROVED]: {
       on: {
         [INBOUND_ORDER_EVENTS.RECEIVE_LINE_FIRST]: INBOUND_ORDER_STATUS.RECEIVING,
         [INBOUND_ORDER_EVENTS.CANCEL]: INBOUND_ORDER_STATUS.CANCELLED,
+        // WBS 2.9b round-1 review finding 12: self-transition, no state change.
+        [INBOUND_ORDER_EVENTS.SCHEDULE]: INBOUND_ORDER_STATUS.APPROVED,
       },
     },
     [INBOUND_ORDER_STATUS.RECEIVING]: {
