@@ -58,3 +58,47 @@ export {
   type QuoteEventType,
 } from './domain/manage-quote/machine.js';
 export { computeEstimatedMarginPct, type MarginLine } from './domain/manage-quote/margin.js';
+
+// WBS 1.7 — manage-contract (contracts, price annex, SLA, billing flags). Re-exported here — the
+// module's public barrel — per the slice brief's Deliver list. Named (not `export *`), same
+// collision-avoidance reasoning as manage-quote above.
+export {
+  createContract,
+  signContract,
+  setContractPriceList,
+  activateContract,
+  suspendContract,
+  resumeContract,
+  expireContract,
+  addContractSla,
+  getContractForOrder,
+  type CreateContractInput,
+  type CreateContractResult,
+  type SignContractInput,
+  type SignContractResult,
+  type SetContractPriceListInput,
+  type SetContractPriceListResult,
+  type ActivateContractInput,
+  type ActivateContractResult,
+  type SuspendContractInput,
+  type SuspendContractResult,
+  type ResumeContractInput,
+  type ResumeContractResult,
+  type ExpireContractInput,
+  type ExpireContractResult,
+  type AddContractSlaInput,
+  type AddContractSlaResult,
+  type GetContractForOrderInput,
+  type GetContractForOrderResult,
+} from './application/manage-contract/index.js';
+export {
+  CONTRACT_STATUS,
+  CONTRACT_EVENTS,
+  CONTRACT_TAG_USABLE_FOR_ORDER,
+  CONTRACT_TAG_PRICE_LIST_ASSIGNABLE,
+  contractMachine,
+  canTransition as canTransitionContract,
+  advanceContract,
+  type ContractStatus,
+  type ContractEventType,
+} from './domain/manage-contract/machine.js';

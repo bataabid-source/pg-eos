@@ -49,6 +49,10 @@
     "./wms/count-inventory": {
       "types": "./dist/wms/count-inventory.d.ts",
       "default": "./dist/wms/count-inventory.js"
+    },
+    "./sales/manage-contract": {
+      "types": "./dist/sales/manage-contract.d.ts",
+      "default": "./dist/sales/manage-contract.js"
     }
   },
   "scripts": {
