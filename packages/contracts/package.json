@@ -85,6 +85,10 @@
     "./imile/evaluate-dtl-problem": {
       "types": "./dist/imile/evaluate-dtl-problem.d.ts",
       "default": "./dist/imile/evaluate-dtl-problem.js"
+    },
+    "./fleet/register-vehicle": {
+      "types": "./dist/fleet/register-vehicle.d.ts",
+      "default": "./dist/fleet/register-vehicle.js"
     }
   },
   "scripts": {

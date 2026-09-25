@@ -143,6 +143,52 @@ importers:
         specifier: ^4.1.11
         version: 4.1.11(@types/node@24.13.6)(jsdom@30.1.1)(vite@8.3.0(@types/node@24.13.6)(jiti@1.21.7)(yaml@2.9.1))
 
+  modules/fleet:
+    dependencies:
+      '@pg-eos/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      '@pg-eos/db':
+        specifier: workspace:*
+        version: link:../../packages/db
+      '@pg-eos/domain-kit':
+        specifier: workspace:*
+        version: link:../../packages/domain-kit
+      '@pg-eos/events':
+        specifier: workspace:*
+        version: link:../../packages/events
+      '@pg-eos/logger':
+        specifier: workspace:*
+        version: link:../../packages/logger
+      drizzle-orm:
+        specifier: ^0.45.3
+        version: 0.45.3(@types/pg@8.23.1)(pg@8.23.0)
+      pg:
+        specifier: ^8.13.0
+        version: 8.23.0
+      xstate:
+        specifier: ^5.19.2
+        version: 5.33.2
+      zod:
+        specifier: ^4.6.5
+        version: 4.6.5
+    devDependencies:
+      '@types/node':
+        specifier: ^24.13.6
+        version: 24.13.6
+      '@types/pg':
+        specifier: ^8.13.0
+        version: 8.23.1
+      fast-check:
+        specifier: ^4.10.2
+        version: 4.10.2
+      typescript:
+        specifier: '>=5.7.0 <6.1.0'
+        version: 5.9.3
+      vitest:
+        specifier: ^4.1.11
+        version: 4.1.11(@types/node@24.13.6)(jsdom@30.1.1)(vite@8.3.0(@types/node@24.13.6)(jiti@1.21.7)(yaml@2.9.1))
+
   modules/hr:
     dependencies:
       '@pg-eos/contracts':
