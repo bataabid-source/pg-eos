@@ -305,11 +305,27 @@ describe('entity_scope policies carry an explicit WITH CHECK equal to their USIN
 });
 
 // ─────────────────────────────────────────────────────────────────────────────────────────────
-// Tests 3-4 — Behavioral entity boundary — wms.occupancy_snapshots (entity_scope, FOR ALL, no
+// Tests 3-8 — Behavioral entity boundary — wms.occupancy_snapshots (entity_scope, FOR ALL, no
 // client leg; simplest fixture shape of the seven SCR-RLS-01 tables plus this table, per the
 // brief: "pick a real entity_scope table with a simple row shape ... check the schema; don't
 // invent columns" — entity_id, client_id, warehouse_id, snapshot_date, three numeric defaults,
 // one int default; verified live against database/schema/01-Data-Model.sql:816-827).
+//
+// SCR-RLS-03 (docs/notes/SCR-RLS-03-client-portal-scope-internal-bypass.md §3 item 4, pg-reviewer
+// answer): this describe block used to be VACUOUS — entityACtx() returned isInternal: false, so
+// wms.occupancy_snapshots is one of the SEVEN tables 0003 gated on platform.is_internal()
+// (entity_scope = `platform.is_internal() and entity_id = any(allowed_entities())`), and
+// client_portal_scope's own `is_internal() or client_id = current_client_id()` clause also needs
+// is_internal() when clientId is null — so the session was not internal at all and saw NOTHING,
+// entity A included, and the INSERT's 42501 came from is_internal() being false, not from the
+// entity check. Fixed here (RED for migration 0025):
+//   entityACtx() -> isInternal: true (entityAUserId already holds identity.user_entities = {A});
+//   two POSITIVE CONTROLS added (an admin-seeded entity-A row IS returned; an entity-A INSERT by
+//     this session succeeds) so the entity check is proven to work, not merely proven silent;
+//   one NEW case — an internal entity-A session that ALSO carries clientId = the fixture's own
+//     client account id must still see no entity-B row (pg-reviewer finding 1: the naive migration
+//     draft `client_id = current_client_id()` without `not is_internal()` left exactly this hole
+//     open — seesA=1 seesB=1 on the draft, seesA=1 seesB=0 only with the finding-1 fix).
 // ─────────────────────────────────────────────────────────────────────────────────────────────
 describe('as pgeos_app in entity A — the entity boundary on wms.occupancy_snapshots', () => {
   // A dedicated sales.accounts row, prefixed like every other fixture row in this repo's isolation
@@ -360,8 +376,17 @@ describe('as pgeos_app in entity A — the entity boundary on wms.occupancy_snap
     }
   });
 
+  // SCR-RLS-03 fix (a): isInternal: true — entityAUserId's identity.user_entities membership is
+  // exactly {entity A} (seeded in beforeAll above), so platform.allowed_entities() for this
+  // session really is {entity A} and entity_scope's own is_internal() gate is actually satisfied.
   function entityACtx(): AppRoleCtx {
-    return { userId: entityAUserId, clientId: null, isInternal: false };
+    return { userId: entityAUserId, clientId: null, isInternal: true };
+  }
+
+  // SCR-RLS-03 fix (c): the same internal entity-A session, but ALSO carrying clientId = the
+  // fixture's own client account id — pg-reviewer finding 1's exact reproduction shape.
+  function entityAWithClientCtx(): AppRoleCtx {
+    return { userId: entityAUserId, clientId: clientAccountId, isInternal: true };
   }
 
   it('as pgeos_app in entity A: INSERT of an entity-B row is rejected (42501)', async () => {
@@ -404,6 +429,187 @@ describe('as pgeos_app in entity A — the entity boundary on wms.occupancy_snap
 
     expect(thrown).toBeNull();
     expect(result?.rows).toEqual([]);
+  });
+
+  // Positive control (b), first half: proves the SELECT-returns-nothing result above is the entity
+  // check actually working — not the session seeing nothing at all (the old vacuity).
+  it('as pgeos_app in entity A: SELECT returns an admin-seeded entity-A row (positive control)', async () => {
+    const rowA = await admin.query<{ id: string }>(
+      `insert into wms.occupancy_snapshots (snapshot_date, entity_id, client_id, warehouse_id)
+       values (current_date - 4, $1, $2, $3) returning id`,
+      [entityAId, clientAccountId, warehouseId],
+    );
+    const rowAId = firstRow(rowA, 'insert wms.occupancy_snapshots entity-A seed row for positive-control SELECT test').id;
+
+    let thrown: unknown = null;
+    let result: QueryResult<{ id: string }> | undefined;
+    try {
+      result = await withAppRole(entityACtx(), (client) =>
+        client.query<{ id: string }>('select id from wms.occupancy_snapshots where id = $1', [
+          rowAId,
+        ]),
+      );
+    } catch (error) {
+      thrown = error;
+    }
+
+    expect(thrown).toBeNull();
+    expect(result?.rows).toEqual([{ id: rowAId }]);
+  });
+
+  // Positive control (b), second half: proves the INSERT-rejected result above is the entity check
+  // actually working — not every INSERT by this session failing regardless of entity.
+  it('as pgeos_app in entity A: INSERT of an entity-A row succeeds (positive control)', async () => {
+    let insertedId: string | undefined;
+    let thrown: unknown = null;
+    try {
+      await withAppRole(entityACtx(), async (client) => {
+        const result = await client.query<{ id: string }>(
+          `insert into wms.occupancy_snapshots (snapshot_date, entity_id, client_id, warehouse_id)
+           values (current_date - 5, $1, $2, $3) returning id`,
+          [entityAId, clientAccountId, warehouseId],
+        );
+        insertedId = firstRow(result, 'insert wms.occupancy_snapshots entity-A row as pgeos_app').id;
+      });
+    } catch (error) {
+      thrown = error;
+    }
+
+    try {
+      expect(thrown).toBeNull();
+      expect(insertedId).toBeDefined();
+
+      // Visible afterwards via the admin connection — withAppRole commits on success, so this is a
+      // real, committed row, not merely "no error was thrown".
+      const check = await admin.query<{ id: string }>(
+        'select id from wms.occupancy_snapshots where id = $1',
+        [insertedId],
+      );
+      expect(check.rows).toEqual([{ id: insertedId }]);
+    } finally {
+      // Clean up (afterAll's client_id-scoped delete would also catch this, but this test cleans
+      // up its own committed row explicitly rather than relying only on the describe-level sweep).
+      if (insertedId) {
+        await admin.query('delete from wms.occupancy_snapshots where id = $1', [insertedId]);
+      }
+    }
+  });
+
+  // New case (c) — SCR-RLS-03 §2, pg-reviewer finding 1's own reproduction: an internal entity-A
+  // session that ALSO carries clientId = the row's own client account must still see no entity-B
+  // row. Fails on the unfixed live schema AND on the draft migration text (finding 1); passes only
+  // once client_portal_scope reads `not platform.is_internal() and client_id = ...` (the applied
+  // 0025 file).
+  it('as pgeos_app in entity A with clientId = the row\'s own client account: SELECT still returns no entity-B row', async () => {
+    const rowB = await admin.query<{ id: string }>(
+      `insert into wms.occupancy_snapshots (snapshot_date, entity_id, client_id, warehouse_id)
+       values (current_date - 6, $1, $2, $3) returning id`,
+      [entityBId, clientAccountId, warehouseId],
+    );
+    const rowBId = firstRow(
+      rowB,
+      'insert wms.occupancy_snapshots entity-B seed row for the internal+clientId SELECT test',
+    ).id;
+
+    let thrown: unknown = null;
+    let result: QueryResult<{ id: string }> | undefined;
+    try {
+      result = await withAppRole(entityAWithClientCtx(), (client) =>
+        client.query<{ id: string }>('select id from wms.occupancy_snapshots where id = $1', [
+          rowBId,
+        ]),
+      );
+    } catch (error) {
+      thrown = error;
+    }
+
+    expect(thrown).toBeNull();
+    expect(result?.rows).toEqual([]);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+// New case (d) — SCR-RLS-03 §3 item 4: a genuine client-portal session (isInternal: false,
+// clientId = a seeded sales.accounts fixture id, userId a fresh random uuid exactly as the
+// existing withRolledBackPortalUser portal-session helper below does — no identity.users row is
+// created for a portal session anywhere in this file) sees its OWN client's row and not another
+// client's row on wms.occupancy_snapshots. This is client_portal_scope's OWN population (the
+// SCR-RLS-03 bug is specifically the OTHER population, internal sessions, reading through it) — it
+// is expected to pass both before and after migration 0025.
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+describe('as pgeos_app in a client-portal session — client_portal_scope on wms.occupancy_snapshots', () => {
+  const clientAAccountCode = `app-role-rls-test-portal-a-${randomUUID()}`;
+  const clientBAccountCode = `app-role-rls-test-portal-b-${randomUUID()}`;
+  let clientAAccountId: string;
+  let clientBAccountId: string;
+  let clientARowId: string;
+  let clientBRowId: string;
+
+  beforeAll(async () => {
+    const accountA = await admin.query<{ id: string }>(
+      `insert into sales.accounts (code, name_ar, account_type) values ($1, $2, 'client') returning id`,
+      [clientAAccountCode, 'عميل اختبار البوابة أ (pgeos_app)'],
+    );
+    clientAAccountId = firstRow(accountA, 'insert sales.accounts fixture for client-portal test (A)').id;
+
+    const accountB = await admin.query<{ id: string }>(
+      `insert into sales.accounts (code, name_ar, account_type) values ($1, $2, 'client') returning id`,
+      [clientBAccountCode, 'عميل اختبار البوابة ب (pgeos_app)'],
+    );
+    clientBAccountId = firstRow(accountB, 'insert sales.accounts fixture for client-portal test (B)').id;
+
+    const rowA = await admin.query<{ id: string }>(
+      `insert into wms.occupancy_snapshots (snapshot_date, entity_id, client_id, warehouse_id)
+       values (current_date - 7, $1, $2, $3) returning id`,
+      [entityAId, clientAAccountId, warehouseId],
+    );
+    clientARowId = firstRow(rowA, 'insert wms.occupancy_snapshots row for client-portal client A').id;
+
+    const rowB = await admin.query<{ id: string }>(
+      `insert into wms.occupancy_snapshots (snapshot_date, entity_id, client_id, warehouse_id)
+       values (current_date - 7, $1, $2, $3) returning id`,
+      [entityAId, clientBAccountId, warehouseId],
+    );
+    clientBRowId = firstRow(rowB, 'insert wms.occupancy_snapshots row for client-portal client B').id;
+  });
+
+  afterAll(async () => {
+    try {
+      await admin.query('delete from wms.occupancy_snapshots where client_id = any($1)', [
+        [clientAAccountId, clientBAccountId],
+      ]);
+    } finally {
+      await admin.query('delete from sales.accounts where id = any($1)', [
+        [clientAAccountId, clientBAccountId],
+      ]);
+    }
+  });
+
+  // userId: randomUUID() — the same portal-session idiom withRolledBackPortalUser uses below: no
+  // identity.users row is created (client_portal_scope reads only client_id = current_client_id(),
+  // never user_id).
+  function clientPortalCtx(clientId: string): AppRoleCtx {
+    return { userId: randomUUID(), clientId, isInternal: false };
+  }
+
+  it("as pgeos_app in a client-portal session: SELECT returns its own client's row", async () => {
+    const result = await withAppRole(clientPortalCtx(clientAAccountId), (client) =>
+      client.query<{ id: string }>('select id from wms.occupancy_snapshots where id = $1', [
+        clientARowId,
+      ]),
+    );
+
+    expect(result.rows).toEqual([{ id: clientARowId }]);
+  });
+
+  it("as pgeos_app in a client-portal session: SELECT does not return another client's row", async () => {
+    const result = await withAppRole(clientPortalCtx(clientAAccountId), (client) =>
+      client.query<{ id: string }>('select id from wms.occupancy_snapshots where id = $1', [
+        clientBRowId,
+      ]),
+    );
+
+    expect(result.rows).toEqual([]);
   });
 });
 

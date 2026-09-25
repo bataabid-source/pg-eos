@@ -4,6 +4,14 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — SCR-RLS-03 / D-181: internal sessions could read every entity's rows on seven client-scoped tables — migration 0025 — DONE (2026-09-25)
+
+- Reported by lane 1 (WBS 2.11 part 1, RED scenario "entity-A internal user cannot read entity B's outbound order"); reproduced by the Master on the live DB (an internal user with `allowed_entities() = '{}'` read probe rows of `wms.outbound_orders` and `wms.occupancy_snapshots`); systemic — seven tables, not one (`wms.outbound_orders`, `wms.work_orders`, `wms.occupancy_snapshots`, `wms.space_allocations`, `wms.space_reservations`, `tms.delivery_tasks`, `billing.invoices`). `sales.accounts` and `wms.skus` excluded by design (D-177 / "نمط 3").
+- `database/migrations/0025_M_client-portal-scope-internal-bypass.sql`: `client_portal_scope` → `NOT platform.is_internal() AND client_id = platform.current_client_id()` (mirror of 0003 Option B), inspect-then-rewrite drift guard, final count of seven. pg-reviewer (opus) pre-migration review APPROVED WITH CHANGES — 5 findings applied (BLOCKER: plain `client_id = …` still let an internal session carrying `app.client_id` read that client across entities; MAJOR: the draft's drift guard could never fire; 3 MINOR).
+- Side finding: `tests/isolation/tests/app-role-rls.test.ts` entity-boundary tests were vacuous (`entityACtx` had `isInternal: false`, so the session saw nothing, entity A included). pg-tester rewrote them (internal fixture, positive controls, internal+clientId case, portal case) as the RED for 0025; `tests/isolation` and the wms module suite green after apply.
+- Recorded, not changed: four superuser-owned views without `security_invoker` read the seven tables (harmless while `pgeos_app` has no SELECT on them); eight reference tables use `reference_read using (is_internal())` by 13B ق-9. Full evidence: `docs/notes/SCR-RLS-03-client-portal-scope-internal-bypass.md`.
+- Model: claude-fable-5-1 (Master) · Delegated: pg-reviewer (opus, ~60k), pg-tester (sonnet, see report) · Master ~45k.
+
 ## X — D-180 session plan: one Master session, use-case locks for lanes 1/2, lane 3 to its own worktree — DONE (2026-09-25)
 
 - GM directive (verbatim) "تولي اداره الجلسات وتعيين الوكلاء بما فيها جلستك هذه بدقه واحترافيه و اصدر قرارات الاغلاق والحذف لسرعه الانتاج بقدر الامكان والحفاظ علي الجوده و ترشيد استخدام الحصه" — manage sessions and agent assignment, including the Master's own session, with rigor; issue close/delete decisions for production speed while preserving quality and quota.

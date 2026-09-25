@@ -16,6 +16,15 @@
 # (business schemas, doc 40 Part F row G7) and 7 (entity_scope policies gated on
 # platform.is_internal() since migration 0003 / SCR-RLS-01 Option B) are the brief's own — never
 # invented here. Trimmed, per the GM's lean-design directive this session, to 10 scenarios (Master list); fix round 2 added 2 — 12 in all.
+#
+# SCR-RLS-03 (docs/notes/SCR-RLS-03-client-portal-scope-internal-bypass.md, D-181, migration
+# 0025_M_client-portal-scope-internal-bypass.sql): the entity-A/entity-B scenarios below used to be
+# vacuous — the app-role session in them was never internal at all, so it saw nothing regardless of
+# the entity check. Fixed: the session is now genuinely internal (identity.user_entities = {entity
+# A}); two positive-control scenarios are added so the entity check is proven to work, not merely
+# proven silent; one new scenario reproduces pg-reviewer's finding 1 (an internal session that also
+# carries a client_id); one new scenario covers the OTHER population client_portal_scope actually
+# serves — a genuine client-portal session, unaffected by the bug. 12 scenarios become 17.
 
 Feature: The pgeos_app runtime role and the entity_scope WITH CHECK split (WBS 0.6a-1, D-133)
   As the platform operator
@@ -46,14 +55,56 @@ Feature: The pgeos_app runtime role and the entity_scope WITH CHECK split (WBS 0
       expression
 
   Scenario: as pgeos_app in entity A — INSERT of an entity-B row is rejected
-    Given an app-role session whose platform.allowed_entities() is exactly {entity A} (PST)
+    Given a genuinely internal app-role session (is_internal = true) whose
+      platform.allowed_entities() is exactly {entity A} (PST)
     When it inserts a wms.occupancy_snapshots row with entity_id = entity B (PDL)
     Then the insert is rejected with SQLSTATE 42501
 
   Scenario: as pgeos_app in entity A — SELECT returns no entity-B row
     Given one wms.occupancy_snapshots row seeded for entity A and one for entity B
-    And an app-role session whose platform.allowed_entities() is exactly {entity A}
+    And a genuinely internal app-role session (is_internal = true) whose
+      platform.allowed_entities() is exactly {entity A}
     When it selects the entity-B row by id
+    Then zero rows are returned, and no error is thrown
+
+  Scenario: as pgeos_app in entity A — SELECT returns an admin-seeded entity-A row (positive control)
+    Given one wms.occupancy_snapshots row seeded for entity A
+    And the same genuinely internal entity-A app-role session as above
+    When it selects the entity-A row by id
+    Then exactly that row is returned, and no error is thrown
+    (proves the previous scenario's zero rows is the entity check working, not the session seeing
+      nothing at all)
+
+  Scenario: as pgeos_app in entity A — INSERT of an entity-A row succeeds (positive control)
+    Given the same genuinely internal entity-A app-role session as above
+    When it inserts a wms.occupancy_snapshots row with entity_id = entity A
+    Then the insert succeeds and the row is visible afterwards via an admin connection
+    (proves the earlier rejected INSERT is the entity check working, not every INSERT by this
+      session failing regardless of entity)
+
+  Scenario: as pgeos_app in entity A with a client_id — SELECT still returns no entity-B row
+    (SCR-RLS-03, pg-reviewer finding 1)
+    Given one wms.occupancy_snapshots row seeded for entity B, with client_id = the entity-A
+      session's own seeded client account
+    And the same genuinely internal entity-A app-role session, but ALSO carrying
+      app.client_id = that same client account id
+    When it selects the entity-B row by id
+    Then zero rows are returned, and no error is thrown — this fails against the live schema and
+      against the unreviewed migration draft (client_portal_scope's is_internal() clause, or a
+      bare client_id match with no is_internal() exclusion, both still let this session read the
+      row) and passes only once client_portal_scope reads
+      `not platform.is_internal() and client_id = platform.current_client_id()`
+
+  Scenario: as pgeos_app in a client-portal session — SELECT returns its own client's row
+    Given two sales.accounts fixtures (client A, client B), each with one wms.occupancy_snapshots
+      row
+    And an app-role session with is_internal = false and app.client_id = client A's id
+    When it selects client A's row by id
+    Then exactly that row is returned, and no error is thrown
+
+  Scenario: as pgeos_app in a client-portal session — SELECT does not return another client's row
+    Given the same client-portal session as above (app.client_id = client A's id)
+    When it selects client B's row by id
     Then zero rows are returned, and no error is thrown
 
   Scenario: as pgeos_app in a portal context — an own audit_log INSERT succeeds

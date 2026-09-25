@@ -100,11 +100,18 @@ Feature: Client data isolation via row-level security (WBS 0.18, doc 40 Part F G
       only thing preventing the leak any more
 
   Scenario: An internal (back-office) context is not "deny all" — it sees both clients
-    Given an internal context (isInternal = true, no clientId)
-    When it selects all billing.invoices rows belonging to client A and client B
+    (SCR-RLS-03, docs/notes/SCR-RLS-03-client-portal-scope-internal-bypass.md, D-181 — Master
+    ruling: the assertion is unchanged; the fixture is fixed. Before 0025, "no clientId" and no
+    identity.user_entities row still saw both rows, but only via client_portal_scope's
+    `is_internal()` OR-leg — the SCR-RLS-03 hole itself, not genuine entity access. After 0025 that
+    leg is closed for internal sessions, so this context must hold real entity access instead.)
+    Given a genuinely internal identity.users row (isInternal = true) holding identity.user_entities
+      access to the entity both client A's and client B's billing.invoices rows were seeded against
+    When it selects both rows belonging to client A and client B
     Then both rows are returned
     This proves the policy discriminates on client identity rather than denying everything
-    unconditionally, which would make the "zero rows" results above vacuous in the other direction.
+    unconditionally, which would make the "zero rows" results above vacuous in the other direction —
+    via entity_scope's own entity leg, now that client_portal_scope no longer grants it for free.
 
   Scenario Outline: SCR-RLS-01 — entity_scope must not OR-defeat client_portal_scope for a dual-role user
     Full write-up, options, live reproduction SQL and GM/system-owner APPROVAL:
@@ -152,9 +159,13 @@ Feature: Client data isolation via row-level security (WBS 0.18, doc 40 Part F G
     Given the pg_policy row for <table>'s entity_scope policy
     Then it is permissive, applies to all commands ('*'), and its qual is exactly
       `(platform.is_internal() AND (entity_id = ANY (platform.allowed_entities())))`
-    And the pg_policy row for <table>'s client_portal_scope policy is unchanged by Option B: permissive,
-      applies to SELECT only ('r'), qual exactly
-      `(platform.is_internal() OR (client_id = platform.current_client_id()))`
+    And — SCR-RLS-03 (docs/notes/SCR-RLS-03-client-portal-scope-internal-bypass.md, D-181, migration
+      0025_M_client-portal-scope-internal-bypass.sql): the pg_policy row for <table>'s
+      client_portal_scope policy now EXCLUDES internal sessions (the OLD `is_internal() OR
+      client_id = current_client_id()` predicate let every internal session read every entity's rows
+      via the permissive OR, since entity_scope was never consulted for reads) — permissive, applies
+      to SELECT only ('r'), qual exactly
+      `((NOT platform.is_internal()) AND (client_id = platform.current_client_id()))`
 
     Examples:
       | table                     |

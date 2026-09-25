@@ -659,8 +659,52 @@ describe('entity_scope does not leak the client boundary', () => {
 });
 
 describe('An internal context is not "deny all" — it discriminates on client identity', () => {
+  // SCR-RLS-03 (docs/notes/SCR-RLS-03-client-portal-scope-internal-bypass.md, D-181, migration
+  // 0025_M_client-portal-scope-internal-bypass.sql) — Master ruling: this scenario's assertion is
+  // unchanged (an internal user DOES see both clients' rows), but its fixture was wrong. The shared
+  // `ctxInternal` used elsewhere in this file has `userId: null`, so `platform.allowed_entities()`
+  // was always empty for it — the "sees both" result before 0025 came ONLY from
+  // client_portal_scope's `is_internal()` OR-leg (the exact SCR-RLS-03 hole), not from any genuine
+  // entity access, and 0025 closes that leg for internal sessions. Fixed here with a REAL
+  // identity.users row (user_type = 'internal') holding identity.user_entities access to
+  // `entities.invoiceEntityId` (PCC) — the same entity BOTH client A's and client B's
+  // billing.invoices rows were seeded against (`seedClient`, above), so entity_scope's own
+  // `entity_id = any(allowed_entities())` leg now legitimately covers both rows for this user. Same
+  // idiom as the entity-A user in tests/isolation/tests/app-role-rls.test.ts and this file's own
+  // "positive control — an internal user with real entity access" fixture above.
+  const internalUserEmail = `rls-isolation-test-internal-deny-all-${randomUUID()}@example.invalid`;
+  let internalUserId: string | undefined;
+
+  beforeAll(async () => {
+    const user = await superuser.query<{ id: string }>(
+      `insert into identity.users (email, full_name_ar, user_type) values ($1, $2, 'internal') returning id`,
+      [internalUserEmail, 'مستخدم اختبار داخلي بصلاحية كيان (ليس رفض كل شيء)'],
+    );
+    internalUserId = firstRow(
+      user,
+      'insert identity.users fixture for the "not deny all" internal-context test',
+    ).id;
+
+    await superuser.query(`insert into identity.user_entities (user_id, entity_id) values ($1, $2)`, [
+      internalUserId,
+      entities.invoiceEntityId,
+    ]);
+  });
+
+  afterAll(async () => {
+    if (internalUserId) {
+      await superuser.query('delete from identity.user_entities where user_id = $1', [internalUserId]);
+      await superuser.query('delete from identity.users where id = $1', [internalUserId]);
+    }
+  });
+
   it('an internal context sees both billing.invoices rows for client A and client B', async () => {
-    const result = await withContext(ctxInternal, (tx) =>
+    if (!internalUserId) {
+      throw new Error('internalUserId was not seeded — beforeAll must have failed');
+    }
+    const ctx: WithContextCtx = { userId: internalUserId, clientId: null, isInternal: true };
+
+    const result = await withContext(ctx, (tx) =>
       tx.execute<{ id: string }>(
         sql`select id from billing.invoices where id in (${rowIdFor(clientA, 'billing.invoices')}, ${rowIdFor(clientB, 'billing.invoices')})`,
       ),
@@ -771,7 +815,16 @@ describe.each(SCR_RLS_01_ALL_SEVEN_TABLES)(
       );
     });
 
-    it("client_portal_scope's predicate is untouched by Option B (proves B did not touch the client leg)", async () => {
+    // SCR-RLS-03 (docs/notes/SCR-RLS-03-client-portal-scope-internal-bypass.md, D-181, migration
+    // 0025_M_client-portal-scope-internal-bypass.sql): the OLD predicate below
+    // (`is_internal() OR client_id = current_client_id()`) is exactly the composition hole SCR-RLS-03
+    // reproduced — permissive policies OR together, so `is_internal()` alone satisfied
+    // client_portal_scope for SELECT and entity_scope's own entity restriction was never consulted
+    // for reads. Migration 0025 rewrites exactly these seven tables' client_portal_scope to
+    // `NOT platform.is_internal() AND client_id = platform.current_client_id()` (the mirror of Option
+    // B), so the two policies address disjoint populations for BOTH commands, not only INSERT/UPDATE.
+    // This test now proves that shape, not the old (already wrong) "untouched by Option B" claim.
+    it('client_portal_scope excludes internal sessions — SCR-RLS-03', async () => {
       const result = await superuser.query<PolicyShapeRow>(
         `select polpermissive, polcmd::text as cmd, pg_get_expr(polqual, polrelid) as qual
            from pg_policy
@@ -784,7 +837,7 @@ describe.each(SCR_RLS_01_ALL_SEVEN_TABLES)(
       expect(row.polpermissive).toBe(true);
       expect(row.cmd).toBe('r');
       expect(row.qual).toBe(
-        '(platform.is_internal() OR (client_id = platform.current_client_id()))',
+        '((NOT platform.is_internal()) AND (client_id = platform.current_client_id()))',
       );
     });
   },
