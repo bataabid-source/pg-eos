@@ -104,13 +104,13 @@ DEFINITION OF DONE — a WBS task is DONE only when its acceptance criterion (do
 and PROJECT_STATE.md records that commit hash (inside the next task's commit — GIT rule).
 
 PARALLEL LANES — CONFLICT-FREE MECHANISM (v5)
-- `tasks/LANE_LOCKS.md` is the single ownership table: `module | lane | task | claimed_at | worktree`. A module appears at most once. A lane writes only inside its locked modules and `tests/`. Claiming and releasing is done by the Master (pg-scribe writes the file). A worker that needs a file outside its lock STOPS and reports.
+- `tasks/LANE_LOCKS.md` is the single ownership table: `module | lane | task | claimed_at | worktree`. A lock is a module (`wms`) or a module/use-case pair (`wms/put-away`, D-179); each appears at most once, and a whole-module row and a use-case row of the same module never coexist for two lanes. A whole-module lock writes `modules/<m>/**` and `apps/<m>/**`; a use-case lock writes only `modules/<m>/{domain,application,infrastructure,api,tests}/<uc>/**`, `apps/<m>/src/features/<uc>/**`, `apps/<m>/tests/<uc>/**` and the additive `modules/<m>/tsconfig.test.json`; a module-wide file (index.ts, package.json, router, i18n) needs the whole-module lock. Every lane also writes `tests/`. Claiming and releasing is done by the Master (pg-scribe writes the file); `scripts/check-locks.sh` validates the table (pre-commit, CI, check-setup). A worker that needs a file outside its lock STOPS and reports.
 - Frozen during any parallel phase: `packages/*`, `database/schema/*`, `packages/contracts/_shared/*`, `CLAUDE.md`, `.claude/*`. Changes to frozen paths are single-lane Master tasks merged before lanes resume.
-- Migrations: a lane requests a number; the Master issues the next `NNNN` and records it in LANE_LOCKS; file name `database/migrations/NNNN_<lane>_<slug>.sql`; migrations merge first, in number order.
+- Migrations: a lane requests a number; the Master issues the next `NNNN` and records it in LANE_LOCKS; file name `database/migrations/NNNN_<lane>_<slug>.sql`; migrations merge first, in number order. A lane lists every migration of its whole task list in ONE `MIGRATION-REQUEST-<lane>.md` table at lane start and the Master issues the numbers in one batch (D-179). The request row names the RED test files (`modules/<m>/tests/<uc>/*.feature|*.test.ts`) that already exist; `lane-guard.sh` refuses the migration file until they do.
 - Contracts: a new shared type goes to `packages/contracts/<module>/` (lane-owned) never to `_shared/` during a parallel phase.
 - Events: a lane may **publish** new events of its own module; it may **consume** another module's events only through the event names already listed in `packages/events/catalog.ts` (frozen). New cross-module events are a Master task.
 - Merge queue: pg-reviewer PASS → `git rebase main` → gates ①–③ green locally → `pnpm guards:run` green → Master merges (fast-forward only) → next lane rebases before its own merge. Lanes never merge lanes. Max three lanes.
-- Worktrees: `git worktree add ../pg-eos-lane-<id> -b lane/<id>`; one Claude Code session per worktree; each session runs `/lane <id>`.
+- Worktrees: `git worktree add ../pg-eos-lane-<id> -b lane/<id>`; one Claude Code session per worktree; each session runs `/lane <id>`. A lane session writes ONLY from `../pg-eos-lane-<id>` — `lane-guard.sh` refuses a lane write from any other checkout, and `check-locks.sh` refuses a lane row whose worktree is not `../pg-eos-lane-<id>` (D-179; the shared `claude-kit` checkout is the Master's). All three lanes run concurrently whenever three locks are free.
 
 QUOTA DISCIPLINE (v5)
 - Domain briefs (`.claude/briefs/<module>.brief.md`, ≤ 120 lines each) hold: the module's tables (names + status columns + check lists), its events, its doc 40 section pointers, its D-blueprint pointers, its golden-slice counterpart paths. Workers read the brief, not the package. The Master updates a brief only via pg-scribe when a slice changes the module's surface.
@@ -122,7 +122,7 @@ QUOTA DISCIPLINE (v5)
 SPEED AND QUALITY (v5)
 - `scripts/new-slice.sh <module> <use-case>` copies the golden-slice tree (domain/ application/ infrastructure/ api/ tests/ + contract + i18n keys) with names substituted; every replicated slice starts from it. Hand-made file trees are a review FAIL.
 - pg-tester writes the Gherkin scenario, the property tests for the invariants in the brief, and the guard additions **before** any implementation; the build brief includes the failing test names.
-- Git hooks live in .githooks/ (versioned; core.hooksPath set by scripts/install-hooks.mjs from the root prepare script on every pnpm install). Today: commit-msg (type(WBS): description). Planned pre-commit gates, same mechanism, no husky: ① lint+boundaries+types, ② domain unit tests of the touched module, ③ pnpm guards:run --changed. Commit is refused on red.
+- Git hooks live in .githooks/ (versioned; core.hooksPath set by scripts/install-hooks.mjs from the root prepare script on every pnpm install). commit-msg: `type(WBS): description`; a `docs(X)` commit is refused unless its body carries `GM-Directive: "<verbatim>"` or `Decision: D-NNN` (D-179). pre-commit gates, same mechanism, no husky: ⓐ `scripts/check-locks.sh` when `tasks/LANE_LOCKS.md` is staged, ⓑ `scripts/brief-check.sh` when a `docs/notes/slice-briefs/*.brief.md` is staged (Read ONLY ≤ 12 files / 1,500 lines), ① lint+boundaries+types, ② domain unit tests of the touched module, ③ pnpm guards:run when database/ is staged. Commit is refused on red. `tests/hooks/run.sh` (`pnpm test:hooks`, CI gate ①) is the regression suite of every hook rule; a hook change without its case is a review FAIL.
 - CI on every PR: gates ①–⑦; nightly: Stryker mutation on `domain/` (≥ 75%), full Playwright S1–S20, `apply.sh --recreate` on an ephemeral database.
 - Review checklist (doc 36 §5-4) is applied literally; "minor" findings are still findings. A slice with an open finding is not DONE.
 
@@ -142,7 +142,9 @@ SESSION OPERATING DIRECTIVE (v6 — GM 2026-09-23: finish the pilot fast, finish
 - NO NEW PROSE: no new notes, drafts, pre-reads, candidate lists, summaries or status files unless a GM
   directive asks for one by name. Outside CHANGELOG and the brief, the closing report is the only prose.
 - SPLIT BEFORE, NOT AFTER: a brief over 12 files / 1,500 lines is split into two slices before pg-tester
-  starts, never after a failed round. A slice over 2× its budget is split at the next review.
+  starts, never after a failed round. `bash scripts/brief-check.sh <brief>` is run before pg-tester is
+  delegated and again by pre-commit; an OVER BUDGET brief never reaches a worker (D-179). A slice over
+  2× its budget is split at the next review.
 - CONCURRENCY INSIDE THE LOOP: pg-backend and pg-frontend run concurrently in step 7 against the same
   committed contract; the Master writes the migration request and the i18n key list while pg-tester
   writes RED tests. Nothing else in the twelve-step loop is reordered or skipped.

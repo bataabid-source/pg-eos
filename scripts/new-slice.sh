@@ -165,6 +165,17 @@ if ! grep -q "\"$MODULE/\*\*/\*.ts\"" "$tsc_cfg"; then
 fi
 produced="$produced packages/contracts/package.json packages/contracts/tsconfig.json"
 
+# ---- module test include registration (D-179, 2026-09-25) ----------------
+# A module whose tsconfig.test.json lists tests per use case (wms shape) gets "tests/<slug>/**/*.ts"
+# added here, so a lane holding only a use-case lock never edits the file by hand. Idempotent; a
+# module that already includes "tests/**/*.ts" needs nothing.
+mod_tsc_test="$ROOT/modules/$MODULE/tsconfig.test.json"
+if [ -f "$mod_tsc_test" ] && ! grep -q '"tests/\*\*/\*\.ts"' "$mod_tsc_test" && ! grep -q "\"tests/$SLUG/\*\*/\*.ts\"" "$mod_tsc_test"; then
+  sed -i "s#\"vitest.config.ts\"#\"tests/$SLUG/**/*.ts\",\n    \"vitest.config.ts\"#" "$mod_tsc_test"
+  echo "new-slice: added tests/$SLUG/**/*.ts to modules/$MODULE/tsconfig.test.json include"
+  produced="$produced modules/$MODULE/tsconfig.test.json"
+fi
+
 # ---- module scaffold (lane blocker (c), 2026-09-24) -----------------------
 # A module with no golden counterpart (anything but identity platform sales wms today) gets its
 # package shell copied from the golden module BEFORE the five layers are copied: package.json,

@@ -39,7 +39,7 @@ for b in .claude/briefs/*.brief.md; do l=$(wc -l < "$b"); [ "$l" -le 120 ] || mi
 need_file .claude/hooks/lane-guard.sh
 need_file .claude/hooks/stop-reminder.sh
 grep -q 'inherit' .claude/agents/*.md && miss "an agent file uses model: inherit (forbidden)" || ok "no agent uses model: inherit"
-for s in scripts/gen-briefs.py scripts/gen-backlog.py scripts/new-slice.sh scripts/guards-run.sh; do need_file "$s"; done
+for s in scripts/gen-briefs.py scripts/gen-backlog.py scripts/new-slice.sh scripts/guards-run.sh scripts/check-locks.sh scripts/brief-check.sh tests/hooks/run.sh; do need_file "$s"; done
 need_file infra/docker/docker-compose.yml
 
 echo "== 4. State files"
