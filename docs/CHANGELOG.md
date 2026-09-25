@@ -4,6 +4,11 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — D-189: SCR-WMS-OUT-02 resolved (condition 10 = per-contract, per-SKU limit); migration 0026 issued to lane 1 (2026-09-26)
+
+- GM (verbatim, via the evaluation session) "1- موافق  2 ب": P7 approved; condition 10's source is a per-contract, per-SKU quantity limit (null = no limit). SCR-WMS-OUT-02 §6 proposes `sales.contract_sku_limits` (final shape at the pre-migration review); built as WBS 2.11 part 5 by lane 1; `0026_1_contract-sku-limits.sql` issued. MASTER_BACKLOG row 2.11 moves to "IN PROGRESS part 5" in lane 1's part-5 commit (pg-scribe).
+- Model: claude-opus-5-5 (Master) · Delegated: none · ~6k tokens.
+
 ## X — P7: brief budget 8 files / 1,000 lines, two-round review cap, rounds in the Review trailer (2026-09-26)
 
 - `scripts/brief-check.sh`: MAX 12 / 1,500 → **8 / 1,000**; `.claude/briefs/_TEMPLATE.brief.md` and `.claude/commands/slice.md` restate it; OVER BUDGET → the Master splits into part 1 / part 2 with disjoint acceptance subsets before pg-tester; a split after a failed round is a review FAIL. CLAUDE.md still says 12 / 1,500 until P2 (not touched here). Existing briefs over the new budget: `_slice-3.14` and `_slice-5.13` (both IN PROGRESS rows) — split before their next part starts.

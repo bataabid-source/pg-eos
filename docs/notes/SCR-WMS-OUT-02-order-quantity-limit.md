@@ -35,3 +35,20 @@ Either:
 ## 5 · Disposition
 
 Recorded, not built. Blocks WBS 2.11's own doc-38 row from being marked DONE until (a) or (b) above happens. Not blocking: WBS 2.11 part 4 (the two orphaned `describe` naming items) proceeds independently under the same lock; condition 10 is a separate, parallel open item on the same row.
+
+## 6 · Resolution (D-189, 2026-09-26)
+
+GM chose option ب: condition 10's source is **a per-contract, per-SKU quantity limit**; null / absent ⇒ no limit; message «الكمية تتجاوز الحد المتفق [كمية]» with the limit substituted.
+
+**Requested (G-01, one new table — proposal; pg-reviewer (opus) fixes the final shape at the pre-migration review):**
+
+| item | proposal |
+|---|---|
+| table | `sales.contract_sku_limits` |
+| columns | `id uuid pk default gen_random_uuid()`, `entity_id uuid not null` (FK `platform.entities`), `contract_id uuid not null` (FK `sales.contracts`), `sku_id uuid not null` (FK `wms.skus`), `max_order_qty numeric(14,3) not null check (max_order_qty > 0)`, `version int not null default 1`, `created_at / created_by`, `updated_at / updated_by` per the package's audit-column pattern |
+| keys | `unique (contract_id, sku_id)` |
+| RLS | `entity_scope` (the 13B pattern for entity-bearing tables) |
+| classification | one `identity.column_classification` row per column |
+| consumer | WBS 2.11 part 5 — `RunOutboundChecks` reads it read-only inside `withContext` from the wms repository (same pattern as the other cross-module condition reads); no sales code is written |
+
+Migration number **0026** issued to lane 1 (`0026_1_contract-sku-limits.sql`); the MIGRATION-REQUEST-1 row must name the RED test paths first (D-179). Status: **requested** → `approved` at the pre-migration PASS → `applied` when the migration lands.
