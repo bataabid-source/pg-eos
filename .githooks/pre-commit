@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# PG-EOS · pre-commit hook — CLAUDE.md · SPEED AND QUALITY (v5): "Planned pre-commit gates, same
+# PG-EOS · pre-commit hook — CLAUDE.md · OPERATING RULES · HOOKS: "Planned pre-commit gates, same
 # mechanism, no husky: ① lint+boundaries+types, ② domain unit tests of the touched module,
 # ③ pnpm guards:run --changed. Commit is refused on red." Activated with the golden-slice acceptance
 # (WBS 2.9, GM directive D-139) by the same `git config core.hooksPath .githooks` that runs
@@ -29,7 +29,7 @@ fail() { echo "pre-commit: REFUSED — $1" >&2; exit 1; }
 # D-179 (2026-09-25) — bookkeeping gates, run on the STAGED content, before the docs-only exit:
 #   ⓐ tasks/LANE_LOCKS.md → scripts/check-locks.sh (unique locks, no whole/use-case clash, every
 #      lane in ../pg-eos-lane-<id>, max three lanes)
-#   ⓑ docs/notes/slice-briefs/*.brief.md → scripts/brief-check.sh (Read ONLY ≤ 12 files / 1,500
+#   ⓑ docs/notes/slice-briefs/*.brief.md → scripts/brief-check.sh (Read ONLY ≤ 8 files / 1,000
 #      lines — SPLIT BEFORE, NOT AFTER)
 for f in "${staged[@]}"; do
   case "$f" in

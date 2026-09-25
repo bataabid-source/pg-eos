@@ -3,7 +3,7 @@
 #   usage: bash scripts/check-locks.sh [path-to-LANE_LOCKS.md]
 #   exit 0 = OK · exit 1 = one or more violations (each printed) · exit 2 = file missing
 #
-# Rules enforced (CLAUDE.md · PARALLEL LANES — CONFLICT-FREE MECHANISM (v5) + D-179):
+# Rules enforced (CLAUDE.md · PARALLEL LANES + D-179):
 #   1. A lock is `module` or `module/use-case`; each appears at most once.
 #   2. A whole-module row and a use-case row of the same module never coexist for two lanes.
 #   3. A lane row (lane 1|2|3|A|B|C) names the worktree `../pg-eos-lane-<lane>` — never the

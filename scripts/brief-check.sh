@@ -4,10 +4,10 @@
 #   exit 0 = within budget · exit 1 = over budget (split into two slices BEFORE pg-tester starts)
 #          · exit 2 = brief unreadable / no Read ONLY block
 #
-# CLAUDE.md · SESSION OPERATING DIRECTIVE: "SPLIT BEFORE, NOT AFTER: a brief over the budget
+# CLAUDE.md · OPERATING RULES · SPLIT BEFORE, NOT AFTER: "SPLIT BEFORE, NOT AFTER: a brief over the budget
 # is split into two slices before pg-tester starts, never after a failed round." Budget since P7:
-# 8 files / 1,000 lines (was 12 / 1,500; CLAUDE.md text is updated in P2).
-# .claude/briefs/_TEMPLATE.brief.md: "A 'Read ONLY' list over 12 files or 1,500 lines MUST be
+# 8 files / 1,000 lines (was 12 / 1,500; CLAUDE.md states it since P2).
+# .claude/briefs/_TEMPLATE.brief.md: "A 'Read ONLY' list over 8 files or 1,000 lines (P7; was 12 / 1,500) MUST be
 # split into two slices before any worker is delegated to."
 #
 # What is counted (deterministic, no judgement):
