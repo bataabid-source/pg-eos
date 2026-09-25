@@ -57,6 +57,10 @@
     "./sales/manage-account-credit": {
       "types": "./dist/sales/manage-account-credit.d.ts",
       "default": "./dist/sales/manage-account-credit.js"
+    },
+    "./wms/take-occupancy-snapshot": {
+      "types": "./dist/wms/take-occupancy-snapshot.d.ts",
+      "default": "./dist/wms/take-occupancy-snapshot.js"
     }
   },
   "scripts": {

@@ -6,7 +6,7 @@ Maintained by pg-scribe only, in the same commit as the task it records.
 | field | value |
 |---|---|
 | Phase | **0 — Foundation CLOSED (0.20 sealed, D-176)** → 1 — Commercial Core (in progress) → 2 — Warehouse (in progress, 7/19) · **pilot-first (D-127): seed 019 + synthetic data; field/human/sign-off/training/Tier-0 provisioning DEFERRED-POST-PILOT** |
-| Current task | **D-176 (2026-09-25): finish phases in order.** Phase 0 CLOSED @ `28ae48d`. 1.4 DONE @ `b21d89a`. 1.6 DONE @ `6accbf2` (M02 quotes, migration 0017). 5.5a FULLY DONE @ `ffab3bf`. 2.13 DONE @ `ca9a109` (lane 2, inventory count, INV-C3-7; migration 0018). 1.7 DONE @ `<this commit>` (lane 1, M02 contracts/price annex/SLA/billing flags; migration 0019). Next: lane 1 → 1.8 credit limit → 1.9 → 1.11 · lane 2 → 2.14 occupancy snapshot (lock `wms`) · lane 3 finishes 3.14 part 2 in flight, then **idles pending GM answer**. Completion 29/136. Previous governance commit: `e38d30a`. |
+| Current task | **D-176 (2026-09-25): finish phases in order.** Phase 0 CLOSED @ `28ae48d`. 1.4 DONE @ `b21d89a`. 1.6 DONE @ `6accbf2` (M02 quotes, migration 0017). 5.5a FULLY DONE @ `ffab3bf`. 2.13 DONE @ `ca9a109` (lane 2, inventory count, INV-C3-7; migration 0018). 1.7 DONE @ `<this commit>` (lane 1, M02 contracts/price annex/SLA/billing flags; migration 0019). 2.14 DONE @ `<this commit>` (lane 2, daily occupancy snapshot + overflow ST-12, no migration). **Phase 2 complete for lane 2 (D-176's list exhausted — 2.13, 2.14 both done); next lane-2 task pending Master direction.** Next: lane 1 → 1.8 credit limit → 1.9 → 1.11 · lane 3 finishes 3.14 part 2 in flight, then **idles pending GM answer**. Completion 30/136. Previous governance commit: `e38d30a`. |
 | Golden slice (2.9) | **ACCEPTED** · `.golden-slice-accepted` committed · `scripts/new-slice.sh` active (registers contract exports itself since `412708a`) · `.githooks/pre-commit` active (①lint/boundaries/types ②touched-module unit tests ③guards:run when database/ staged) · scope backend only, no PDA UI. R1: an all-zero order gets no GRN and no `wms.inbound.received` event. |
 | Deployment tier | **Pilot Tier 0 = local Docker `postgres:16` (D-129)**; Oracle Tier 0 after the pilot (0.3, 0.5, 0.7, 0.6b DEFERRED-POST-PILOT) — procedures placeholder in `docs/RUNBOOK.md` §8 |
 | Schema | `database/schema/01 · 13 · 13B · 019` — the ONLY permitted schema (migrations 0001–0021 applied: see `docs/CHANGELOG.md` for the full list) · DB locale UTF8 / collate C / ctype C.UTF-8 · next free migration **0022** · **SCR-HR-ATT-01 APPROVED (D-131)** — migration number not yet issued |
@@ -18,19 +18,19 @@ Maintained by pg-scribe only, in the same commit as the task it records.
 
 | lane | task | module lock | worktree | status |
 |---|---|---|---|---|
-| 1 | Phase 1, in order: 1.4 DONE @ `b21d89a` · 1.6 DONE @ `6accbf2` · 1.7 DONE @ `e3ced50` · 1.8 DONE @ `<this commit>` → next 1.9 → 1.11 (D-176) | `sales` | `../pg-eos-lane-1` | feat(1.8) committed on lane/1 @ `<this commit>`, PR pending Master merge; next per D-176: 1.9 customer 360 |
-| 2 | Phase 2: 2.13 DONE @ `ca9a109`, next 2.14 (occupancy snapshot), D-176 | `wms` | `../pg-eos-lane-2` | queued — next lane-2 session; 5.5a FULLY DONE (part 1 @ `3679b70`, part 2 @ `ffab3bf`); next free migration **0020** |
+| 1 | Phase 1, in order: 1.4 DONE @ `b21d89a` · 1.6 DONE @ `6accbf2` · 1.7 DONE @ `e3ced50` · 1.8 DONE @ `7fa0c43` → next 1.9 → 1.11 (D-176) | `sales` | `../pg-eos-lane-1` | queued — next lane-1 session; next per D-176: 1.9 customer 360 |
+| 2 | Phase 2 for lane 2 COMPLETE: 2.13 DONE @ `ca9a109`, 2.14 DONE @ `<this commit>` (D-176's list exhausted) | `wms` | `../pg-eos-lane-2` | idle — awaiting Master direction on next task; 5.5a FULLY DONE (part 1 @ `3679b70`, part 2 @ `ffab3bf`) |
 | 3 | 3.14 part 2 — `services/agent` pull loop (in flight) — then **idle pending GM answer to D-176's batched question** | `imile` | shared `claude-kit` | queued — next lane-3 session; part 1 (health reporting) committed NOT DONE @ `8b12d60`, pg-reviewer PASS round 4 |
 
 ## Last 5 DONE (newest first)
 
 | task | commit |
 |---|---|
-| 1.8 — group-level credit limit and hold; found + fixed a real RLS gap on sales.accounts (D-177) (lane 1), DONE pending merge | `<this commit>` |
+| 1.8 — group-level credit limit and hold; found + fixed a real RLS gap on sales.accounts (D-177) (lane 1), DONE | `7fa0c43` |
+| 2.14 — daily occupancy snapshot + overflow (ST-12) billable event, no migration (lane 2), DONE — Phase 2 complete for lane 2 | `<this commit>` |
 | 1.7 — M02 contracts, price annexes, SLA definitions, billing flags (lane 1), DONE | `e3ced50` |
 | 2.13 — inventory count: blind, recount mandatory, adjustment by approval (INV-C3-7), migration 0018 (lane 2), DONE | `ca9a109` |
 | 1.6 — M02 quotes with approval flow: rep → sales mgr → CFO → GM on exception (lane 1), DONE | `6accbf2` |
-| 1.4 — pricing engine: exception → contract → segment → list → pending (lane 1), DONE | `b21d89a` |
 
 ## Blockers (settle BEFORE any lane opens — reviewer's project-wide items)
 
@@ -42,12 +42,12 @@ Maintained by pg-scribe only, in the same commit as the task it records.
 - **Flagged by lane 2, pre-existing, untouched:** ~7 failures in `tests/evaluate-alerts/**` and `tests/integration/{schema-invariants,audit-chain-*}.test.ts` — audit-chain ones need Master/GM attention.
 - **D-176 open question (non-blocking):** lane 3 idles after finishing 3.14 part 2 — accept, or let it take a Phase-3/5/6 row out of strict order?
 - **Flagged by lane 2 (5.5a part 2, still applies):** full unfiltered `pnpm --filter @pg-eos/hr test` occasionally shows transient failures under concurrent shared-Postgres access — not a defect, isolated reruns 100% green.
-- **2.13 side-notes:** WH1 seed gap backfilled (1 missing location row, `wms.generate_locations()`, `verify_wh1()` 0 failing rows — WBS 2.1/2.3 fix, not 2.13's own delivery); round-3 fixes (3 findings) done by the lane session on sonnet, not escalated to opus per D-117's letter — re-verified PASS by pg-reviewer (opus) round 4.
+- **2.13/2.14 side-notes (lane 2, both flagged the same D-117 deviation twice — see CHANGELOG):** 2.13 WH1 seed gap backfilled (WBS 2.1/2.3 fix, not 2.13's own delivery), round-3 fixes done on sonnet not escalated, re-verified PASS by opus round 4. 2.14 (6 rounds, 19 findings, largest trail this session): rounds 4-5 fixes also done on sonnet not escalated; 23 orphaned `_OCCSNAP_WH_*` fixtures cleaned (zero new orphans confirmed), ~23 further `_occsnap_fixture_*`/`OCCSNAP-*` rows flagged not cleaned (no test/guard impact) — one-off cleanup pass later.
 
 ## Next 3 tasks (D-176 — phase-sequential)
 
 1. Lane 1: Phase 1 continues, next 1.8 credit limit (1.4, 1.6, 1.7 DONE)
-2. Lane 2: Phase 2 — next 2.14 (occupancy snapshot + overflow billable event), lock `wms` (2.13 DONE @ `ca9a109`)
+2. Lane 2: **idle — Phase 2 complete (2.13, 2.14 both DONE), D-176's list exhausted; awaiting Master direction on next task**
 3. Lane 3: finish 3.14 part 2 (in flight) — then idle pending the GM's D-176 answer
 
 ## Notes
