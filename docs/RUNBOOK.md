@@ -29,6 +29,29 @@ via stdin redirection (`psql < file`, never `-f file` — WBS 0.15 header explai
 
 **Setup checks** (moved from the retired `README-KIT.md`, P0 2026-09-25): `bash scripts/check-setup.sh` runs them all — agents pinned (no `inherit`), briefs ≤ 120 lines, `.claude/settings.json` valid, hooks parse, `python scripts/gen-backlog.py --check` (**154** doc-38 rows, v4.6 / D-187), `PGDATABASE=pgeos bash scripts/guards-run.sh`. Regenerate the module briefs after any schema change: `PGHOST=localhost PGPORT=5432 PGUSER=postgres PGDATABASE=pgeos python scripts/gen-briefs.py`.
 
+**One database per worktree, same container** (P4a, GM 2026-09-26): the three lane worktrees used
+to share `pgeos` with the Master, so lane test fixtures polluted each other. Each worktree now has
+its own database in the same local Docker container:
+
+| Worktree | Database |
+|---|---|
+| `pg-eos-gov` / `claude-kit` (Master) | `pgeos` |
+| `../pg-eos-lane-1` | `pgeos_lane1` |
+| `../pg-eos-lane-2` | `pgeos_lane2` |
+| `../pg-eos-lane-3` | `pgeos_lane3` |
+
+A lane sets itself up with one command, run from its own worktree: `bash scripts/lane-db.sh <id>`
+(`id` ∈ 1, 2, 3). It creates `pgeos_lane<id>` if missing (never drops one), applies the schema via
+the existing `database/schema/apply.sh`, and writes `PGDATABASE=pgeos_lane<id>` to that worktree's
+`infra/docker/.env` (git-ignored), preserving any other keys already there — but nothing sources
+that file automatically, so a lane must also make `PGDATABASE=pgeos_lane<id>` reach the process
+env itself: add `"env": {"PGDATABASE": "pgeos_lane<id>"}` to that worktree's
+`.claude/settings.local.json` (git-ignored; Claude Code applies it to every Bash command), or
+export it in the shell. `scripts/check-setup.sh` decides on the process env only (not the `.env`
+file) and refuses to proceed from a lane worktree whose `PGDATABASE` is unset or still `pgeos`,
+naming both fixes. The MEMORY rule (§2, below) stays in force until measured otherwise — one
+database per lane removes fixture collisions, not host memory pressure.
+
 **Precedence on any conflict** (moved from the retired `SETUP-STATUS-AR.md`): `docs/package/40` → `36` → `EXECUTION-MASTER-v4` → `42` → `38` → `22` → `database/schema/01 · 13 · 13B · 019` → `BOOTSTRAP-v5` (operating instructions only) → `D-blueprints/` (binding for screens, boards and KPIs).
 
 ## 2. Schema / migration deploy to the shared dev database

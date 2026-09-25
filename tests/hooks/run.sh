@@ -148,6 +148,28 @@ expect "line budget: two ranges summed"         1 "$(bc 'Read ONLY:\n- `docs/big
 expect "block ends at Write ONLY"               0 "$(bc 'Read ONLY:\n- `modules/m/domain/uc/f1.ts`\nWrite ONLY: `docs/big.md`\n')"
 expect "## heading form parsed"                 0 "$(bc '## Read ONLY (workers)\n1. `modules/m/domain/uc/f1.ts`\n\n## Facts\n- `docs/big.md`')"
 
+# ---- check-setup.sh (P4a, GM 2026-09-26): a lane worktree on the shared `pgeos` is refused ------
+echo "check-setup.sh — lane database isolation (P4a)"
+mkdir -p "$LANE1/scripts" "$LANE1/infra/docker"
+cp "$REPO/scripts/check-setup.sh" "$LANE1/scripts/check-setup.sh"
+MASTER="$TMP/pg-eos-gov"; mkdir -p "$MASTER/scripts"
+cp "$REPO/scripts/check-setup.sh" "$MASTER/scripts/check-setup.sh"
+# cs_verdict <worktree-dir> <PGDATABASE|""> <infra/docker/.env content|""> → "OK" or "MISS" (section 0 line only)
+cs_verdict() {
+  local dir="$1" envdb="$2" envfile="$3"
+  if [ -n "$envfile" ]; then printf '%s\n' "$envfile" > "$dir/infra/docker/.env"; else rm -f "$dir/infra/docker/.env"; fi
+  local line
+  if [ -n "$envdb" ]; then line="$(cd "$dir" && PGDATABASE="$envdb" bash scripts/check-setup.sh 2>/dev/null | sed -n '2p')"
+  else line="$(cd "$dir" && env -u PGDATABASE bash scripts/check-setup.sh 2>/dev/null | sed -n '2p')"; fi
+  case "$line" in *MISS*) echo "MISS" ;; *OK*) echo "OK" ;; *) echo "NEITHER" ;; esac
+}
+expect "lane on pgeos (default, no env) refused"    0 "$([ "$(cs_verdict "$LANE1" "" "")" = "MISS" ]; echo $?)"
+expect "lane on pgeos (explicit env) refused"       0 "$([ "$(cs_verdict "$LANE1" pgeos "")" = "MISS" ]; echo $?)"
+expect "lane with PGDATABASE=pgeos_lane1 not refused (on this check)" 0 "$([ "$(cs_verdict "$LANE1" pgeos_lane1 "")" = "OK" ]; echo $?)"
+expect "lane with ONLY infra/docker/.env=pgeos_lane1 (no process env) still refused" 0 "$([ "$(cs_verdict "$LANE1" "" "PGDATABASE=pgeos_lane1")" = "MISS" ]; echo $?)"
+expect "lane with process env AND .env both pgeos_lane1 not refused"  0 "$([ "$(cs_verdict "$LANE1" pgeos_lane1 "PGDATABASE=pgeos_lane1")" = "OK" ]; echo $?)"
+expect "Master checkout (pg-eos-gov) keeps pgeos, not refused"        0 "$([ "$(cs_verdict "$MASTER" "" "")" = "OK" ]; echo $?)"
+
 # ---- db-guard.sh (D-183): psql DELETE/DROP/TRUNCATE against the shared `pgeos` is refused ------------
 echo "db-guard.sh"
 dbg() { # dbg <session PGDATABASE|""> <command>  → exit code
