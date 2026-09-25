@@ -69,6 +69,10 @@
     "./wms/manage-space": {
       "types": "./dist/wms/manage-space.d.ts",
       "default": "./dist/wms/manage-space.js"
+    },
+    "./wms/process-outbound": {
+      "types": "./dist/wms/process-outbound.d.ts",
+      "default": "./dist/wms/process-outbound.js"
     }
   },
   "scripts": {
