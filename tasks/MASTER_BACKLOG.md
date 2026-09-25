@@ -61,7 +61,7 @@ Type: 🧑 human decision/data · 🤖 AI-buildable slice · 🔧 infra · ✅ v
 | 1.6 | M02: quotes with approval flow (rep → sales mgr → CFO → GM on exception) | 🤖 | 1.4, 1.5 | **1** | CFO | Sent quote is frozen; edit creates new version | DONE @ `<this commit>` — lane 1; ExpireQuote and in-place line edit deferred (batched GM questions, see CHANGELOG). |
 | 1.7 | M02: contracts, price annexes, SLA definitions, billing flags (DL-11/12/13/14/18) | 🤖 | 1.6 | **1** | CFO | Order on expired contract rejected | DONE @ `<this commit>` — lane 1; RenewContract/TerminateContract/SetBillingFlags deferred (batched GM questions, see CHANGELOG). |
 | 1.8 | Group-level credit limit and hold | 🤖 | 1.5 | **1** | CFO | Hold blocks orders in all four entities | DONE @ `<this commit>` — lane 1; automatic hold-trigger deferred to a billing-phase slice (batched GM question, see CHANGELOG); real G-01 schema gap found and fixed (D-177, migration 0021). |
-| 1.9 | Customer 360 screen | 🤖 | 1.7 | **1** | SALES_MGR | Shows contracts, readiness gaps with owners, finance, profitability placeholder | TODO |
+| 1.9 | Customer 360 screen | 🤖 | 1.7 | **1** | SALES_MGR | Shows contracts, readiness gaps with owners, finance, profitability placeholder | DONE @ `<this commit>` — lane 1; two-track slice (sales data + admin UI); live-ops/SLA/activity sections and a customer search screen deferred (batched GM questions, see CHANGELOG). |
 | 1.10 | **Data gate M02:** all current clients with CR and contact | 🧑 | 1.5 | **A** | CFO | Scorecard = 100% | DEFERRED-POST-PILOT — D-127 (data gate; Phase-1 gate item after the pilot) |
 | 1.11 | Scenario S6 (multi-entity) and S10 (price exception) pass | ✅ | 1.8 | **M** | CFO | Playwright green | TODO |
 

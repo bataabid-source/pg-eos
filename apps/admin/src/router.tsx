@@ -11,10 +11,14 @@ import {
   createRoute,
   createRouter as createTanstackRouter,
   redirect,
+  useParams,
 } from '@tanstack/react-router';
 
 import { DecisionInboxScreen } from './features/decision-inbox/decision-inbox-screen';
 import { mockClient } from './features/decision-inbox/mock-client';
+import { CustomerProfileScreen } from './features/customer-profile/customer-profile-screen';
+import { mockClient as customerProfileMockClient } from './features/customer-profile/mock-client';
+import { DEMO_ACCOUNT_ID } from './features/customer-profile/constants';
 import type { Locale } from './i18n/t';
 import { t } from './i18n/t';
 
@@ -57,6 +61,13 @@ function AppShell() {
             <Link to="/inbox" activeProps={{ 'aria-current': 'page' }}>
               {t(locale, 'nav.inbox')}
             </Link>
+            <Link
+              to="/customers/$accountId"
+              params={{ accountId: DEMO_ACCOUNT_ID }}
+              activeProps={{ 'aria-current': 'page' }}
+            >
+              {t(locale, 'nav.customer360')}
+            </Link>
           </nav>
         </header>
         <div>
@@ -73,6 +84,27 @@ function InboxRouteComponent() {
     <DecisionInboxScreen
       client={mockClient}
       role={DEFAULT_ROLE}
+      locale={locale}
+      onLocaleChange={setLocale}
+    />
+  );
+}
+
+// Fix round 1, finding 11: the URL's `:accountId` was previously ignored — the screen always
+// loaded `DEMO_ACCOUNT_ID` regardless of what the route matched. `useParams({ strict: false })`
+// reads the actual matched param (works regardless of declaration order against the route object
+// below); `DEMO_ACCOUNT_ID` remains only the DEFENSIVE fallback for a genuinely empty param, which
+// the route's own path segment should never produce — no customer search/list exists this slice
+// (Master decision 9), so in practice this is always the one demo account the fixed nav link
+// targets, but the plumbing now honors the URL rather than hard-coding it.
+function CustomerProfileRouteComponent() {
+  const { locale, setLocale } = useContext(LocaleContext);
+  const params = useParams({ strict: false });
+  const accountId = params.accountId ?? DEMO_ACCOUNT_ID;
+  return (
+    <CustomerProfileScreen
+      client={customerProfileMockClient}
+      accountId={accountId}
       locale={locale}
       onLocaleChange={setLocale}
     />
@@ -97,7 +129,13 @@ const inboxRoute = createRoute({
   component: InboxRouteComponent,
 });
 
-const routeTree = rootRoute.addChildren([indexRoute, inboxRoute]);
+const customerProfileRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/customers/$accountId',
+  component: CustomerProfileRouteComponent,
+});
+
+const routeTree = rootRoute.addChildren([indexRoute, inboxRoute, customerProfileRoute]);
 
 // `initialPath` drives an in-memory history (tests, no real browser navigation); omitted, the
 // real app uses the actual browser history so the URL bar stays in sync.

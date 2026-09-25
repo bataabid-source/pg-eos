@@ -61,6 +61,10 @@
     "./wms/take-occupancy-snapshot": {
       "types": "./dist/wms/take-occupancy-snapshot.d.ts",
       "default": "./dist/wms/take-occupancy-snapshot.js"
+    },
+    "./sales/customer-profile": {
+      "types": "./dist/sales/customer-profile.d.ts",
+      "default": "./dist/sales/customer-profile.js"
     }
   },
   "scripts": {
