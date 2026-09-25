@@ -29,6 +29,14 @@ Feature: Process outbound order — create, ten-condition check, approve, cancel
     When RunOutboundChecks is called
     Then status is "checks_pending", credit_check_passed is true, credit_checked_at is set
 
+  Scenario: Condition 1 fails — the client has no active contract at all
+    Given the client has no sales.contracts row at all, or the client's only contract exists but
+      its status is not "active" (for example "draft")
+    When RunOutboundChecks is called
+    Then it is rejected with ContractNotActiveError, never ContractExpiredError, carrying i18n key
+      "wms.outbound.check.contractNotActive", status stays "draft", and nothing is written to the
+      outbox or the audit log
+
   Scenario: Condition 1 fails — expired contract
     Given the order's contract end_date is in the past
     When RunOutboundChecks is called
@@ -258,6 +266,13 @@ Feature: Process outbound order — create, ten-condition check, approve, cancel
     When Allocate is called
     Then the one audit row's lines carry, per line, the reserved lot's locationId and batchNo, or
       null for the unallocated line
+
+  Scenario: Allocate writes outbox + audit, never a stock_movements row
+    Given an approved order that Allocate will either fully or partially allocate
+    When Allocate is called
+    Then a full allocation writes exactly one "wms.outbound.allocated" outbox event and one audit
+      row, and a partial allocation writes exactly one "wms.outbound.partially_allocated" outbox
+      event and one audit row — in both cases zero wms.stock_movements rows are written
 
   Scenario: Allocate is illegal before approval (still draft or checks_pending)
     When Allocate is called on a draft or checks_pending order

@@ -1017,12 +1017,16 @@ describe('Scenario: Condition 1 fails — the client has no active contract at a
       lines: [{ skuId, qtyOrdered: QTY_ORDERED }],
     });
 
-    const error = await runOutboundChecks(roleCtx, { orderId, expectedVersion: version, correlationId: nextCorrelationId() }, deps).catch(
+    const correlationId = nextCorrelationId();
+    const error = await runOutboundChecks(roleCtx, { orderId, expectedVersion: version, correlationId }, deps).catch(
       (err: unknown) => err,
     );
     expect(error).toBeInstanceOf(ContractNotActiveError);
+    expect(error).not.toBeInstanceOf(ContractExpiredError);
     expect((error as ContractNotActiveError).i18nKey).toBe('wms.outbound.check.contractNotActive');
     expect((await getOrder(orderId)).status).toBe('draft');
+    expect(await anyOutboxCountForCorrelation(correlationId)).toBe(0);
+    expect(await auditCountForCorrelation(correlationId)).toBe(0);
   });
 });
 
@@ -1963,7 +1967,7 @@ describe('Scenario: Idempotent replay and conflicting replay on Allocate', () =>
 
 // --- Scenario: Allocate writes outbox + audit, never a stock_movements row -----------------------
 
-describe('Scenario: Allocate writes outbox + audit, never a stock_movements row (WBS 2.11 part 2, Master decision 2)', () => {
+describe('Scenario: Allocate writes outbox + audit, never a stock_movements row', () => {
   it('full allocation writes exactly one wms.outbound.allocated event + one audit row, no stock_movements row', async () => {
     const { orderId, version, clientId } = await buildApprovedOrder();
     const before = await stockMovementCountForClient(clientId);
