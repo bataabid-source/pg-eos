@@ -38,5 +38,15 @@ export const EVENT_CATALOG = [
   // the update (doc 38 row 5.5a acceptance: "every state change → outbox + audit in one
   // transaction"). Aggregate `platform.sites`.
   'platform.site.updated',
+  // WBS 5.5a part 2 (lane 2, MIGRATION-REQUEST-2 / Master issue 2026-09-25, migration 0016):
+  // written once per CreateShift. Aggregate `hr.shifts`.
+  'hr.shift.created',
+  // WBS 5.5a part 2: written once per CreateShiftGroup. Aggregate `hr.shift_groups`.
+  'hr.shift_group.created',
+  // WBS 5.5a part 2: written once per AssignShift (name proposed by SCR-HR-SHIFT-01 §2.9).
+  // Aggregate `hr.shift_assignments`.
+  'hr.shift.assigned',
+  // WBS 5.5a part 2: written once per EndShiftAssignment. Aggregate `hr.shift_assignments`.
+  'hr.shift_assignment.ended',
 ] as const;
 export type CatalogedEventType = (typeof EVENT_CATALOG)[number];
