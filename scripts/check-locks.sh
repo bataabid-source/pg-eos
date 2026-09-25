@@ -9,6 +9,10 @@
 #   3. A lane row (lane 1|2|3|A|B|C) names the worktree `../pg-eos-lane-<lane>` — never the
 #      shared `claude-kit` checkout. Lane M (Master) is exempt.
 #   4. At most three lane rows with distinct lanes (max three lanes).
+#   5. The `task` of every row is a row ID of docs/package/38-WBS.md (or the literal `X`) — D-185:
+#      a lock for a task that is not a doc-38 row is refused, so a staged row (tasks/MASTER_BACKLOG.md
+#      "Staged" section) is moved into doc 38 by the Master BEFORE any lane claims it.
+#      The doc is read from $CHECK_LOCKS_WBS, else <repo root>/docs/package/38-WBS.md.
 # Run by: .githooks/pre-commit (when the file is staged), scripts/check-setup.sh, tests/hooks.
 set -uo pipefail
 
@@ -18,15 +22,17 @@ LOCKS="${1:-tasks/LANE_LOCKS.md}"
 fail=0
 err() { echo "check-locks: VIOLATION — $1" >&2; fail=1; }
 
-# module | lane | worktree  (backticks and spaces stripped from module/lane; worktree kept raw)
+# module | lane | worktree | task  (backticks and spaces stripped from module/lane/task; worktree kept raw)
 rows="$(awk -F'|' '
   /^[[:space:]]*\|/ {
-    m = $2; l = $3; w = $6
-    gsub(/[[:space:]`]/, "", m); gsub(/[[:space:]`]/, "", l)
+    m = $2; l = $3; t = $4; w = $6
+    gsub(/[[:space:]`]/, "", m); gsub(/[[:space:]`]/, "", l); gsub(/[[:space:]`]/, "", t)
     sub(/^[[:space:]]+/, "", w); sub(/[[:space:]]+$/, "", w)
     if (m == "" || m == "module" || m ~ /^-+$/) next
-    print m "\t" l "\t" w
+    print m "\t" l "\t" w "\t" t
   }' "$LOCKS")"
+
+WBS_DOC="${CHECK_LOCKS_WBS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/docs/package/38-WBS.md}"
 
 [ -n "$rows" ] && {
   # rule 1 — unique lock
@@ -34,7 +40,7 @@ rows="$(awk -F'|' '
   [ -z "$dup" ] || err "lock appears more than once: $(printf '%s' "$dup" | tr '\n' ' ')"
 
   # rule 2 — whole vs use-case coexistence across lanes
-  while IFS=$'\t' read -r m l w; do
+  while IFS=$'\t' read -r m l w t; do
     case "$m" in
       */*) mod="${m%%/*}"
            other="$(printf '%s\n' "$rows" | awk -F'\t' -v mod="$mod" -v lane="$l" '$1 == mod && $2 != lane { print $2 }' | head -1)"
@@ -43,7 +49,7 @@ rows="$(awk -F'|' '
   done <<< "$rows"
 
   # rule 3 — lane worktree
-  while IFS=$'\t' read -r m l w; do
+  while IFS=$'\t' read -r m l w t; do
     [ "$l" = "M" ] && continue
     case "$w" in
       "../pg-eos-lane-$l"|"../pg-eos-lane-$l "*|"../pg-eos-lane-$l("*) ;;
@@ -54,6 +60,17 @@ rows="$(awk -F'|' '
   # rule 4 — max three lanes
   n="$(printf '%s\n' "$rows" | cut -f2 | grep -v '^M$' | sort -u | wc -l | tr -d ' ')"
   [ "$n" -le 3 ] || err "$n lanes hold locks — max three lanes"
+
+  # rule 5 — task is a doc-38 row (D-185)
+  if [ -f "$WBS_DOC" ]; then
+    while IFS=$'\t' read -r m l w t; do
+      [ "$t" = "X" ] && continue
+      awk -F'|' -v id="$t" '/^\|/ { c = $2; gsub(/[[:space:]]/, "", c); if (c == id) f = 1 } END { exit !f }' "$WBS_DOC" \
+        || err "'$m' (lane $l) is locked for task '$t', which is not a row of docs/package/38-WBS.md — the Master moves a staged row into doc 38 before it is claimed (D-185)"
+    done <<< "$rows"
+  else
+    err "docs/package/38-WBS.md not found at '$WBS_DOC' — cannot validate lock tasks (D-185)"
+  fi
 }
 
 if [ "$fail" -eq 0 ]; then echo "check-locks: OK"; exit 0; fi
