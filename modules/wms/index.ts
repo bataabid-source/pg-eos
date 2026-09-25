@@ -19,3 +19,38 @@ export * from './src/sku-registration/index.js';
 // surface: the six application-layer commands and their typed domain errors.
 export * from './application/receive-inbound/index.js';
 export * from './domain/receive-inbound/errors.js';
+
+// WBS 2.13 — count-inventory (INV-C3-7), replicating the golden slice's own file tree. Named
+// re-exports (not `export *`): ./domain/receive-inbound/errors.js already exports
+// RoleRequiredError / StaleVersionError / IllegalTransitionError / MissingActorError — a wildcard
+// re-export from both use cases would collide (same discipline as modules/hr/index.ts's own
+// maintain-shift precedent). count-inventory's own error names are aliased with a `CountInventory`
+// prefix here so both use cases' typed errors stay reachable from this one module barrel.
+export {
+  startCount,
+  countLocation,
+  recount,
+  adjustCount,
+  type StartCountInput,
+  type StartCountResult,
+  type CountLocationInput,
+  type CountLocationResult,
+  type RecountInput,
+  type RecountResult,
+  type AdjustCountInput,
+  type AdjustCountResult,
+  type CountInventoryDeps,
+  type InventoryCountRepository,
+} from './application/count-inventory/index.js';
+export {
+  AlreadyCountedError,
+  NotFlaggedForRecountError,
+  CountFilterRequiredError,
+  WarehouseNotFoundError,
+  CountNotFoundError,
+  LineNotFoundError as CountInventoryLineNotFoundError,
+  RoleRequiredError as CountInventoryRoleRequiredError,
+  StaleVersionError as CountInventoryStaleVersionError,
+  IllegalTransitionError as CountInventoryIllegalTransitionError,
+  MissingActorError as CountInventoryMissingActorError,
+} from './domain/count-inventory/errors.js';

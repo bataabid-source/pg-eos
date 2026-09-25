@@ -45,6 +45,10 @@
     "./sales/manage-quote": {
       "types": "./dist/sales/manage-quote.d.ts",
       "default": "./dist/sales/manage-quote.js"
+    },
+    "./wms/count-inventory": {
+      "types": "./dist/wms/count-inventory.d.ts",
+      "default": "./dist/wms/count-inventory.js"
     }
   },
   "scripts": {
