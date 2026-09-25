@@ -1,59 +1,40 @@
 # PROJECT_STATE — PG-EOS
 
-**Hard limit: 60 lines.** Older history moves to `docs/CHANGELOG.md` (CLAUDE.md · QUOTA DISCIPLINE (v5)).
-Maintained by pg-scribe only, in the same commit as the task it records.
+**Hard limit: 40 lines.** Older history lives in `docs/CHANGELOG.md` (CLAUDE.md · QUOTA DISCIPLINE v5). Maintained by pg-scribe only, in the same commit as the task it records.
 
 | field | value |
 |---|---|
-| Phase | **0 — Foundation CLOSED (0.20 sealed, D-176)** → 1 — Commercial Core (buildable rows done except 1.11, Master-only) → 2 — Warehouse (in progress, 9/19) · **pilot-first (D-127): seed 019 + synthetic data; field/human/sign-off/training/Tier-0 provisioning DEFERRED-POST-PILOT** |
-| Current task | **Lane 1: WBS 2.11 part 4 DONE @ `<this commit>`, WBS 2.11 row STILL NOT DONE** — part 1 @ `a96b013`, part 2 @ `156b042`, part 3 @ `f30f7c7`, part 4 @ `<this commit>`. Part 4 fixed the 2 describe/scenario naming gaps deferred from part 3 (stripped the disallowed suffix on the "Allocate writes outbox + audit" describe + added its matching Gherkin scenario; added the two missing assertions + matching Gherkin scenario to the "Condition 1 fails — no active contract at all" describe so both Given branches support its claim). **`process-outbound.test.ts`'s describe/scenario naming discipline is now fully clean — 52 describe blocks, 52 Gherkin scenarios, zero orphans.** This closes WBS 2.11's naming-discipline item (parts 1–4 all landed). 9 of 10 doc-38 conditions have a failing test with the correct message; **condition 10 ("quantity within the agreed order limit") remains separately, permanently BLOCKED — G-01, no threshold source anywhere in 01/13/13B/019/40**, filed `docs/notes/SCR-WMS-OUT-02-order-quantity-limit.md`; doc-38 row 2.11's acceptance requires all ten conditions, so **the row stays IN PROGRESS / blocked-on-G-01 pending a GM ruling on the order-limit source** — not a lane-1 task to clear. Lane 1 next: **2.12** (Pick → check → pack → load), same `wms/process-outbound` lock. **3.17 part 1 (lane 3) done-in-part, NOT DONE @ `ca7f6f1`** — `EvaluateDtlProblem` gate evaluation mechanism, PASS(27 findings/4 rounds, D-186 two-round cap hit at round 3, session-tier sonnet not opus, deviation recorded). Lane 3 next: awaiting the Master's `tms`/`fleet` claim for 3.1 (D-184). **Lane 2: 2.9b DONE @ `716bf8e`** — reassigned to **4.2** `billing.billable_events` (D-186), brief + RED only until wave 1 merges. D-180 session plan: one Master session ("إدارة الجلسات والوكلاء", fable) from `../pg-eos-gov`. **1.11 BLOCKED (D-178)**. Completion 38/137 (doc 38 v4.5/137 rows, D-185; 2.11 IN PROGRESS, not DONE). Previous governance commit: `2a9883a`. |
-| Golden slice (2.9) | **ACCEPTED** · `.golden-slice-accepted` committed · `scripts/new-slice.sh` active (registers contract exports itself since `412708a`) · `.githooks/pre-commit` active (①lint/boundaries/types ②touched-module unit tests ③guards:run when database/ staged) · scope backend only, no PDA UI. R1: an all-zero order gets no GRN and no `wms.inbound.received` event. |
-| Deployment tier | **Pilot Tier 0 = local Docker `postgres:16` (D-129)**; Oracle Tier 0 after the pilot (0.3, 0.5, 0.7, 0.6b DEFERRED-POST-PILOT) — procedures placeholder in `docs/RUNBOOK.md` §8 |
-| Schema | `database/schema/01 · 13 · 13B · 019` — the ONLY permitted schema (migrations 0001–0025 applied (0022 lane 1 · 0023 lane 2 · 0024 lane 3 applied · 0025 Master, SCR-RLS-03 / D-181): see `docs/CHANGELOG.md` for the full list) · DB locale UTF8 / collate C / ctype C.UTF-8 · next free migration **0026** · **SCR-HR-ATT-01 APPROVED (D-131)** — migration number not yet issued |
-| Session model | **D-174: lane sessions sonnet / effort medium · Master sonnet / medium for merges + bookkeeping, opus only for ADR / security / D-117 · fable only when the GM names it.** D-180: Master session = "إدارة الجلسات والوكلاء" on fable, GM's own menu choice; one session per worktree, no lane session in the shared `claude-kit` checkout · agents pinned: pg-reviewer opus, all other agents sonnet, no haiku · fast mode unavailable (SDK) |
-| Toolchain | pnpm 9.15.9 · Node 25.2.1 · Docker 29.0.1 · psql 16.15 · claude CLI · TypeScript 5.9.3 ceiling `<6.1.0` · Python 3.13 (`python`, not `python3`) · `gh` per command with the Git-Credential-Manager token (D-173, `docs/RUNBOOK.md` §3) |
-| Setup check | 2026-09-24: `gen-backlog.py --check` 136 rows (v4.4) · `check-setup.sh` MASTER_BACKLOG OK, PG_APP_USER unset → NOTE only · gates ①–⑥ green on main via CI |
+| Phase | 0 CLOSED · 1 Commercial Core (done except 1.11, BLOCKED D-178) · 2 Warehouse (9/19) · pilot-first (D-127): seed 019 + synthetic data. Doc 38 **v4.6 (154 rows, D-187/ADR-0004)**. |
+| Current task | Lane 1: 2.11 parts 1–4 DONE (`a96b013`, `156b042`, `f30f7c7`, `3fadbde`); row IN PROGRESS — condition 10 BLOCKED (G-01 SCR-WMS-OUT-02) → 2.12 (recorded default). Lane 2: 2.9b DONE @ `716bf8e` → 4.2 `billing.billable_events` (D-186) brief+RED only until wave 1 merges; then accounting core 4.1a→4.1b→4.19→4.20 (SCR-ACC-01, A2). Lane 3: 3.17 part 1 DONE-in-part @ `ca7f6f1` → 3.1 `fleet` (D-184) pending Master's `tms` claim. P1 governance cleanup (this commit): deletion pass on superseded notes/briefs/sheets. |
+| Golden slice / tier / schema / session model | 2.9 ACCEPTED (`.golden-slice-accepted`, `scripts/new-slice.sh` active) · Pilot Tier 0 = local Docker `postgres:16` (D-129), Oracle DEFERRED-POST-PILOT · migrations 0001–0025 applied (0022 withdrawn), next free **0026** · D-174/D-180 session model: lane sessions sonnet/medium, Master sonnet/medium (opus only ADR/security/D-117), pg-reviewer opus, no haiku |
 
 ## Lanes
 
-| lane | task | module lock | worktree | status |
-|---|---|---|---|---|
-| 1 | 2.11 parts 1-4 DONE @ `a96b013`/`156b042`/`f30f7c7`/`<this commit>`, row NOT DONE (9/10 conditions, condition 10 BLOCKED G-01) → 2.12 | `wms/process-outbound` (`wms/receive-inbound`, `wms/integration` released — their only items are done) | `../pg-eos-lane-1` | **runnable now** — naming discipline fully closed; condition 10 stays BLOCKED pending GM ruling on the order-limit source, not lane 1's to clear |
-| 2 | 4.2 `billing.billable_events` (doc-38 Lane M → lane 2, D-186) — 2.9b DONE @ `716bf8e` | `billing` | `../pg-eos-lane-2` | brief + RED only until wave 1 (P1, P7) merges; budget 8 files / 1,000 lines, two review rounds (D-186) |
-| 3 | 3.1 `tms.vehicles` + documents + expired-doc hard gate (doc-38 lane 1 → lane 3, D-184) — 3.14 part 2 @ `e667821`, 3.17 part 1 @ `ca7f6f1` (both NOT DONE: live adapter / content analysis gated on D-149 + G-01 rows) | `fleet` | `../pg-eos-lane-3` | new module `modules/fleet` via new-slice.sh (schema `tms`); budget 8 / 1,000, two rounds (D-186) |
+| lane | task | module lock | worktree |
+|---|---|---|---|
+| 1 | 2.12 pick → check → pack → load (2.11 row blocked only on condition 10, G-01 SCR-WMS-OUT-02) | `wms/process-outbound` + `wms/receive-inbound` | `../pg-eos-lane-1` |
+| 2 | 4.2 `billing.billable_events` (D-186) — brief+RED until wave 1 (P1, P7) | `billing` | `../pg-eos-lane-2` |
+| 3 | 3.1 `tms.vehicles` + docs + expired-doc gate (D-184) | `fleet` | `../pg-eos-lane-3` |
 
 ## Last 5 DONE (newest first)
-
 | task | commit |
 |---|---|
-| 2.11 part 4 — fixed the 2 deferred describe/scenario naming gaps; naming discipline fully closed (52/52 titles match, zero orphans), test-files-only, no migration (lane 1), row NOT DONE — 9/10 conditions, condition 10 BLOCKED G-01 (SCR-WMS-OUT-02) — round 1 PASS(0 findings) | `<this commit>` |
-| 2.11 part 3 — describe/Gherkin naming sweep (15/17 clean, 2 deferred → part 4) + 3 content-gap fixes + leak-proofing + WBS 2.4 picker fix, no migration (lane 1), NOT DONE — round 2 FAIL(2, deferred per Master ruling); round 2 was final (D-186 two-round cap) | `f30f7c7` |
-| 2.11 part 2 — outbound allocation: Allocate/GeneratePickList/cancel-release, single-lot FEFO/FIFO, no migration (lane 1), DONE-in-part — round 3 FAIL(1 low) carried to part 3; round 3 taken by the Master on opus (D-186 two-round cap reached) | `156b042` |
-| 2.11 part 1 — outbound order create/checks(9-of-10)/approve/cancel, no migration (lane 1), DONE — 4 review rounds, round 2→3 escalated to opus per D-117 | `a96b013` |
-| 2.9b — schedule inbound (appointment) + logistics terms, migration 0023 (lane 2), DONE — 5 review rounds, 38 findings fixed, round 3 escalated to opus per D-117 | `716bf8e` |
+| 2.11 part 4 — the two deferred describe/scenario naming gaps (lane 1), DONE-in-part — PASS(0) | `3fadbde` |
+| 2.11 part 3 — describe/Gherkin naming sweep + 2.4 picker fix + fixture leak-proofing (lane 1), DONE-in-part | `f30f7c7` |
+| 2.11 part 2 — outbound allocation: Allocate/GeneratePickList/cancel-release, single-lot FEFO/FIFO (lane 1), DONE-in-part | `156b042` |
+| 2.11 part 1 — outbound order create/checks (9 of 10)/approve/cancel (lane 1), DONE-in-part | `a96b013` |
+| 2.9b — schedule inbound + logistics terms, migration 0023 (lane 2), DONE | `716bf8e` |
 
-## Blockers (settle BEFORE any lane opens — reviewer's project-wide items)
+## Blockers
 
-- **`scripts/deploy.sh` does not exist yet**: G15–G17 NOT RUNNABLE, non-blocking until it exists (0.6b, DEFERRED-POST-PILOT).
-- **Open G-01 items:** G8 anchor storage before the first partition detach (≥ 2028-03) — D-115. **3.14 part 1:** `imile.agent_health` has no `entity_id`; no DB CHECKs for two invariants — `docs/notes/2026-09-24-imile-agent-scenario.md` §4 rows e/f. **3.14 part 2:** `imile.shipments` has no `entity_id` (row g); `tracking_no` has no CHECK (row h); raw-payload-only changes counted "unchanged" (row i, recorded default, not a bug) — same file §4. **3.17 part 1:** no OCR/handwriting-analysis vendor chosen for G1-G4 content analysis (row j); `imile.dtl_problems` has no `entity_id`, no outbox write (row k) — same file §4. **2.15:** `wms.space_reservations.qty` has no DB `CHECK (qty > 0)` (domain-only enforcement) — future G-01 candidate; `wms.convert_reservation()` intentionally not exposed as a command this slice (batched GM questions, see CHANGELOG).
-- **Carried under D-131 (owner GM, post-pilot):** ADR-0003 items 1, 3, 4a, 5, 6, 8, 9; GPS classification; SoD mechanism; §2.5 values. APP-1 stays `tasks/proposed/`.
-- WAITING_GM rows: **0** (D-127). Deferred post-pilot: 20 rows, Phase 7 in `tasks/MASTER_BACKLOG.md`. Stale `.git/*.lock` files removed by hand — `docs/RUNBOOK.md` "Incident quick reference".
-- **Batched Master tasks (frozen paths, one Master-only window):** `entityId` on `WithContextCtx` (`packages/db`) · SCR-HR-EMP-01 three DB CHECKs · catalog events on first consumer · **`packages/domain-kit` browser break** (its barrel loads `id-generator.ts` → `node:crypto`, so `apps/admin` — which imports `Money` — renders a blank page in a real browser; only jsdom tests pass; found 2026-09-25 running the app — fix: subpath export or lazy import, frozen path) · **root `eslint.config.mjs`** reads `modules/` relative to cwd so per-package `eslint .` fails ENOENT (gate ① uses the root invocation) · **`packages/i18n` bootstrap** (referenced by `scripts/new-slice.sh` lines 214–222 but never created — SCR-I18N-01 §1): the 11 `wms.outbound.check.*` keys of 2.11 part 1 (six-language texts in lane 1's closing report; ar from D-blueprint 03 §4.2.1, `contractNotActive` ar is a lane default) and 2.9b's schedule-inbound keys are code-referenced only until the package exists.
-- **WBS 1.11 BLOCKED (D-178):** not a lane task, not buildable today by anyone — see Current task above and `docs/notes/2026-09-25-wbs-1.11-premature.md`. Re-attempt once Phase 2 (2.11), a `tms` module, a `cc` module and Phase 4 billing each have their first slice.
-- **Flagged, pre-existing, untouched:** ~7 failures in `tests/evaluate-alerts/**` and `tests/integration/{schema-invariants,audit-chain-*}.test.ts` — Master/GM attention needed. `pnpm --filter @pg-eos/hr test` transient failures under concurrent shared-Postgres access — isolated reruns 100% green. **2.15 side-note:** `count-inventory.test.ts`/`receive-inbound.test.ts` each have one assertion expecting an outdated error type where the code now throws a different, arguably more-correct one — pre-existing, untouched by 2.15. **2.9b side-note:** full `tests/receive-inbound` run has 8 pre-existing failures (7 WBS 2.10 location-ranking + 1 WBS 2.9 ConfirmPutaway `LocationLimitExceededError`) caused by 31 orphaned `wms.locations` fixture rows (`T9-*`) from an earlier interrupted run — GM/Master cleanup, not this slice's; see CHANGELOG for the 8 test names.
-- **Lane 3 order (D-184, corrects D-182 Q1):** 3.14 part 2 (DONE-in-part) → 3.17 part 1 (DONE-in-part) → next: 3.1 (`tms.vehicles`, GM-reassigned from doc-38 lane 1) once the Master claims `tms`. 3.15, 3.16, 3.18, 3.19 are blocked on 2.16 (PDA app, TODO).
-- **D-117 note:** lane 2 self-fixed past the two-round bound twice (2.13, 2.14); acknowledged as a judgment lapse. 2.15 (6 rounds/19 findings, a real BLOCKER in round 1) correctly escalated to opus at round 3 per D-117 — committed followed through this time. All three of 2.13/2.14/2.15 ran well past budget — SPEED AND QUALITY "split before, not after" default noted.
+- `scripts/deploy.sh` missing (G15–G17 NOT RUNNABLE, non-blocking, 0.6b DEFERRED-POST-PILOT). Open G-01 items: G8 anchor storage (≥2028-03, D-115); 3.14/3.17 imile tables missing `entity_id`/CHECKs/outbox (`docs/notes/2026-09-24-imile-agent-scenario.md` §4); 2.15 `space_reservations.qty` no DB CHECK.
+- The two 0.9 WIP branches (`claude/postgresql-16-254336` @ `0217e85`, `claude/resume-4c8ecc` @ `f127ab2`) are never merged, never deleted.
+- Batched Master tasks (frozen paths): `entityId` on `WithContextCtx`; SCR-HR-EMP-01 three DB CHECKs; `packages/domain-kit` browser break (node:crypto in browser bundle); root `eslint.config.mjs` cwd bug; `packages/i18n` bootstrap (never created — SCR-I18N-01 §1; 2.11/2.9b keys code-referenced only). D-125 cleanup still open (D-132 disposition, `docs/DECISION_LOG.md`): G1/G2 biometric-retention wording (doc 40:668, doc 25:429) needs a GM-set value, none invented; G3 diagram `01-08.mmd/.svg` not regenerated (needs the mermaid renderer).
+- WBS 1.11 BLOCKED (D-178) — see `docs/notes/2026-09-25-wbs-1.11-premature.md`. Pre-existing, untouched: ~7 failures in `tests/evaluate-alerts/**` + `tests/integration/{schema-invariants,audit-chain-*}.test.ts`; 8 `tests/receive-inbound` failures from orphaned `wms.locations` (`T9-*`) fixtures.
 
-## Next 3 tasks (D-176 phase order + D-180 session plan)
+## Next 3 tasks
 
-1. Lane 1: 2.12 (Pick → check → pack → load) in `wms/process-outbound` — 2.11's naming discipline is closed; row stays open on condition 10 (G-01) pending a GM ruling
-2. Lane 2: 4.2 (`billing.billable_events`) in `billing` — brief + RED now, build after wave 1 (D-186); then the accounting core 4.1a → 4.1b → 4.19 → 4.20 (ADR-0004, D-187; rows land in doc 38 v4.6, A2)
+1. Lane 1: 2.12 (pick → check → pack → load) in `wms/process-outbound`; 2.11 condition 10 awaits G-01 SCR-WMS-OUT-02
+2. Lane 2: 4.2 (`billing.billable_events`) → accounting core 4.1a → 4.1b → 4.19 → 4.20 (ADR-0004)
+
 3. Lane 3: 3.1 (`tms.vehicles`) in module `fleet` — then 3.4 once 2.12 is DONE
-
-## Notes
-
-- main is PR-protected — commit on a branch, push, open a PR, merge on green CI. Lane PRs are opened and merged by the Master (`gh`, rebase merge); a lane branch that conflicts after another merges is rebased by the Master and re-pushed as `<branch>-rN` (D-173). Full mechanics: `docs/RUNBOOK.md`.
-- Doc 38 is **v4.6 (154 rows, D-187)**. Its Lane column is the single source for lane assignment — always check `tasks/LANE_LOCKS.md` module availability before redirecting a lane (2026-09-25 near-miss: `wms` briefly double-assigned to lanes 1 and 2, caught before either wrote code).
-- **D-176 (2026-09-25): finish phases in order** — supersedes the phase-jumping exceptions of D-172/D-173/D-175 for any *new* row a lane picks up; in-flight multi-part slices are finished first.
-- GIT rule (GM 2026-09-23 B3): task ↔ code link is `git log` with `type(WBS):`; previous task's hash recorded here inside the next task's commit.
-- GM decision sheet: `docs/notes/2026-09-23-gm-decision-sheet.md` · cleanup dispositions: `docs/notes/2026-09-24-cleanup-candidates.md` §4.
