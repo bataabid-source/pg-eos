@@ -4,6 +4,15 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — P7: brief budget 8 files / 1,000 lines, two-round review cap, rounds in the Review trailer (2026-09-26)
+
+- `scripts/brief-check.sh`: MAX 12 / 1,500 → **8 / 1,000**; `.claude/briefs/_TEMPLATE.brief.md` and `.claude/commands/slice.md` restate it; OVER BUDGET → the Master splits into part 1 / part 2 with disjoint acceptance subsets before pg-tester; a split after a failed round is a review FAIL. CLAUDE.md still says 12 / 1,500 until P2 (not touched here). Existing briefs over the new budget: `_slice-3.14` and `_slice-5.13` (both IN PROGRESS rows) — split before their next part starts.
+- Review cap (slice.md step 12 + one paragraph in `.claude/agents/pg-reviewer.md`, AGENT CONSTRAINTS untouched): round 1 FAIL → one fix round → round 2; round 2 FAIL → commit only the PASS subset, open `<WBS> part n+1`, no round 3; a defect found before submitting is not a new round; D-117 opus escalation only for an unsplittable security / audit-chain / RLS finding, and it is the last round. slice.md step 11 now requires every worker's token estimate in CHANGELOG.
+- `.githooks/commit-msg`: a feat/fix(<WBS>) commit must carry `Review: PASS(<n> findings, <r> rounds)` (new) or `PASS(<n> findings fixed)` (old); parser `scripts/lib/review-trailer.sh` (`review_trailer_line` / `review_trailer_form` / `review_rounds` — the hook point for P3's gov-ratio.sh).
+- `docs/RUNBOOK.md`: memory rule until P4a — under 1 GB free RAM, at most two lanes run with the Master.
+- `tests/hooks/run.sh` +11 cases (budget edges 8/9 files and 1,000/1,001 lines, both trailer forms, three refusals, wip exemption, parser) — 85/85. The four accounting briefs still pass.
+- Model: claude-opus-5-5 (Master) · Delegated: none · ~25k tokens.
+
 ## X — P1: governance cleanup — delete superseded notes/briefs/sheets, compress CHANGELOG and PROJECT_STATE (2026-09-25)
 
 - GM-Directive (verbatim, relayed by the Master): "ليس لدي مانع من التفويض من تنظيف الحوكمه وغيرها بالحذف للملفات التي ينبغي حذفها لتحسين الاداء". pg-scribe delegated, working tree `chore/p1-governance-cleanup`, `git rm` only, no code/schema/migrations/contracts/tests touched.

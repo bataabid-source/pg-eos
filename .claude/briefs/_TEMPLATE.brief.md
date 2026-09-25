@@ -28,7 +28,7 @@ Rules that go with it, and are not repeated inside it:
 
 - The agent and its tier come from `docs/MODEL_ROUTING.md`; the Master records both.
 - **Budget is enforced by the brief — hard limit, not a guideline (D-118, GM 2026-09-23).** A "Read
-  ONLY" list over **12 files or 1,500 lines** MUST be split into two slices (BOOTSTRAP-v5 §4) before
+  ONLY" list over **8 files or 1,000 lines** (P7; was 12 / 1,500) MUST be split into two slices (BOOTSTRAP-v5 §4) before
   any worker is delegated to — never fixed retroactively once a slice has started. pg-reviewer flags
   any delegation whose REPORT shows a read outside the list, and any brief that was over budget when
   written.
