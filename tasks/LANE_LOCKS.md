@@ -26,7 +26,8 @@ Not a lock table — deliberately not a `|`-prefixed markdown table, since
 `.claude/hooks/lane-guard.sh` parses every such line in this file as a
 module-lock row (see Rules below). One line per migration, newest first:
 
-- `0020` — next free number.
+- `0021` — next free number.
+- `0020_1_accounts-version.sql` — lane 1, task 1.8 (`sales.accounts.version` + classification row; shape of 0008/0013/0017/0019), issued by the Master 2026-09-25 on MIGRATION-REQUEST-1 (#4, pre-migration review to be run by the lane before the file is written).
 - `0019_1_contracts-version.sql` — lane 1, task 1.7 (`sales.contracts.version` + classification row; shape of 0008/0013/0017), issued by the Master 2026-09-25 on MIGRATION-REQUEST-1 (pre-migration review to be run by the lane before the file is written, same as 1.2/1.6).
 - `0018_2_inventory-counts-version.sql` — lane 2, task 2.13 (`wms.inventory_counts.version` + classification row; shape of 0008/0013), issued by the Master 2026-09-25 on MIGRATION-REQUEST-2 (pre-migration review APPROVED WITH CHANGES, 3 comment-only findings applied; applied and verified by the lane).
 - `0017_1_quotes-version.sql` — lane 1, task 1.6 (`sales.quotes.version` + classification row; shape of 0008/0013), issued by the Master 2026-09-25 on MIGRATION-REQUEST-1; applied and verified by the lane (pg-reviewer pre-migration APPROVED WITH CHANGES).
