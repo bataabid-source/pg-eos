@@ -6,10 +6,10 @@ Maintained by pg-scribe only, in the same commit as the task it records.
 | field | value |
 |---|---|
 | Phase | **0 — Foundation CLOSED (0.20 sealed, D-176)** → 1 — Commercial Core (next, phase-sequential per D-176) → 2 — Warehouse (in progress, 6/19) · **pilot-first (D-127): seed 019 + synthetic data; field/human/sign-off/training/Tier-0 provisioning DEFERRED-POST-PILOT** |
-| Current task | **D-176 (2026-09-25): finish phases in order.** Phase 0 CLOSED @ `28ae48d` (WBS 0.20, `docs/RUNBOOK.md`). 1.4 DONE @ `b21d89a` (lane 1, pricing engine). 5.5a FULLY DONE @ `<this commit>` (both parts: part 1 `3679b70`, part 2 this commit). Next: lane 1 → 1.6 quotes (Phase 1 continues: 1.6→1.7→1.8→1.9→1.11) · lane 2 → Phase 2 (2.13 then 2.14, lock `wms`) · lane 3 finishes 3.14 part 2 in flight, then **idles pending GM answer** (no ready Phase-1/2 row owned by lane 3). Completion 26/136. Previous governance commit: `80e827f` (PR #24). |
+| Current task | **D-176 (2026-09-25): finish phases in order.** Phase 0 CLOSED @ `28ae48d` (WBS 0.20, `docs/RUNBOOK.md`). 1.4 DONE @ `b21d89a` (lane 1, pricing engine). 5.5a FULLY DONE @ `ffab3bf` (part 1 `3679b70`, part 2 `ffab3bf`; migration 0017 issued to lane 1 for 1.6). Next: lane 1 → 1.6 quotes (Phase 1 continues: 1.6→1.7→1.8→1.9→1.11) · lane 2 → Phase 2 (2.13 then 2.14, lock `wms`) · lane 3 finishes 3.14 part 2 in flight, then **idles pending GM answer** (no ready Phase-1/2 row owned by lane 3). Completion 26/136. Previous governance commit: `679c7e3` (PR #28). |
 | Golden slice (2.9) | **ACCEPTED** · `.golden-slice-accepted` committed · `scripts/new-slice.sh` active (registers contract exports itself since `412708a`) · `.githooks/pre-commit` active (①lint/boundaries/types ②touched-module unit tests ③guards:run when database/ staged) · scope backend only, no PDA UI. R1: an all-zero order gets no GRN and no `wms.inbound.received` event. |
 | Deployment tier | **Pilot Tier 0 = local Docker `postgres:16` (D-129)**; Oracle Tier 0 after the pilot (0.3, 0.5, 0.7, 0.6b DEFERRED-POST-PILOT) — procedures placeholder in `docs/RUNBOOK.md` §8 |
-| Schema | `database/schema/01 · 13 · 13B · 019` — the ONLY permitted schema (migrations 0001–0016: see `docs/CHANGELOG.md` for the full list) · DB locale UTF8 / collate C / ctype C.UTF-8 · next free migration **0017** · **SCR-HR-ATT-01 APPROVED (D-131)** — migration number not yet issued |
+| Schema | `database/schema/01 · 13 · 13B · 019` — the ONLY permitted schema (migrations 0001–0016 applied; 0017 issued to lane 1 for `sales.quotes.version`, not yet written: see `docs/CHANGELOG.md` for the full list) · DB locale UTF8 / collate C / ctype C.UTF-8 · next free migration **0018** · **SCR-HR-ATT-01 APPROVED (D-131)** — migration number not yet issued |
 | Session model | **D-174: lane sessions sonnet / effort medium · Master sonnet / medium for merges + bookkeeping, opus only for ADR / security / D-117 · fable only when the GM names it** · agents pinned: pg-reviewer opus, all other agents sonnet, no haiku · fast mode unavailable (SDK) |
 | Toolchain | pnpm 9.15.9 · Node 25.2.1 · Docker 29.0.1 · psql 16.15 · claude CLI · TypeScript 5.9.3 ceiling `<6.1.0` · Python 3.13 (`python`, not `python3`) · `gh` per command with the Git-Credential-Manager token (D-173, `docs/RUNBOOK.md` §3) |
 | Setup check | 2026-09-24: `gen-backlog.py --check` 136 rows (v4.4) · `check-setup.sh` MASTER_BACKLOG OK, PG_APP_USER unset → NOTE only · gates ①–⑥ green on main via CI |
@@ -19,7 +19,7 @@ Maintained by pg-scribe only, in the same commit as the task it records.
 | lane | task | module lock | worktree | status |
 |---|---|---|---|---|
 | 1 | Phase 1, in order: 1.4 DONE @ `b21d89a` → next 1.6 quotes → 1.7 → 1.8 → 1.9 → 1.11 (D-176) | `sales` | `../pg-eos-lane-1` | queued — next lane-1 session |
-| 2 | Phase 2: 2.13 (inventory count) then 2.14 (occupancy snapshot), D-176 | `wms` (to claim) | `../pg-eos-lane-2` | queued — next lane-2 session; 5.5a FULLY DONE (part 1 @ `3679b70`, part 2 @ `<this commit>`); `hr` lock released; next free migration **0017** |
+| 2 | Phase 2: 2.13 (inventory count) then 2.14 (occupancy snapshot), D-176 | `wms` | `../pg-eos-lane-2` | queued — next lane-2 session; 5.5a FULLY DONE (part 1 @ `3679b70`, part 2 @ `ffab3bf`); `hr` lock released; next free migration **0018** |
 | 3 | 3.14 part 2 — `services/agent` pull loop (in flight) — then **idle pending GM answer to D-176's batched question** | `imile` | shared `claude-kit` | queued — next lane-3 session; part 1 (health reporting) committed NOT DONE @ `8b12d60`, pg-reviewer PASS round 4 |
 
 ## Last 5 DONE (newest first)
@@ -27,7 +27,7 @@ Maintained by pg-scribe only, in the same commit as the task it records.
 | task | commit |
 |---|---|
 | 1.4 — pricing engine: exception → contract → segment → list → pending (lane 1), DONE | `b21d89a` |
-| 5.5a — `hr.shifts`/`hr.shift_groups`/`hr.shift_assignments` (SCR-HR-SHIFT-01 §2.1-§2.3), migration 0016, part 2 of 2, **completes 5.5a** (part 1 @ `3679b70`) | `<this commit>` |
+| 5.5a — `hr.shifts`/`hr.shift_groups`/`hr.shift_assignments` (SCR-HR-SHIFT-01 §2.1-§2.3), migration 0016, part 2 of 2, **completes 5.5a** (part 1 @ `3679b70`) | `ffab3bf` |
 | 0.20 — Runbook v1 (`docs/RUNBOOK.md`, eight procedures), closes Phase 0 (D-176) | `28ae48d` |
 | 0.19 — admin app shell: nav, Decision Inbox, empty-state, design system (lane 1, first frontend slice), DONE | `80e827f` |
 | 3.14 part 1 — iMile health reporting mechanism (`ReportAgentHealth`), NOT DONE | `8b12d60` |
