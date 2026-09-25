@@ -36,6 +36,27 @@ if [[ "$type" == "docs" && "$wbs" == "X" ]]; then
   fi
 fi
 
+# P7 (2026-09-26): a feat/fix commit on a WBS row carries a `Review:` trailer in one of the two forms
+# parsed by scripts/lib/review-trailer.sh — old `PASS(<n> findings fixed)` or new `PASS(<n> findings,
+# <r> rounds)`. wip/chore/docs/build/… and `X` commits are not checked here.
+if [[ ( "$type" == "feat" || "$type" == "fix" ) && "$wbs" != "X" ]]; then
+  lib="$(git rev-parse --show-toplevel)/scripts/lib/review-trailer.sh"
+  if [[ -f "$lib" ]]; then
+    # shellcheck source=/dev/null
+    . "$lib"
+    rline="$(review_trailer_line "$msg_file")"
+    if [[ -z "$(review_trailer_form "$rline")" ]]; then
+      {
+        echo "commit-msg: REFUSED — a ${type}(${wbs}) commit needs a Review trailer:"
+        echo "  Review: PASS(<n> findings, <r> rounds)     (P7 form; free text may follow)"
+        echo "  Review: PASS(<n> findings fixed)          (pre-P7 form, still accepted)"
+        echo "  got: ${rline:-<none>}"
+      } >&2
+      exit 1
+    fi
+  fi
+fi
+
 if [[ "$wbs" != "X" ]]; then
   root="$(git rev-parse --show-toplevel)"
   wbs_doc="${root}/docs/package/38-WBS.md"

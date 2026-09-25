@@ -11,16 +11,23 @@ Loop (BOOTSTRAP-v5 §2 — mandatory, in order):
   3. Verify the acceptance criterion is runnable (command exists, data seeded).
   4. Claim the module — or the module/use-case pair (`wms/put-away`) — in LANE_LOCKS (§8); `bash scripts/check-locks.sh` must print OK.
   5. Write the SLICE BRIEF (§5) to `docs/notes/slice-briefs/_slice-<WBS>.brief.md`, then run
-     `bash scripts/brief-check.sh docs/notes/slice-briefs/_slice-<WBS>.brief.md`. OVER BUDGET → split into
-     two slices NOW (D-179); no worker is delegated to until it prints OK.
+     `bash scripts/brief-check.sh docs/notes/slice-briefs/_slice-<WBS>.brief.md` (budget 8 files / 1,000 lines, P7).
+     OVER BUDGET → the Master splits it NOW into part 1 / part 2 with disjoint acceptance subsets (D-179, P7);
+     no worker is delegated to until it prints OK. A split made after a failed review round is a review FAIL.
   6. Delegate to **pg-tester** first → RED tests (pg-tester writes test files only). If the slice has a
      migration, the MIGRATION-REQUEST row names the RED test paths pg-tester just wrote — `lane-guard.sh`
      refuses the migration file until they exist.
   7. Delegate build to pg-backend / pg-frontend (never edits a test; a test defect goes back to pg-tester).
   8. Receive REPORT (§5).           9. **pg-tester** verifies: suite GREEN, no test weakened or edited by the builder.
  10. Review by **pg-reviewer** (opus) — also called BEFORE writing any migration that touches the schema, RLS or the audit chain.
- 11. PASS → pg-scribe updates state/backlog/CHANGELOG → **one `feat(<WBS>)` commit** with trailers → release the lock.
- 12. FAIL → same worker, same brief + findings, max 2 rounds → then Master on opus.
+ 11. PASS → pg-scribe updates state/backlog/CHANGELOG — including every worker's token estimate from its closing
+     REPORT line (pg-tester, pg-backend, pg-frontend, pg-reviewer; a missing estimate is asked for, never guessed) →
+     **one `feat(<WBS>)` commit** with trailers, `Review: PASS(<n> findings, <r> rounds)` → release the lock.
+ 12. Review cap (P7): round 1 FAIL → ONE builder/tester fix round → round 2. Round 2 FAIL → STOP: commit and merge
+     only the GREEN, PASS-reviewed subset (if any); every open finding becomes a `<WBS> part n+1` row in
+     MASTER_BACKLOG; there is no round 3. A defect the lane finds itself before submitting is part of finishing the
+     fix round, not a new round. D-117 opus escalation stays only for a finding that cannot be split (security,
+     audit chain, RLS), and that escalation is itself the last round.
  13. Next task, or stop at the phase gate / real blocker / explicit stop.
 
 BRIEF (copy `.claude/briefs/_TEMPLATE.brief.md`; BOOTSTRAP-v5 §5):
@@ -34,4 +41,4 @@ BRIEF (copy `.claude/briefs/_TEMPLATE.brief.md`; BOOTSTRAP-v5 §5):
   Migration number: <issued by Master | none>
   Stop-and-ask if: any table/column/rule not in 01 / 13 / 13B / 019 / 40.
 
-Agent and tier come from `docs/MODEL_ROUTING.md`; record both. A "Read ONLY" list over 12 files or 1,500 lines is split into two slices. Every replicated tree starts from `scripts/new-slice.sh`. Stop at DONE — this session takes no second task.
+Agent and tier come from `docs/MODEL_ROUTING.md`; record both. A "Read ONLY" list over 8 files or 1,000 lines is split into two slices before any worker starts (P7). Every replicated tree starts from `scripts/new-slice.sh`. Stop at DONE — this session takes no second task.

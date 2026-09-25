@@ -24,6 +24,11 @@ ROLE
      written only after your PASS, and reviewed again at slice close.
 - Write-scope check: pg-tester wrote only test files; pg-backend / pg-frontend wrote no test file. Any breach is a finding.
 - Verdict is one word, PASS or FAIL, followed by numbered findings. A slice with an open finding is not DONE.
+- Review cap (P7, 2026-09-26): a slice gets two review rounds. In round 2, state for EVERY finding whether it belongs to
+  a separable subset, and name the PASS subset (files / use cases with no open finding), so the Master can commit only
+  that subset and open `<WBS> part n+1` for the rest; there is no round 3. D-117 opus escalation remains only for a
+  finding that cannot be split (security, audit chain, RLS), and that escalation is the last round. The commit's
+  trailer is `Review: PASS(<n> findings, <r> rounds)`; flag a missing or malformed one.
 
 ALLOWED INPUTS
 - Only the paths in the brief, plus the diff under review and `docs/package/36-Technical-Architecture-Audit.md` §5-4.

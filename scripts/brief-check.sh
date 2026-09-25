@@ -4,8 +4,9 @@
 #   exit 0 = within budget · exit 1 = over budget (split into two slices BEFORE pg-tester starts)
 #          · exit 2 = brief unreadable / no Read ONLY block
 #
-# CLAUDE.md · SESSION OPERATING DIRECTIVE: "SPLIT BEFORE, NOT AFTER: a brief over 12 files /
-# 1,500 lines is split into two slices before pg-tester starts, never after a failed round."
+# CLAUDE.md · SESSION OPERATING DIRECTIVE: "SPLIT BEFORE, NOT AFTER: a brief over the budget
+# is split into two slices before pg-tester starts, never after a failed round." Budget since P7:
+# 8 files / 1,000 lines (was 12 / 1,500; CLAUDE.md text is updated in P2).
 # .claude/briefs/_TEMPLATE.brief.md: "A 'Read ONLY' list over 12 files or 1,500 lines MUST be
 # split into two slices before any worker is delegated to."
 #
@@ -20,8 +21,9 @@
 # docs/notes/slice-briefs/*.brief.md is staged, tests/hooks.
 set -uo pipefail
 
-MAX_FILES=12
-MAX_LINES=1500
+# P7 (2026-09-26, GM-delegated plan; D-186 applied the numbers per slice first): 8 files / 1,000 lines.
+MAX_FILES=8
+MAX_LINES=1000
 
 BRIEF="${1:-}"
 ROOT="."

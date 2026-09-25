@@ -48,6 +48,8 @@ A lane never issues its own migration number. Sequence:
    (CLAUDE.md · GIT).
 **Exercised:** 0011–0015 issued and applied this way 2026-09-24 (5.13, 1.2, 3.3, 5.5a part 1).
 
+**Memory rule until P4a (2026-09-26):** when `(Get-CimInstance Win32_OperatingSystem).FreePhysicalMemory` is below 1 GB, no more than two lane sessions run concurrently with the Master; the third lane waits (the 2026-09-25 Docker/WSL outage was host memory starvation).
+
 ## 3. CI pipeline / merge to `main`
 
 `main` is protected: PR required, 5 required checks (①②③④⑤⑥ merged as ②③ — see
