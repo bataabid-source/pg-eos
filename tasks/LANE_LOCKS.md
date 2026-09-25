@@ -2,11 +2,12 @@
 
 | module | lane | task | claimed_at | worktree |
 |---|---|---|---|---|
-| wms | 1 | 2.10 | 2026-09-25 | ../pg-eos-lane-1 (queued — next lane-1 session; Phase 2, D-176: 2.10 put-away → 2.11 outbound order; claimed the moment lane 2's 2.15 released it) |
-| imile | 3 | 3.14 | 2026-09-24 | shared `claude-kit` (part 1 committed NOT DONE @ `8b12d60` — health-reporting mechanism, pg-reviewer PASS round 4; still owned by lane 3 for part 2, `services/agent` pull loop; idles after per D-176 pending GM answer) |
+| wms/outbound-order | 1 | 2.11 | 2026-09-25 | ../pg-eos-lane-1 (use-case lock, D-179; 2.10 DONE @ `95a33b8`; Phase 2, D-176: 2.11 outbound order → 2.12 pick/check/pack/load next) |
+| wms/schedule-inbound | 2 | 2.9b | 2026-09-25 | ../pg-eos-lane-2 (use-case lock, D-179 — runs concurrently with lane 1 in `wms`; doc-38 lane 2, staged D-168, `tasks/backlog/2.9b-schedule-inbound.md`; migration number requested from the Master with its RED paths before the file is written) |
+| imile | 3 | 3.14 | 2026-09-24 | ../pg-eos-lane-3 (branch `lane/3` @ `85bbe83`; part 1 committed NOT DONE @ `8b12d60` — health-reporting mechanism, pg-reviewer PASS round 4; part 2 `services/agent` pull loop next; the shared `claude-kit` is the Master's, never a lane's — D-179) |
 
 WBS 1.11 is doc-38 Lane **M**, corrected 2026-09-25 from an earlier Master misassignment to lane 1, then investigated on GM instruction and found **BLOCKED** (D-178, `docs/notes/2026-09-25-wbs-1.11-premature.md`) — not a lane-1 row, not buildable today.
-**Lane 2 is queued, no module locked** — 2.13/2.14/2.15 all DONE (Phase 2's original lane-2 list exhausted); awaiting Master direction on a next task.
+`wms` (lane 1, task 2.10) released 2026-09-25 — 2.10 DONE @ `95a33b8`; re-claimed above as the use-case lock `wms/outbound-order` (D-179) so lane 2 can build 2.9b in the same module at the same time.
 
 - `0013_1_price-lists-version.sql` — lane 1, task 1.2, applied 2026-09-24 (pg-reviewer pre-migration APPROVED WITH CHANGES; number issued by the Master, MIGRATION-REQUEST-1.md).
 - `0019_1_contracts-version.sql` — lane 1, task 1.7, applied 2026-09-25 (pg-reviewer pre-migration APPROVED WITH CHANGES; number issued by the Master, MIGRATION-REQUEST-1.md).
@@ -55,10 +56,10 @@ module-lock row (see Rules below). One line per migration, newest first:
 
 ## Rules (CLAUDE.md · PARALLEL LANES — CONFLICT-FREE MECHANISM (v5))
 
-1. A module appears at most once; a lane writes only inside its locked modules and `tests/`, and a worker needing a file outside its lock STOPS and reports.
-2. Only the Master claims and releases; pg-scribe writes this file. Lanes never edit it — max three lanes.
+1. A lock is a module (`wms`) or a module/use-case pair (`wms/put-away`, D-179); each appears at most once, and a whole-module row and a use-case row of the same module never coexist for two lanes. A lane writes only inside its lock and `tests/`; a use-case lock never writes a module-wide file (index.ts, package.json, router, i18n) — a worker needing a file outside its lock STOPS and reports.
+2. Only the Master claims and releases; pg-scribe writes this file. Lanes never edit it — max three lanes. The `worktree` column of a lane row is `../pg-eos-lane-<lane>` — never the shared `claude-kit`; `scripts/check-locks.sh` (pre-commit gate ⓐ, CI gate ①, `pnpm check:locks`) refuses the table otherwise.
 3. Frozen for every lane: `packages/*`, `database/schema/*`, `packages/contracts/_shared/*`, `CLAUDE.md`, `.claude/*` — changes there are single-lane Master tasks merged before lanes resume.
-4. Migrations: the lane requests, the Master issues the next `NNNN` and records it here; the file is `database/migrations/NNNN_<lane>_<slug>.sql` and migrations merge first, in number order.
+4. Migrations: the lane requests — every migration of its whole task list in ONE table at lane start, each row naming its RED test paths — the Master issues the numbers in one batch and records them here; the file is `database/migrations/NNNN_<lane>_<slug>.sql`, refused by `lane-guard.sh` until the named RED tests exist, and migrations merge first, in number order (D-179).
 5. Merge queue: pg-reviewer PASS → `git rebase main` → gates ①–③ green → `pnpm guards:run` green → the Master merges fast-forward only; lanes never merge lanes.
 
 `lane` is `A` (GM manual) · `B` · `C` · `1` · `2` · `3` · `M` (Master), taken from the `Lane` column of `docs/package/38-WBS.md` — never invented. `.claude/hooks/lane-guard.sh` reads this table on every Edit/Write when `PG_LANE` is set.

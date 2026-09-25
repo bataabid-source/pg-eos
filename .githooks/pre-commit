@@ -24,6 +24,26 @@ cd "$ROOT" || exit 1
 mapfile -t staged < <(git diff --cached --name-only --diff-filter=ACMR)
 [ "${#staged[@]}" -eq 0 ] && exit 0
 
+fail() { echo "pre-commit: REFUSED — $1" >&2; exit 1; }
+
+# D-179 (2026-09-25) — bookkeeping gates, run on the STAGED content, before the docs-only exit:
+#   ⓐ tasks/LANE_LOCKS.md → scripts/check-locks.sh (unique locks, no whole/use-case clash, every
+#      lane in ../pg-eos-lane-<id>, max three lanes)
+#   ⓑ docs/notes/slice-briefs/*.brief.md → scripts/brief-check.sh (Read ONLY ≤ 12 files / 1,500
+#      lines — SPLIT BEFORE, NOT AFTER)
+for f in "${staged[@]}"; do
+  case "$f" in
+    tasks/LANE_LOCKS.md)
+      tmp="$(mktemp)"; git show ":$f" > "$tmp"
+      bash scripts/check-locks.sh "$tmp" || { rm -f "$tmp"; fail "gate ⓐ tasks/LANE_LOCKS.md is invalid (see check-locks output above)"; }
+      rm -f "$tmp" ;;
+    docs/notes/slice-briefs/*.brief.md)
+      tmp="$(mktemp)"; git show ":$f" > "$tmp"
+      bash scripts/brief-check.sh "$tmp" --root "$ROOT" || { rm -f "$tmp"; fail "gate ⓑ $f is over the slice budget — split it before pg-tester starts"; }
+      rm -f "$tmp" ;;
+  esac
+done
+
 code=()
 db_changed=0
 declare -A touched=()
@@ -42,8 +62,6 @@ done
 if [ "${#code[@]}" -eq 0 ]; then
   exit 0
 fi
-
-fail() { echo "pre-commit: REFUSED — $1" >&2; exit 1; }
 
 echo "pre-commit: ① lint + boundaries + types"
 pnpm -s lint >/dev/null 2>&1 || fail "gate ① lint is red (run: pnpm lint)"
