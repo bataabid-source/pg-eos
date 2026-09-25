@@ -70,5 +70,10 @@ export const EVENT_CATALOG = [
   'wms.outbound.credit_rejected',
   'wms.outbound.approved',
   'wms.outbound.cancelled',
+  // WBS 2.11 part 2 (D-blueprints 10, 12 and 03-Operations-Warehouse): FEFO/FIFO allocation of an
+  // approved outbound order — full and partial. Aggregate `wms.outbound_orders`. Added by the Master
+  // on lane 1's request.
+  'wms.outbound.allocated',
+  'wms.outbound.partially_allocated',
 ] as const;
 export type CatalogedEventType = (typeof EVENT_CATALOG)[number];
