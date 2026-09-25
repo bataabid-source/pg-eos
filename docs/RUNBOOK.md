@@ -132,3 +132,10 @@ un-exercised procedure is not a procedure (WBS 0.20's own "tested once" bar).
   package's own `engines` field against `.github/workflows/*.yml`'s `node-version`; pin to the
   newest major that satisfies it. **Exercised:** `jsdom` 30.1.1 → 27.0.0, PR #21, 2026-09-24
   (jsdom 30 needs Node ≥22.22; CI pins 20).
+- **`PG_APP_USER`/`PGUSER` unset in a lane's shell silently bypasses RLS:** `packages/db`'s pool
+  falls back to the Postgres superuser when `PG_APP_USER` is unset, so writes succeed and RLS
+  policies are never evaluated — a genuine RLS/row-lock fix can look broken (or a real gap look
+  fixed) for the wrong reason. Always `export PG_APP_USER=pgeos_app` before running module tests
+  and `PGUSER=postgres` before `pnpm guards:run`; `check-setup.sh` flags `PG_APP_USER unset` as a
+  NOTE only, not a hard failure — treat that NOTE as blocking before trusting any RLS-sensitive
+  test result. **Exercised:** WBS 2.15, 2026-09-25.
