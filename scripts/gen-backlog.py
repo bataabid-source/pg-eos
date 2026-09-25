@@ -7,7 +7,7 @@ verbatim — IDs, type markers, Depends on, Lane, Owner, Acceptance — and adds
 
 Usage:
     python3 scripts/gen-backlog.py            # (re)writes tasks/MASTER_BACKLOG.md, keeps existing statuses
-    python3 scripts/gen-backlog.py --check    # verifies 136 rows, the header line and the X / 0.19 statuses; writes nothing
+    python3 scripts/gen-backlog.py --check    # verifies 136 rows, the header line and the X statuses; writes nothing
 
 Status vocabulary (pg-scribe moves rows; nothing else edits this file):
     TODO · READY · ACTIVE · WAITING_GM · BLOCKED · DONE @ <hash> · SUPERSEDED — <ADR/decision>
@@ -19,7 +19,7 @@ import re, sys, pathlib
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 # Header wording fixed by the GM 2026-09-23 (D-111); count 132 → 133 on 2026-09-24 (D-124 split of 0.6 into
 # 0.6a / 0.6b, applied to doc 38 v4.2 under directive D-127…D-134). The X-tasks and 0.19 are inside the 133 rows.
-HEADER = "**136 doc-38 tasks (v4.4: 0.6 → 0.6a / 0.6b, D-124; 5.3b added, D-167; 5.5a + 5.18 added, D-173) + X.1–X.6 CONTINUOUS + 0.19 DEFERRED + DEFERRED-POST-PILOT rows (D-127)** — eight phases (0–7) + cross-cutting X-tasks; X.1–X.6 and 0.19 are counted inside the 133. No 18-phase roadmap, no separate database phase (BOOTSTRAP-v4 §8)."
+HEADER = "**136 doc-38 tasks (v4.4: 0.6 → 0.6a / 0.6b, D-124; 5.3b added, D-167; 5.5a + 5.18 added, D-173) + X.1–X.6 CONTINUOUS + DEFERRED-POST-PILOT rows (D-127)** — eight phases (0–7) + cross-cutting X-tasks; X.1–X.6 are counted inside the 136 (0.19 was DEFERRED until D-172; DONE @ `cd00c51`, D-182). No 18-phase roadmap, no separate database phase (BOOTSTRAP-v4 §8)."
 EXPECTED_ROWS = 136
 ROW_ID = r"(\d+\.\d+[ab]?|X\.\d+)"
 DEFERRED_PP = "DEFERRED-POST-PILOT"
@@ -150,8 +150,7 @@ def check_existing(counts):
     xs = sorted(k for k in st if k.startswith("X."))
     if len(xs) != 6 or any(st[k] != "CONTINUOUS" for k in xs):
         errors.append(f"X-tasks must be X.1–X.6 CONTINUOUS, found {[(k, st[k]) for k in xs]}")
-    if not st.get("0.19", "").startswith("DEFERRED →"):
-        errors.append(f"0.19 must be DEFERRED, found {st.get('0.19')!r}")
+    # 0.19 DEFERRED rule removed 2026-09-25 (D-182): the row was unblocked by D-172 and is DONE @ cd00c51.
     return errors
 
 def main():
@@ -174,7 +173,7 @@ def main():
         waiting = sorted(k for k, v in load_existing_status().items() if v.startswith("WAITING_GM"))
         if waiting:
             print(f"note: WAITING_GM rows: {waiting} (D-127 pilot-first: expected none until the pilot is complete)")
-        print("header · X.1–X.6 CONTINUOUS · 0.19 DEFERRED — agree with tasks/MASTER_BACKLOG.md")
+        print("header · X.1–X.6 CONTINUOUS — agree with tasks/MASTER_BACKLOG.md")
     if not check:
         OUT.parent.mkdir(parents=True, exist_ok=True)
         OUT.write_text(text, encoding="utf-8", newline="\n")   # LF on every platform (D-122 .gitattributes)
