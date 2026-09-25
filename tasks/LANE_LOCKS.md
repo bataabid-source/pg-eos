@@ -2,17 +2,17 @@
 
 | module | lane | task | claimed_at | worktree |
 |---|---|---|---|---|
-| sales | 1 | 1.9 | 2026-09-25 | ../pg-eos-lane-1 (queued — next lane-1 session; Phase 1 in order, D-176: 1.4→1.6→1.7→1.8 DONE, next 1.9 → 1.11) |
-| admin | 1 | 1.9 | 2026-09-25 | ../pg-eos-lane-1 (queued — 1.9 customer 360 screen needs `apps/admin` alongside `sales`, same UI+mock-client pattern as 0.19; released after 1.9 merges) |
+| wms | 1 | 2.10 | 2026-09-25 | ../pg-eos-lane-1 (queued — next lane-1 session; Phase 2, D-176: 2.10 put-away → 2.11 outbound order; claimed the moment lane 2's 2.15 released it) |
 | imile | 3 | 3.14 | 2026-09-24 | shared `claude-kit` (part 1 committed NOT DONE @ `8b12d60` — health-reporting mechanism, pg-reviewer PASS round 4; still owned by lane 3 for part 2, `services/agent` pull loop; idles after per D-176 pending GM answer) |
 
-**Lane 1 is queued, no module locked** — 1.9 DONE @ `90faea3` (`sales`+`admin` released below); waiting on `wms` (held by lane 2 for 2.15) to claim it for 2.10 → 2.11 (Phase 2). WBS 1.11 is doc-38 Lane **M**, corrected 2026-09-25 from an earlier Master misassignment to lane 1 — it is a Master-only task, not a lane-1 row (see PROJECT_STATE Blockers).
+WBS 1.11 is doc-38 Lane **M**, corrected 2026-09-25 from an earlier Master misassignment to lane 1, then investigated on GM instruction and found **BLOCKED** (D-178, `docs/notes/2026-09-25-wbs-1.11-premature.md`) — not a lane-1 row, not buildable today.
+**Lane 2 is queued, no module locked** — 2.13/2.14/2.15 all DONE (Phase 2's original lane-2 list exhausted); awaiting Master direction on a next task.
 
 - `0013_1_price-lists-version.sql` — lane 1, task 1.2, applied 2026-09-24 (pg-reviewer pre-migration APPROVED WITH CHANGES; number issued by the Master, MIGRATION-REQUEST-1.md).
 - `0019_1_contracts-version.sql` — lane 1, task 1.7, applied 2026-09-25 (pg-reviewer pre-migration APPROVED WITH CHANGES; number issued by the Master, MIGRATION-REQUEST-1.md).
 
-`sales` + `admin` (lane 1, task 1.9) released 2026-09-25 — 1.9 DONE @ `90faea3` (PR #43); lane 1 queued for `wms` next (2.10/2.11), not re-claimed yet — awaiting lane 2's 2.15 to merge.
-`wms` (lane 2, task 2.15) released 2026-09-25 — Phase 2 complete for lane 2 (2.13 DONE @ `ca9a109`, 2.14 DONE @ `eec1618`, 2.15 DONE @ `dc0515c`); lane 2 idle, awaiting Master direction on next task. `wms` now free for lane 1 to claim for 2.10/2.11.
+`wms` (lane 2, task 2.15) released 2026-09-25 — Phase 2 complete for lane 2 (2.13 DONE @ `ca9a109`, 2.14 DONE @ `eec1618`, 2.15 DONE @ `<this commit>`); lane 2 idle, awaiting Master direction on next task. `wms` now free — lane 1 claims it above for 2.10/2.11.
+`sales` + `admin` (lane 1, task 1.9) released 2026-09-25 — 1.9 DONE @ `90faea3` (PR #43).
 `hr` (lane 2, task 5.5a) released 2026-09-25 — 5.5a DONE in full @ `ffab3bf` (part 1 `3679b70` + part 2 `ffab3bf`, PRs #19/#30); re-claimed above (`wms`) for Phase 2 (D-176).
 `admin` (lane 1, task 0.19) released 2026-09-25 — 0.19 DONE @ `80e827f` (PR #24); re-claimed above (`sales`) for Phase 1 (D-176).
 `platform` (lane 2, task 5.5a part 1) released 2026-09-24 — `platform.sites` DONE @ `3679b70` (PR #19); free for lane 3 / 5.18 now that lane 2 no longer holds it.
