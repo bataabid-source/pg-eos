@@ -32,6 +32,9 @@ importers:
 
   apps/admin:
     dependencies:
+      '@pg-eos/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
       '@pg-eos/domain-kit':
         specifier: workspace:*
         version: link:../../packages/domain-kit

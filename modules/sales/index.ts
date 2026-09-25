@@ -120,3 +120,18 @@ export {
   type GetAccountCreditStatusInput,
   type GetAccountCreditStatusResult,
 } from './application/manage-account-credit/index.js';
+
+// WBS 1.9 — customer-profile (Customer 360 screen aggregation, read-only). Re-exported here — the
+// module's public barrel — per the slice brief's Deliver list. Named (not `export *`), same
+// collision-avoidance reasoning as manage-quote/manage-contract/manage-account-credit above.
+export {
+  getCustomerProfile,
+  type GetCustomerProfileInput,
+  type CustomerProfileResult,
+  type CustomerProfileIdentity,
+  type CustomerProfileContract,
+  type CustomerProfileReadinessItem,
+  type CustomerProfileFinance,
+  type ReadinessItemName,
+} from './application/customer-profile/index.js';
+export { AccountNotFoundError as CustomerProfileAccountNotFoundError } from './domain/customer-profile/errors.js';
