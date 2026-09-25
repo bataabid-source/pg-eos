@@ -102,3 +102,21 @@ export {
   type ContractStatus,
   type ContractEventType,
 } from './domain/manage-contract/machine.js';
+
+// WBS 1.8 — manage-account-credit (group-level credit limit and hold). Re-exported here — the
+// module's public barrel — per the slice brief's Deliver list. Named (not `export *`), same
+// collision-avoidance reasoning as manage-quote/manage-contract above.
+export {
+  setCreditLimit,
+  setCreditHold,
+  releaseCreditHold,
+  getAccountCreditStatus,
+  type SetCreditLimitInput,
+  type SetCreditLimitResult,
+  type SetCreditHoldInput,
+  type SetCreditHoldResult,
+  type ReleaseCreditHoldInput,
+  type ReleaseCreditHoldResult,
+  type GetAccountCreditStatusInput,
+  type GetAccountCreditStatusResult,
+} from './application/manage-account-credit/index.js';

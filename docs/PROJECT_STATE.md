@@ -9,7 +9,7 @@ Maintained by pg-scribe only, in the same commit as the task it records.
 | Current task | **D-176 (2026-09-25): finish phases in order.** Phase 0 CLOSED @ `28ae48d`. 1.4 DONE @ `b21d89a`. 1.6 DONE @ `6accbf2` (M02 quotes, migration 0017). 5.5a FULLY DONE @ `ffab3bf`. 2.13 DONE @ `ca9a109` (lane 2, inventory count, INV-C3-7; migration 0018). 1.7 DONE @ `<this commit>` (lane 1, M02 contracts/price annex/SLA/billing flags; migration 0019). Next: lane 1 → 1.8 credit limit → 1.9 → 1.11 · lane 2 → 2.14 occupancy snapshot (lock `wms`) · lane 3 finishes 3.14 part 2 in flight, then **idles pending GM answer**. Completion 29/136. Previous governance commit: `e38d30a`. |
 | Golden slice (2.9) | **ACCEPTED** · `.golden-slice-accepted` committed · `scripts/new-slice.sh` active (registers contract exports itself since `412708a`) · `.githooks/pre-commit` active (①lint/boundaries/types ②touched-module unit tests ③guards:run when database/ staged) · scope backend only, no PDA UI. R1: an all-zero order gets no GRN and no `wms.inbound.received` event. |
 | Deployment tier | **Pilot Tier 0 = local Docker `postgres:16` (D-129)**; Oracle Tier 0 after the pilot (0.3, 0.5, 0.7, 0.6b DEFERRED-POST-PILOT) — procedures placeholder in `docs/RUNBOOK.md` §8 |
-| Schema | `database/schema/01 · 13 · 13B · 019` — the ONLY permitted schema (migrations 0001–0019 applied: see `docs/CHANGELOG.md` for the full list) · DB locale UTF8 / collate C / ctype C.UTF-8 · next free migration **0020** · **SCR-HR-ATT-01 APPROVED (D-131)** — migration number not yet issued |
+| Schema | `database/schema/01 · 13 · 13B · 019` — the ONLY permitted schema (migrations 0001–0021 applied: see `docs/CHANGELOG.md` for the full list) · DB locale UTF8 / collate C / ctype C.UTF-8 · next free migration **0022** · **SCR-HR-ATT-01 APPROVED (D-131)** — migration number not yet issued |
 | Session model | **D-174: lane sessions sonnet / effort medium · Master sonnet / medium for merges + bookkeeping, opus only for ADR / security / D-117 · fable only when the GM names it** · agents pinned: pg-reviewer opus, all other agents sonnet, no haiku · fast mode unavailable (SDK) |
 | Toolchain | pnpm 9.15.9 · Node 25.2.1 · Docker 29.0.1 · psql 16.15 · claude CLI · TypeScript 5.9.3 ceiling `<6.1.0` · Python 3.13 (`python`, not `python3`) · `gh` per command with the Git-Credential-Manager token (D-173, `docs/RUNBOOK.md` §3) |
 | Setup check | 2026-09-24: `gen-backlog.py --check` 136 rows (v4.4) · `check-setup.sh` MASTER_BACKLOG OK, PG_APP_USER unset → NOTE only · gates ①–⑥ green on main via CI |
@@ -18,7 +18,7 @@ Maintained by pg-scribe only, in the same commit as the task it records.
 
 | lane | task | module lock | worktree | status |
 |---|---|---|---|---|
-| 1 | Phase 1, in order: 1.4 DONE @ `b21d89a` · 1.6 DONE @ `6accbf2` · 1.7 DONE @ `<this commit>` → next 1.8 credit limit → 1.9 → 1.11 (D-176) | `sales` | `../pg-eos-lane-1` | feat(1.7) committed on lane/1 @ `<this commit>`, PR pending Master merge; next per D-176: 1.8 credit limit |
+| 1 | Phase 1, in order: 1.4 DONE @ `b21d89a` · 1.6 DONE @ `6accbf2` · 1.7 DONE @ `e3ced50` · 1.8 DONE @ `<this commit>` → next 1.9 → 1.11 (D-176) | `sales` | `../pg-eos-lane-1` | feat(1.8) committed on lane/1 @ `<this commit>`, PR pending Master merge; next per D-176: 1.9 customer 360 |
 | 2 | Phase 2: 2.13 DONE @ `ca9a109`, next 2.14 (occupancy snapshot), D-176 | `wms` | `../pg-eos-lane-2` | queued — next lane-2 session; 5.5a FULLY DONE (part 1 @ `3679b70`, part 2 @ `ffab3bf`); next free migration **0020** |
 | 3 | 3.14 part 2 — `services/agent` pull loop (in flight) — then **idle pending GM answer to D-176's batched question** | `imile` | shared `claude-kit` | queued — next lane-3 session; part 1 (health reporting) committed NOT DONE @ `8b12d60`, pg-reviewer PASS round 4 |
 
@@ -26,11 +26,11 @@ Maintained by pg-scribe only, in the same commit as the task it records.
 
 | task | commit |
 |---|---|
-| 1.7 — M02 contracts, price annexes, SLA definitions, billing flags (lane 1), DONE pending merge | `<this commit>` |
+| 1.8 — group-level credit limit and hold; found + fixed a real RLS gap on sales.accounts (D-177) (lane 1), DONE pending merge | `<this commit>` |
+| 1.7 — M02 contracts, price annexes, SLA definitions, billing flags (lane 1), DONE | `e3ced50` |
 | 2.13 — inventory count: blind, recount mandatory, adjustment by approval (INV-C3-7), migration 0018 (lane 2), DONE | `ca9a109` |
 | 1.6 — M02 quotes with approval flow: rep → sales mgr → CFO → GM on exception (lane 1), DONE | `6accbf2` |
 | 1.4 — pricing engine: exception → contract → segment → list → pending (lane 1), DONE | `b21d89a` |
-| 5.5a — `hr.shifts`/`hr.shift_groups`/`hr.shift_assignments` (SCR-HR-SHIFT-01 §2.1-§2.3), migration 0016, part 2 of 2, **completes 5.5a** (part 1 @ `3679b70`) | `ffab3bf` |
 
 ## Blockers (settle BEFORE any lane opens — reviewer's project-wide items)
 
