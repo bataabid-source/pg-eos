@@ -56,6 +56,22 @@ fi
 
 [ "$db" = "pgeos" ] || exit 0
 
+# ---- D-188 (GM, 2026-09-25): the Master may run a shared-DB cleanup ---------------------------
+# Allowed ONLY when BOTH hold:
+#   1. the session runs from the Master's worktree — basename of $CLAUDE_PROJECT_DIR (or $PWD) is
+#      exactly `pg-eos-gov` (lane sessions run from ../pg-eos-lane-<id>, D-179; their subagents
+#      inherit that project dir, so no lane worker can use this path);
+#   2. the command carries the literal marker `MASTER-CLEANUP (D-188)` (e.g. as an SQL comment),
+#      so every Master cleanup is deliberate and greppable in the transcript.
+# Anything else stays refused exactly as D-183 states.
+ROOT_DIR="${CLAUDE_PROJECT_DIR:-$PWD}"
+ROOT_DIR="${ROOT_DIR//\\//}"
+ROOT_DIR="${ROOT_DIR%/}"
+if [ "$(basename "$ROOT_DIR")" = "pg-eos-gov" ] && printf '%s' "$CMD" | grep -qF 'MASTER-CLEANUP (D-188)'; then
+  echo "db-guard: ALLOWED — Master shared-DB cleanup (D-188), marker present, session in pg-eos-gov." >&2
+  exit 0
+fi
+
 {
   echo "db-guard: REFUSED — DELETE / DROP / TRUNCATE through psql against the shared database 'pgeos' (D-183)."
   echo "  Rule: لا DELETE / DROP / TRUNCATE على القاعدة المشتركة خارج afterAll لحزمة الاختبار نفسها؛ صف غريب يُبلَّغ للـ Master ولا يُمسّ."

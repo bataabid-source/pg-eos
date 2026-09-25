@@ -4,6 +4,11 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — D-188: Master shared-DB cleanup exception in db-guard.sh (amends D-183) — DONE (2026-09-25)
+
+- GM (verbatim) "اقول ذلك صراحة نفذ". `.claude/hooks/db-guard.sh`: a `psql` DELETE / DROP / TRUNCATE on `pgeos` is allowed only from the `pg-eos-gov` worktree AND with the literal marker `MASTER-CLEANUP (D-188)` in the command; everything else refused as before. `tests/hooks/run.sh` +5 cases (suite 74/74). Worker agent files unchanged. Built in a temporary worktree because the A2 docs worker was editing `pg-eos-gov` at the time.
+- Model: claude-opus-5-5 (Master) · Delegated: none · ~10k tokens.
+
 ## X — A1: ADR-0004 general ledger as single source of truth (D-187) — DONE (2026-09-25)
 
 - GM (verbatim, via the session «تقييم المشروع والمسار القادم») "قرار GM على استبيان A0: اعتماد كل التوصيات (a–l) وكل الافتراضات (OD-01…OD-18). ابدأ A1 (ADR-0004)." → D-187; `docs/adr/ADR-0004-general-ledger-single-source.md` Accepted. D1 = A0 §6's ten bullets verbatim; D2 = the twelve A0 §4 resolutions; D3 = OD-01…OD-18 as standing defaults (nothing seeded); consequences (doc 38 v4.6 rows, 29 G-01 candidates, package amendments, the `journal_lines` cascade / missing REVOKE fixed in 4.20) listed, not applied — they land in A2.
