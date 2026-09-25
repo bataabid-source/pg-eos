@@ -65,6 +65,10 @@
     "./sales/customer-profile": {
       "types": "./dist/sales/customer-profile.d.ts",
       "default": "./dist/sales/customer-profile.js"
+    },
+    "./wms/manage-space": {
+      "types": "./dist/wms/manage-space.d.ts",
+      "default": "./dist/wms/manage-space.js"
     }
   },
   "scripts": {

@@ -5,8 +5,8 @@ Maintained by pg-scribe only, in the same commit as the task it records.
 
 | field | value |
 |---|---|
-| Phase | **0 — Foundation CLOSED (0.20 sealed, D-176)** → 1 — Commercial Core (buildable rows done except 1.11, Master-only) → 2 — Warehouse (in progress, 8/19) · **pilot-first (D-127): seed 019 + synthetic data; field/human/sign-off/training/Tier-0 provisioning DEFERRED-POST-PILOT** |
-| Current task | **D-176 (2026-09-25): finish phases in order.** Phase 1 lane-1 rows (1.4/1.6/1.7/1.8/1.9) all DONE @ `90faea3`. **1.11 is BLOCKED (D-178)** — investigated on GM instruction, not fabricated: its real prerequisites (doc 40 S6/S10) span 2.11 (Phase 2, in progress), `modules/tms` + `modules/cc` (don't exist), `billing.*`/a nightly job (Phase 4, not started), an admin quote-entry UI — evidence `docs/notes/2026-09-25-wbs-1.11-premature.md`. Phase 1's buildable rows are therefore exhausted for now. Phase 2: 2.13/2.14 DONE (lane 2), 2.15 in flight (lane 2, `wms`). **Lane 1 is queued waiting on the `wms` lock** for 2.10/2.11 — releases when lane 2's 2.15 merges. Lane 3 finishes 3.14 part 2 in flight, then idles pending a GM answer. Completion 35/136. Previous governance commit: `4469505` (PR #44). |
+| Phase | **0 — Foundation CLOSED (0.20 sealed, D-176)** → 1 — Commercial Core (buildable rows done except 1.11, Master-only) → 2 — Warehouse (in progress, 9/19) · **pilot-first (D-127): seed 019 + synthetic data; field/human/sign-off/training/Tier-0 provisioning DEFERRED-POST-PILOT** |
+| Current task | **D-176 (2026-09-25): finish phases in order.** Phase 1 lane-1 rows (1.4/1.6/1.7/1.8/1.9) all DONE @ `90faea3`. **1.11 is BLOCKED (D-178)** — investigated on GM instruction, not fabricated: its real prerequisites (doc 40 S6/S10) span 2.11 (Phase 2, in progress), `modules/tms` + `modules/cc` (don't exist), `billing.*`/a nightly job (Phase 4, not started), an admin quote-entry UI — evidence `docs/notes/2026-09-25-wbs-1.11-premature.md`. Phase 2: 2.13/2.14/2.15 all DONE (lane 2, `wms` released @ `dc0515c`). **Lane 1 now free to claim `wms`** for 2.10/2.11. Lane 3 finishes 3.14 part 2 in flight, then idles pending a GM answer. Completion 36/136. Previous governance commit: `4469505` (PR #44). |
 | Golden slice (2.9) | **ACCEPTED** · `.golden-slice-accepted` committed · `scripts/new-slice.sh` active (registers contract exports itself since `412708a`) · `.githooks/pre-commit` active (①lint/boundaries/types ②touched-module unit tests ③guards:run when database/ staged) · scope backend only, no PDA UI. R1: an all-zero order gets no GRN and no `wms.inbound.received` event. |
 | Deployment tier | **Pilot Tier 0 = local Docker `postgres:16` (D-129)**; Oracle Tier 0 after the pilot (0.3, 0.5, 0.7, 0.6b DEFERRED-POST-PILOT) — procedures placeholder in `docs/RUNBOOK.md` §8 |
 | Schema | `database/schema/01 · 13 · 13B · 019` — the ONLY permitted schema (migrations 0001–0021 applied: see `docs/CHANGELOG.md` for the full list) · DB locale UTF8 / collate C / ctype C.UTF-8 · next free migration **0022** · **SCR-HR-ATT-01 APPROVED (D-131)** — migration number not yet issued |
@@ -18,36 +18,36 @@ Maintained by pg-scribe only, in the same commit as the task it records.
 
 | lane | task | module lock | worktree | status |
 |---|---|---|---|---|
-| 1 | Phase 1 buildable rows DONE. **Queued** for Phase 2: 2.10 (put-away) → 2.11 (outbound order) | `sales`+`admin` (to release) | `../pg-eos-lane-1` | idle — waiting on `wms` lock (held by lane 2); moves as soon as lane 2 releases it |
-| 2 | Phase 2: 2.13 DONE, 2.14 DONE, 2.15 in flight (space management) | `wms` | `../pg-eos-lane-2` | building 2.15; release `wms` on merge so lane 1 can proceed |
+| 1 | Phase 1 buildable rows DONE @ `90faea3` (1.11 BLOCKED, D-178). **Queued** for Phase 2: 2.10 (put-away) → 2.11 (outbound order) | `sales`+`admin` (to release) | `../pg-eos-lane-1` | queued — `wms` lock now free (lane 2 released it); next lane-1 session claims it |
+| 2 | Phase 2 for lane 2 COMPLETE: 2.13 DONE @ `ca9a109` · 2.14 DONE @ `eec1618` · 2.15 DONE @ `dc0515c` (space mgmt) | — (released) | `../pg-eos-lane-2` | idle — awaiting Master direction on next task |
 | 3 | 3.14 part 2 — `services/agent` pull loop (in flight) — then **idle pending GM answer to D-176's batched question** | `imile` | shared `claude-kit` | queued — next lane-3 session; part 1 (health reporting) committed NOT DONE @ `8b12d60`, pg-reviewer PASS round 4 |
 
 ## Last 5 DONE (newest first)
 
 | task | commit |
 |---|---|
+| 2.15 — space management: allocations, reservations, check_space_available() guard (INV-C3-8), no migration (lane 2), DONE — 6 review rounds, round 3 escalated to opus per D-117 | `dc0515c` |
 | 1.9 — Customer 360 screen (sales data + admin UI, second frontend slice) (lane 1), DONE | `90faea3` |
 | 1.8 — group-level credit limit and hold; found + fixed a real RLS gap on sales.accounts (D-177) (lane 1), DONE | `7fa0c43` |
-| 2.14 — daily occupancy snapshot + overflow (ST-12) billable event, no migration (lane 2), DONE — Phase 2 for lane 2's original list complete | `eec1618` |
+| 2.14 — daily occupancy snapshot + overflow (ST-12) billable event, no migration (lane 2), DONE | `eec1618` |
 | 1.7 — M02 contracts, price annexes, SLA definitions, billing flags (lane 1), DONE | `e3ced50` |
-| 2.13 — inventory count: blind, recount mandatory, adjustment by approval (INV-C3-7), migration 0018 (lane 2), DONE | `ca9a109` |
 
 ## Blockers (settle BEFORE any lane opens — reviewer's project-wide items)
 
 - **`scripts/deploy.sh` does not exist yet**: G15–G17 NOT RUNNABLE, non-blocking until it exists (0.6b, DEFERRED-POST-PILOT).
-- **Open G-01 items:** G8 anchor storage before the first partition detach (≥ 2028-03) — D-115. **3.14 part 1:** `imile.agent_health` has no `entity_id`; no DB CHECKs for two invariants — `docs/notes/2026-09-24-imile-agent-scenario.md` §4 rows e/f.
+- **Open G-01 items:** G8 anchor storage before the first partition detach (≥ 2028-03) — D-115. **3.14 part 1:** `imile.agent_health` has no `entity_id`; no DB CHECKs for two invariants — `docs/notes/2026-09-24-imile-agent-scenario.md` §4 rows e/f. **2.15:** `wms.space_reservations.qty` has no DB `CHECK (qty > 0)` (domain-only enforcement) — future G-01 candidate; `wms.convert_reservation()` intentionally not exposed as a command this slice (batched GM questions, see CHANGELOG).
 - **Carried under D-131 (owner GM, post-pilot):** ADR-0003 items 1, 3, 4a, 5, 6, 8, 9; GPS classification; SoD mechanism; §2.5 values. APP-1 stays `tasks/proposed/`.
 - WAITING_GM rows: **0** (D-127). Deferred post-pilot: 20 rows, Phase 7 in `tasks/MASTER_BACKLOG.md`. Stale `.git/*.lock` files removed by hand — `docs/RUNBOOK.md` "Incident quick reference".
 - **Batched Master tasks (frozen paths, one Master-only window):** `entityId` on `WithContextCtx` (`packages/db`) · SCR-HR-EMP-01 three DB CHECKs · catalog events on first consumer.
 - **WBS 1.11 BLOCKED (D-178):** not a lane task, not buildable today by anyone — see Current task above and `docs/notes/2026-09-25-wbs-1.11-premature.md`. Re-attempt once Phase 2 (2.11), a `tms` module, a `cc` module and Phase 4 billing each have their first slice.
-- **Flagged, pre-existing, untouched:** ~7 failures in `tests/evaluate-alerts/**` and `tests/integration/{schema-invariants,audit-chain-*}.test.ts` — Master/GM attention needed. `pnpm --filter @pg-eos/hr test` transient failures under concurrent shared-Postgres access — isolated reruns 100% green.
+- **Flagged, pre-existing, untouched:** ~7 failures in `tests/evaluate-alerts/**` and `tests/integration/{schema-invariants,audit-chain-*}.test.ts` — Master/GM attention needed. `pnpm --filter @pg-eos/hr test` transient failures under concurrent shared-Postgres access — isolated reruns 100% green. **2.15 side-note:** `count-inventory.test.ts`/`receive-inbound.test.ts` each have one assertion expecting an outdated error type where the code now throws a different, arguably more-correct one — pre-existing, untouched by 2.15.
 - **D-176 open question (non-blocking):** lane 3 idles after 3.14 part 2 — accept, or let it take a later-phase row?
-- **D-117 note:** lane 2 self-fixed past the two-round bound twice (2.13, 2.14); acknowledged as a judgment lapse, not a mechanics problem — committed to escalating strictly going forward.
+- **D-117 note:** lane 2 self-fixed past the two-round bound twice (2.13, 2.14); acknowledged as a judgment lapse. 2.15 (6 rounds/19 findings, a real BLOCKER in round 1) correctly escalated to opus at round 3 per D-117 — committed followed through this time. All three of 2.13/2.14/2.15 ran well past budget — SPEED AND QUALITY "split before, not after" default noted.
 
 ## Next 3 tasks (D-176 — phase-sequential)
 
-1. Lane 1: queued for `wms` — 2.10 (put-away) then 2.11 (outbound order) once lane 2 releases the lock
-2. Lane 2: 2.15 (space management: allocations, reservations, `check_space_available()`) — release `wms` on merge
+1. Lane 1: `wms` now free — claim it for 2.10 (put-away) then 2.11 (outbound order)
+2. Lane 2: **idle — Phase 2 complete (2.13, 2.14, 2.15 all DONE); awaiting Master direction on next task**
 3. Lane 3: finish 3.14 part 2 (in flight) — then idle pending the GM's D-176 answer
 
 ## Notes
