@@ -2,14 +2,15 @@
 
 | module | lane | task | claimed_at | worktree |
 |---|---|---|---|---|
-| sales | 1 | 1.9 | 2026-09-25 | ../pg-eos-lane-1 (queued — next lane-1 session; Phase 1 in order, D-176: 1.4→1.6→1.7→1.8 DONE, next 1.9 → 1.11) |
-| admin | 1 | 1.9 | 2026-09-25 | ../pg-eos-lane-1 (queued — 1.9 customer 360 screen needs `apps/admin` alongside `sales`, same UI+mock-client pattern as 0.19; released after 1.9 merges) |
-| wms | 2 | 2.13 | 2026-09-25 | ../pg-eos-lane-2 (queued — next lane-2 session; Phase 2, D-176: 2.13 inventory count → 2.14 occupancy snapshot) |
+| wms | 2 | 2.15 | 2026-09-25 | ../pg-eos-lane-2 (building — space management: allocations, reservations, `check_space_available()`; 2.13/2.14 DONE; releases on 2.15 merge so lane 1 can claim it for 2.10/2.11) |
 | imile | 3 | 3.14 | 2026-09-24 | shared `claude-kit` (part 1 committed NOT DONE @ `8b12d60` — health-reporting mechanism, pg-reviewer PASS round 4; still owned by lane 3 for part 2, `services/agent` pull loop; idles after per D-176 pending GM answer) |
+
+**Lane 1 is queued, no module locked** — 1.9 DONE @ `90faea3` (`sales`+`admin` released below); waiting on `wms` (held by lane 2 for 2.15) to claim it for 2.10 → 2.11 (Phase 2). WBS 1.11 is doc-38 Lane **M**, corrected 2026-09-25 from an earlier Master misassignment to lane 1 — it is a Master-only task, not a lane-1 row (see PROJECT_STATE Blockers).
 
 - `0013_1_price-lists-version.sql` — lane 1, task 1.2, applied 2026-09-24 (pg-reviewer pre-migration APPROVED WITH CHANGES; number issued by the Master, MIGRATION-REQUEST-1.md).
 - `0019_1_contracts-version.sql` — lane 1, task 1.7, applied 2026-09-25 (pg-reviewer pre-migration APPROVED WITH CHANGES; number issued by the Master, MIGRATION-REQUEST-1.md).
 
+`sales` + `admin` (lane 1, task 1.9) released 2026-09-25 — 1.9 DONE @ `90faea3` (PR #43); lane 1 queued for `wms` next (2.10/2.11), not re-claimed yet — awaiting lane 2's 2.15 to merge.
 `hr` (lane 2, task 5.5a) released 2026-09-25 — 5.5a DONE in full @ `ffab3bf` (part 1 `3679b70` + part 2 `ffab3bf`, PRs #19/#30); re-claimed above (`wms`) for Phase 2 (D-176).
 `admin` (lane 1, task 0.19) released 2026-09-25 — 0.19 DONE @ `80e827f` (PR #24); re-claimed above (`sales`) for Phase 1 (D-176).
 `platform` (lane 2, task 5.5a part 1) released 2026-09-24 — `platform.sites` DONE @ `3679b70` (PR #19); free for lane 3 / 5.18 now that lane 2 no longer holds it.
