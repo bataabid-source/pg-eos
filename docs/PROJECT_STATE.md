@@ -6,7 +6,7 @@ Maintained by pg-scribe only, in the same commit as the task it records.
 | field | value |
 |---|---|
 | Phase | **0 — Foundation CLOSED (0.20 sealed, D-176)** → 1 — Commercial Core (buildable rows done except 1.11, Master-only) → 2 — Warehouse (in progress, 9/19) · **pilot-first (D-127): seed 019 + synthetic data; field/human/sign-off/training/Tier-0 provisioning DEFERRED-POST-PILOT** |
-| Current task | **3.14 part 2 (lane 3) done-in-part, NOT DONE @ `<this commit>`** — `PullShipments` pull-loop mechanism, pg-reviewer PASS(27 findings/7 rounds, D-117 round-count bound exceeded, not escalated after round 2 — recorded plainly, not smoothed over); doc 38's real 3.14 acceptance (10-min schedule, live portal adapter, >15-min alert) still gated on D-149. Lane 3 next: **3.17** (D-184 — corrects the stale D-180/D-182 pointer to 3.15; 3.15/3.16/3.18/3.19 blocked on 2.16 TODO). D-180 session plan: one Master session ("إدارة الجلسات والوكلاء", fable, GM's menu choice) from `../pg-eos-gov`; lane 1 = `wms/process-outbound` (2.11), lane 2 = `wms/schedule-inbound` — **2.9b DONE @ `716bf8e`** (5 rounds, 38 findings; module locks released, idle pending next assignment), lane 3 = `imile`. **1.11 is BLOCKED (D-178)** — see `docs/notes/2026-09-25-wbs-1.11-premature.md`. Completion 38/136 (3.14 part 2 NOT DONE, ratio unchanged; doc 38 now v4.5/137 rows per D-185 — denominator not yet recomputed here). Previous governance commit: `1a43e9f`. |
+| Current task | **2.11 part 1 DONE @ `<this commit>`** (lane 1, `wms/process-outbound`): `CreateOutbound`/`RunOutboundChecks`(9 of 10 conditions)/`ApproveOutbound`/`CancelOutbound`, no migration (0022 withdrawn, column pre-existing at 13B:164-166). 4 pg-reviewer rounds (round 2→3 D-117 escalation to opus). **Lane 1 continues to 2.11 part 2** (`Allocate`/`GeneratePickList`/allocated-cancel) under the same lock — row 2.11 stays IN PROGRESS until part 2 lands ("nine of ten" is not the doc-38 acceptance). **Lane 2: 2.9b DONE @ `716bf8e`** (5 rounds, 38 findings) — reassigned to **4.2** `billing.billable_events` (doc-38 Lane M → lane 2, D-186), brief + RED only until wave 1 (P1, P7) merges. **Lane 3: 3.14 part 2 done-in-part, NOT DONE @ `e667821`** — pull-loop mechanism, pg-reviewer PASS(27 findings/7 rounds, D-117 bound exceeded, not escalated after round 2 — recorded plainly); real 3.14 acceptance still gated on D-149; next **3.17** (D-184). D-180 session plan: one Master session ("إدارة الجلسات والوكلاء", fable) from `../pg-eos-gov`. **1.11 is BLOCKED (D-178)** — see `docs/notes/2026-09-25-wbs-1.11-premature.md`. Completion 38/137 (doc 38 v4.5/137 rows, D-185). Previous governance commit: `485c0e0`. |
 | Golden slice (2.9) | **ACCEPTED** · `.golden-slice-accepted` committed · `scripts/new-slice.sh` active (registers contract exports itself since `412708a`) · `.githooks/pre-commit` active (①lint/boundaries/types ②touched-module unit tests ③guards:run when database/ staged) · scope backend only, no PDA UI. R1: an all-zero order gets no GRN and no `wms.inbound.received` event. |
 | Deployment tier | **Pilot Tier 0 = local Docker `postgres:16` (D-129)**; Oracle Tier 0 after the pilot (0.3, 0.5, 0.7, 0.6b DEFERRED-POST-PILOT) — procedures placeholder in `docs/RUNBOOK.md` §8 |
 | Schema | `database/schema/01 · 13 · 13B · 019` — the ONLY permitted schema (migrations 0001–0025 applied (0022 lane 1 · 0023 lane 2 · 0024 lane 3 applied · 0025 Master, SCR-RLS-03 / D-181): see `docs/CHANGELOG.md` for the full list) · DB locale UTF8 / collate C / ctype C.UTF-8 · next free migration **0026** · **SCR-HR-ATT-01 APPROVED (D-131)** — migration number not yet issued |
@@ -18,7 +18,7 @@ Maintained by pg-scribe only, in the same commit as the task it records.
 
 | lane | task | module lock | worktree | status |
 |---|---|---|---|---|
-| 1 | 2.11 outbound order (ten-condition check, FEFO, pick sequence) → 2.12 | `wms/process-outbound` | `../pg-eos-lane-1` | **runnable now** — 2.10 DONE @ `95a33b8`; migration 0022 issued; scaffold + RED tests on disk |
+| 1 | 2.11 part 1 DONE @ `<this commit>` → **part 2** (Allocate, GeneratePickList, allocated-cancel) → 2.12 | `wms/process-outbound` | `../pg-eos-lane-1` | **runnable now** — part 1 closed, same lock continues to part 2 |
 | 2 | 4.2 `billing.billable_events` (doc-38 Lane M → lane 2, D-186) — 2.9b DONE @ `716bf8e` | `billing` | `../pg-eos-lane-2` | brief + RED only until wave 1 (P1, P7) merges; budget 8 files / 1,000 lines, two review rounds (D-186) |
 | 3 | 3.14 part 2 done-in-part @ `e667821` — pull loop mechanism, PASS(27 findings/7 rounds); next **3.17** (same `imile` lock) → 3.1 (D-184) | `imile` | `../pg-eos-lane-3` | own worktree (hook-enforced); real 3.14 acceptance (10-min schedule, live adapter, >15-min alert) still gated on D-149 |
 
@@ -26,11 +26,11 @@ Maintained by pg-scribe only, in the same commit as the task it records.
 
 | task | commit |
 |---|---|
+| 2.11 part 1 — outbound order create/checks(9-of-10)/approve/cancel, no migration (lane 1), DONE — 4 review rounds, round 2→3 escalated to opus per D-117 | `<this commit>` |
 | 2.9b — schedule inbound (appointment) + logistics terms, migration 0023 (lane 2), DONE — 5 review rounds, 38 findings fixed, round 3 escalated to opus per D-117 | `716bf8e` |
 | 2.10 — put-away automatic location suggestion: conditions + ABC, golden-slice enhancement (lane 1), DONE | `95a33b8` |
 | 2.15 — space management: allocations, reservations, check_space_available() guard (INV-C3-8), no migration (lane 2), DONE — 6 review rounds, round 3 escalated to opus per D-117 | `dc0515c` |
 | 1.9 — Customer 360 screen (sales data + admin UI, second frontend slice) (lane 1), DONE | `90faea3` |
-| 1.8 — group-level credit limit and hold; found + fixed a real RLS gap on sales.accounts (D-177) (lane 1), DONE | `7fa0c43` |
 
 ## Blockers (settle BEFORE any lane opens — reviewer's project-wide items)
 
@@ -46,7 +46,7 @@ Maintained by pg-scribe only, in the same commit as the task it records.
 
 ## Next 3 tasks (D-176 phase order + D-180 session plan)
 
-1. Lane 1: 2.11 (outbound order) in `wms/process-outbound` — then 2.12
+1. Lane 1: 2.11 part 2 (Allocate, GeneratePickList, allocated-cancel) in `wms/process-outbound` — then 2.12
 2. Lane 2: 4.2 (`billing.billable_events`) in `billing` — brief + RED now, build after wave 1 (D-186)
 3. Lane 3: 3.14 part 2 DONE-in-part @ `e667821` — next **3.17** (imile lock) → 3.1 (D-184)
 

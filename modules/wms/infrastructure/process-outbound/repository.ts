@@ -1,0 +1,361 @@
+// modules/wms/infrastructure/process-outbound/repository.ts — WBS 2.11 part 1.
+//
+// infrastructure/ layer: every DB statement for the process-outbound use case (part 1), run
+// against the `tx` a caller's own withContext(ctx, fn)/withIdempotentContext already opened.
+// Implements ../../application/process-outbound/ports.ts's `OutboundOrderRepository`.
+//
+// Cross-schema reads via raw SQL, no TypeScript import (brief "Scope taken by the lane", same
+// precedent as ../../infrastructure/take-occupancy-snapshot/repository.ts and
+// modules/sales/infrastructure/resolve-price/repository.ts): this file reads
+// `sales.contracts`/`sales.accounts`/`catalog.services`/`catalog.price_list_lines`/
+// `catalog.price_exceptions` directly — never a `modules/sales` or `modules/catalog` import.
+//
+// LOCK ORDER — the one every command follows:
+//   0. the idempotency advisory lock + platform.idempotency_keys upsert (packages/db/src/
+//      idempotency.ts's withIdempotentContext), FIRST, when the command's own input carries an
+//      `idem` (every write command in this use case).
+//   1. getOrderForUpdate — `select ... for update` on the ONE aggregate row (CreateOutbound takes
+//      no lock: it inserts a brand-new row instead).
+//   2. every OTHER read this command needs (condition checks, role check) — all plain SELECTs,
+//      no additional row lock.
+//   3. nextDocNo (CreateOutbound only) — `platform.next_doc_no` locks a `platform.counters` row.
+//   4. the insert/update on the order row already locked (or freshly inserted), then the outbox
+//      event, then writeAuditRow, last (ADR-0002).
+
+const ORDER_SCHEMA = 'wms';
+const ORDER_TABLE_NAME = 'outbound_orders';
+const ORDER_TABLE = `${ORDER_SCHEMA}.${ORDER_TABLE_NAME}`;
+const LINE_TABLE = `${ORDER_SCHEMA}.order_lines`;
+const AUDIT_ACTOR_TYPE_USER = 'user';
+
+import { sql } from 'drizzle-orm';
+import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
+
+import { OrderNotFoundError } from '../../domain/process-outbound/errors.js';
+import type { OutboundOrderStatus } from '../../domain/process-outbound/machine.js';
+import type {
+  AccountCreditRow,
+  ClientQualificationRow,
+  ContractCheckRow,
+  OrderLineRow,
+  OrderRow,
+  OrderUpdateColumns,
+  OutboundOrderRepository,
+  SkuCheckRow,
+  StockAvailabilityRow,
+  StockedLocationBlockRow,
+  StockLotRow,
+} from '../../application/process-outbound/ports.js';
+
+async function getOrderForUpdate(tx: NodePgDatabase, orderId: string): Promise<OrderRow> {
+  const result = await tx.execute<{
+    id: string;
+    entity_id: string;
+    client_id: string;
+    contract_id: string | null;
+    warehouse_id: string;
+    order_type: string;
+    status: string;
+    version: number;
+    ship_to_name: string | null;
+    ship_to_phone: string | null;
+    ship_to_address: string | null;
+    ship_to_area: string | null;
+  }>(sql`
+    select id, entity_id, client_id, contract_id, warehouse_id, order_type, status, version,
+           ship_to_name, ship_to_phone, ship_to_address, ship_to_area
+      from ${sql.raw(ORDER_TABLE)} where id = ${orderId}::uuid for update
+  `);
+  const row = result.rows[0];
+  if (!row) {
+    throw new OrderNotFoundError(`no ${ORDER_TABLE} row visible for id ${orderId} (Allowed: an existing order in the caller's entities)`);
+  }
+  return {
+    id: row.id,
+    entityId: row.entity_id,
+    clientId: row.client_id,
+    contractId: row.contract_id,
+    warehouseId: row.warehouse_id,
+    orderType: row.order_type,
+    status: row.status as OutboundOrderStatus,
+    version: row.version,
+    shipToName: row.ship_to_name,
+    shipToPhone: row.ship_to_phone,
+    shipToAddress: row.ship_to_address,
+    shipToArea: row.ship_to_area,
+  };
+}
+
+async function updateOrder(tx: NodePgDatabase, orderId: string, columns: OrderUpdateColumns): Promise<number> {
+  const result = await tx.execute<{ version: number }>(sql`
+    update ${sql.raw(ORDER_TABLE)}
+       set status = ${columns.status}, version = version + 1,
+           credit_check_passed = coalesce(${columns.creditCheckPassed ?? null}::boolean, credit_check_passed),
+           credit_checked_at = coalesce(${columns.creditCheckedAt?.toISOString() ?? null}::timestamptz, credit_checked_at)
+     where id = ${orderId}::uuid
+    returning version
+  `);
+  const row = result.rows[0];
+  if (!row) {
+    throw new Error(`updateOrder: no ${ORDER_TABLE} row for id ${orderId} (lock was already held)`);
+  }
+  return row.version;
+}
+
+async function hasRole(tx: NodePgDatabase, roleCode: string): Promise<boolean> {
+  const result = await tx.execute<{ roles: readonly string[] }>(sql`select platform.my_roles() as roles`);
+  const roles = result.rows[0]?.roles ?? [];
+  return roles.includes(roleCode);
+}
+
+async function writeAuditRow(
+  tx: NodePgDatabase,
+  params: {
+    readonly entityId: string;
+    readonly target: 'order';
+    readonly recordId: string;
+    readonly operation: string;
+    readonly correlationId: string;
+    readonly actorId: string;
+    readonly newValue: unknown;
+    readonly occurredAt: Date;
+  },
+): Promise<void> {
+  await tx.execute(sql`
+    insert into platform.audit_log
+      (occurred_at, user_id, actor_type, entity_id, schema_name, table_name, record_id, operation,
+       new_value, correlation_id)
+    values
+      (${params.occurredAt.toISOString()}::timestamptz, ${params.actorId}::uuid, ${AUDIT_ACTOR_TYPE_USER},
+       ${params.entityId}::uuid, ${ORDER_SCHEMA}, ${ORDER_TABLE_NAME}, ${params.recordId}::uuid,
+       ${params.operation}, ${JSON.stringify(params.newValue)}::jsonb, ${params.correlationId}::uuid)
+  `);
+}
+
+async function getClientQualification(tx: NodePgDatabase, clientId: string): Promise<ClientQualificationRow | null> {
+  const result = await tx.execute<{ status: string; deleted_at: string | null }>(sql`
+    select status, deleted_at::text as deleted_at from sales.accounts where id = ${clientId}::uuid
+  `);
+  const row = result.rows[0];
+  return row ? { status: row.status, deletedAt: row.deleted_at ? new Date(row.deleted_at) : null } : null;
+}
+
+async function nextDocNo(tx: NodePgDatabase, entityId: string, docType: string): Promise<string> {
+  const result = await tx.execute<{ doc_no: string }>(sql`select platform.next_doc_no(${entityId}::uuid, ${docType}) as doc_no`);
+  const row = result.rows[0];
+  if (!row) throw new Error(`platform.next_doc_no returned no row for entity ${entityId} / doc type ${docType}`);
+  return row.doc_no;
+}
+
+async function insertOrder(
+  tx: NodePgDatabase,
+  params: {
+    readonly entityId: string;
+    readonly docNo: string;
+    readonly clientId: string;
+    readonly contractId: string | null;
+    readonly warehouseId: string;
+    readonly orderType: string;
+    readonly requiredBy: Date | null;
+    readonly shipToName: string | null;
+    readonly shipToPhone: string | null;
+    readonly shipToAddress: string | null;
+    readonly shipToArea: string | null;
+    readonly clientRef: string | null;
+    readonly createdBy: string;
+  },
+): Promise<{ readonly id: string; readonly docNo: string; readonly version: number }> {
+  const result = await tx.execute<{ id: string; version: number }>(sql`
+    insert into ${sql.raw(ORDER_TABLE)}
+      (entity_id, doc_no, client_id, contract_id, warehouse_id, order_type, status,
+       required_by, ship_to_name, ship_to_phone, ship_to_address, ship_to_area, client_ref, created_by)
+    values
+      (${params.entityId}::uuid, ${params.docNo}, ${params.clientId}::uuid, ${params.contractId}::uuid,
+       ${params.warehouseId}::uuid, ${params.orderType}, 'draft',
+       ${params.requiredBy?.toISOString() ?? null}::timestamptz, ${params.shipToName}, ${params.shipToPhone},
+       ${params.shipToAddress}, ${params.shipToArea}, ${params.clientRef}, ${params.createdBy}::uuid)
+    returning id, version
+  `);
+  const row = result.rows[0];
+  if (!row) throw new Error(`insert into ${ORDER_TABLE} returned no row`);
+  return { id: row.id, docNo: params.docNo, version: row.version };
+}
+
+async function getOrderLines(tx: NodePgDatabase, orderId: string): Promise<readonly OrderLineRow[]> {
+  const result = await tx.execute<{ sku_id: string; qty_ordered: string }>(sql`
+    select sku_id, qty_ordered::text as qty_ordered
+      from ${sql.raw(LINE_TABLE)}
+     where order_table = ${ORDER_TABLE} and order_id = ${orderId}::uuid
+     order by line_no
+  `);
+  return result.rows.map((row) => ({ skuId: row.sku_id, qtyOrdered: row.qty_ordered }));
+}
+
+const CONTRACT_STATUS_ACTIVE = 'active';
+
+async function getContractCheck(
+  tx: NodePgDatabase,
+  params: { readonly clientId: string; readonly entityId: string; readonly contractId?: string | undefined },
+): Promise<ContractCheckRow | null> {
+  // Fix round 1 finding 4: looked up by (account_id=clientId, entity_id) — `contractId` narrows
+  // the same query WHEN the order carries one, never replaces the lookup key. An order created
+  // without a contractId still resolves the client's own active contract.
+  const result = await tx.execute<{ end_date: string | null; price_list_id: string | null }>(sql`
+    select end_date::text as end_date, price_list_id
+      from sales.contracts
+     where account_id = ${params.clientId}::uuid and entity_id = ${params.entityId}::uuid
+       and status = ${CONTRACT_STATUS_ACTIVE}
+       ${params.contractId ? sql`and id = ${params.contractId}::uuid` : sql``}
+     order by end_date desc nulls first
+     limit 1
+  `);
+  const row = result.rows[0];
+  return row ? { endDate: row.end_date, priceListId: row.price_list_id } : null;
+}
+
+async function getAccountCredit(tx: NodePgDatabase, clientId: string): Promise<AccountCreditRow | null> {
+  const result = await tx.execute<{ credit_hold: boolean; hold_reason: string | null }>(sql`
+    select credit_hold, hold_reason from sales.accounts where id = ${clientId}::uuid
+  `);
+  const row = result.rows[0];
+  return row ? { creditHold: row.credit_hold, holdReason: row.hold_reason } : null;
+}
+
+async function getSkuCheck(tx: NodePgDatabase, skuId: string): Promise<SkuCheckRow | null> {
+  const result = await tx.execute<{
+    client_id: string;
+    code: string;
+    status: string;
+    track_expiry: boolean;
+    min_remaining_life_issue_days: number | null;
+  }>(sql`
+    select client_id, code, status, track_expiry, min_remaining_life_issue_days
+      from wms.skus where id = ${skuId}::uuid
+  `);
+  const row = result.rows[0];
+  return row
+    ? {
+        clientId: row.client_id,
+        code: row.code,
+        status: row.status,
+        trackExpiry: row.track_expiry,
+        minRemainingLifeIssueDays: row.min_remaining_life_issue_days,
+      }
+    : null;
+}
+
+async function getStockAvailability(
+  tx: NodePgDatabase,
+  params: { readonly clientId: string; readonly skuId: string; readonly warehouseId: string },
+): Promise<StockAvailabilityRow> {
+  const result = await tx.execute<{ available_sum: string; loc_count: number; single_code: string | null }>(sql`
+    select coalesce(sum(sb.qty_available), 0)::text as available_sum,
+           count(*) filter (where sb.qty_available > 0)::int as loc_count,
+           min(l.code) filter (where sb.qty_available > 0) as single_code
+      from wms.stock_balance sb
+      join wms.locations l on l.id = sb.location_id
+     where sb.client_id = ${params.clientId}::uuid and sb.sku_id = ${params.skuId}::uuid
+       and l.warehouse_id = ${params.warehouseId}::uuid
+  `);
+  const row = result.rows[0];
+  const availableSum = row?.available_sum ?? '0';
+  const locCount = row?.loc_count ?? 0;
+  return { availableSum, singleLocationCode: locCount === 1 ? (row?.single_code ?? null) : null };
+}
+
+async function getStockLots(
+  tx: NodePgDatabase,
+  params: { readonly clientId: string; readonly skuId: string; readonly warehouseId: string },
+): Promise<readonly StockLotRow[]> {
+  const result = await tx.execute<{ expiry_date: string | null; qty_available: string; batch_no: string }>(sql`
+    select sb.expiry_date::text as expiry_date, sb.qty_available::text as qty_available, sb.batch_no
+      from wms.stock_balance sb
+      join wms.locations l on l.id = sb.location_id
+     where sb.client_id = ${params.clientId}::uuid and sb.sku_id = ${params.skuId}::uuid
+       and l.warehouse_id = ${params.warehouseId}::uuid and sb.qty_available > 0
+  `);
+  return result.rows.map((row) => ({ expiryDate: row.expiry_date, qtyAvailable: row.qty_available, batchNo: row.batch_no }));
+}
+
+async function getStockedLocationBlocks(
+  tx: NodePgDatabase,
+  params: { readonly clientId: string; readonly skuId: string; readonly warehouseId: string },
+): Promise<readonly StockedLocationBlockRow[]> {
+  const result = await tx.execute<{ is_blocked: boolean; code: string; block_reason: string | null; qty_available: string }>(sql`
+    select l.is_blocked, l.code, l.block_reason, sb.qty_available::text as qty_available
+      from wms.stock_balance sb
+      join wms.locations l on l.id = sb.location_id
+     where sb.client_id = ${params.clientId}::uuid and sb.sku_id = ${params.skuId}::uuid
+       and l.warehouse_id = ${params.warehouseId}::uuid and sb.qty_available > 0
+  `);
+  return result.rows.map((row) => ({
+    isBlocked: row.is_blocked,
+    locationCode: row.code,
+    blockReason: row.block_reason,
+    qtyAvailable: row.qty_available,
+  }));
+}
+
+async function getServiceIdByCode(tx: NodePgDatabase, code: string): Promise<string | null> {
+  const result = await tx.execute<{ id: string }>(sql`select id from catalog.services where code = ${code}`);
+  return result.rows[0]?.id ?? null;
+}
+
+const PRICE_LIST_STATUS_ACTIVE = 'active';
+
+async function hasPricedLine(
+  tx: NodePgDatabase,
+  params: { readonly priceListId: string; readonly serviceId: string; readonly asOfDate: string },
+): Promise<boolean> {
+  // Fix round 1 finding 8: a draft or expired price list must not satisfy condition 9 — join
+  // catalog.price_lists on status='active' and the valid_from/valid_to window.
+  const result = await tx.execute<{ exists: boolean }>(sql`
+    select exists (
+      select 1
+        from catalog.price_list_lines pll
+        join catalog.price_lists pl on pl.id = pll.price_list_id
+       where pll.price_list_id = ${params.priceListId}::uuid and pll.service_id = ${params.serviceId}::uuid
+         and pl.status = ${PRICE_LIST_STATUS_ACTIVE}
+         and pl.valid_from <= ${params.asOfDate}::date
+         and (pl.valid_to is null or pl.valid_to >= ${params.asOfDate}::date)
+    ) as exists
+  `);
+  return result.rows[0]?.exists ?? false;
+}
+
+async function hasPriceException(
+  tx: NodePgDatabase,
+  params: { readonly entityId: string; readonly clientId: string; readonly serviceId: string; readonly asOfDate: string },
+): Promise<boolean> {
+  const result = await tx.execute<{ exists: boolean }>(sql`
+    select exists (
+      select 1 from catalog.price_exceptions
+       where entity_id = ${params.entityId}::uuid and client_id = ${params.clientId}::uuid
+         and service_id = ${params.serviceId}::uuid
+         and valid_from <= ${params.asOfDate}::date and valid_to >= ${params.asOfDate}::date
+    ) as exists
+  `);
+  return result.rows[0]?.exists ?? false;
+}
+
+export const outboundOrderRepository: OutboundOrderRepository = {
+  getOrderForUpdate,
+  updateOrder,
+  hasRole,
+  writeAuditRow,
+  getClientQualification,
+  nextDocNo,
+  insertOrder,
+  getOrderLines,
+  getContractCheck,
+  getAccountCredit,
+  getSkuCheck,
+  getStockAvailability,
+  getStockLots,
+  getStockedLocationBlocks,
+  getServiceIdByCode,
+  hasPricedLine,
+  hasPriceException,
+};
+
+export { ORDER_SCHEMA, ORDER_TABLE_NAME, ORDER_TABLE, LINE_TABLE };
