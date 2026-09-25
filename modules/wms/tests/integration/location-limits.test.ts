@@ -38,7 +38,7 @@
 //     keyed on the location id) so two concurrent put-aways into the same location that together
 //     exceed the limit never both pass.
 
-import { randomUUID } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 
 import { Pool } from 'pg';
 import type { QueryResult } from 'pg';
@@ -150,17 +150,19 @@ let skuClientY: string; // F5: fixtureClientIdY's own SKU, weight CROSS_CLIENT_Y
 const fixtureClientCode = `_loclimit_fixture_${randomUUID()}`;
 const fixtureClientCodeY = `_loclimit_fixture_y_${randomUUID()}`;
 const usedCorrelationIds = new Set<string>();
-// Every scenario picks its OWN, previously-unused WH1 location (tracked here) so that, pre-fix,
-// one scenario's incorrectly-accepted over-limit write can never pollute another scenario's
-// "current load" reading — each test is self-contained regardless of enforcement being present.
-const usedLocationIds: string[] = [];
+let warehouseId: string;
+// Every scenario picks its OWN, freshly-created WH1 zone/location (tracked here for afterAll
+// cleanup, locations before zones for the FK) so that one scenario's incorrectly-accepted
+// over-limit write, or a leaked row from ANY other test file/run, can never pollute another
+// scenario's "current load" reading — each test is self-contained regardless of enforcement
+// being present.
+const fixtureZoneIds: string[] = [];
+const fixtureLocationIds: string[] = [];
 
 async function pickFreshWh1Location(
   locationType: 'pallet' | 'shelf' | 'operational',
 ): Promise<LocationRow> {
-  const row = await pickWh1Location(locationType, usedLocationIds);
-  usedLocationIds.push(row.id);
-  return row;
+  return pickWh1Location(locationType);
 }
 
 function nextCorrelationId(): string {
@@ -210,24 +212,77 @@ async function currentLocationLoad(
   };
 }
 
-async function pickWh1Location(
-  locationType: 'pallet' | 'shelf' | 'operational',
-  excludeIds: readonly string[],
-): Promise<LocationRow> {
-  const result: QueryResult<LocationRow> = await pool.query(
-    `select l.id, l.code, l.location_type, l.max_weight_kg::text as max_weight_kg,
-            l.max_volume_cbm::text as max_volume_cbm, l.is_blocked
-       from wms.locations l
-       join wms.warehouses w on w.id = l.warehouse_id
-      where w.code = 'WH1' and l.location_type = $1 and l.is_blocked = false
-        and l.id <> all($2::uuid[])
-      order by l.code desc
-      limit 1`,
-    [locationType, excludeIds],
+// Same bug class as WBS 2.10's own finding 1 (handlers.test.ts/process-outbound.test.ts) and
+// receive-inbound.test.ts's insertLocationInZone/pickFreshWh1Location fix: `select ... from
+// wms.locations ... order by code desc limit 1` over the SHARED table can pick a real WH1
+// production location OR another test file's leftover fixture row, and `order by code desc`
+// means an orphaned high-sorting code is picked FIRST — a leaked no-weight-limit location
+// sorting first defeats this suite's over-weight assertions. Fix (mirrors
+// receive-inbound.test.ts's insertLocationInZone/randomM9FixtureLocationCode): this function
+// creates its OWN dedicated zone + location under the 'M9-' code block
+// (019-Warehouse-WH1-Setup.sql:59 chk_locations_code_format `^[PGMT][1-9]-[0-9]{2}-[1-9]$`,
+// required only for location_type in ('pallet','shelf') — WH1's real layout uses
+// P1-P3/G1-G5/M1-M5/T1-T5, 'M9-' is reserved for this file's own fixtures), claimed with
+// `on conflict (warehouse_id, code) do nothing` so the table's own unique constraint — not
+// generator ordering — arbitrates between concurrent/leaked rows, and set with the SAME
+// max_weight_kg/max_volume_cbm the real WH1 seed carries for that location_type (the constants
+// above), so every downstream assertion against PALLET_MAX_WEIGHT_KG/SHELF_MAX_WEIGHT_KG/
+// OPERATIONAL_STORED_MAX_WEIGHT_KG still holds. Never selects an existing shared row.
+const M9_FIXTURE_LOCATION_PREFIX = 'M9';
+const M9_FIXTURE_LOCATION_SEQ_COUNT = 100; // the regex's `[0-9]{2}` segment: 00..99.
+const M9_FIXTURE_LOCATION_LEVEL_COUNT = 9; // the regex's trailing `[1-9]` segment: 1..9.
+const M9_FIXTURE_LOCATION_MAX_ATTEMPTS = 200;
+
+function randomM9FixtureLocationCode(): string {
+  const [seqByte = 0, levelByte = 0] = randomBytes(2);
+  const seq = String(seqByte % M9_FIXTURE_LOCATION_SEQ_COUNT).padStart(2, '0');
+  const level = (levelByte % M9_FIXTURE_LOCATION_LEVEL_COUNT) + 1;
+  return `${M9_FIXTURE_LOCATION_PREFIX}-${seq}-${level}`;
+}
+
+async function insertM9FixtureZone(): Promise<string> {
+  const code = `_loclimit_M9_zone_${randomUUID()}`;
+  const result: QueryResult<{ id: string }> = await pool.query(
+    `insert into wms.zones (warehouse_id, code, name_ar, zone_type) values ($1, $2, $3, 'storage') returning id`,
+    [warehouseId, code, `منطقة اختبار حدود الموقع ${code}`],
   );
   const row = result.rows[0];
-  if (!row) throw new Error(`expected an unblocked WH1 ${locationType} location`);
-  return row;
+  if (!row) throw new Error('fixture wms.zones insert returned no row');
+  fixtureZoneIds.push(row.id);
+  return row.id;
+}
+
+async function pickWh1Location(
+  locationType: 'pallet' | 'shelf' | 'operational',
+): Promise<LocationRow> {
+  const zoneId = await insertM9FixtureZone();
+  const maxWeightKg =
+    locationType === 'pallet'
+      ? String(PALLET_MAX_WEIGHT_KG)
+      : locationType === 'shelf'
+        ? String(SHELF_MAX_WEIGHT_KG)
+        : String(OPERATIONAL_STORED_MAX_WEIGHT_KG);
+  const maxVolumeCbm =
+    locationType === 'pallet' ? String(PALLET_MAX_VOLUME_CBM) : locationType === 'shelf' ? String(SHELF_MAX_VOLUME_CBM) : null;
+  for (let attempt = 0; attempt < M9_FIXTURE_LOCATION_MAX_ATTEMPTS; attempt += 1) {
+    const code = randomM9FixtureLocationCode();
+    const result: QueryResult<LocationRow> = await pool.query(
+      `insert into wms.locations (warehouse_id, zone_id, code, location_type, max_weight_kg, max_volume_cbm, is_blocked)
+       values ($1, $2, $3, $4, $5::numeric, $6::numeric, false)
+       on conflict (warehouse_id, code) do nothing
+       returning id, code, location_type, max_weight_kg::text as max_weight_kg,
+                 max_volume_cbm::text as max_volume_cbm, is_blocked`,
+      [warehouseId, zoneId, code, locationType, maxWeightKg, maxVolumeCbm],
+    );
+    const row = result.rows[0];
+    if (row) {
+      fixtureLocationIds.push(row.id);
+      return row;
+    }
+  }
+  throw new Error(
+    `no free ${M9_FIXTURE_LOCATION_PREFIX}-xx-x fixture location code after ${M9_FIXTURE_LOCATION_MAX_ATTEMPTS} attempts`,
+  );
 }
 
 async function pickBlockedStructuralLocation(): Promise<LocationRow> {
@@ -347,6 +402,13 @@ beforeAll(async () => {
   const entityRow = entityResult.rows[0];
   if (!entityRow) throw new Error('fixture entity PST not found in platform.entities');
   entityId = entityRow.id;
+
+  const warehouseResult: QueryResult<{ id: string }> = await pool.query(
+    `select id from wms.warehouses where code = 'WH1'`,
+  );
+  const warehouseRow = warehouseResult.rows[0];
+  if (!warehouseRow) throw new Error('fixture warehouse WH1 not found in wms.warehouses');
+  warehouseId = warehouseRow.id;
 
   // WBS 0.6a part 2 (D-133): postMovement/postTransfer run through withContext as pgeos_app, so
   // wms.stock_movements' entity_scope RLS policy applies — same fixture pattern as
@@ -469,6 +531,12 @@ afterAll(async () => {
   }
   if (fixtureClientIdY) {
     await pool.query(`delete from sales.accounts where id = $1`, [fixtureClientIdY]);
+  }
+  if (fixtureLocationIds.length > 0) {
+    await pool.query(`delete from wms.locations where id = any($1::uuid[])`, [fixtureLocationIds]);
+  }
+  if (fixtureZoneIds.length > 0) {
+    await pool.query(`delete from wms.zones where id = any($1::uuid[])`, [fixtureZoneIds]);
   }
   await pool.query(`delete from identity.user_entities where user_id = $1`, [
     PERFORMED_BY_FIXTURE_UUID,

@@ -35,11 +35,24 @@ Feature: Process outbound order — create, ten-condition check, approve, cancel
     Then it is rejected with ContractExpiredError carrying i18n key
       "wms.outbound.check.contractExpired" and the expiry date, and status stays "draft"
 
+  Scenario: Condition 1 resolves the contract by client/entity when the order carries no contractId
+    Given CreateOutbound is called with no contractId and the client has an active priced contract
+    When RunOutboundChecks is called
+    Then condition 1 resolves the contract via the client and entity, does not fail, and status
+      becomes "checks_pending"
+
   Scenario: Condition 2 fails — credit hold moves the order to its own status, not a thrown error
     Given ACC-OUT is on credit hold with reason "overdue"
     When RunOutboundChecks is called
     Then status becomes "credit_rejected", credit_check_passed is false, credit_checked_at is set,
       and the reason is recorded (no error is thrown, condition 2 is checked last)
+
+  Scenario: Condition 2 — the credit_rejected result itself carries the i18n key and the reason
+    Given ACC-OUT is on credit hold with a reason
+    When RunOutboundChecks is called
+    Then the returned result carries i18nKey "wms.outbound.check.creditHold" and params.reason
+      equal to the account's hold reason; on a checks_pending outcome the result carries no i18n
+      key and no params
 
   Scenario: Condition 3 fails — insufficient stock
     Given the warehouse holds less quantity of the line's SKU than ordered
@@ -93,6 +106,13 @@ Feature: Process outbound order — create, ten-condition check, approve, cancel
     Then it is rejected with NoServicePriceError carrying i18n key
       "wms.outbound.check.noServicePrice" quoting "OF-01"
 
+  Scenario: Condition 9 fails when the only OF-01 price sits on a price list that is not in force
+    Given the client's contract's price list carries an OF-01 line but the price list is status
+      "draft", status "expired", or its valid_to has lapsed before the clock date
+    When RunOutboundChecks is called
+    Then it is rejected with NoServicePriceError carrying i18n key
+      "wms.outbound.check.noServicePrice" quoting "OF-01", and status stays "draft"
+
   Scenario: Condition 10 is never evaluated — documents the deliberate gap
     Given an order whose ordered quantity would exceed any plausible per-order limit
     When RunOutboundChecks is called
@@ -130,6 +150,20 @@ Feature: Process outbound order — create, ten-condition check, approve, cancel
   Scenario: CancelOutbound without a reason is rejected
     When CancelOutbound is called with no reason
     Then it is rejected before any write
+
+  Scenario: A failed ApproveOutbound writes ZERO outbox and ZERO audit rows (rollback proof)
+    Given ApproveOutbound is attempted with an illegal transition, without role WH_MGR, or with a
+      stale expectedVersion
+    When the command is called
+    Then it is rejected and writes zero platform.outbox rows and zero platform.audit_log rows for
+      that correlationId
+
+  Scenario: A failed CancelOutbound writes ZERO outbox and ZERO audit rows (rollback proof)
+    Given CancelOutbound is attempted with no reason, without role WH_MGR, with a stale
+      expectedVersion, or from an illegal source status
+    When the command is called
+    Then it is rejected and writes zero platform.outbox rows and zero platform.audit_log rows for
+      that correlationId
 
   Scenario: Cancel from an unreachable status is illegal (picking onward — 2.12's job)
     Given an order whose status is "picking" (no CANCEL edge exists yet — allocated/

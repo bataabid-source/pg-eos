@@ -1701,7 +1701,7 @@ describe('Scenario: RLS — a caller scoped to another entity cannot see or writ
 
 // --- Scenario: FEFO allocation picks the earliest-expiring lot first ----------------------------
 
-describe('Scenario: FEFO allocation picks the earliest-expiring lot first (WBS 2.11 part 2)', () => {
+describe('Scenario: FEFO allocation picks the earliest-expiring lot first', () => {
   async function runFefoScenario(lotQty: string): Promise<void> {
     const clientId = await insertClient();
     const priceListId = await insertPriceList();
@@ -1751,7 +1751,7 @@ describe('Scenario: FEFO allocation picks the earliest-expiring lot first (WBS 2
 
 // --- Scenario: FIFO allocation for a non-expiry SKU picks the oldest-moved lot first ------------
 
-describe('Scenario: FIFO allocation for a non-expiry SKU picks the oldest-moved lot first (WBS 2.11 part 2)', () => {
+describe('Scenario: FIFO allocation for a non-expiry SKU picks the oldest-moved lot first', () => {
   it('consumes the lot with the earliest last_movement_at first', async () => {
     const clientId = await insertClient();
     const priceListId = await insertPriceList();
@@ -1805,7 +1805,7 @@ describe('Scenario: FIFO allocation for a non-expiry SKU picks the oldest-moved 
 
 // --- Scenario: partial allocation when stock runs out mid-line -----------------------------------
 
-describe('Scenario: Partial allocation when stock runs out mid-line (WBS 2.11 part 2)', () => {
+describe('Scenario: Partial allocation when stock runs out mid-line', () => {
   async function runPartialScenario(available: string, ordered: string): Promise<{ orderId: string; lineId: string }> {
     const clientId = await insertClient();
     const priceListId = await insertPriceList();
@@ -1857,7 +1857,7 @@ describe('Scenario: Partial allocation when stock runs out mid-line (WBS 2.11 pa
 
 // --- Scenario: Allocate is illegal before approval ------------------------------------------------
 
-describe('Scenario: Allocate is illegal before approval (WBS 2.11 part 2)', () => {
+describe('Scenario: Allocate is illegal before approval (still draft or checks_pending)', () => {
   it('rejects with IllegalTransitionError when the order is still "draft"', async () => {
     const { orderId, version } = await buildValidScenario();
     await expect(
@@ -1876,10 +1876,10 @@ describe('Scenario: Allocate is illegal before approval (WBS 2.11 part 2)', () =
   });
 });
 
-// --- Scenario: Allocate version-lock + idempotency ------------------------------------------------
+// --- Scenario: Stale version is rejected on Allocate and the extended CancelOutbound --------------
 
-describe('Scenario: Allocate version-lock + idempotency (WBS 2.11 part 2)', () => {
-  it('rejects a stale expectedVersion with StaleVersionError, nothing written', async () => {
+describe('Scenario: Stale version is rejected on Allocate and the extended CancelOutbound', () => {
+  it('rejects a stale expectedVersion on Allocate with StaleVersionError, nothing written', async () => {
     const { orderId, version } = await buildApprovedOrder();
     const correlationId = nextCorrelationId();
     await expectFailedAttemptRolledBack(orderId, correlationId, StaleVersionError, () =>
@@ -1887,14 +1887,65 @@ describe('Scenario: Allocate version-lock + idempotency (WBS 2.11 part 2)', () =
     );
   });
 
+  it('rejects a stale expectedVersion on the extended CancelOutbound with StaleVersionError, nothing released, nothing written (allocated source)', async () => {
+    const { orderId, version, clientId, skuId, locationId } = await buildApprovedOrder();
+    const afterAllocate = await allocate(roleCtx, { orderId, expectedVersion: version, correlationId: nextCorrelationId() }, deps);
+    expect(afterAllocate.status).toBe('allocated');
+    const qtyAllocatedBefore = await getStockBalanceQtyAllocated(clientId, skuId, locationId, '');
+    const correlationId = nextCorrelationId();
+    await expectFailedAttemptRolledBack(orderId, correlationId, StaleVersionError, () =>
+      cancelOutbound(roleCtx, { orderId, expectedVersion: afterAllocate.version + 999, reason: 'test', correlationId }, deps),
+    );
+    // item 4 gap 2: the reserved lot's qty_allocated is genuinely unchanged, not just the order's
+    // own status/version/outbox/audit counts (already covered by expectFailedAttemptRolledBack).
+    expect(await getStockBalanceQtyAllocated(clientId, skuId, locationId, '')).toBe(qtyAllocatedBefore);
+  });
+
+  it('rejects a stale expectedVersion on the extended CancelOutbound with StaleVersionError, nothing released, nothing written (partially_allocated source)', async () => {
+    const clientId = await insertClient();
+    const priceListId = await insertPriceList();
+    const contractId = await insertContract(clientId, { priceListId });
+    const skuId = await insertSku(clientId);
+    const zoneId = await insertZone();
+    const locationId = await insertLocation(zoneId);
+    await seedStockViaReceipt({ clientId, skuId, locationId, qtyOnHand: '3.000' });
+    const { orderId } = await createDraftOutboundOrderFixture({
+      clientId,
+      contractId,
+      shipToName: 'x',
+      shipToPhone: 'x',
+      shipToAddress: 'x',
+      shipToArea: 'x',
+      lines: [{ skuId, qtyOrdered: '10.000' }],
+    });
+    const version = await forceApprove(orderId);
+    const afterAllocate = await allocate(roleCtx, { orderId, expectedVersion: version, correlationId: nextCorrelationId() }, deps);
+    expect(afterAllocate.status).toBe('partially_allocated');
+    const qtyAllocatedBefore = await getStockBalanceQtyAllocated(clientId, skuId, locationId, '');
+    const correlationId = nextCorrelationId();
+    await expectFailedAttemptRolledBack(orderId, correlationId, StaleVersionError, () =>
+      cancelOutbound(roleCtx, { orderId, expectedVersion: afterAllocate.version + 999, reason: 'test', correlationId }, deps),
+    );
+    expect(await getStockBalanceQtyAllocated(clientId, skuId, locationId, '')).toBe(qtyAllocatedBefore);
+  });
+});
+
+// --- Scenario: Idempotent replay and conflicting replay on Allocate --------------------------------
+
+describe('Scenario: Idempotent replay and conflicting replay on Allocate', () => {
   it('replays the stored result for the same key + same body', async () => {
     const { orderId, version } = await buildApprovedOrder();
     const idemKey = `allocate-replay-${randomUUID()}`;
-    const body = { orderId, expectedVersion: version, correlationId: nextCorrelationId() };
+    const correlationId = nextCorrelationId();
+    const body = { orderId, expectedVersion: version, correlationId };
     const first = await allocate(roleCtx, { ...body, idem: idemFor('allocate', idemKey, body) }, deps);
     const second = await allocate(roleCtx, { ...body, idem: idemFor('allocate', idemKey, body) }, deps);
     expect(second).toEqual(first);
     expect((await getOrder(orderId)).status).toBe('allocated');
+    // item 4 gap 3: no second write happened for this correlationId — outbox and audit rows stay
+    // at exactly one after the replay, not just `second toEqual first`.
+    expect(await anyOutboxCountForCorrelation(correlationId)).toBe(1);
+    expect(await auditCountForCorrelation(correlationId)).toBe(1);
   });
 
   it('rejects a conflicting replay (same key, different body) with IdempotencyConflictError', async () => {
@@ -1964,7 +2015,7 @@ describe('Scenario: Allocate writes outbox + audit, never a stock_movements row 
 
 // --- Scenario: GeneratePickList orders by position_no, not line order ----------------------------
 
-describe('Scenario: GeneratePickList orders by position_no (shortest path), not line order (WBS 2.11 part 2)', () => {
+describe('Scenario: GeneratePickList orders by position_no (shortest path), not line order', () => {
   it('returns lines ordered by location position_no ascending, ties broken by line_no', async () => {
     const clientId = await insertClient();
     const priceListId = await insertPriceList();
@@ -2016,7 +2067,7 @@ describe('Scenario: GeneratePickList orders by position_no (shortest path), not 
   });
 });
 
-describe('Scenario: GeneratePickList is illegal before allocation (WBS 2.11 part 2)', () => {
+describe('Scenario: GeneratePickList is illegal before allocation', () => {
   it('rejects with IllegalTransitionError when the order is "approved" but not yet allocated', async () => {
     const { orderId } = await buildApprovedOrder();
     await expect(
@@ -2027,7 +2078,7 @@ describe('Scenario: GeneratePickList is illegal before allocation (WBS 2.11 part
 
 // --- Scenario: Cancelling an allocated / partially_allocated order releases the reservation -------
 
-describe('Scenario: Cancelling an allocated order releases the reservation (WBS 2.11 part 2, Master decision 4)', () => {
+describe('Scenario: Cancelling an allocated order releases the reservation', () => {
   it('qty_allocated on the consumed lot returns to its pre-allocation value, status is "cancelled"', async () => {
     const clientId = await insertClient();
     const priceListId = await insertPriceList();
@@ -2501,21 +2552,9 @@ describe("Scenario: CancelOutbound's audit row records exactly the released lot 
   });
 });
 
-describe('Scenario: Stale version is rejected on the extended CancelOutbound (allocated source, WBS 2.11 part 2)', () => {
-  it('rejects a stale expectedVersion with StaleVersionError, nothing released, nothing written', async () => {
-    const { orderId, version } = await buildApprovedOrder();
-    const afterAllocate = await allocate(roleCtx, { orderId, expectedVersion: version, correlationId: nextCorrelationId() }, deps);
-    expect(afterAllocate.status).toBe('allocated');
-    const correlationId = nextCorrelationId();
-    await expectFailedAttemptRolledBack(orderId, correlationId, StaleVersionError, () =>
-      cancelOutbound(roleCtx, { orderId, expectedVersion: afterAllocate.version + 999, reason: 'test', correlationId }, deps),
-    );
-  });
-});
-
 // --- Scenario: RLS on Allocate ---------------------------------------------------------------------
 
-describe('Scenario: RLS — a caller scoped to another entity cannot see or allocate the order (WBS 2.11 part 2)', () => {
+describe('Scenario: RLS — a caller scoped to another entity cannot see or allocate the order', () => {
   it('READ isolation: an approved order is invisible to a pgeos_app query scoped to the outsider', async () => {
     const { orderId } = await buildApprovedOrder();
 

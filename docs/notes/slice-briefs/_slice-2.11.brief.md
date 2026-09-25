@@ -1,95 +1,62 @@
-# SLICE BRIEF — WBS 2.11 part 2 · Allocate, GeneratePickList, allocation-aware CancelOutbound
+# SLICE BRIEF — WBS 2.11 part 3 · describe/scenario naming + WBS 2.4 picker fix (closes WBS 2.11)
 
-Task: 2.11 part 2 — Allocate (FEFO/FIFO), GeneratePickList (shortest path), CancelOutbound extended to allocated/partially_allocated (release) — closes WBS 2.11      Lane: 1      Lock: `wms/process-outbound` (whole part) + `wms/receive-inbound` (test-files-only, item 0 below; released with this slice's commit)
-Owner: WH_MGR      Deps: 2.11 part 1 DONE (`a96b013`)      Worktree: `../pg-eos-lane-1`, branch `lane/1-2.11p2` (on origin/main `119f65d`)
-Model routing: pg-tester sonnet → pg-backend sonnet → pg-tester verify → pg-reviewer opus → pg-scribe sonnet. Lane session sonnet, effort medium — orchestrates only.
-Master-set bound for this slice: brief ≤ 8 files / 1,000 lines, **two review rounds max** (tighter than the usual budget) — a third FAIL escalates straight to the Master, no third worker round.
-No new use case, no `scripts/new-slice.sh` run — this extends the existing `process-outbound` tree (part 1) in place.
+Task: 2.11 part 3 — align `describe` names to their Gherkin scenario names (pg-reviewer round 3 finding, carried); fix the WBS 2.4 `pickWh1Location` shared-row bug in `location-limits.test.ts` (carried, same class as 2.10's own fix)      Lane: 1      Lock: `wms/process-outbound` (naming item) + `wms/integration` (picker item, tests-only, both already claimed)
+Owner: WH_MGR      Deps: 2.11 part 2 DONE (`156b042`)      Worktree: `../pg-eos-lane-1`, branch `lane/1-2.11p3` (on origin/main `156b042`)
+Model routing: pg-tester sonnet, ONE review round (Master's tight bound for this slice, D-186). Lane session sonnet, effort medium — orchestrates only. Both items are pg-tester-only — no domain/application/infrastructure/api file, no builder delegation this slice.
+No new use case, no migration. This is the smallest possible slice: two mechanical/test-only fixes that close out WBS 2.11.
 
-## Item 0 — 2.10 fixture fix (pg-tester, test-files-only, `wms/receive-inbound` lock)
-`modules/wms/tests/receive-inbound/receive-inbound.test.ts`'s `pickFreshWh1Location` currently does `select ... where w.code='WH1' and l.location_type=$1 and l.is_blocked=false and l.id <> all($2::uuid[]) order by l.code desc limit 1` — picking ANY unblocked WH1 location, descending by code, excluding only already-used-by-this-test ids. This is the SAME class of bug as part 1's own finding 1 (handlers.test.ts's `LIMIT 1` on a shared row): it can pick a real WH1 production location OR another test file's leftover fixture location, and `order by code desc limit 1` means an orphan location whose code sorts high (e.g. a stray `T9-*` row) is picked FIRST — pg-reviewer traced this to 2.9b round 5's 8 failures (7 location-ranking + 1 `ConfirmPutaway` `LocationLimitExceededError`, both from `maxWeightKg: null` on locations this picker handed out and count mismatches from orphaned rows). Fix: this function must create its OWN dedicated location under a distinct code prefix (`M9-` block — the same block part 1's own `handlers.test.ts`/`process-outbound.test.ts` fixtures now use, already proven collision-free under concurrent runs) instead of selecting an existing row, mirroring part 1's own fix for the identical class of bug. Write ONLY `modules/wms/tests/receive-inbound/receive-inbound.test.ts` — no other receive-inbound file, no domain/application/api file. Verify: `PGHOST=localhost PGUSER=postgres PGDATABASE=pgeos PG_APP_USER=pgeos_app pnpm --filter @pg-eos/wms test -- receive-inbound` full pass, twice in a row (collision check), before moving to item 1+.
+## Item 1 — describe/scenario name alignment (`wms/process-outbound`)
+Three `describe` blocks in `modules/wms/tests/process-outbound/process-outbound.test.ts` use a shortened/paraphrased name instead of their exact matching Gherkin scenario title in `process-outbound.feature`. pg-reviewer's round 3 (opus, Master) found these as the ONE low-severity carry-forward item — CONFIRM the exact three before editing (the line numbers below are approximate, re-locate by content):
+- `~:1860` — `describe('Scenario: Allocate is illegal before approval (WBS 2.11 part 2)', ...)` should read exactly `describe('Scenario: Allocate is illegal before approval (still draft or checks_pending)', ...)` — feature line 228.
+- `~:1881` — `describe('Scenario: Allocate version-lock + idempotency (WBS 2.11 part 2)', ...)` currently bundles what the feature file splits into TWO separate scenarios (feature line 262 "Stale version is rejected on Allocate and the extended CancelOutbound", feature line 267 "Idempotent replay and conflicting replay on Allocate"). Decide and apply the correct fix: either split this one `describe` into two matching the feature file exactly, or rename it precisely if it's genuinely one combined scenario the feature file itself should also state that way (do NOT edit the .feature file to match the test — the feature is the source scenario, the test aligns to it, per doc 36 BUILD METHOD's "scenario first"). Read both files' full surrounding context before deciding; if genuinely ambiguous, note your reasoning in the REPORT rather than guessing silently.
+- `~:2504` — `describe('Scenario: Stale version is rejected on the extended CancelOutbound (allocated source, WBS 2.11 part 2)', ...)` should read exactly `describe('Scenario: Stale version is rejected on Allocate and the extended CancelOutbound', ...)` — feature line 262 (the SAME feature scenario as the one item 1861 above may also need to reference — do not create two `describe` blocks both claiming the same scenario name; if the feature scenario's assertions are genuinely split across two existing `it`-level or `describe`-level groups in the test file, consolidate or cross-reference correctly, your call, documented).
 
-## Item 1+ — Allocate, GeneratePickList, CancelOutbound extension (pg-backend + pg-tester, `wms/process-outbound` lock)
+No test LOGIC changes — this is a naming/organization fix only. Do not weaken, remove, or alter any assertion. If while fixing this you find the *content* doesn't actually match the scenario's Given/When/Then (not just the label), STOP and report — that would be a real test defect requiring its own decision, not a silent rename.
 
-### Scope taken by the lane (SCOPE DEFAULTS — recorded in CHANGELOG)
-- **Allocation is a soft reservation, not a physical movement** (unchanged from the original, discarded 32-file brief's own decision, re-confirmed against the D-blueprint this session): `Allocate` increments `wms.stock_balance.qty_allocated` and sets `order_lines.location_id`/`batch_no`; it writes NO `wms.stock_movements` row — the doc's own flow places the `pick` movement type at the PICKING step (2.12), not at allocation.
-- **Allocation rule (Master ruling, verbatim)**: "a line is allocated from a single lot. FEFO/FIFO picks the first lot whose qty_available covers the line; if none covers it, the best single lot supplies min(available, ordered) → `partially_allocated` with the `insufficient_stock` variance constant; if no lot has stock the line stays unallocated; a line is never split across two lots." `order_lines.location_id`/`batch_no` always records that single lot (the DDL gives one `location_id`/`batch_no` per line). Per-lot split is a G-01 item — SCR-WMS-OUT-01.
-- **"Shortest path" pick sequencing reuses `wms.locations.position_no`** — the same proximity proxy 2.9/2.10's `SuggestLocation` already uses, no routing-graph invention.
-- **CancelOutbound's release path**: cancelling an `allocated`/`partially_allocated` order must not leak a permanent reservation — for every order line that consumed a lot (fully or partially allocated; a line left unallocated has nothing to release), that single lot's `qty_allocated` is decremented back, same rows, same transaction, before the status flips to `cancelled`.
+## Item 2 — WBS 2.4 `pickWh1Location` fix (`wms/integration`, tests-only)
+`modules/wms/tests/integration/location-limits.test.ts`'s own `pickWh1Location` helper (around line 213-231, same file class as WBS 2.4) has the identical bug class already fixed twice this session (2.10's `pickFreshWh1Location`, 2.11 part 2's `nextFixtureLocationCode`): `order by l.code desc limit 1` on a query with no exclusivity beyond `is_blocked=false`, picking ANY unblocked location — real production data or another test's leftover fixture row — with descending-code order meaning a stray high-sorting orphan gets picked first. This is confirmed as a real contributor to the shared-DB-pollution failures in this file (a leaked no-weight-limit location sorting first defeats the over-weight assertions).
 
-## Read ONLY (workers) — kept under the 8-file / 1,000-line budget
+Fix: apply the SAME collision-safe pattern already established twice this session — create the function's OWN dedicated location under a distinct code prefix (the `M9-` block, random code + `on conflict (warehouse_id, code) do nothing`, retry on conflict) instead of selecting an existing row. Mirror `receive-inbound.test.ts`'s own `insertLocationInZone`/`randomM9FixtureLocationCode()` helpers (same pattern, can view directly, not counted against budget below) or `process-outbound.test.ts`'s own M9 fixture helpers — whichever is closer in shape to this file's existing fixture-tracking style.
+
+Write ONLY `modules/wms/tests/integration/location-limits.test.ts` in this item — no other file.
+
+## Read ONLY (workers) — kept under the Master's tight 8-file / 1,000-line budget
 1. `CLAUDE.md`
 2. `.claude/briefs/wms.brief.md`
-3. `docs/package/D-blueprints/03-Operations-Warehouse.md` lines 277-291 (§4.2 flow table rows 3-4b — approved → allocated/partially_allocated, verbatim, already quoted below)
-4. `docs/package/40-Build-Specification-EN.md` lines 260-260 (the `Allocate (FEFO/FIFO)` / `GeneratePickList (shortest path)` command names, verbatim)
-5. `database/schema/01-Data-Model.sql` lines 717-728 (`wms.stock_balance`, verbatim DDL), 648-680 (`wms.skus`, verbatim DDL), 630-645 (`wms.locations`, verbatim DDL)
-6. `modules/wms/tests/receive-inbound/receive-inbound.test.ts` lines 260-330 (item 0's `pickFreshWh1Location` plus the `insertZone`/`insertLocation`-shaped M9 fixture helpers it must mirror, from this same file's neighbourhood) — pg-tester (item 0) only
+3. `modules/wms/tests/process-outbound/process-outbound.feature` lines 226-270 (the exact scenario titles item 1 must match, verbatim, already quoted above)
 
 ## Not separately read (viewed directly when editing, not a precedent study)
-`modules/wms/domain/process-outbound/{machine.ts, errors.ts}`, `modules/wms/application/process-outbound/{ports.ts, cancel-outbound.ts, index.ts}`, `modules/wms/infrastructure/process-outbound/repository.ts`, `modules/wms/api/process-outbound/{handlers.ts, composition.ts}`, `packages/contracts/wms/process-outbound.ts` — every file this slice extends is already this lock's own reviewed code from part 1; pg-backend views each directly before editing it, matching the SAME field/error/i18n conventions those files already established (version-lock, `withIdempotentContext`, outbox+audit same transaction, `Quantity` decimal arithmetic — never a raw `Number()` on a quantity, per part 1's own fix-round finding 7). `modules/wms/tests/process-outbound/*` (all four existing test files) — pg-tester extends these directly, same reasoning.
+`modules/wms/tests/process-outbound/process-outbound.test.ts` (item 1, edited directly) · `modules/wms/tests/integration/location-limits.test.ts` (item 2, edited directly) · `modules/wms/tests/receive-inbound/receive-inbound.test.ts` and `modules/wms/tests/process-outbound/process-outbound.test.ts`'s own M9 fixture helpers (item 2's precedent, this session's own already-reviewed code, view directly).
 
 ## Write ONLY
-- pg-tester: `modules/wms/tests/receive-inbound/receive-inbound.test.ts` (item 0 ONLY) · `modules/wms/tests/process-outbound/*` (item 1+, extend existing files, do not weaken any of the 126 existing passing tests).
-- pg-backend: `modules/wms/domain/process-outbound/{machine.ts, errors.ts, invariants.ts}` · `modules/wms/application/process-outbound/{ports.ts, index.ts, allocate.ts, generate-pick-list.ts, cancel-outbound.ts}` (allocate.ts/generate-pick-list.ts are NEW files, cancel-outbound.ts is EDITED) · `modules/wms/infrastructure/process-outbound/repository.ts` · `modules/wms/api/process-outbound/{handlers.ts, composition.ts}` · `packages/contracts/wms/process-outbound.ts` (add `AllocateInputSchema`, `GeneratePickListInputSchema` only — the four part-1 schemas stay unchanged).
-Forbidden for every worker: `database/schema/**` (no migration this part — `qty_allocated`/`position_no`/`picking_policy` all already exist), `packages/**` other than the one named contract file, `packages/events/catalog.ts`, other modules, any golden-slice `receive-inbound/*` file other than item 0's one named test file, `docs/**` other than this brief, `scripts/**`, `CLAUDE.md`, `.claude/**`.
+- pg-tester: `modules/wms/tests/process-outbound/process-outbound.test.ts` (items 1/3/4) · `modules/wms/tests/process-outbound/process-outbound.feature` (item 1's second half only — ADD the Given/When/Then for a `describe` that names a scenario the feature file is missing, describing the tested behaviour verbatim, inventing nothing; amended into Write ONLY by the Master's round-2 ruling) · `modules/wms/tests/process-outbound/handlers.test.ts` and `invariants.property.test.ts` and `process-outbound-machine.unit.test.ts` (item 4, afterAll leak-proofing only, if any of these also write process-outbound fixtures) · `modules/wms/tests/integration/location-limits.test.ts` (item 2, `pickWh1Location` fix only, already done, DO NOT re-touch this round unless item 4's leak-proofing also applies here).
+Forbidden for every worker: any domain/application/infrastructure/api file, `database/schema/**`, `packages/**`, other modules, `docs/**`, `scripts/**`, `CLAUDE.md`, `.claude/**`.
+
+## Round 2 (final) — Master ruling after round 1 FAIL(5)
+Round 1 confirmed items 1 (the 3 named renames) and 2 (the 2.4 picker) correct, but pg-reviewer applied the brief's own acceptance line ("every describe name matches its Gherkin scenario exactly") literally and found 14 more mismatches, plus 3 pre-existing content gaps in the stale-version/idempotency-on-CancelOutbound tests. Master ruling: full sweep, this round is FINAL (no round 3 — a FAIL commits the PASS subset, the rest becomes 2.11 part 4).
+
+### Item 3 — remaining describe/scenario mismatches (full sweep)
+- **7 describes carrying an extra suffix not in the feature file** (e.g. "(WBS 2.11 part 2)", "(… Master decision 2/4)") at process-outbound.test.ts lines ~1704, 1754, 1808, 1981, 2033, 2044, 2520 (re-locate by content, line numbers approximate) — rename each to its EXACT matching feature scenario title, no suffix.
+- **7 describes naming a scenario that does not exist in process-outbound.feature** at lines ~917, 968, 1054, 1329, 1518, 1546, 1929 (re-locate by content) — e.g. "Condition 1 fails — the client has no active contract at all", "A failed ApproveOutbound writes ZERO outbox and ZERO audit rows (rollback proof)". For EACH: add the matching `Scenario:` block to process-outbound.feature, Given/When/Then, describing exactly the behavior the existing test already asserts — never invent a NEW behavior or assertion, the Gherkin must describe what the test already does. Do not rename these away from "Scenario:" — per the Master's ruling, a genuine behavioral test belongs in the scenario list.
+
+### Item 4 — three pre-existing content gaps (process-outbound.test.ts, the CancelOutbound stale-version/idempotency describes)
+- Feature scenario "Stale version is rejected on Allocate and the extended CancelOutbound" says "(from allocated/partially_allocated)" — add a stale-version test for the `partially_allocated` cancel source (currently only `allocated` is tested).
+- The "nothing released" assertion (feature: CancelOutbound's stale-version rejection) currently only checks order status/version/outbox/audit counts — add an assertion that the reserved lot's `qty_allocated` is genuinely unchanged after the rejected cancel attempt.
+- The idempotent-replay-on-Allocate test currently only checks `second toEqual first` and status — add an assertion that `platform.outbox`/`platform.audit_log` row counts for this correlation stay at exactly one after the replay (no second write).
+
+### Item 5 — afterAll leak-proofing (Master's separate addition, same locks)
+The shared DB has grown from 35/32/30 `_procout_*` accounts/price-lists/zones (this afternoon) to 106/102/96 now — confirms process-outbound's own test suites are leaking fixtures despite existing afterAll blocks. Make every `afterAll` in `modules/wms/tests/process-outbound/*.test.ts` (all four files — check each for whether it creates DB fixtures at all; unit-only files like the machine test may not need this) delete its own fixtures in FK-safe order, wrapped in try/finally, keyed strictly by the run's OWN prefix/tracked-id arrays (never a blanket prefix-wide delete — D-183). Prove it: query the three prefixes' row counts before and after TWO consecutive full runs of the process-outbound suite files — counts must be identical before/after each run (this run's own leftover-free, not the pre-existing pollution which stays untouched, D-183). Report the exact before/after numbers.
+
+### Pre-submission gate (before requesting round 2 review)
+`PGHOST=localhost PGUSER=postgres PGDATABASE=pgeos PG_APP_USER=pgeos_app pnpm --filter @pg-eos/wms typecheck` · `npx eslint modules/wms/tests/process-outbound modules/wms/tests/integration --max-warnings=0` · `PGHOST=localhost PGUSER=postgres PGDATABASE=pgeos PG_APP_USER=pgeos_app pnpm --filter @pg-eos/wms test -- process-outbound` run TWICE (both green, and the leak-proof row counts identical between the two runs).
 
 ## Acceptance criterion (doc 38 row 2.11, verbatim — this closes the row)
-"Each of ten conditions has a failing test with the correct message" — nine of ten already met (part 1); condition 10 stays explicitly BLOCKED (no schema source, unchanged). This part's own delivery is judged against doc 40's command list: `Allocate` and `GeneratePickList` exist, are tested, and `CancelOutbound` correctly releases an allocation.
-Gates: `pnpm --filter @pg-eos/wms typecheck && lint` green · **FULL `pnpm --filter @pg-eos/wms test` (unfiltered module suite, not `-- process-outbound`) green — mandatory this slice, per the CHANGELOG process note part 1's own regression added** · `pnpm guards:run` green (re-check G1 before the first run — shared-DB pollution is GM/Master-owned cleanup, not this slice's job to fix, but a red G1 from LEAKED rows this slice's own fixtures cause is this slice's job) · pg-reviewer PASS (two rounds max this slice).
-
-## D-blueprint 03 §4.2 rows 3-4b (verbatim, already used to derive the Master decisions below)
-| # | من يفعلها | ما الذي يتغيّر في القاعدة | الحدث المنشور |
-|---|---|---|---|
-| 3 | `WH_MGR` | `status='approved'` | `wms.outbound.approved` ← قائمة التقاط |
-| 4 | النظام + `WH_SUP` | **FEFO** للأصناف ذات الصلاحية · **FIFO** لغيرها · `stock_balance.qty_allocated` يرتفع · `order_lines.location_id` | `wms.outbound.allocated` |
-| 4ب | النظام | نجاح جزئي ⇒ `status='partially_allocated'` · السطر `order_lines.status='partial'` · لا يُقفل تلقائياً · ينبّه المشرف | `wms.outbound.partially_allocated` |
-
-## Master decisions the workers copy (not re-derive)
-1. **Machine edges added this part**: `approved --ALLOCATE_FULL--> allocated`, `approved --ALLOCATE_PARTIAL--> partially_allocated`, `{allocated, partially_allocated} --CANCEL--> cancelled` (extends the existing `{draft, checks_pending, credit_rejected, approved} --CANCEL--> cancelled` set from part 1 — CancelOutbound now legal from six statuses total, not four). Every other status (`picking`…`delivered`) still has no producing edge — 2.12's job.
-2. **`Allocate`** (`approved → allocated` or `partially_allocated`): for each order line, select candidate `stock_balance` rows for `(client_id=order.clientId, sku_id=line.skuId)` in this warehouse with `qty_available > 0`, ordered: `picking_policy='FEFO'` → `expiry_date` ascending (nulls last); `'FIFO'` → `stock_balance.last_movement_at` ascending (oldest first, no separate "received_at" column exists, recorded default); `'LIFO'` → reverse of FIFO. **Allocation rule (Master ruling, verbatim)**: "a line is allocated from a single lot. FEFO/FIFO picks the first lot whose qty_available covers the line; if none covers it, the best single lot supplies min(available, ordered) → `partially_allocated` with the `insufficient_stock` variance constant; if no lot has stock the line stays unallocated; a line is never split across two lots." `for update` lock the consumed row; increment its `qty_allocated` by the amount taken; set `order_lines.location_id`/`batch_no` to that lot's values. Per-lot split is a G-01 item — SCR-WMS-OUT-01. Line status: `'complete'` if fully satisfied, `'partial'` if partially, stays `'open'` if nothing allocated. Order status: `'allocated'` if every line `'complete'`, else `'partially_allocated'`. One outbox event `wms.outbound.allocated` OR `wms.outbound.partially_allocated` (aggregate `wms.outbound_orders`) + one audit row, same correlation_id, same transaction. No `stock_movements` row (Scope). Version-lock + Idempotency-Key as every other command in this use case.
-3. **`GeneratePickList`** (read-only, no lock, `allocated`/`partially_allocated` only — else `IllegalTransitionError`): returns every allocated `order_lines` row (this order only) joined to its `location`'s `position_no`, sorted by `position_no` ascending (shortest-path proxy, Scope), ties broken by `line_no`. No Idempotency-Key (read-only, no state change).
-4. **`CancelOutbound` extension**: unchanged role/reason-required contract from part 1; the two new source statuses (`allocated`, `partially_allocated`) trigger a release step BEFORE the status flip — for every `order_lines` row on this order with a non-null `location_id`/`batch_no` (i.e. each line's own single consumed lot from `Allocate`, per the single-lot rule above — a line that stayed unallocated has neither `location_id` nor `batch_no` and is skipped), decrement that `stock_balance` row's `qty_allocated` back by the amount this line consumed (same transaction, `for update` locked) — same shape as `Allocate`'s own lot-locking, in reverse. One outbox event `wms.outbound.cancelled` (already exists) + one audit row.
-5. **Actor**: always `ctx.userId`. **Idempotency**: `Allocate` and `CancelOutbound` build `IdempotencyInput`; `GeneratePickList` does not (read-only).
-6. **Errors → Problem statuses**: unchanged part-1 convention — `StaleVersionError`/`IdempotencyConflictError` → 409, every other typed domain error → 422, unknown → 500.
-7. **`Quantity` decimal arithmetic everywhere a quantity is summed or compared** (part 1's own fix-round finding 7 — never a raw `Number()` on a `qty_*` string).
-
-## Scenario (Gherkin — pg-tester adds to the existing `process-outbound.feature`/`process-outbound.test.ts`, does not remove any of the 126 existing tests)
-```gherkin
-  Scenario: FEFO allocation picks the earliest-expiring lot first
-    Given two lots of the same SKU with different expiry dates, picking_policy 'FEFO'
-    When Allocate is called on an approved order
-    Then the earlier-expiring lot is the single lot consumed (per the single-lot rule), order_lines
-      gets that lot's location/batch, status is "allocated"
-
-  Scenario: FIFO allocation for a non-expiry SKU picks the oldest-moved lot first
-
-  Scenario: Partial allocation when stock runs out mid-line
-    Then status is "partially_allocated", the line is "partial", the order is not auto-closed
-
-  Scenario: Allocate is illegal before approval (still draft or checks_pending)
-
-  Scenario: GeneratePickList orders by position_no (shortest path), not line order
-  Scenario: GeneratePickList is illegal before allocation
-
-  Scenario: Cancelling an allocated order releases the reservation
-    When CancelOutbound is called on an allocated order
-    Then qty_allocated on each line's single consumed lot returns to its pre-allocation value,
-      status is "cancelled"
-
-  Scenario: Cancelling a partially_allocated order releases the lots consumed by lines that were
-    allocated (fully or partially), and leaves untouched any line that stayed unallocated (no lot consumed)
-  Scenario: Stale version is rejected on Allocate and the extended CancelOutbound
-  Scenario: Idempotent replay and conflicting replay on Allocate
-  Scenario: RLS — a caller scoped to another entity cannot see or allocate the order
-```
+"Each of ten conditions has a failing test with the correct message" — already met (part 1). This part's own delivery: every `describe` name in process-outbound.test.ts matches its Gherkin scenario exactly, and location-limits.test.ts's `pickWh1Location` no longer selects a shared row.
+Gates: `pnpm --filter @pg-eos/wms typecheck && lint` (root eslint workaround) green · `PGHOST=localhost PGUSER=postgres PGDATABASE=pgeos PG_APP_USER=pgeos_app pnpm --filter @pg-eos/wms test -- process-outbound` green (178/178, no count change, pure rename) · `PGHOST=localhost PGUSER=postgres PGDATABASE=pgeos PG_APP_USER=pgeos_app pnpm --filter @pg-eos/wms test -- location-limits` green, TWICE in a row (collision check, same discipline as item 0's earlier fixes) · full unfiltered `pnpm --filter @pg-eos/wms test` — the location-limits.test.ts failures from shared-DB pollution should now be gone (or reduced) since its own picker no longer contributes to the collision; the location-codes-wh1/wh1-setup failures remain known pre-existing pollution, non-blocking per the Master's standing ruling · guards green (re-check G1 first) · pg-reviewer PASS, ONE round.
 
 ## Deliver
-- `modules/wms/domain/process-outbound/{machine.ts, errors.ts, invariants.ts}` (edited)
-- `modules/wms/application/process-outbound/{ports.ts, index.ts, allocate.ts, generate-pick-list.ts, cancel-outbound.ts}` (allocate.ts, generate-pick-list.ts new; rest edited)
-- `modules/wms/infrastructure/process-outbound/repository.ts` (edited)
-- `modules/wms/api/process-outbound/{handlers.ts, composition.ts}` (edited)
-- `packages/contracts/wms/process-outbound.ts` (edited — two new schemas)
-- `modules/wms/tests/process-outbound/*` (edited/extended) · `modules/wms/tests/receive-inbound/receive-inbound.test.ts` (item 0, edited)
+- `modules/wms/tests/process-outbound/process-outbound.test.ts` (edited — 3 describe names/structure)
+- `modules/wms/tests/integration/location-limits.test.ts` (edited — pickWh1Location fix)
 
-Migration number: none — every column this part needs (`qty_allocated`, `position_no`, `picking_policy`, `last_movement_at`) already exists.
-Stop-and-ask if: any table/column/rule not in 01/13/13B/019/40 — file under G-01; never invent.
+Migration number: none.
+Stop-and-ask if: item 1's content genuinely doesn't match its scenario (not just the label) — report, don't silently rename around a real defect.
