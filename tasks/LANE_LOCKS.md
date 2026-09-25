@@ -25,7 +25,8 @@ Not a lock table — deliberately not a `|`-prefixed markdown table, since
 `.claude/hooks/lane-guard.sh` parses every such line in this file as a
 module-lock row (see Rules below). One line per migration, newest first:
 
-- `0018` — next free number.
+- `0019` — next free number.
+- `0018_2_inventory-counts-version.sql` — lane 2, task 2.13 (`wms.inventory_counts.version` + classification row; shape of 0008/0013), issued by the Master 2026-09-25 on MIGRATION-REQUEST-2 (pre-migration review APPROVED WITH CHANGES, 3 comment-only findings applied; applied and verified by the lane).
 - `0017_1_quotes-version.sql` — lane 1, task 1.6 (`sales.quotes.version` + classification row; shape of 0008/0013), issued by the Master 2026-09-25 on MIGRATION-REQUEST-1 (pre-migration review to be run by the lane before the file is written, same as 1.2).
 - `0016_2_shifts-groups-assignments.sql` — lane 2, task 5.5a part 2 (`hr.shifts` / `hr.shift_groups` / `hr.shift_assignments`, exclusion constraint + composite FK), issued by the Master on MIGRATION-REQUEST-2, applied and verified by the lane (35/35 columns classified, RLS active, exclusion + FK functionally tested).
 - `0015_2_platform-sites.sql` — lane 2, task 5.5a part 1 (`platform.sites` + `hr.employees.default_site_id` FK + `platform.thresholds` `att.geofence_radius_m=500`, SCR-HR-SHIFT-01 §2.4 / D-144 item 4), issued by the Master 2026-09-24 on MIGRATION-REQUEST-2 (pre-migration review APPROVED WITH CHANGES, 7 findings applied).
