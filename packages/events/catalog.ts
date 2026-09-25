@@ -63,5 +63,12 @@ export const EVENT_CATALOG = [
   // WBS 2.9b (SCR-WMS-INB-01 §7): written once per CancelInbound; carries the now-mandatory
   // `cancelReason` to the client. Aggregate `wms.inbound_orders`.
   'wms.inbound.cancelled',
+  // WBS 2.11 part 1 (D-blueprints 10 §fulfilment + 03-Operations-Warehouse): outbound order life
+  // cycle up to approval. Aggregate `wms.outbound_orders`. Added by the Master on lane 1's request.
+  'wms.outbound.drafted',
+  'wms.outbound.checks_started',
+  'wms.outbound.credit_rejected',
+  'wms.outbound.approved',
+  'wms.outbound.cancelled',
 ] as const;
 export type CatalogedEventType = (typeof EVENT_CATALOG)[number];
