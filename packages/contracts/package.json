@@ -77,6 +77,10 @@
     "./imile/pull-shipments": {
       "types": "./dist/imile/pull-shipments.d.ts",
       "default": "./dist/imile/pull-shipments.js"
+    },
+    "./wms/process-outbound": {
+      "types": "./dist/wms/process-outbound.d.ts",
+      "default": "./dist/wms/process-outbound.js"
     }
   },
   "scripts": {
