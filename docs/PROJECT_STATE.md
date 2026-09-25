@@ -5,25 +5,25 @@
 | field | value |
 |---|---|
 | Phase | 0 CLOSED · 1 Commercial Core (done except 1.11, BLOCKED D-178) · 2 Warehouse (9/19) · pilot-first (D-127): seed 019 + synthetic data. Doc 38 **v4.6 (154 rows, D-187/ADR-0004)**. |
-| Current task | Lane 3: **3.1 parts 1+2 both DONE-in-part @ `e3137d5` (part 1) / `<this commit>` (part 2)** — `RegisterVehicle` PASS(0 open round 2); `AssertVehicleAssignable` (the real INV-C4-1 gate) PASS(1 finding, 2 rounds). Judgment call (not silent either way): the gate mechanism itself is complete, tested and proven (unit + integration + a genuine security regression test) — functionally complete for THIS row's own scope (`tms.vehicles` + documents + the gate command) — but it is not yet CALLED by any real assignment write path, since the module that owns that call (delivery/TMS) doesn't exist yet (G-01, `tasks/backlog/MIGRATION-REQUEST-3.md`). `fleet` lock **released** (both use cases built/tested/reviewed; the wiring is explicitly a future slice's job). Lane 1: 2.11 parts 1–4 DONE (`a96b013`,`156b042`,`f30f7c7`,`3fadbde`); row IN PROGRESS — condition 10 BLOCKED (G-01 SCR-WMS-OUT-02) → 2.12. Lane 2: 2.9b DONE @ `716bf8e` → 4.2 `billing.billable_events` (D-186) brief+RED only until wave 1 merges; then accounting core 4.1a→4.1b→4.19→4.20 (SCR-ACC-01, A2). |
-| Golden slice / tier / schema / session model | 2.9 ACCEPTED (`.golden-slice-accepted`, `scripts/new-slice.sh` active) · Pilot Tier 0 = local Docker `postgres:16` (D-129), Oracle DEFERRED-POST-PILOT · migrations 0001–0025 applied (0022 withdrawn), 0026 issued to lane 1 (`sales.contract_sku_limits`, D-189), next free **0027** · D-174/D-180 session model: lane sessions sonnet/medium, Master sonnet/medium (opus only ADR/security/D-117), pg-reviewer opus, no haiku |
+| Current task | Lane 1: **WBS 2.11 DONE** — all 5 parts (`a96b013`,`156b042`,`f30f7c7`,`3fadbde`,`<this commit>`); part 5 closed condition 10 (D-189, per-contract/per-SKU limit, migration 0026, PASS(3 findings, 2 rounds)) — doc-38 row 2.11 fully met, all ten conditions. Lane 1 next: **2.12** (pick → check → pack → load), same `wms/process-outbound` lock. Lane 3: **3.1 parts 1+2 both DONE-in-part @ `e3137d5` (part 1) / `8d2ead9` (part 2)** — `RegisterVehicle` PASS(0 open round 2); `AssertVehicleAssignable` (the real INV-C4-1 gate) PASS(1 finding, 2 rounds). Judgment call (not silent either way): the gate mechanism itself is complete, tested and proven (unit + integration + a genuine security regression test) — functionally complete for THIS row's own scope (`tms.vehicles` + documents + the gate command) — but it is not yet CALLED by any real assignment write path, since the module that owns that call (delivery/TMS) doesn't exist yet (G-01, `tasks/backlog/MIGRATION-REQUEST-3.md`). `fleet` lock **released** (both use cases built/tested/reviewed; the wiring is explicitly a future slice's job). Lane 2: 2.9b DONE @ `716bf8e` → 4.2 `billing.billable_events` (D-186) brief+RED only until wave 1 merges; then accounting core 4.1a→4.1b→4.19→4.20 (SCR-ACC-01, A2). P1 governance cleanup landed (`af2e9e4`); P2 CLAUDE.md consolidation landed (`2b09d8b`). |
+| Golden slice / tier / schema / session model | 2.9 ACCEPTED (`.golden-slice-accepted`, `scripts/new-slice.sh` active) · Pilot Tier 0 = local Docker `postgres:16` (D-129), Oracle DEFERRED-POST-PILOT · migrations 0001–0026 applied (0022 withdrawn), next free **0027** · D-174/D-180 session model: lane sessions sonnet/medium, Master sonnet/medium (opus only ADR/security/D-117), pg-reviewer opus, no haiku |
 
 ## Lanes
 
 | lane | task | module lock | worktree |
 |---|---|---|---|
-| 1 | 2.12 pick → check → pack → load (2.11 row blocked only on condition 10, G-01 SCR-WMS-OUT-02) | `wms/process-outbound` + `wms/receive-inbound` | `../pg-eos-lane-1` |
+| 1 | 2.12 pick → check (checker ≠ picker) → pack → load (2.11 DONE, all ten conditions) | `wms/process-outbound` + `wms/receive-inbound` | `../pg-eos-lane-1` |
 | 2 | 4.2 `billing.billable_events` (D-186) — brief+RED until wave 1 (P1, P7) | `billing` | `../pg-eos-lane-2` |
 | 3 | 3.1 parts 1+2 DONE-in-part; `fleet` released; awaiting Master's next assignment (3.4, once 2.12 DONE) | — | `../pg-eos-lane-3` |
 
 ## Last 5 DONE (newest first)
 | task | commit |
 |---|---|
-| 3.1 part 2 — `AssertVehicleAssignable`, the real INV-C4-1 gate (lane 3), DONE-in-part — PASS(1 finding, 2 rounds); gate mechanism complete/tested/proven, not yet wired to a real assignment write path (future delivery-module slice) | `<this commit>` |
+| 2.11 part 5 — condition 10, per-contract/per-SKU order limit, migration 0026 (lane 1) — **WBS 2.11 DONE, all ten conditions** — PASS(3 findings, 2 rounds) | `<this commit>` |
+| 3.1 part 2 — `AssertVehicleAssignable`, the real INV-C4-1 gate (lane 3), DONE-in-part — PASS(1 finding, 2 rounds); gate mechanism complete/tested/proven, not yet wired to a real assignment write path (future delivery-module slice) | `8d2ead9` |
 | 3.1 part 1 — register vehicle + documents, no migration (lane 3), DONE-in-part — register-vehicle PASS(0 open round 2) | `e3137d5` |
 | 2.11 part 4 — the two deferred describe/scenario naming gaps (lane 1), DONE-in-part — PASS(0) | `3fadbde` |
 | 2.11 part 3 — describe/Gherkin naming sweep + 2.4 picker fix + fixture leak-proofing (lane 1), DONE-in-part | `f30f7c7` |
-| 2.11 part 2 — outbound allocation: Allocate/GeneratePickList/cancel-release, single-lot FEFO/FIFO (lane 1), DONE-in-part | `156b042` |
 
 ## Blockers
 
@@ -34,6 +34,6 @@
 
 ## Next 3 tasks
 
-1. Lane 1: 2.12 (pick → check → pack → load) in `wms/process-outbound`; 2.11 condition 10 awaits G-01 SCR-WMS-OUT-02
+1. Lane 1: 2.12 (pick → check → pack → load) in `wms/process-outbound` — 2.11 DONE, dependency satisfied
 2. Lane 2: 4.2 (`billing.billable_events`) → accounting core 4.1a → 4.1b → 4.19 → 4.20 (ADR-0004)
 3. Lane 3: awaiting the Master's next task assignment — 3.4 (delivery tasks/routes/POD) once 2.12 is DONE, per the earlier Next-3-tasks note

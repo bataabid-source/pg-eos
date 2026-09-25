@@ -1,6 +1,6 @@
 // modules/wms/domain/process-outbound/invariants.ts — WBS 2.11 part 1, fix round 1 finding 11.
 //
-// domain/ layer: pure decision logic for RunOutboundChecks' nine conditions — no I/O, no Date, no
+// domain/ layer: pure decision logic for RunOutboundChecks' ten conditions — no I/O, no Date, no
 // Math.random() (CLAUDE.md · AGENT CONSTRAINTS). Given data the application layer
 // (../../application/process-outbound/run-outbound-checks.ts) already fetched via
 // ../../infrastructure/process-outbound/repository.ts, each function below decides pass/fail and
@@ -25,6 +25,7 @@ import {
   ContractNotActiveError,
   DeliveryAddressIncompleteError,
   InsufficientStockError,
+  OrderQuantityExceededError,
   OutboundLocationBlockedError,
   ShelfLifeTooShortError,
   SkuBlockedError,
@@ -281,6 +282,31 @@ export function assertServicePriced(
       `RunOutboundChecks: no price for service ${serviceCode} in order ${orderId}'s client's ` +
         `contract.`,
       { serviceCode },
+    );
+  }
+}
+
+// --- condition 10: per-contract, per-SKU order-quantity limit (WBS 2.11 part 5, D-189) ----------
+
+export interface OrderQuantityLimitCheck {
+  readonly skuCode: string;
+  readonly ordered: string;
+  /** `sales.contract_sku_limits.max_order_qty` as numeric(14,3) text, or `null` when no row exists
+   *  for this (contract, sku) — null/absent always means no cap (D-189, SCR-WMS-OUT-02 §6). */
+  readonly limit: string | null;
+}
+
+/** Condition 10 (D-189): a null `limit` never throws (no row = no cap); `ordered` <= `limit` never
+ *  throws (the limit is inclusive); `ordered` > `limit` throws OrderQuantityExceededError carrying
+ *  the exact skuCode/ordered/limit. Compared as `Quantity` (exact decimal), never JS numbers —
+ *  same discipline as every other quantity invariant above (finding 7). */
+export function assertOrderQuantityWithinLimit(check: OrderQuantityLimitCheck): void {
+  if (check.limit === null) return;
+  if (Quantity.of(check.ordered).compare(Quantity.of(check.limit)) > 0) {
+    throw new OrderQuantityExceededError(
+      `RunOutboundChecks: SKU ${check.skuCode}'s ordered quantity ${check.ordered} exceeds the ` +
+        `contract's agreed limit of ${check.limit}.`,
+      { skuCode: check.skuCode, ordered: check.ordered, limit: check.limit },
     );
   }
 }

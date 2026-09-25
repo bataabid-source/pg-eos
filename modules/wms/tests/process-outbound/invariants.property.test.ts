@@ -34,6 +34,7 @@ import {
   assertContractActive,
   assertDeliveryAddressComplete,
   assertNonBlockedLocationsSufficient,
+  assertOrderQuantityWithinLimit,
   assertServicePriced,
   assertShelfLifeSufficient,
   assertSkuBelongsToOrderClient,
@@ -55,6 +56,7 @@ import {
   InsufficientStockError,
   OutboundLocationBlockedError,
   NoServicePriceError,
+  OrderQuantityExceededError,
   ShelfLifeTooShortError,
   SkuBlockedError,
   SkuClientMismatchError,
@@ -630,6 +632,74 @@ describe('assertServicePriced — property (condition 9)', () => {
           expect((error as NoServicePriceError).params).toEqual({ serviceCode });
         }
       }),
+    );
+  });
+});
+
+// --- assertOrderQuantityWithinLimit (condition 10, WBS 2.11 part 5, D-189) --------------------------
+//
+// numeric(14,3) fixture range, same thousandths discipline as the condition 3/7 fractional blocks
+// above (finding 7) — fractional 3-decimal quantities, exact thousandths comparison, never a plain
+// float `Number()` compare.
+
+describe('assertOrderQuantityWithinLimit — property (condition 10, D-189)', () => {
+  it('a null limit never throws, whatever the ordered quantity', () => {
+    fc.assert(
+      fc.property(fc.string({ minLength: 1 }), thousandthsArb, (skuCode, orderedT) => {
+        expect(() =>
+          assertOrderQuantityWithinLimit({ skuCode, ordered: thousandthsToQty(orderedT), limit: null }),
+        ).not.toThrow();
+      }),
+    );
+  });
+
+  it('ordered <= limit never throws (exact thousandths comparison)', () => {
+    fc.assert(
+      fc.property(fc.string({ minLength: 1 }), thousandthsArb, fc.integer({ min: 0, max: THOUSANDTHS_PER_UNIT }), (skuCode, limitT, extra) => {
+        const orderedT = Math.max(0, limitT - extra);
+        expect(() =>
+          assertOrderQuantityWithinLimit({
+            skuCode,
+            ordered: thousandthsToQty(orderedT),
+            limit: thousandthsToQty(limitT),
+          }),
+        ).not.toThrow();
+      }),
+    );
+  });
+
+  it('the boundary ordered === limit never throws (inclusive)', () => {
+    fc.assert(
+      fc.property(fc.string({ minLength: 1 }), thousandthsArb, (skuCode, limitT) => {
+        const qty = thousandthsToQty(limitT);
+        expect(() => assertOrderQuantityWithinLimit({ skuCode, ordered: qty, limit: qty })).not.toThrow();
+      }),
+    );
+  });
+
+  it('ordered > limit always throws OrderQuantityExceededError carrying the exact skuCode, ordered and limit', () => {
+    fc.assert(
+      fc.property(
+        fc.string({ minLength: 1 }),
+        thousandthsArb,
+        fc.integer({ min: 1, max: THOUSANDTHS_PER_UNIT }),
+        (skuCode, limitT, excess) => {
+          const orderedT = limitT + excess;
+          const ordered = thousandthsToQty(orderedT);
+          const limit = thousandthsToQty(limitT);
+          const error = (() => {
+            try {
+              assertOrderQuantityWithinLimit({ skuCode, ordered, limit });
+              return null;
+            } catch (err: unknown) {
+              return err;
+            }
+          })();
+          expect(error).toBeInstanceOf(OrderQuantityExceededError);
+          expect((error as OrderQuantityExceededError).i18nKey).toBe('wms.outbound.check.orderQuantityExceeded');
+          expect((error as OrderQuantityExceededError).params).toEqual({ skuCode, ordered, limit });
+        },
+      ),
     );
   });
 });

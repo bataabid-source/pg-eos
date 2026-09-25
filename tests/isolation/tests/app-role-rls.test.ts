@@ -90,7 +90,9 @@ const FOURTEEN_SCHEMAS = [
 // an entity_scope RLS policy on platform.sites.
 // Updated to 73 by migration 0016 (WBS 5.5a part 2, hr.shifts/shift_groups/shift_assignments),
 // each of which added an entity_scope RLS policy.
-const ENTITY_SCOPE_POLICY_COUNT = 73;
+// Updated to 74 by migration 0026 (WBS 2.11 part 5, D-189, sales.contract_sku_limits), which
+// added an entity_scope RLS policy (condition 10's per-contract per-SKU order limit table).
+const ENTITY_SCOPE_POLICY_COUNT = 74;
 const IS_INTERNAL_GATED_ENTITY_SCOPE_COUNT = 7;
 
 // The design's own three append-only tables (UPDATE/DELETE revoked from pgeos_app).

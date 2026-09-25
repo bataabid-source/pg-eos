@@ -13,12 +13,14 @@
 // item 12). PG_APP_USER=pgeos_app is REQUIRED — every command call goes through withContext(ctx, fn)
 // as pgeos_app, genuinely subject to RLS. platform.audit_log rows are NEVER deleted.
 //
-// Condition execution order (Master decision 3): 1, 3, 4, 5, 6, 7, 8, 9 run first (any failure
+// Condition execution order (Master decision 3): 1, 3, 4, 5, 6, 7, 8, 9, 10 run first (any failure
 // THROWS and leaves the order 'draft', nothing persisted); condition 2 (credit hold) is checked
 // LAST and, on failure, transitions the order to 'credit_rejected' instead of throwing. Every
 // per-condition failure test below satisfies every condition BEFORE the one under test so the
-// failure under test is the one that actually fires. Condition 10 is BLOCKED (no schema source) —
-// never implemented, never asserted as a failure.
+// failure under test is the one that actually fires. Condition 10 (WBS 2.11 part 5, D-189): a
+// per-contract, per-SKU order-quantity limit read from `sales.contract_sku_limits` (read-only,
+// cross-schema, inside RunOutboundChecks' own repository — see insertContractSkuLimit below); a
+// missing row means no cap for that (contract, sku) pair.
 
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 
@@ -52,6 +54,7 @@ import {
   OutboundLocationBlockedError,
   NoServicePriceError,
   OrderNotFoundError,
+  OrderQuantityExceededError,
   RoleRequiredError,
   ShelfLifeTooShortError,
   SkuBlockedError,
@@ -141,6 +144,7 @@ let serviceId: string;
 
 const fixtureClientIds: string[] = [];
 const fixtureContractIds: string[] = [];
+const fixtureContractSkuLimitIds: string[] = []; // WBS 2.11 part 5 (condition 10, D-189).
 const fixturePriceListIds: string[] = [];
 const fixtureSkuIds: string[] = [];
 const fixtureZoneIds: string[] = [];
@@ -250,6 +254,27 @@ async function insertContract(
   const row = result.rows[0];
   if (!row) throw new Error('fixture sales.contracts insert returned no row');
   fixtureContractIds.push(row.id);
+  return row.id;
+}
+
+/** WBS 2.11 part 5 (condition 10, D-189, migration 0026): a per-(contract, sku) order-quantity
+ *  cap. `sales.contract_sku_limits` does not exist in code yet (no repository/domain surface) —
+ *  this is a plain raw-SQL insert against the table the pending migration adds, same "direct SQL
+ *  fixture" discipline createDraftOutboundOrderFixture already uses for wms.order_lines. RED until
+ *  migration 0026 lands: fails with "relation sales.contract_sku_limits does not exist" until then. */
+async function insertContractSkuLimit(params: {
+  readonly contractId: string;
+  readonly skuId: string;
+  readonly maxOrderQty: string;
+}): Promise<string> {
+  const result: QueryResult<{ id: string }> = await pool.query(
+    `insert into sales.contract_sku_limits (entity_id, contract_id, sku_id, max_order_qty, created_by)
+     values ($1, $2, $3, $4::numeric, $5) returning id`,
+    [entityId, params.contractId, params.skuId, params.maxOrderQty, ROLE_ACTOR_UUID],
+  );
+  const row = result.rows[0];
+  if (!row) throw new Error('fixture sales.contract_sku_limits insert returned no row');
+  fixtureContractSkuLimitIds.push(row.id);
   return row.id;
 }
 
@@ -805,6 +830,7 @@ afterAll(async () => {
       ['wms.outbound_orders', () => pool.query(`delete from wms.outbound_orders where id = any($1::uuid[])`, [fixtureOrderIds])],
       ['wms.locations', () => pool.query(`delete from wms.locations where id = any($1::uuid[])`, [fixtureLocationIds])],
       ['wms.zones', () => pool.query(`delete from wms.zones where id = any($1::uuid[])`, [fixtureZoneIds])],
+      ['sales.contract_sku_limits', () => pool.query(`delete from sales.contract_sku_limits where id = any($1::uuid[])`, [fixtureContractSkuLimitIds])],
       ['wms.skus', () => pool.query(`delete from wms.skus where id = any($1::uuid[])`, [fixtureSkuIds])],
       ['sales.contracts', () => pool.query(`delete from sales.contracts where id = any($1::uuid[])`, [fixtureContractIds])],
       ['catalog.price_list_lines', () => pool.query(`delete from catalog.price_list_lines where price_list_id = any($1::uuid[])`, [fixturePriceListIds])],
@@ -875,9 +901,9 @@ describe('Scenario: CreateOutbound refuses an unqualified client', () => {
   });
 });
 
-// --- Scenario: all nine conditions pass -------------------------------------------------------------
+// --- Scenario: all ten conditions pass -------------------------------------------------------------
 
-describe('Scenario: All nine conditions pass — reaches checks_pending', () => {
+describe('Scenario: All ten conditions pass — reaches checks_pending', () => {
   it('status is "checks_pending", credit_check_passed is true, credit_checked_at is set', async () => {
     const { orderId, version } = await buildValidScenario();
     const correlationId = nextCorrelationId();
@@ -1360,36 +1386,99 @@ describe('Scenario: Condition 9 fails when the only OF-01 price sits on a price 
   });
 });
 
-// --- Scenario: condition 10 — deliberate gap -------------------------------------------------------
+// --- Scenario: condition 10 — per-contract, per-SKU order limit (WBS 2.11 part 5, D-189) ------------
 
-describe('Scenario: Condition 10 is never evaluated — documents the deliberate gap', () => {
-  it('an implausibly large order quantity (with matching available stock) is NOT rejected on account of condition 10', async () => {
-    // finding 14: a genuinely large quantity, not QTY_ORDERED — the point being tested is that NO
-    // "quantity within the agreed order limit" cap exists (condition 10, BLOCKED, no schema
-    // source), so this passes however large the order is, as long as every OTHER condition is
-    // still satisfied (in particular condition 3 — stock must cover it).
-    const LARGE_QTY = '999999.000';
-    const clientId = await insertClient();
-    const priceListId = await insertPriceList();
-    const contractId = await insertContract(clientId, { priceListId });
-    const skuId = await insertSku(clientId);
-    const zoneId = await insertZone();
-    const locationId = await insertLocation(zoneId);
-    await seedStockViaReceipt({ clientId, skuId, locationId, qtyOnHand: LARGE_QTY });
-    const { orderId, version } = await createDraftOutboundOrderFixture({
-      clientId,
-      contractId,
-      shipToName: 'x',
-      shipToPhone: 'x',
-      shipToAddress: 'x',
-      shipToArea: 'x',
-      lines: [{ skuId, qtyOrdered: LARGE_QTY }],
-    });
+/** Manual setup mirroring buildValidScenario but with a caller-chosen line quantity — condition
+ *  10's own tests need quantities other than the fixed QTY_ORDERED. Stock is seeded generously
+ *  (10x the ordered quantity) so condition 3 (insufficient stock) never fires here — the point
+ *  under test is condition 10 alone. */
+async function buildCondition10Scenario(qtyOrdered: string): Promise<{
+  orderId: string;
+  version: number;
+  clientId: string;
+  contractId: string;
+  skuId: string;
+}> {
+  const clientId = await insertClient();
+  const priceListId = await insertPriceList();
+  const contractId = await insertContract(clientId, { priceListId });
+  const skuId = await insertSku(clientId);
+  const zoneId = await insertZone();
+  const locationId = await insertLocation(zoneId);
+  const generousStock = (Number(qtyOrdered) * 10 + 1000).toFixed(3);
+  await seedStockViaReceipt({ clientId, skuId, locationId, qtyOnHand: generousStock });
+  const { orderId, version } = await createDraftOutboundOrderFixture({
+    clientId,
+    contractId,
+    shipToName: 'x',
+    shipToPhone: 'x',
+    shipToAddress: 'x',
+    shipToArea: 'x',
+    lines: [{ skuId, qtyOrdered }],
+  });
+  return { orderId, version, clientId, contractId, skuId };
+}
 
+describe('Scenario: Condition 10 passes when the SKU has no contract limit row', () => {
+  it('no sales.contract_sku_limits row for this contract/SKU -> condition 10 does not fail (no limit means no cap)', async () => {
+    const { orderId, version } = await buildCondition10Scenario('50.000');
     const result = await runOutboundChecks(roleCtx, { orderId, expectedVersion: version, correlationId: nextCorrelationId() }, deps);
     expect(result.status).toBe('checks_pending');
   });
 });
+
+describe('Scenario: Condition 10 passes when the ordered quantity is within the limit', () => {
+  it('max_order_qty 100, ordered 50 -> condition 10 does not fail', async () => {
+    const { orderId, version, contractId, skuId } = await buildCondition10Scenario('50.000');
+    await insertContractSkuLimit({ contractId, skuId, maxOrderQty: '100.000' });
+    const result = await runOutboundChecks(roleCtx, { orderId, expectedVersion: version, correlationId: nextCorrelationId() }, deps);
+    expect(result.status).toBe('checks_pending');
+  });
+});
+
+describe('Scenario: Condition 10 fails when the ordered quantity exceeds the limit', () => {
+  it('rejects with OrderQuantityExceededError (i18nKey wms.outbound.check.orderQuantityExceeded) naming the SKU code, ordered quantity and limit — status stays "draft", nothing written to outbox or audit', async () => {
+    const ORDERED = '15.000';
+    const LIMIT = '10.000';
+    const { orderId, version, contractId, skuId } = await buildCondition10Scenario(ORDERED);
+    await insertContractSkuLimit({ contractId, skuId, maxOrderQty: LIMIT });
+    const skuCode = skuCodeById.get(skuId);
+    if (!skuCode) throw new Error('fixture sku code not recorded');
+
+    const correlationId = nextCorrelationId();
+    const error = await runOutboundChecks(roleCtx, { orderId, expectedVersion: version, correlationId }, deps).catch(
+      (err: unknown) => err,
+    );
+    expect(error).toBeInstanceOf(OrderQuantityExceededError);
+    expect((error as OrderQuantityExceededError).i18nKey).toBe('wms.outbound.check.orderQuantityExceeded');
+    expect((error as OrderQuantityExceededError).params).toMatchObject({ skuCode, ordered: ORDERED, limit: LIMIT });
+
+    const after = await getOrder(orderId);
+    expect(after.status).toBe('draft');
+    expect(after.version).toBe(version);
+    expect(await anyOutboxCountForCorrelation(correlationId)).toBe(0);
+    expect(await auditCountForCorrelation(correlationId)).toBe(0);
+  });
+});
+
+describe('Scenario: Condition 10\'s limit is exact — ordered equal to the limit still passes', () => {
+  it('max_order_qty 10, ordered exactly 10 -> condition 10 does not fail (the limit is inclusive)', async () => {
+    const { orderId, version, contractId, skuId } = await buildCondition10Scenario('10.000');
+    await insertContractSkuLimit({ contractId, skuId, maxOrderQty: '10.000' });
+    const result = await runOutboundChecks(roleCtx, { orderId, expectedVersion: version, correlationId: nextCorrelationId() }, deps);
+    expect(result.status).toBe('checks_pending');
+  });
+});
+
+// Scenario: All ten conditions now have a failing test with the correct message (doc 38 row 2.11).
+// Not a literal runnable test — a bookkeeping note, matching this file's own condition 1-9 coverage
+// above: conditions 1 (ContractNotActiveError/ContractExpiredError), 2 (credit hold, evaluateCreditHold),
+// 3 (InsufficientStockError), 4 (SkuClientMismatchError), 5 (ShelfLifeTooShortError), 6
+// (SkuBlockedError), 7 (OutboundLocationBlockedError), 8 (DeliveryAddressIncompleteError), 9
+// (NoServicePriceError) each have a failing-message test above; condition 10 (OrderQuantityExceededError)
+// is added by the four describe blocks immediately above this comment — doc-38 row 2.11's acceptance
+// criterion ("Each of ten conditions has a failing test with the correct message") is met once
+// pg-backend turns these RED tests GREEN.
 
 // --- Scenario: approve -------------------------------------------------------------------------------
 
