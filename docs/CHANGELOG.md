@@ -4,6 +4,17 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — WBS 1.11 investigated on GM instruction, found BLOCKED, not faked (D-178) — DONE (2026-09-25)
+
+- GM directive D-178 ("MASTER DO IT NOW") to execute 1.11 immediately, after 1.11 was corrected earlier the same day from a lane-1 misassignment to Lane M. The Master investigated doc 40 Part E's actual S6/S10 text (not just doc 38's `1.8`-only dependency cell) before attempting anything, to avoid fabricating a pass.
+- **S6** (multi-entity credit hold blocking PST orders, PDL delivery tasks, PCC tickets via a nightly job): zero of its four `Then` lines are checkable today. Outbound order creation (WBS 2.11) isn't built; `modules/tms` and `modules/cc` don't exist at all; no automated nightly job evaluates AR exposure and sets `credit_hold` (1.8 built manual CFO/GM commands only); `billing.*` (Phase 4) is 0/18 done.
+- **S10** (floor enforced via UI/API/import + exception → invoice `price_source`): one of five lines is checkable — the API channel (`UpsertQuoteLine`, WBS 1.6), already proven by 32 existing test assertions, not a new deliverable. No quote-entry UI exists in `apps/admin`; no quote import channel exists; no invoice line (`billing.*`) exists to carry `price_source`.
+- **Verdict recorded, not faked:** `tasks/MASTER_BACKLOG.md` sets 1.11 to `BLOCKED` (not `TODO`, not a fabricated `DONE`); full evidence in `docs/notes/2026-09-25-wbs-1.11-premature.md`. Filed as a G-01-class doc-38 accuracy gap: the row's true prerequisites span Phase 2/3/4/5, not just 1.8. Re-attempt once those phases reach the relevant rows — well past D-176's current Phase 1/2 position.
+- Phase 1's buildable rows are therefore exhausted for lane 1 until Phase 2's `wms` lock frees (2.10/2.11).
+- Model: claude-sonnet-5 (Master session) · Delegated: none (investigation, not a build slice — no pg-tester/pg-backend/pg-reviewer applicable to a verdict with no code change) · Review: n/a · tokens ≈ 12k (estimate)
+
+---
+
 ## 1.9 — Customer 360 screen (2026-09-25)
 
 - First slice with TWO tracks in one WBS row: a real, DB-backed, read-only aggregation query in `modules/sales` (`getCustomerProfile`) and a UI screen in `apps/admin` (the SECOND-EVER frontend slice, extending WBS 0.19's app) — both under lane 1, both locks (`sales` + `admin`) claimed for this one task. No migration — nothing is written anywhere.
