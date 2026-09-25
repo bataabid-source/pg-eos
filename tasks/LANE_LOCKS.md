@@ -4,6 +4,7 @@
 |---|---|---|---|---|
 | wms/process-outbound | 1 | 2.11 | 2026-09-25 | ../pg-eos-lane-1 (outbound order, migration 0022 issued; 2.11 scaffold + RED tests already on disk in that worktree, untracked; 2.10 DONE @ `95a33b8`) |
 | wms/schedule-inbound | 2 | 2.9b | 2026-09-25 | ../pg-eos-lane-2 (schedule inbound + logistics terms, tasks/backlog/2.9b-schedule-inbound.md, D-168/D-169; use-case lock so it runs concurrently with lane 1's 2.11) |
+| wms/receive-inbound | 2 | 2.9b | 2026-09-25 | ../pg-eos-lane-2 (scoped grant by the Master 2026-09-25: 2.9b's acceptance criteria (SCR-WMS-INB-01 §7) change `ApproveInbound` (optional `expectedAt`, emits `wms.inbound.scheduled`) and `CancelInbound` (mandatory `cancelReason`) — only `modules/wms/application/receive-inbound/{approve-inbound,cancel-inbound}.ts` and their tests under `modules/wms/tests/receive-inbound/`; no other receive-inbound file; released with 2.9b) |
 | imile | 3 | 3.14 | 2026-09-25 | ../pg-eos-lane-3 (part 2, services/agent pull loop; part 1 DONE-in-part on main; then 3.15→3.19 per D-180 item 3) |
 
 WBS 1.11 is doc-38 Lane **M**, corrected 2026-09-25 from an earlier Master misassignment to lane 1, then investigated on GM instruction and found **BLOCKED** (D-178, `docs/notes/2026-09-25-wbs-1.11-premature.md`) — not a lane-1 row, not buildable today.
@@ -31,7 +32,8 @@ Not a lock table — deliberately not a `|`-prefixed markdown table, since
 `.claude/hooks/lane-guard.sh` parses every such line in this file as a
 module-lock row (see Rules below). One line per migration, newest first:
 
-- `0023` — next free number.
+- `0024` — next free number.
+- `0023_2_schedule-inbound.sql` — lane 2, task 2.9b (SCR-WMS-INB-01 §8 G-01: `wms.inbound_orders` + `handover_point`, `transport_by`, `labour_by`, `labour_count`, `delivery_task_id` nullable, check on `vehicle_type`; N-23 alert seed), issued by the Master 2026-09-25 ahead of MIGRATION-REQUEST-2 (D-179 batch); the request row must name the RED test paths before the file is written, and the pre-migration pg-reviewer run is mandatory. `delivery_task_id` is a nullable column only — no `tms.delivery_task` row is created until a `tms` slice exists to own it (Master default, same class as D-178).
 - `0022_1_outbound-orders-version.sql` — lane 1, task 2.11 (`wms.outbound_orders.version` + classification row; shape of 0008/0013/0017/0019/0020), issued by the Master 2026-09-25 on MIGRATION-REQUEST-1 (#6, pre-migration review to be run by the lane before the file is written).
 - `0021_1_accounts-internal-write-policy.sql` — lane 1, task 1.8, G-01 schema-change (SCR-SALES-ACCT-01, `docs/notes/`): `sales.accounts` had no internal write RLS policy at all (silent no-op UPDATE for every role). Fix APPROVED by the Master: `internal_only for all using (platform.is_internal())`, additive, matches every other non-entity-scoped internal table's policy. Issued 2026-09-25; RLS-touching, pre-migration review mandatory, run by the lane before the file is written. Applied 2026-09-25 (pg-reviewer pre-migration APPROVED WITH CHANGES; number issued by the Master).
 - `0020_1_accounts-version.sql` — lane 1, task 1.8 (`sales.accounts.version` + classification row; shape of 0008/0013/0017/0019), issued by the Master 2026-09-25 on MIGRATION-REQUEST-1 (#4, pre-migration review to be run by the lane before the file is written). Applied 2026-09-25 (pg-reviewer pre-migration APPROVED WITH CHANGES; number issued by the Master, MIGRATION-REQUEST-1.md).
