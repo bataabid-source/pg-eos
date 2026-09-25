@@ -4,6 +4,12 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — D-186: lane 2 → 4.2 (billing, Lane M row reassigned); P7 budget applies from now; 2.9b cost recorded as P7 evidence — DONE (2026-09-25)
+
+- GM directive (verbatim in DECISION_LOG D-186). Lock `billing` claimed for lane 2 (task 4.2, `modules/billing` via `scripts/new-slice.sh`); brief ≤ 8 files / 1,000 lines and a two-round review cap from the first brief; only the brief and RED tests before the wave-1 governance (P1, P7) merges. Lane 2 drops its empty local sync commit `fd1726a` before pushing.
+- **P7 evidence — 2.9b cost (lane 2's own accounting, 2026-09-25):** ≥ **1.3 M tokens** traceable from worker reports (pre-migration reviews ~54k · RED 130k · build 130k · test-defect fix 34k · review 1 75k · round-1 fixes 150k · widened-scope fixes 110k · review 2 ~95k · opus round-2 fixes 227k · finding-8 fixes 50k · review 3 ~160k · brief fix 6k · review 4 ~90k), excluding the round-4 pg-tester run, the pg-scribe close-out and the Master's opus round 5 (~105k) — realistic total **1.5–1.7 M**, 5 review rounds, 38 findings, against a slice budget of ~150k. The budget tightening (P7) moves to wave 1 on this number.
+- Model: claude-fable-5-1 (Master) · Delegated: none · ~6k tokens.
+
 ## X — D-184 + D-185: lane 3 order corrected (3.17 → 3.1); doc 38 v4.5 adds row 2.9b; check-locks refuses a lock on a non-doc-38 task — DONE (2026-09-25)
 
 - D-184 (GM "موافق"): lane 3 runs 3.14 part 2 → 3.17 → 3.1. Master error corrected: D-180 item 3 / D-182 Q1 named 3.15→3.19, but 3.15 and 3.18 depend on 2.16 (PDA app, TODO) and 3.16 / 3.19 follow them. 3.1 (`tms.vehicles`) reassigned from doc-38 lane 1 to lane 3 by the GM.

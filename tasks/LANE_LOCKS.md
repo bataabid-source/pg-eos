@@ -4,6 +4,7 @@
 |---|---|---|---|---|
 | wms/process-outbound | 1 | 2.11 | 2026-09-25 | ../pg-eos-lane-1 (outbound order, migration 0022 WITHDRAWN — column already in 13B; 2.11 scaffold + RED tests already on disk in that worktree, untracked; 2.10 DONE @ `95a33b8`) |
 | imile | 3 | 3.14 | 2026-09-25 | ../pg-eos-lane-3 (part 2, services/agent pull loop; part 1 DONE-in-part on main; then 3.17 → 3.1 per D-184) |
+| billing | 2 | 4.2 | 2026-09-25 | ../pg-eos-lane-2 (`billing.billable_events` + unique (source, service) index — doc-38 Lane M row reassigned to lane 2 by the GM, D-186; whole-module lock: `modules/billing` is created by `scripts/new-slice.sh billing record-billable-event`; brief ≤ 8 files / 1,000 lines and a two-round review cap from the start (P7, D-186); brief + RED tests only until the wave-1 governance merges) |
 
 `wms/schedule-inbound` + `wms/receive-inbound` (lane 2, task 2.9b) released 2026-09-25 — 2.9b DONE @ `716bf8e` (5 review rounds, 38 findings fixed, round 3 escalated to opus per D-117); migration `0023_2_schedule-inbound.sql` applied; lane 2 idle, next task pending Master assignment.
 `imile` (lane 3, task 3.14 part 2) row above updates in place, not released — 3.14 part 2 DONE-in-part @ `<this commit>` (pull loop mechanism, PASS(27 findings/7 rounds)); lane 3 continues in the same module for **3.17** next (D-184).
