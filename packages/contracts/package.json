@@ -41,6 +41,10 @@
     "./hr/maintain-shift": {
       "types": "./dist/hr/maintain-shift.d.ts",
       "default": "./dist/hr/maintain-shift.js"
+    },
+    "./sales/manage-quote": {
+      "types": "./dist/sales/manage-quote.d.ts",
+      "default": "./dist/sales/manage-quote.js"
     }
   },
   "scripts": {
