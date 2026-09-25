@@ -13,10 +13,6 @@ export const UNKNOWN_URGENCY_RANK = Object.keys(URGENCY_RANK).length;
 // Urgency values that get the warm/destructive presentational accent (Master decision 5, 2).
 export const ACCENTED_URGENCIES: ReadonlySet<string> = new Set(['urgent', 'high']);
 
-// KWD is a fixed 3-decimal currency (numeric(14,3), 01-Data-Model.sql's `char(3) default 'KWD'`
-// convention) — cited here, not invented.
-export const CURRENCY_CODE = 'KWD';
-
 // The fixture item count for the populated mock client (Master decision 11).
 export const MOCK_ITEM_COUNT = 4;
 
