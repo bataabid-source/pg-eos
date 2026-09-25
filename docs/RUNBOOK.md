@@ -27,6 +27,10 @@ via stdin redirection (`psql < file`, never `-f file` — WBS 0.15 header explai
 `guards.sql`. **Exercised:** every session start today (2026-09-24/25); most recently the isolated
 `pgeos_lane3merge_check` build before merging PR #22.
 
+**Setup checks** (moved from the retired `README-KIT.md`, P0 2026-09-25): `bash scripts/check-setup.sh` runs them all — agents pinned (no `inherit`), briefs ≤ 120 lines, `.claude/settings.json` valid, hooks parse, `python scripts/gen-backlog.py --check` (**137** doc-38 rows, v4.5 / D-185), `PGDATABASE=pgeos bash scripts/guards-run.sh`. Regenerate the module briefs after any schema change: `PGHOST=localhost PGPORT=5432 PGUSER=postgres PGDATABASE=pgeos python scripts/gen-briefs.py`.
+
+**Precedence on any conflict** (moved from the retired `SETUP-STATUS-AR.md`): `docs/package/40` → `36` → `EXECUTION-MASTER-v4` → `42` → `38` → `22` → `database/schema/01 · 13 · 13B · 019` → `BOOTSTRAP-v5` (operating instructions only) → `D-blueprints/` (binding for screens, boards and KPIs).
+
 ## 2. Schema / migration deploy to the shared dev database
 
 A lane never issues its own migration number. Sequence:

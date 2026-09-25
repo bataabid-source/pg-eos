@@ -20,7 +20,7 @@ Maintained by pg-scribe only, in the same commit as the task it records.
 |---|---|---|---|---|
 | 1 | 2.11 part 1 DONE @ `a96b013` → **part 2** (Allocate, GeneratePickList, allocated-cancel; 2.10 fixture pickers fixed first) → 2.12 | `wms/process-outbound` + `wms/receive-inbound` + `wms/integration` (tests only) | `../pg-eos-lane-1` | **runnable now** — part 1 closed, same lock continues to part 2 |
 | 2 | 4.2 `billing.billable_events` (doc-38 Lane M → lane 2, D-186) — 2.9b DONE @ `716bf8e` | `billing` | `../pg-eos-lane-2` | brief + RED only until wave 1 (P1, P7) merges; budget 8 files / 1,000 lines, two review rounds (D-186) |
-| 3 | 3.1 `tms.vehicles` + documents + expired-doc hard gate (doc-38 lane 1 → lane 3, D-184) — 3.14 part 2 @ `e667821`, 3.17 part 1 @ `ca7f6f1` (both NOT DONE: live adapter / content analysis gated on D-149 + G-01 rows) | `tms` | `../pg-eos-lane-3` | new module via new-slice.sh; budget 8 / 1,000, two rounds (D-186) |
+| 3 | 3.1 `tms.vehicles` + documents + expired-doc hard gate (doc-38 lane 1 → lane 3, D-184) — 3.14 part 2 @ `e667821`, 3.17 part 1 @ `ca7f6f1` (both NOT DONE: live adapter / content analysis gated on D-149 + G-01 rows) | `fleet` | `../pg-eos-lane-3` | new module `modules/fleet` via new-slice.sh (schema `tms`); budget 8 / 1,000, two rounds (D-186) |
 
 ## Last 5 DONE (newest first)
 
@@ -48,7 +48,7 @@ Maintained by pg-scribe only, in the same commit as the task it records.
 
 1. Lane 1: 2.11 part 2 (Allocate, GeneratePickList, allocated-cancel) in `wms/process-outbound` — then 2.12
 2. Lane 2: 4.2 (`billing.billable_events`) in `billing` — brief + RED now, build after wave 1 (D-186)
-3. Lane 3: 3.1 (`tms.vehicles`) in `tms` — then 3.4 once 2.12 is DONE
+3. Lane 3: 3.1 (`tms.vehicles`) in module `fleet` — then 3.4 once 2.12 is DONE
 
 ## Notes
 
