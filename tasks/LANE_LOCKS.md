@@ -2,7 +2,8 @@
 
 | module | lane | task | claimed_at | worktree |
 |---|---|---|---|---|
-| sales | 1 | 1.4 | 2026-09-25 | ../pg-eos-lane-1 (queued — next lane-1 session; Phase 1 in order, D-176: 1.4 → 1.6 → 1.7 → 1.8 → 1.9 → 1.11) |
+| sales | 1 | 1.9 | 2026-09-25 | ../pg-eos-lane-1 (queued — next lane-1 session; Phase 1 in order, D-176: 1.4→1.6→1.7→1.8 DONE, next 1.9 → 1.11) |
+| admin | 1 | 1.9 | 2026-09-25 | ../pg-eos-lane-1 (queued — 1.9 customer 360 screen needs `apps/admin` alongside `sales`, same UI+mock-client pattern as 0.19; released after 1.9 merges) |
 | wms | 2 | 2.13 | 2026-09-25 | ../pg-eos-lane-2 (queued — next lane-2 session; Phase 2, D-176: 2.13 inventory count → 2.14 occupancy snapshot) |
 | imile | 3 | 3.14 | 2026-09-24 | shared `claude-kit` (part 1 committed NOT DONE @ `8b12d60` — health-reporting mechanism, pg-reviewer PASS round 4; still owned by lane 3 for part 2, `services/agent` pull loop; idles after per D-176 pending GM answer) |
 
