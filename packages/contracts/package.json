@@ -77,6 +77,10 @@
     "./imile/pull-shipments": {
       "types": "./dist/imile/pull-shipments.d.ts",
       "default": "./dist/imile/pull-shipments.js"
+    },
+    "./imile/evaluate-dtl-problem": {
+      "types": "./dist/imile/evaluate-dtl-problem.d.ts",
+      "default": "./dist/imile/evaluate-dtl-problem.js"
     }
   },
   "scripts": {

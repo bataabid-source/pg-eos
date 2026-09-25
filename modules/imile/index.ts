@@ -32,3 +32,29 @@ export {
   PortalNotConfiguredError,
   MissingActorError as PullShipmentsMissingActorError,
 } from './domain/pull-shipments/errors.js';
+
+// WBS 3.17 (part 1) — evaluate-dtl-problem, same discipline as pull-shipments above: named
+// re-exports, `MissingActorError` aliased (collides with pull-shipments's own) — `PortNotConfiguredError`
+// does not collide with pull-shipments's `PortalNotConfiguredError` (deliberately distinct names,
+// one per use case's own port).
+export {
+  evaluateDtlProblem,
+  type EvaluateDtlProblemInput,
+  type EvaluateDtlProblemResult,
+  type ClockDeps as EvaluateDtlProblemClockDeps,
+  type DtlContentAnalysisPort,
+  type DtlContentAnalysisResult,
+  type DtlEngineDecision,
+  type DtlProblemEvidence,
+  type DtlProblemsRepository,
+  type EvaluateDtlProblemDeps,
+  type InsertDtlProblemParams,
+  type InsertedDtlProblemRow,
+  type LogFields as EvaluateDtlProblemLogFields,
+  type Logger as EvaluateDtlProblemLogger,
+} from './application/evaluate-dtl-problem/index.js';
+export {
+  PortNotConfiguredError,
+  InvalidPortResultError,
+  MissingActorError as EvaluateDtlProblemMissingActorError,
+} from './domain/evaluate-dtl-problem/errors.js';

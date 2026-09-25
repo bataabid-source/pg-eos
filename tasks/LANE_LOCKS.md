@@ -3,10 +3,10 @@
 | module | lane | task | claimed_at | worktree |
 |---|---|---|---|---|
 | wms/process-outbound | 1 | 2.11 | 2026-09-25 | ../pg-eos-lane-1 (outbound order, migration 0022 WITHDRAWN — column already in 13B; 2.11 scaffold + RED tests already on disk in that worktree, untracked; 2.10 DONE @ `95a33b8`) |
-| imile | 3 | 3.14 | 2026-09-25 | ../pg-eos-lane-3 (part 2, services/agent pull loop; part 1 DONE-in-part on main; then 3.17 → 3.1 per D-184) |
+| imile | 3 | 3.17 | 2026-09-25 | ../pg-eos-lane-3 (part 1, DTL gate evaluation mechanism, DONE-in-part @ `<this commit>`; 3.14 part 2 DONE-in-part on main; lane 3 next awaits the Master's `tms` claim for 3.1 per D-184) |
 
 `wms/schedule-inbound` + `wms/receive-inbound` (lane 2, task 2.9b) released 2026-09-25 — 2.9b DONE @ `716bf8e` (5 review rounds, 38 findings fixed, round 3 escalated to opus per D-117); migration `0023_2_schedule-inbound.sql` applied; lane 2 idle, next task pending Master assignment.
-`imile` (lane 3, task 3.14 part 2) row above updates in place, not released — 3.14 part 2 DONE-in-part @ `<this commit>` (pull loop mechanism, PASS(27 findings/7 rounds)); lane 3 continues in the same module for **3.17** next (D-184).
+`imile` (lane 3, task 3.17 part 1) row above updates in place, not released — 3.17 part 1 DONE-in-part @ `<this commit>` (`EvaluateDtlProblem` gate evaluation mechanism, PASS(27 findings/4 rounds), D-186 two-round cap hit at round 3, Master fixed at session tier sonnet not opus, deviation recorded); DEL_MGR further parts/auditor screen/nightly job not yet scheduled; lane 3 next: awaiting the Master's `tms` claim for 3.1 (D-184) — the Master claims `tms`, not the lane.
 
 WBS 1.11 is doc-38 Lane **M**, corrected 2026-09-25 from an earlier Master misassignment to lane 1, then investigated on GM instruction and found **BLOCKED** (D-178, `docs/notes/2026-09-25-wbs-1.11-premature.md`) — not a lane-1 row, not buildable today.
 `wms` (lane 1, task 2.10) released 2026-09-25 — 2.10 DONE @ `95a33b8`; re-claimed above as the use-case lock `wms/process-outbound` (D-179/D-180) so lane 2 can build 2.9b in the same module at the same time.
