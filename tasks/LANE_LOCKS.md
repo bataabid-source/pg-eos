@@ -3,9 +3,9 @@
 | module | lane | task | claimed_at | worktree |
 |---|---|---|---|---|
 | wms/process-outbound | 1 | 2.11 | 2026-09-25 | ../pg-eos-lane-1 (outbound order, migration 0022 WITHDRAWN — column already in 13B; 2.11 scaffold + RED tests already on disk in that worktree, untracked; 2.10 DONE @ `95a33b8`) |
-| wms/schedule-inbound | 2 | 2.9b | 2026-09-25 | ../pg-eos-lane-2 (schedule inbound + logistics terms, tasks/backlog/2.9b-schedule-inbound.md, D-168/D-169; use-case lock so it runs concurrently with lane 1's 2.11) |
-| wms/receive-inbound | 2 | 2.9b | 2026-09-25 | ../pg-eos-lane-2 (scoped grant by the Master 2026-09-25: 2.9b's acceptance criteria (SCR-WMS-INB-01 §7) change `ApproveInbound` (optional `expectedAt`, emits `wms.inbound.scheduled`) and `CancelInbound` (mandatory `cancelReason`) — `modules/wms/application/receive-inbound/{approve-inbound,cancel-inbound,ports}.ts`, `modules/wms/infrastructure/receive-inbound/repository.ts`, `modules/wms/api/receive-inbound/handlers.ts`, `modules/wms/domain/receive-inbound/machine.ts` (self-transition `SCHEDULE` event — legality goes through the machine, never a status string comparison) and their tests under `modules/wms/tests/receive-inbound/` — widened from two files on pg-reviewer round 1 of 2.9b (raw SQL bypassing the repository port and unmapped 422 errors were lock-induced); no other receive-inbound file; released with 2.9b) |
 | imile | 3 | 3.14 | 2026-09-25 | ../pg-eos-lane-3 (part 2, services/agent pull loop; part 1 DONE-in-part on main; then 3.17 → 3.1 per D-184) |
+
+`wms/schedule-inbound` + `wms/receive-inbound` (lane 2, task 2.9b) released 2026-09-25 — 2.9b DONE @ `<this commit>` (5 review rounds, 38 findings fixed, round 3 escalated to opus per D-117); migration `0023_2_schedule-inbound.sql` applied; lane 2 idle, next task pending Master assignment.
 
 WBS 1.11 is doc-38 Lane **M**, corrected 2026-09-25 from an earlier Master misassignment to lane 1, then investigated on GM instruction and found **BLOCKED** (D-178, `docs/notes/2026-09-25-wbs-1.11-premature.md`) — not a lane-1 row, not buildable today.
 `wms` (lane 1, task 2.10) released 2026-09-25 — 2.10 DONE @ `95a33b8`; re-claimed above as the use-case lock `wms/process-outbound` (D-179/D-180) so lane 2 can build 2.9b in the same module at the same time.

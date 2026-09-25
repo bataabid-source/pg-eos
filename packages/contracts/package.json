@@ -14,6 +14,10 @@
       "types": "./dist/wms/receive-inbound.d.ts",
       "default": "./dist/wms/receive-inbound.js"
     },
+    "./wms/schedule-inbound": {
+      "types": "./dist/wms/schedule-inbound.d.ts",
+      "default": "./dist/wms/schedule-inbound.js"
+    },
     "./platform/evaluate-alerts": {
       "types": "./dist/platform/evaluate-alerts.d.ts",
       "default": "./dist/platform/evaluate-alerts.js"

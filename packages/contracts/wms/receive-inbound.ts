@@ -33,11 +33,26 @@ const EXPECTED_VERSION = z.number().int().min(MIN_VERSION);
 // migration 0010: `variance_photo_sha256 text check (variance_photo_sha256 ~ '^[0-9a-f]{64}$')`.
 const SHA256_HEX = z.string().regex(/^[0-9a-f]{64}$/);
 
+// WBS 2.9b (D2, migration 0023): optional appointment slot on ApproveInbound — when `expectedAt`
+// is present, ApproveInbound also writes the ScheduleInbound-style columns and emits
+// `wms.inbound.scheduled` alongside `wms.inbound.approved`; the four logistics terms are
+// caller-supplied only (D6 — no sales.contracts default wired this slice). `vehicleType` is
+// validated against migration 0023's closed list at the domain layer
+// (modules/wms/domain/schedule-inbound/invariants.ts's isValidVehicleType), the DB CHECK is the
+// belt-and-braces backstop — the contract itself accepts any non-empty string, same discipline
+// ScheduleInboundInputSchema below uses.
 export const ApproveInboundInputSchema = z
   .object({
     orderId: UUID_ID,
     expectedVersion: EXPECTED_VERSION,
     correlationId: UUID_ID,
+    expectedAt: z.iso.datetime().optional(),
+    dockCode: z.string().min(1).optional(),
+    handoverPoint: z.string().min(1).optional(),
+    transportBy: z.string().min(1).optional(),
+    vehicleType: z.string().min(1).optional(),
+    labourBy: z.string().min(1).optional(),
+    labourCount: z.number().int().min(0).optional(),
   })
   .meta({ id: 'ApproveInboundInput' });
 
@@ -96,12 +111,14 @@ export const CloseInboundInputSchema = z
 
 export type CloseInboundInput = z.infer<typeof CloseInboundInputSchema>;
 
+// WBS 2.9b (D3, migration 0023): `reason` renamed `cancelReason`, made MANDATORY (min length 1) —
+// persisted to the new wms.inbound_orders.cancel_reason column and carried by wms.inbound.cancelled.
 export const CancelInboundInputSchema = z
   .object({
     orderId: UUID_ID,
     expectedVersion: EXPECTED_VERSION,
     correlationId: UUID_ID,
-    reason: z.string().optional(),
+    cancelReason: z.string().min(1),
   })
   .meta({ id: 'CancelInboundInput' });
 

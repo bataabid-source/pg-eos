@@ -31,9 +31,19 @@ import type { Logger } from '../../application/receive-inbound/ports.js';
 // The module under test — does not exist yet with this error-mapping behaviour (RED).
 import {
   handleApproveInbound,
+  handleCancelInbound,
   handleReceiveLine,
   type ApiRequest,
 } from '../../api/receive-inbound/handlers.js';
+// WBS 2.9b round-2 review finding 4: the eight typed errors the extended approveInbound (D2) /
+// cancelInbound (D3) can throw. Two of them cannot be reached through the real command via the
+// handler, because the contract rejects the input first as a 400 ZodError (asserted below as the
+// contract-boundary half): a negative labourCount (`z.number().int().min(0)`) and an empty
+// cancelReason (`z.string().min(1)`). For those two, the handler's own 422-mapping is asserted by
+// making the command throw the real typed error from the repository port (same injected-failure
+// technique as the 500 test below) — api/-layer mapping only; the domain rules themselves are
+// asserted end-to-end in ./receive-inbound.test.ts.
+import { CancelReasonRequiredError, InvalidLabourCountError } from '../../domain/schedule-inbound/errors.js';
 
 const pool = new Pool({
   host: process.env['PGHOST'] ?? 'localhost',
@@ -189,6 +199,23 @@ describe('a missing Idempotency-Key is rejected with a 400 Problem', () => {
     expect(result.status).toBe(400);
     expect('body' in result && 'title' in result.body).toBe(true);
   });
+
+  // WBS 2.9b pg-reviewer round-3 finding 4a: CancelInbound now requires an Idempotency-Key like
+  // every other command (brief Scenario section) — no test previously proved the missing-header
+  // rejection for it.
+  it('handleCancelInbound: no Idempotency-Key header -> 400, title reflects the rejection', async () => {
+    const result = await handleCancelInbound(
+      requestWithoutKey({
+        orderId: draftOrderId,
+        expectedVersion: draftOrderVersion,
+        correlationId: randomUUID(),
+        cancelReason: 'client requested cancellation',
+      }),
+      deps,
+    );
+    expect(result.status).toBe(400);
+    expect('body' in result && 'title' in result.body).toBe(true);
+  });
 });
 
 describe('an invalid body is rejected with a 400 Problem', () => {
@@ -319,6 +346,142 @@ describe('the same Idempotency-Key and body twice: the second response equals th
     const result = await handleApproveInbound(requestWithKey(differentBody, idempotencyKey), deps);
     expect(result.status).toBe(409);
     expect(result.body).toMatchObject({ title: 'IdempotencyConflictError' });
+  });
+
+  // WBS 2.9b pg-reviewer round-3 finding 4b: CancelInbound's own idempotent replay — exactly one
+  // wms.inbound.cancelled outbox row and one version bump, not two, across two identical calls.
+  it('handleCancelInbound: identical key + body -> identical response, version bumped exactly once, exactly one wms.inbound.cancelled outbox row', async () => {
+    const order = await insertFreshDraftOrder();
+    const idempotencyKey = randomUUID();
+    const correlationId = randomUUID();
+    const body = { orderId: order.id, expectedVersion: order.version, correlationId, cancelReason: 'client requested cancellation' };
+
+    const first = await handleCancelInbound(requestWithKey(body, idempotencyKey), deps);
+    expect(first.status).toBe(200);
+
+    const second = await handleCancelInbound(requestWithKey(body, idempotencyKey), deps);
+    expect(second).toEqual(first);
+
+    const versionResult: QueryResult<{ version: number }> = await pool.query(
+      `select version from wms.inbound_orders where id = $1`,
+      [order.id],
+    );
+    expect(versionResult.rows[0]?.version).toBe((order.version as number) + 1); // bumped once.
+
+    const outboxResult: QueryResult<{ id: string }> = await pool.query(
+      `select id from platform.outbox where correlation_id = $1 and event_type = $2`,
+      [correlationId, 'wms.inbound.cancelled'],
+    );
+    expect(outboxResult.rows).toHaveLength(1);
+  });
+});
+
+// --- WBS 2.9b round-2 review finding 4: the eight 2.9b typed errors map to 422 -------------------
+
+describe('WBS 2.9b: every typed error of the extended ApproveInbound/CancelInbound maps to 422, title = error.name', () => {
+  // Derived from this file's own injected clock (2026-09-24), never from `new Date()`.
+  const SLOT_FUTURE_EXPECTED_AT = new Date(clock.now().getTime() + 6 * 24 * 60 * 60 * 1000).toISOString();
+  const SLOT_PAST_EXPECTED_AT = new Date(clock.now().getTime() - 24 * 60 * 60 * 1000).toISOString();
+
+  // Reached through the real command — the contract accepts any non-empty string / any datetime,
+  // the domain layer rejects. One value outside each migration 0023 CHECK, same literals as
+  // ./receive-inbound.test.ts.
+  const realPathCases = [
+    { title: 'ScheduleInPastError', patch: { expectedAt: SLOT_PAST_EXPECTED_AT } },
+    { title: 'InvalidVehicleTypeError', patch: { expectedAt: SLOT_FUTURE_EXPECTED_AT, vehicleType: 'motorcycle' } },
+    { title: 'InvalidHandoverPointError', patch: { expectedAt: SLOT_FUTURE_EXPECTED_AT, handoverPoint: 'airport' } },
+    { title: 'InvalidTransportByError', patch: { expectedAt: SLOT_FUTURE_EXPECTED_AT, transportBy: 'shared' } },
+    { title: 'InvalidLabourByError', patch: { expectedAt: SLOT_FUTURE_EXPECTED_AT, labourBy: 'contractor' } },
+    { title: 'LogisticsTermsRequireExpectedAtError', patch: { vehicleType: 'truck' } },
+  ] as const;
+
+  it.each(realPathCases)('handleApproveInbound -> 422, title "$title"', async ({ title, patch }) => {
+    const order = await insertFreshDraftOrder();
+    const result = await handleApproveInbound(
+      requestWithKey({ orderId: order.id, expectedVersion: order.version, correlationId: randomUUID(), ...patch }),
+      deps,
+    );
+    expect(result.status).toBe(422);
+    expect(result.body).toMatchObject({ title });
+  });
+
+  it('handleApproveInbound: a negative labourCount is stopped at the contract boundary -> 400, title "ZodError"', async () => {
+    const order = await insertFreshDraftOrder();
+    const result = await handleApproveInbound(
+      requestWithKey({
+        orderId: order.id,
+        expectedVersion: order.version,
+        correlationId: randomUUID(),
+        expectedAt: SLOT_FUTURE_EXPECTED_AT,
+        labourCount: -1,
+      }),
+      deps,
+    );
+    expect(result.status).toBe(400);
+    expect(result.body).toMatchObject({ title: 'ZodError' });
+  });
+
+  it('handleCancelInbound: an empty cancelReason is stopped at the contract boundary -> 400, title "ZodError"', async () => {
+    const order = await insertFreshDraftOrder();
+    const result = await handleCancelInbound(
+      requestWithKey({ orderId: order.id, expectedVersion: order.version, correlationId: randomUUID(), cancelReason: '' }),
+      deps,
+    );
+    expect(result.status).toBe(400);
+    expect(result.body).toMatchObject({ title: 'ZodError' });
+  });
+
+  /** Deps whose repository throws `error` on the first port call — the command surfaces it
+   *  unchanged, so only the handler's mapping is under test. */
+  function depsThrowing(error: Error): { readonly deps: typeof deps; readonly logger: ReturnType<typeof spyLogger> } {
+    const logger = spyLogger();
+    const depsWithSpyLogger = createReceiveInboundDeps({ clock, ids, logger });
+    return {
+      logger,
+      deps: {
+        ...depsWithSpyLogger,
+        repo: {
+          ...depsWithSpyLogger.repo,
+          getOrderForUpdate: async (): Promise<never> => {
+            throw error;
+          },
+        },
+      },
+    };
+  }
+
+  it('handleApproveInbound: InvalidLabourCountError thrown by the command -> 422, title "InvalidLabourCountError" (never a 500)', async () => {
+    const order = await insertFreshDraftOrder();
+    const throwing = depsThrowing(new InvalidLabourCountError('ApproveInbound: labourCount (-1) must be >= 0.'));
+    const result = await handleApproveInbound(
+      requestWithKey({
+        orderId: order.id,
+        expectedVersion: order.version,
+        correlationId: randomUUID(),
+        expectedAt: SLOT_FUTURE_EXPECTED_AT,
+      }),
+      throwing.deps,
+    );
+    expect(result.status).toBe(422);
+    expect(result.body).toMatchObject({ title: 'InvalidLabourCountError' });
+    expect(throwing.logger.errorCalls).toHaveLength(0);
+  });
+
+  it('handleCancelInbound: CancelReasonRequiredError thrown by the command -> 422, title "CancelReasonRequiredError" (never a 500)', async () => {
+    const order = await insertFreshDraftOrder();
+    const throwing = depsThrowing(new CancelReasonRequiredError('CancelInbound requires a non-empty cancelReason.'));
+    const result = await handleCancelInbound(
+      requestWithKey({
+        orderId: order.id,
+        expectedVersion: order.version,
+        correlationId: randomUUID(),
+        cancelReason: 'client requested cancellation',
+      }),
+      throwing.deps,
+    );
+    expect(result.status).toBe(422);
+    expect(result.body).toMatchObject({ title: 'CancelReasonRequiredError' });
+    expect(throwing.logger.errorCalls).toHaveLength(0);
   });
 });
 
