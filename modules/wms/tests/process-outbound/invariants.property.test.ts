@@ -27,7 +27,10 @@
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 
+import { Quantity } from '@pg-eos/domain-kit';
+
 import {
+  allocateFromSingleLot,
   assertContractActive,
   assertDeliveryAddressComplete,
   assertNonBlockedLocationsSufficient,
@@ -39,6 +42,8 @@ import {
   assertSufficientStock,
   daysBetween,
   evaluateCreditHold,
+  type AllocationLotCandidate,
+  type AllocationResult,
   type DeliveryAddressCheck,
   type ShelfLifeCandidateLot,
   type StockedLocationForBlockCheck,
@@ -641,6 +646,115 @@ describe('evaluateCreditHold — property (condition 2)', () => {
       fc.property(fc.boolean(), fc.option(fc.string(), { nil: null }), (creditHold, holdReason) => {
         const decision = evaluateCreditHold({ creditHold, holdReason });
         expect(decision).toEqual(creditHold ? { onHold: true, holdReason } : { onHold: false, holdReason: null });
+      }),
+    );
+  });
+});
+
+// --- allocateFromSingleLot (WBS 2.11 part 2, Master decision 2, fix round 1 findings 1/3) ------
+//
+// Pure decision function part 2's own Allocate command needs: given `orderedQty` and `lots`
+// ALREADY ordered by the application/repository layer (FEFO — expiry_date ascending, nulls last;
+// FIFO — stock_balance.last_movement_at ascending; LIFO — reverse of FIFO — SQL's own job, not this
+// function's), selects a SINGLE lot (Master ruling, fix round 1 findings 1/3 — `wms.order_lines`
+// has one `location_id`/`batch_no` per line, no per-lot allocation child table exists, G-01 filed
+// as SCR-WMS-OUT-01, never split across two lots): the FIRST lot (in policy order) whose own
+// `available` covers the ENTIRE `orderedQty`, taken in full; else the FIRST lot in policy order,
+// taking `min(available, ordered)`, whatever is left over is `shortfall`; empty `lots` (or none with
+// positive `available`) leaves the whole `orderedQty` as `shortfall`. part 1's own fix-round finding
+// 7 was exactly an IEEE-754 rounding bug in this class of arithmetic — every property below
+// generates FRACTIONAL 3-decimal quantities (qtyStringArb-shaped), never whole numbers only, and
+// checks the sums through `Quantity`, never `Number()` + `toFixed`.
+
+// Kept SMALL (0.001..99.999) so a 6-lot array's sum stays comfortably inside numeric(14,3) under
+// fc's shrinking — the fractional-precision behaviour under test does not need large magnitudes.
+const positiveLotQtyArb = fc
+  .tuple(fc.integer({ min: 0, max: 99 }), fc.integer({ min: 0, max: 999 }))
+  .map(([whole, frac]) => `${whole}.${String(frac).padStart(3, '0')}`)
+  .filter((qty) => Number(qty) > 0);
+
+const lotsArb = fc
+  .array(positiveLotQtyArb, { minLength: 1, maxLength: 6 })
+  .map((qtys): AllocationLotCandidate[] => qtys.map((available, index) => ({ lotKey: `lot-${index}`, available })));
+
+describe('allocateFromSingleLot — property (WBS 2.11 part 2, Allocate, single-lot rule)', () => {
+  it('consumed.qty summed + shortfall === orderedQty, exactly (fractional 3-decimal, finding-7 regression guard)', () => {
+    fc.assert(
+      fc.property(positiveLotQtyArb, lotsArb, (orderedQty, lots) => {
+        const result: AllocationResult = allocateFromSingleLot(orderedQty, lots);
+        const consumedSum = result.consumed.reduce((acc, c) => acc.add(Quantity.of(c.qty)), Quantity.zero());
+        expect(consumedSum.add(Quantity.of(result.shortfall)).toString()).toBe(Quantity.of(orderedQty).toString());
+      }),
+    );
+  });
+
+  it('never consumes more than a lot\'s own available, and never emits a zero/negative consumption row', () => {
+    fc.assert(
+      fc.property(positiveLotQtyArb, lotsArb, (orderedQty, lots) => {
+        const result: AllocationResult = allocateFromSingleLot(orderedQty, lots);
+        const availableByKey = new Map(lots.map((lot) => [lot.lotKey, Quantity.of(lot.available)]));
+        for (const c of result.consumed) {
+          const available = availableByKey.get(c.lotKey);
+          expect(available).toBeDefined();
+          const qty = Quantity.of(c.qty);
+          expect(qty.isPositive()).toBe(true);
+          expect(qty.compare(available as Quantity)).toBeLessThanOrEqual(0);
+        }
+      }),
+    );
+  });
+
+  // --- Fix round 1 (Master ruling, findings 1/3): a line is allocated from a SINGLE lot, never
+  // split across two (`wms.order_lines` has one `location_id`/`batch_no` per line, no per-lot
+  // allocation child table exists — G-01 filed as SCR-WMS-OUT-01). The properties below pin the
+  // single-lot contract: preference 1 is the FIRST lot (in policy order) whose OWN `available` covers the
+  // ENTIRE `orderedQty`, taken in full; else preference 2 is the FIRST lot in policy order,
+  // taking `min(available, ordered)`, whatever is left is `shortfall`.
+
+  it('never selects more than one lot — a line is never split across two lots (Master ruling, findings 1/3)', () => {
+    fc.assert(
+      fc.property(positiveLotQtyArb, lotsArb, (orderedQty, lots) => {
+        const result: AllocationResult = allocateFromSingleLot(orderedQty, lots);
+        expect(result.consumed.length).toBeLessThanOrEqual(1);
+      }),
+    );
+  });
+
+  it('when a lot in the given (policy) order fully covers orderedQty, the FIRST such lot alone is consumed in full, shortfall is "0.000", and every other lot is left untouched', () => {
+    fc.assert(
+      fc.property(positiveLotQtyArb, lotsArb, (orderedQty, lots) => {
+        const ordered = Quantity.of(orderedQty);
+        const fullyCoveringIndex = lots.findIndex((lot) => Quantity.of(lot.available).compare(ordered) >= 0);
+        fc.pre(fullyCoveringIndex !== -1);
+        const chosen = lots[fullyCoveringIndex] as AllocationLotCandidate;
+        const result: AllocationResult = allocateFromSingleLot(orderedQty, lots);
+        expect(result.consumed).toEqual([{ lotKey: chosen.lotKey, qty: ordered.toString() }]);
+        expect(result.shortfall).toBe('0.000');
+      }),
+    );
+  });
+
+  it('when NO lot in the given (policy) order fully covers orderedQty, the FIRST lot alone (still the best by FEFO/FIFO/LIFO) is consumed for min(available, ordered), the remainder is shortfall, and every other lot is left untouched', () => {
+    fc.assert(
+      fc.property(positiveLotQtyArb, lotsArb, (orderedQty, lots) => {
+        const ordered = Quantity.of(orderedQty);
+        fc.pre(!lots.some((lot) => Quantity.of(lot.available).compare(ordered) >= 0));
+        const first = lots[0] as AllocationLotCandidate;
+        const firstAvailable = Quantity.of(first.available);
+        const expectedTake = firstAvailable.compare(ordered) < 0 ? firstAvailable : ordered;
+        const result: AllocationResult = allocateFromSingleLot(orderedQty, lots);
+        expect(result.consumed).toEqual([{ lotKey: first.lotKey, qty: expectedTake.toString() }]);
+        expect(result.shortfall).toBe(ordered.subtract(expectedTake).toString());
+      }),
+    );
+  });
+
+  it('an empty lot list never throws — the whole orderedQty is shortfall', () => {
+    fc.assert(
+      fc.property(positiveLotQtyArb, (orderedQty) => {
+        const result: AllocationResult = allocateFromSingleLot(orderedQty, []);
+        expect(result.consumed).toEqual([]);
+        expect(result.shortfall).toBe(Quantity.of(orderedQty).toString());
       }),
     );
   });

@@ -303,3 +303,71 @@ export function evaluateCreditHold(account: AccountCreditForCheck | null): Credi
   if (!account || !account.creditHold) return { onHold: false, holdReason: null };
   return { onHold: true, holdReason: account.holdReason };
 }
+
+// --- allocateFromSingleLot (WBS 2.11 part 2, Master decision 2) ----------------------------------
+
+/** One candidate lot, ALREADY ordered by the caller (repository/SQL) per the SKU's own
+ *  `picking_policy` — FEFO: `expiry_date` ascending, nulls last; FIFO:
+ *  `stock_balance.last_movement_at` ascending; LIFO: reverse of FIFO. This function never
+ *  re-orders `lots` — it scans them in the given order and reserves from ONE of them. `lotKey` is
+ *  an opaque identifier the caller uses to map the chosen lot back to its own (location_id,
+ *  batch_no) pair. */
+export interface AllocationLotCandidate {
+  readonly lotKey: string;
+  /** `wms.stock_balance.qty_available` as the numeric(14,3) text the repository selects. */
+  readonly available: string;
+}
+
+export interface AllocationLotConsumption {
+  readonly lotKey: string;
+  readonly qty: string;
+}
+
+export interface AllocationResult {
+  /** At most ONE entry — the single lot the line reserves from (empty when no lot has stock). */
+  readonly consumed: readonly AllocationLotConsumption[];
+  readonly shortfall: string;
+}
+
+/**
+ * WBS 2.11 part 2, fix round 1 (Master ruling, findings 1/3): a line is allocated from a SINGLE
+ * lot, never split across two — `wms.order_lines` has one `location_id`/`batch_no` per line and no
+ * per-lot allocation child table exists in the schema (G-01 filed separately, SCR-WMS-OUT-01).
+ * `lots` is ALREADY ordered by the caller (repository/SQL) per the SKU's own `picking_policy`
+ * (FEFO/FIFO/LIFO) and pre-filtered to `qty_available > 0`. Preference order:
+ *   1. the FIRST lot (in policy order) whose own `available` covers the ENTIRE `orderedQty` —
+ *      taken in full, no shortfall.
+ *   2. else the FIRST lot in policy order (still the best lot by FEFO/FIFO/LIFO) — take
+ *      `min(lot.available, orderedQty)`, whatever is left over is `shortfall` (line ends up
+ *      'partial').
+ *   3. `lots` empty (or none has positive `available`, which the caller's own SQL filter already
+ *      prevents) — the whole `orderedQty` is `shortfall`, nothing consumed (line stays 'open').
+ * Pure, no I/O, `Quantity` arithmetic throughout (part 1's own fix-round finding 7 — never a raw
+ * `Number()` on a quantity).
+ */
+export function allocateFromSingleLot(
+  orderedQty: string,
+  lots: readonly AllocationLotCandidate[],
+): AllocationResult {
+  const ordered = Quantity.of(orderedQty);
+  if (lots.length === 0 || !ordered.isPositive()) {
+    return { consumed: [], shortfall: ordered.toString() };
+  }
+
+  const fullyCoveringLot = lots.find((lot) => Quantity.of(lot.available).compare(ordered) >= 0);
+  const chosenLot = fullyCoveringLot ?? lots[0];
+  if (!chosenLot) {
+    return { consumed: [], shortfall: ordered.toString() };
+  }
+
+  const available = Quantity.of(chosenLot.available);
+  const take = available.compare(ordered) < 0 ? available : ordered;
+  if (!take.isPositive()) {
+    return { consumed: [], shortfall: ordered.toString() };
+  }
+
+  return {
+    consumed: [{ lotKey: chosenLot.lotKey, qty: take.toString() }],
+    shortfall: ordered.subtract(take).toString(),
+  };
+}

@@ -1,9 +1,11 @@
-Feature: Process outbound order — part 1: create, ten-condition check, approve, cancel (WBS 2.11)
-  # docs/notes/slice-briefs/_slice-2.11.brief.md — part 1 of a split brief (D-179). Allocate,
-  # GeneratePickList and the allocated/partially_allocated cancel path are part 2 — NOT in this
-  # feature file. `chk_outbound_orders_status` (13B) is authoritative for the 14-value enum; this
-  # part's machine only produces edges into draft, checks_pending, credit_rejected, approved,
-  # cancelled.
+Feature: Process outbound order — create, ten-condition check, approve, cancel, allocate,
+  generate pick list (WBS 2.11, parts 1 + 2)
+  # docs/notes/slice-briefs/_slice-2.11.brief.md. Part 1 (create/checks/approve/cancel from the
+  # first four statuses) is above the part-2 marker below; part 2 (Allocate, GeneratePickList, the
+  # allocated/partially_allocated cancel-and-release path) is below it. `chk_outbound_orders_status`
+  # (13B) is authoritative for the 14-value enum; together parts 1+2 produce edges into draft,
+  # checks_pending, credit_rejected, approved, allocated, partially_allocated, cancelled — every
+  # other status (picking...delivered) still has no producing edge (2.12's job).
 
   As the warehouse system, create a draft outbound order, run nine of the ten pre-dispatch
   conditions (the tenth is blocked, no schema source), let WH_MGR approve, and allow cancellation
@@ -129,8 +131,9 @@ Feature: Process outbound order — part 1: create, ten-condition check, approve
     When CancelOutbound is called with no reason
     Then it is rejected before any write
 
-  Scenario: Cancel from an unreachable status is illegal (part 2's statuses don't exist yet)
-    Given an order whose status is "allocated" (no CANCEL edge exists in this part's machine)
+  Scenario: Cancel from an unreachable status is illegal (picking onward — 2.12's job)
+    Given an order whose status is "picking" (no CANCEL edge exists yet — allocated/
+      partially_allocated GAIN one below, in part 2)
     When CancelOutbound is called
     Then it is rejected with IllegalTransitionError and status stays unchanged
 
@@ -154,3 +157,121 @@ Feature: Process outbound order — part 1: create, ten-condition check, approve
     Given an order that belongs to entity PST
     When a caller with no user_entities row for PST queries or mutates the order
     Then the order is invisible to them and the mutating command fails with OrderNotFoundError
+
+  # ================================================================================================
+  # Part 2 — Allocate (FEFO/FIFO), GeneratePickList (shortest path), CancelOutbound's own
+  # allocated/partially_allocated release path (Master decisions 1-7).
+  # ================================================================================================
+
+  # Allocation rule (Master ruling, verbatim — _slice-2.11.brief.md): "a line is allocated from a
+  # single lot. FEFO/FIFO picks the first lot whose qty_available covers the line; if none covers
+  # it, the best single lot supplies min(available, ordered) → `partially_allocated` with the
+  # `insufficient_stock` variance constant; if no lot has stock the line stays unallocated; a line
+  # is never split across two lots."
+
+  Scenario: FEFO allocation picks the earliest-expiring lot first
+    Given two lots of the same SKU with different expiry dates, picking_policy 'FEFO'
+    When Allocate is called on an approved order
+    Then the earlier-expiring lot alone is reserved, order_lines gets that lot's location/batch,
+      status is "allocated"
+
+  Scenario: FIFO allocation for a non-expiry SKU picks the oldest-moved lot first
+    Given two lots of the same SKU with different last_movement_at, picking_policy 'FIFO'
+    When Allocate is called on an approved order
+    Then the lot with the earliest last_movement_at alone is reserved
+
+  Scenario: A line fully covered by the FEFO-first lot is reserved from that lot alone
+    Given two lots of a FEFO SKU, each large enough to cover the line on its own
+    When Allocate is called on an approved order
+    Then only the earlier-expiring lot's qty_allocated grows, by exactly the ordered quantity; the
+      line is "complete" with that lot's location/batch and no variance reason; status is
+      "allocated"; the later-expiring lot is untouched
+
+  Scenario: When the FEFO-first lot cannot cover the line, the first lot that covers it whole is reserved
+    Given a FEFO SKU whose earlier-expiring lot is smaller than the line and whose later-expiring
+      lot covers the line on its own
+    When Allocate is called on an approved order
+    Then the later-expiring lot alone is reserved for the whole line, the line is "complete", and
+      the earlier-expiring lot is untouched (a line is never split across two lots)
+
+  Scenario: Partial allocation when stock runs out mid-line
+    Given an approved order whose ordered quantity exceeds the warehouse's available stock
+    When Allocate is called
+    Then status is "partially_allocated", the line is "partial", the order is not auto-closed
+
+  Scenario: A line larger than any single lot is partially allocated from one lot, the remainder unallocated
+    Given two lots of the same SKU, neither of which covers the line alone although their sum would
+    When Allocate is called on an approved order
+    Then status is "partially_allocated", the line is "partial" with qty_actual equal to the best
+      (first in FIFO order) lot's availability and variance reason "insufficient_stock", the line
+      records that one lot's location/batch, and the other lot is untouched
+
+  Scenario: A line with no stock stays unallocated
+    Given an approved order whose line's SKU has no stock_balance row at all
+    When Allocate is called
+    Then status is "partially_allocated", the line stays "open" with no location and no batch, and
+      no stock_balance row is created or changed
+
+  Scenario: Two concurrent Allocates on the same lot never over-reserve it
+    Given two approved orders whose lines each need the whole of the one lot that exists
+    When Allocate is called on both at the same time
+    Then the candidate stock_balance row is locked `for update`, exactly one order is "allocated",
+      the other is "partially_allocated" with its line "open", and the lot's qty_allocated equals
+      its own quantity — never more
+
+  Scenario: Allocate's audit row records the reserved lot per line
+    Given an approved order with one line covered by a lot and one line with no stock
+    When Allocate is called
+    Then the one audit row's lines carry, per line, the reserved lot's locationId and batchNo, or
+      null for the unallocated line
+
+  Scenario: Allocate is illegal before approval (still draft or checks_pending)
+    When Allocate is called on a draft or checks_pending order
+    Then it is rejected with IllegalTransitionError
+
+  Scenario: GeneratePickList orders by position_no (shortest path), not line order
+    Given an allocated order whose lines sit at locations with different position_no
+    When GeneratePickList is called
+    Then the lines are returned ordered by location position_no ascending, ties broken by line_no
+
+  Scenario: GeneratePickList is illegal before allocation
+    When GeneratePickList is called on an approved-but-not-yet-allocated order
+    Then it is rejected with IllegalTransitionError
+
+  Scenario: Cancelling an allocated order releases the reservation
+    When CancelOutbound is called on an allocated order
+    Then qty_allocated on the single lot reserved for the line returns to its pre-allocation value,
+      status is "cancelled"
+
+  Scenario: Cancelling a partially_allocated order releases only the lot it reserved
+    When CancelOutbound is called on a partially_allocated order
+    Then only the one lot this order's line reserved is released; every other lot is unaffected
+
+  Scenario: Cancel after allocation releases exactly the one reserved lot
+    Given one lot reserved by two allocated orders and a second lot of the same SKU reserved by none
+    When CancelOutbound is called on one of the two orders
+    Then that lot's qty_allocated drops by exactly that order's reserved quantity, the other order's
+      reservation on it stays, and the second lot is untouched
+
+  Scenario: CancelOutbound's audit row records exactly the released lot per line
+    When CancelOutbound is called on an allocated order, an approved order, or a partially_allocated
+      order whose only line was never allocated
+    Then the audit row's released entries are [{lineId, locationId, batchNo, qty}] matching the lot
+      actually released, and empty when nothing was allocated
+
+  Scenario: Stale version is rejected on Allocate and the extended CancelOutbound
+    Given a caller holds an expectedVersion older than the order's current version
+    When Allocate or CancelOutbound (from allocated/partially_allocated) is called
+    Then it is rejected with StaleVersionError (409) and nothing changes, nothing is released
+
+  Scenario: Idempotent replay and conflicting replay on Allocate
+    Given Allocate was already called once with an Idempotency-Key
+    When the same key and same body are sent again
+    Then the stored response is replayed and no second write happens
+    When the same key is sent with a different body
+    Then it is rejected with IdempotencyConflictError (409)
+
+  Scenario: RLS — a caller scoped to another entity cannot see or allocate the order
+    Given an approved order that belongs to entity PST
+    When a caller with no user_entities row for PST queries or calls Allocate on the order
+    Then the order is invisible to them and Allocate fails with OrderNotFoundError

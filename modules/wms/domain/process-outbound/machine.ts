@@ -14,10 +14,14 @@
 //   draft --RUN_CHECKS_CREDIT_FAIL--> credit_rejected
 //   checks_pending --APPROVE--> approved
 //   {draft, checks_pending, credit_rejected, approved} --CANCEL--> cancelled
-// Every other status (allocated, partially_allocated, picking, picked, checked, packed, loaded,
-// dispatched, delivered) is a legal enum VALUE with NO producing/outgoing edge in this part
-// (part 2's job) — `canTransition`/`allowedEventsFrom` treat those states exactly like a foreign
-// status: no event is ever legal from them here.
+// Part 2 (_slice-2.11.brief.md part 2, Master decision 1) ADDS:
+//   approved --ALLOCATE_FULL--> allocated
+//   approved --ALLOCATE_PARTIAL--> partially_allocated
+//   {allocated, partially_allocated} --CANCEL--> cancelled
+// Every other status (picking, picked, checked, packed, loaded, dispatched, delivered) is still a
+// legal enum VALUE with NO producing/outgoing edge (2.12's job) — `canTransition`/
+// `allowedEventsFrom` treat those states exactly like a foreign status: no event is ever legal
+// from them here.
 
 import { createActor, createMachine } from 'xstate';
 
@@ -44,12 +48,15 @@ export const OUTBOUND_ORDER_STATUS = {
 
 export type OutboundOrderStatus = (typeof OUTBOUND_ORDER_STATUS)[keyof typeof OUTBOUND_ORDER_STATUS];
 
-/** The 4 event types this part's machine accepts. */
+/** The 6 event types this part's machine accepts (part 1's own 4 + part 2's own 2 —
+ *  ALLOCATE_FULL/ALLOCATE_PARTIAL, brief Master decision 1). */
 export const OUTBOUND_ORDER_EVENTS = {
   RUN_CHECKS_PASS: 'RUN_CHECKS_PASS',
   RUN_CHECKS_CREDIT_FAIL: 'RUN_CHECKS_CREDIT_FAIL',
   APPROVE: 'APPROVE_OUTBOUND',
   CANCEL: 'CANCEL_OUTBOUND',
+  ALLOCATE_FULL: 'ALLOCATE_FULL',
+  ALLOCATE_PARTIAL: 'ALLOCATE_PARTIAL',
 } as const;
 
 export type OutboundOrderEventType = (typeof OUTBOUND_ORDER_EVENTS)[keyof typeof OUTBOUND_ORDER_EVENTS];
@@ -85,12 +92,23 @@ export const outboundOrderMachine = createMachine({
     },
     [OUTBOUND_ORDER_STATUS.APPROVED]: {
       on: {
+        [OUTBOUND_ORDER_EVENTS.ALLOCATE_FULL]: OUTBOUND_ORDER_STATUS.ALLOCATED,
+        [OUTBOUND_ORDER_EVENTS.ALLOCATE_PARTIAL]: OUTBOUND_ORDER_STATUS.PARTIALLY_ALLOCATED,
         [OUTBOUND_ORDER_EVENTS.CANCEL]: OUTBOUND_ORDER_STATUS.CANCELLED,
       },
     },
-    // Part 2's statuses — legal enum values, no edge in or out of them in this part.
-    [OUTBOUND_ORDER_STATUS.ALLOCATED]: {},
-    [OUTBOUND_ORDER_STATUS.PARTIALLY_ALLOCATED]: {},
+    // Part 2 (brief Master decision 1): the CANCEL release path — {allocated, partially_allocated}
+    // now carry a CANCEL edge. No OTHER event is legal from either (no re-allocation).
+    [OUTBOUND_ORDER_STATUS.ALLOCATED]: {
+      on: {
+        [OUTBOUND_ORDER_EVENTS.CANCEL]: OUTBOUND_ORDER_STATUS.CANCELLED,
+      },
+    },
+    [OUTBOUND_ORDER_STATUS.PARTIALLY_ALLOCATED]: {
+      on: {
+        [OUTBOUND_ORDER_EVENTS.CANCEL]: OUTBOUND_ORDER_STATUS.CANCELLED,
+      },
+    },
     [OUTBOUND_ORDER_STATUS.PICKING]: {},
     [OUTBOUND_ORDER_STATUS.PICKED]: {},
     [OUTBOUND_ORDER_STATUS.CHECKED]: {},

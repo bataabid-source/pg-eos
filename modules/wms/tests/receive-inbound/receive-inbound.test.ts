@@ -57,7 +57,7 @@
 //   - `LocationCandidate`/`SuggestLocationResult` (application layer) gain `abcClass` on every
 //     candidate — informational, read once per call, same value on every row.
 
-import { createHash, randomUUID } from 'node:crypto';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
 
 import { Pool } from 'pg';
 import type { QueryResult } from 'pg';
@@ -150,6 +150,11 @@ const appPool = new Pool({
 const SAFE_SKU_GROSS_WEIGHT_KG = '1.000';
 const SAFE_SKU_VOLUME_CBM = '0.00100';
 const OVER_PALLET_WEIGHT_KG = '1500.000'; // 019:236-237 pallet hard barrier, exceeded by 1 unit.
+// 019-Warehouse-WH1-Setup.sql:236 (pallet) / :240 (shelf) — the real WH1 generator's own
+// max_weight_kg per location_type, mirrored on this file's own M9- fixture locations (item 0 fix)
+// so the over-weight ConfirmPutaway scenario still has a hard barrier to exceed.
+const M9_PALLET_MAX_WEIGHT_KG = '1000.000';
+const M9_SHELF_MAX_WEIGHT_KG = '750.000';
 const QTY_ORDERED = '10.000';
 const VARIANCE_QTY_ACTUAL = '8.000';
 const VARIANCE_REASON = 'damaged in transit';
@@ -208,7 +213,6 @@ const fixtureClientCodeY = `_recvinb_fixture_y_${randomUUID()}`;
 const fixtureSkuIds: string[] = [];
 const fixtureOrderIds: string[] = [];
 const usedCorrelationIds = new Set<string>();
-const usedLocationIds: string[] = [];
 // WBS 2.10: own zone/location fixtures for the ABC-ranking and temperature-filter scenarios below
 // — deleted in afterAll, never left behind (locations first, FK to zones).
 const fixtureZoneIds: string[] = [];
@@ -269,33 +273,43 @@ async function insertZone(params: {
 }
 
 // 019-Warehouse-WH1-Setup.sql:57-64 chk_locations_code_format: for location_type in ('pallet',
-// 'shelf'), code MUST match `^[PGMT][1-9]-[0-9]{2}-[1-9]$` (fixed 7 chars). Codes are drawn from
-// 'T9-<seq>-8'/'T9-<seq>-9' (seq 00..99, level 8 or 9) — a 200-code block reserved for this
-// fixture, never used by 019's own real WH1 layout (which fills sections/aisles/levels
-// systematically from low numbers), so collision-free.
-let nextFixtureLocationIndex = 0;
-function nextFixtureLocationCode(): string {
-  const index = nextFixtureLocationIndex;
-  nextFixtureLocationIndex += 1;
-  const seq = String(index % 100).padStart(2, '0');
-  const level = index < 100 ? 8 : 9;
-  return `T9-${seq}-${level}`;
-}
-
+// 'shelf'), code MUST match `^[PGMT][1-9]-[0-9]{2}-[1-9]$` (fixed 7 chars). Item-0's own
+// pickFreshWh1Location fix showed a sequential/ordered code generator over the SHARED wms.locations
+// table (previously a fixed 'T9-<seq>-8/9' block, 200 codes) collides with — or gets shadowed
+// (`order by code desc`) by — leaked rows from a crashed/interrupted prior run: the fixed block
+// runs out or gets re-claimed by a stale row, producing `locations_warehouse_id_code_key`
+// duplicate-key errors and WH1 location/zone COUNT mismatches. Same fix as item 0: draw from the
+// 'M9-' code block (019-Warehouse-WH1-Setup.sql:59 chk_locations_code_format
+// `^[PGMT][1-9]-[0-9]{2}-[1-9]$`; WH1's real layout uses P1-P3/G1-G5/M1-M5/T1-T5, 'M9-' is reserved
+// for this file's own fixtures) at random, claimed with
+// `on conflict (warehouse_id, code) do nothing` so the table's own unique constraint — not
+// generator ordering — arbitrates between concurrent/leaked rows. The old 'T9-*' leaked rows from
+// prior runs are orphans (D-183: never deleted by a worker here) but no longer collide with or
+// shadow this generator, since it no longer claims codes sequentially from a shared, exhaustible
+// block.
 async function insertLocationInZone(params: {
   readonly zoneId: string;
   readonly positionNo: number;
   readonly maxWeightKg: string | null;
 }): Promise<string> {
-  const result: QueryResult<{ id: string }> = await pool.query(
-    `insert into wms.locations (warehouse_id, zone_id, code, location_type, position_no, max_weight_kg)
-     values ($1, $2, $3, 'pallet', $4, $5::numeric) returning id`,
-    [warehouseId, params.zoneId, nextFixtureLocationCode(), params.positionNo, params.maxWeightKg],
+  for (let attempt = 0; attempt < M9_FIXTURE_LOCATION_MAX_ATTEMPTS; attempt += 1) {
+    const code = randomM9FixtureLocationCode();
+    const result: QueryResult<{ id: string }> = await pool.query(
+      `insert into wms.locations (warehouse_id, zone_id, code, location_type, position_no, max_weight_kg)
+       values ($1, $2, $3, 'pallet', $4, $5::numeric)
+       on conflict (warehouse_id, code) do nothing
+       returning id`,
+      [warehouseId, params.zoneId, code, params.positionNo, params.maxWeightKg],
+    );
+    const row = result.rows[0];
+    if (row) {
+      fixtureLocationIds.push(row.id);
+      return row.id;
+    }
+  }
+  throw new Error(
+    `no free ${M9_FIXTURE_LOCATION_PREFIX}-xx-x fixture location code after ${M9_FIXTURE_LOCATION_MAX_ATTEMPTS} attempts`,
   );
-  const row = result.rows[0];
-  if (!row) throw new Error('fixture wms.locations insert returned no row');
-  fixtureLocationIds.push(row.id);
-  return row.id;
 }
 
 async function setSkuAbcClass(skuId: string, abcClass: 'A' | 'B' | 'C' | null): Promise<void> {
@@ -310,17 +324,52 @@ async function setSkuTempRange(skuId: string, tempMin: string | null, tempMax: s
   ]);
 }
 
+// Same class of bug as WBS 2.10's own finding 1 (handlers.test.ts/process-outbound.test.ts): a
+// `select ... from wms.locations ... order by code desc limit 1` over the SHARED table can pick a
+// real WH1 production location OR another test file's leftover fixture row, and `order by code
+// desc` means an orphaned high-sorting code is picked FIRST. Fix (mirrors
+// modules/wms/tests/process-outbound/handlers.test.ts's `insertOwnLocation`): this function creates
+// its OWN dedicated zone + location under the 'M9-' code block
+// (019-Warehouse-WH1-Setup.sql:59 chk_locations_code_format `^[PGMT][1-9]-[0-9]{2}-[1-9]$`; WH1's
+// real layout uses P1-P3/G1-G5/M1-M5/T1-T5 — 'M9-' is this fixture's block), claimed with
+// `on conflict (warehouse_id, code) do nothing` so the table's own unique constraint arbitrates
+// between concurrent runs. Tracked in fixtureZoneIds/fixtureLocationIds (already deleted in
+// afterAll, locations before zones for the FK) — never left behind. Shared with insertLocationInZone
+// above (item-0-class fix, part 2): both draw from this SAME 'M9-' block, arbitrated purely by the
+// table's unique constraint, never by generator ordering.
+const M9_FIXTURE_LOCATION_PREFIX = 'M9';
+const M9_FIXTURE_LOCATION_SEQ_COUNT = 100;
+const M9_FIXTURE_LOCATION_LEVEL_COUNT = 9;
+const M9_FIXTURE_LOCATION_MAX_ATTEMPTS = 200;
+
+function randomM9FixtureLocationCode(): string {
+  const [seqByte = 0, levelByte = 0] = randomBytes(2);
+  const seq = String(seqByte % M9_FIXTURE_LOCATION_SEQ_COUNT).padStart(2, '0');
+  const level = (levelByte % M9_FIXTURE_LOCATION_LEVEL_COUNT) + 1;
+  return `${M9_FIXTURE_LOCATION_PREFIX}-${seq}-${level}`;
+}
+
 async function pickFreshWh1Location(locationType: 'pallet' | 'shelf'): Promise<{ id: string; code: string }> {
-  const result: QueryResult<{ id: string; code: string }> = await pool.query(
-    `select l.id, l.code from wms.locations l join wms.warehouses w on w.id = l.warehouse_id
-      where w.code = 'WH1' and l.location_type = $1 and l.is_blocked = false and l.id <> all($2::uuid[])
-      order by l.code desc limit 1`,
-    [locationType, usedLocationIds],
+  const zoneId = await insertZone({ code: `_recvinb_M9_zone_${randomUUID()}`, tempMin: null, tempMax: null });
+  const maxWeightKg = locationType === 'pallet' ? M9_PALLET_MAX_WEIGHT_KG : M9_SHELF_MAX_WEIGHT_KG;
+  for (let attempt = 0; attempt < M9_FIXTURE_LOCATION_MAX_ATTEMPTS; attempt += 1) {
+    const code = randomM9FixtureLocationCode();
+    const result: QueryResult<{ id: string; code: string }> = await pool.query(
+      `insert into wms.locations (warehouse_id, zone_id, code, location_type, max_weight_kg)
+       values ($1, $2, $3, $4, $5::numeric)
+       on conflict (warehouse_id, code) do nothing
+       returning id, code`,
+      [warehouseId, zoneId, code, locationType, maxWeightKg],
+    );
+    const row = result.rows[0];
+    if (row) {
+      fixtureLocationIds.push(row.id);
+      return row;
+    }
+  }
+  throw new Error(
+    `no free ${M9_FIXTURE_LOCATION_PREFIX}-xx-x fixture location code after ${M9_FIXTURE_LOCATION_MAX_ATTEMPTS} attempts`,
   );
-  const row = result.rows[0];
-  if (!row) throw new Error(`expected an unblocked WH1 ${locationType} location`);
-  usedLocationIds.push(row.id);
-  return row;
 }
 
 interface DraftOrderLine {

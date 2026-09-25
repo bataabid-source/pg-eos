@@ -68,3 +68,26 @@ export const CancelOutboundInputSchema = z
   .meta({ id: 'CancelOutboundInput' });
 
 export type CancelOutboundInput = z.infer<typeof CancelOutboundInputSchema>;
+
+// --- WBS 2.11 part 2: Allocate (FEFO/FIFO), GeneratePickList (shortest path) ---------------------
+
+export const AllocateInputSchema = z
+  .object({
+    orderId: UUID_ID,
+    expectedVersion: EXPECTED_VERSION,
+    correlationId: UUID_ID,
+  })
+  .meta({ id: 'AllocateInput' });
+
+export type AllocateInput = z.infer<typeof AllocateInputSchema>;
+
+// GeneratePickList is read-only (brief Master decision 5) — no expectedVersion (no optimistic
+// lock on a command that never writes).
+export const GeneratePickListInputSchema = z
+  .object({
+    orderId: UUID_ID,
+    correlationId: UUID_ID,
+  })
+  .meta({ id: 'GeneratePickListInput' });
+
+export type GeneratePickListInput = z.infer<typeof GeneratePickListInputSchema>;
