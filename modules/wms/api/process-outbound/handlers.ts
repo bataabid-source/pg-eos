@@ -25,8 +25,10 @@ import {
   AllocateInputSchema,
   ApproveOutboundInputSchema,
   CancelOutboundInputSchema,
+  CheckOrderInputSchema,
   CreateOutboundInputSchema,
   GeneratePickListInputSchema,
+  PickLineInputSchema,
   RunOutboundChecksInputSchema,
 } from '@pg-eos/contracts/wms/process-outbound';
 import { IdempotencyConflictError, type IdempotencyInput, type WithContextCtx } from '@pg-eos/db';
@@ -35,8 +37,10 @@ import {
   allocate,
   approveOutbound,
   cancelOutbound,
+  checkOrder,
   createOutbound,
   generatePickList,
+  pickLine,
   runOutboundChecks,
   type ProcessOutboundDeps,
 } from '../../application/process-outbound/index.js';
@@ -56,6 +60,8 @@ const IDEMPOTENCY_ENDPOINT_RUN_CHECKS = 'wms.process-outbound.run-outbound-check
 const IDEMPOTENCY_ENDPOINT_APPROVE = 'wms.process-outbound.approve-outbound';
 const IDEMPOTENCY_ENDPOINT_CANCEL = 'wms.process-outbound.cancel-outbound';
 const IDEMPOTENCY_ENDPOINT_ALLOCATE = 'wms.process-outbound.allocate';
+const IDEMPOTENCY_ENDPOINT_PICK_LINE = 'wms.process-outbound.pick-line';
+const IDEMPOTENCY_ENDPOINT_CHECK_ORDER = 'wms.process-outbound.check-order';
 
 export interface ApiHeaders {
   readonly [headerName: string]: string | undefined;
@@ -320,6 +326,42 @@ export async function handleGeneratePickList(
     () => {
       const input = GeneratePickListInputSchema.parse(request.body);
       return generatePickList(request.ctx, input, deps);
+    },
+    deps,
+    extractCorrelationId(request.body),
+  );
+}
+
+// --- WBS 2.12 part 1: PickLine / CheckOrder (brief Master decisions 2/3) -------------------------
+
+export async function handlePickLine(
+  request: ApiRequest<unknown>,
+  deps: ProcessOutboundDeps,
+): Promise<ApiResult<Awaited<ReturnType<typeof pickLine>>>> {
+  const missingKey = requireIdempotencyKey(request.headers);
+  if (missingKey) return missingKey;
+  return handle(
+    () => {
+      const input = PickLineInputSchema.parse(request.body);
+      const idem = buildIdem(request, IDEMPOTENCY_ENDPOINT_PICK_LINE, input);
+      return pickLine(request.ctx, { ...input, idem }, deps);
+    },
+    deps,
+    extractCorrelationId(request.body),
+  );
+}
+
+export async function handleCheckOrder(
+  request: ApiRequest<unknown>,
+  deps: ProcessOutboundDeps,
+): Promise<ApiResult<Awaited<ReturnType<typeof checkOrder>>>> {
+  const missingKey = requireIdempotencyKey(request.headers);
+  if (missingKey) return missingKey;
+  return handle(
+    () => {
+      const input = CheckOrderInputSchema.parse(request.body);
+      const idem = buildIdem(request, IDEMPOTENCY_ENDPOINT_CHECK_ORDER, input);
+      return checkOrder(request.ctx, { ...input, idem }, deps);
     },
     deps,
     extractCorrelationId(request.body),

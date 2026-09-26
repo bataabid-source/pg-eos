@@ -47,11 +47,13 @@ import type {
   OrderUpdateColumns,
   OutboundOrderRepository,
   PickListLineRow,
+  PickOrderLineRow,
   SkuCheckRow,
   StockAvailabilityRow,
   StockedLocationBlockRow,
   StockLotRow,
   UpdateOrderLineAllocationParams,
+  UpdateOrderLinePickParams,
 } from '../../application/process-outbound/ports.js';
 
 async function getOrderForUpdate(tx: NodePgDatabase, orderId: string): Promise<OrderRow> {
@@ -68,9 +70,11 @@ async function getOrderForUpdate(tx: NodePgDatabase, orderId: string): Promise<O
     ship_to_phone: string | null;
     ship_to_address: string | null;
     ship_to_area: string | null;
+    picked_by: string | null;
+    checked_by: string | null;
   }>(sql`
     select id, entity_id, client_id, contract_id, warehouse_id, order_type, status, version,
-           ship_to_name, ship_to_phone, ship_to_address, ship_to_area
+           ship_to_name, ship_to_phone, ship_to_address, ship_to_area, picked_by, checked_by
       from ${sql.raw(ORDER_TABLE)} where id = ${orderId}::uuid for update
   `);
   const row = result.rows[0];
@@ -90,6 +94,8 @@ async function getOrderForUpdate(tx: NodePgDatabase, orderId: string): Promise<O
     shipToPhone: row.ship_to_phone,
     shipToAddress: row.ship_to_address,
     shipToArea: row.ship_to_area,
+    pickedBy: row.picked_by,
+    checkedBy: row.checked_by,
   };
 }
 
@@ -110,9 +116,11 @@ async function getOrderForRead(tx: NodePgDatabase, orderId: string): Promise<Ord
     ship_to_phone: string | null;
     ship_to_address: string | null;
     ship_to_area: string | null;
+    picked_by: string | null;
+    checked_by: string | null;
   }>(sql`
     select id, entity_id, client_id, contract_id, warehouse_id, order_type, status, version,
-           ship_to_name, ship_to_phone, ship_to_address, ship_to_area
+           ship_to_name, ship_to_phone, ship_to_address, ship_to_area, picked_by, checked_by
       from ${sql.raw(ORDER_TABLE)} where id = ${orderId}::uuid
   `);
   const row = result.rows[0];
@@ -132,6 +140,8 @@ async function getOrderForRead(tx: NodePgDatabase, orderId: string): Promise<Ord
     shipToPhone: row.ship_to_phone,
     shipToAddress: row.ship_to_address,
     shipToArea: row.ship_to_area,
+    pickedBy: row.picked_by,
+    checkedBy: row.checked_by,
   };
 }
 
@@ -140,7 +150,9 @@ async function updateOrder(tx: NodePgDatabase, orderId: string, columns: OrderUp
     update ${sql.raw(ORDER_TABLE)}
        set status = ${columns.status}, version = version + 1,
            credit_check_passed = coalesce(${columns.creditCheckPassed ?? null}::boolean, credit_check_passed),
-           credit_checked_at = coalesce(${columns.creditCheckedAt?.toISOString() ?? null}::timestamptz, credit_checked_at)
+           credit_checked_at = coalesce(${columns.creditCheckedAt?.toISOString() ?? null}::timestamptz, credit_checked_at),
+           picked_by = coalesce(${columns.pickedBy ?? null}::uuid, picked_by),
+           checked_by = coalesce(${columns.checkedBy ?? null}::uuid, checked_by)
      where id = ${orderId}::uuid
     returning version
   `);
@@ -563,6 +575,84 @@ async function getConsumedLinesForRelease(tx: NodePgDatabase, orderId: string): 
   }));
 }
 
+// --- PickLine / CheckOrder (WBS 2.12 part 1) -----------------------------------------------------
+
+async function getOrderLineForPick(
+  tx: NodePgDatabase,
+  params: { readonly lineId: string; readonly orderId: string },
+): Promise<PickOrderLineRow | null> {
+  const result = await tx.execute<{
+    id: string;
+    sku_id: string;
+    qty_ordered: string;
+    uom: string;
+    location_id: string | null;
+    batch_no: string | null;
+    qty_actual: string | null;
+  }>(sql`
+    select id, sku_id, qty_ordered::text as qty_ordered, uom, location_id, batch_no,
+           qty_actual::text as qty_actual
+      from ${sql.raw(LINE_TABLE)}
+     where id = ${params.lineId}::uuid and order_table = ${ORDER_TABLE} and order_id = ${params.orderId}::uuid
+  `);
+  const row = result.rows[0];
+  return row
+    ? {
+        lineId: row.id,
+        skuId: row.sku_id,
+        qtyOrdered: row.qty_ordered,
+        uom: row.uom,
+        locationId: row.location_id,
+        batchNo: row.batch_no,
+        // fix round 1 finding 3: Allocate's own reserved-quantity stamp, read BEFORE this call's
+        // own updateOrderLinePick overwrites the column with the actually-picked amount.
+        reservedQty: row.qty_actual,
+      }
+    : null;
+}
+
+/** Fix round 1 finding 2: the double-pick guard — a matching `wms.stock_movements` 'pick' row for
+ *  THIS line, never the order. */
+async function hasPickMovementForLine(tx: NodePgDatabase, params: { readonly lineId: string }): Promise<boolean> {
+  const result = await tx.execute<{ exists: boolean }>(sql`
+    select exists (
+      select 1 from wms.stock_movements
+       where movement_type = 'pick' and ref_table = 'wms.order_lines'
+         and ref_id = ${params.lineId}::uuid
+    ) as exists
+  `);
+  return result.rows[0]?.exists ?? false;
+}
+
+async function countOpenPickLines(tx: NodePgDatabase, orderId: string): Promise<number> {
+  // Fix round 1 findings 2/5 (see ports.ts's own doc comment): a reserved line (location_id is not
+  // null) is open until EITHER a matching 'pick' movement row exists for THAT LINE (never the
+  // order — the double-pick fix), OR its own qty_actual already reads 0 (a zero-quantity pick
+  // intentionally posts no ledger row, finding 5 — a reserved line's qty_actual is always positive
+  // until PickLine records a zero pick on it, since Allocate never reserves a zero-quantity lot).
+  const result = await tx.execute<{ n: string }>(sql`
+    select count(*)::text as n
+      from ${sql.raw(LINE_TABLE)} ol
+     where ol.order_table = ${ORDER_TABLE} and ol.order_id = ${orderId}::uuid
+       and ol.location_id is not null
+       and coalesce(ol.qty_actual, 0) <> 0
+       and not exists (
+         select 1 from wms.stock_movements sm
+          where sm.movement_type = 'pick' and sm.ref_table = 'wms.order_lines' and sm.ref_id = ol.id
+       )
+  `);
+  return Number(result.rows[0]?.n ?? '0');
+}
+
+async function updateOrderLinePick(tx: NodePgDatabase, params: UpdateOrderLinePickParams): Promise<void> {
+  await tx.execute(sql`
+    update ${sql.raw(LINE_TABLE)}
+       set status = ${params.status}, qty_actual = ${params.qtyActual}::numeric,
+           variance_reason = ${params.varianceReason}
+     where id = ${params.lineId}::uuid
+  `);
+}
+
 export const outboundOrderRepository: OutboundOrderRepository = {
   getOrderForUpdate,
   getOrderForRead,
@@ -591,6 +681,10 @@ export const outboundOrderRepository: OutboundOrderRepository = {
   getAllocatedPickListLines,
   getConsumedLinesForRelease,
   decrementLotAllocated,
+  getOrderLineForPick,
+  hasPickMovementForLine,
+  countOpenPickLines,
+  updateOrderLinePick,
 };
 
 export { ORDER_SCHEMA, ORDER_TABLE_NAME, ORDER_TABLE, LINE_TABLE };

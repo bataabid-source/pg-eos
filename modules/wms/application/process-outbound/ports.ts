@@ -31,7 +31,43 @@ export interface Logger {
 /** Everything a command needs, injected by ../../api/process-outbound/composition.ts. */
 export interface ProcessOutboundDeps extends ClockDeps {
   readonly repo: OutboundOrderRepository;
+  readonly ledger: LedgerPort;
   readonly logger: Logger;
+}
+
+/** The ledger rows one posting wrote — ../../infrastructure/receive-inbound/ports.ts's own
+ *  `PostedLedgerMovement` shape (fix round 1 finding 1). */
+export interface PostedLedgerMovement {
+  readonly movementIds: readonly string[];
+  readonly correlationId: string;
+}
+
+export interface PostPickParams {
+  readonly entityId: string;
+  readonly clientId: string;
+  readonly skuId: string;
+  /** the line's own reserved `location_id` — a pick removes stock, it is not a transfer (unlike
+   *  putaway), so there is no `toLocationId`. */
+  readonly fromLocationId: string;
+  readonly qty: string;
+  readonly uom: string;
+  readonly batchNo: string;
+  /** ref_id for the posted `wms.stock_movements` row — fix round 1 finding 2: keyed to the LINE
+   *  (`ref_table='wms.order_lines'`), never the order, so a per-line "already picked" check is
+   *  possible. Same precedent ../count-inventory/ledger.ts already uses. */
+  readonly lineId: string;
+  readonly correlationId: string;
+}
+
+/** Fix round 1 finding 1 — implemented by ../../infrastructure/process-outbound/ledger.ts (NEW), a
+ *  thin adapter over ../../src/stock-ledger/post-movement.ts's `postMovementInTx`, mirroring
+ *  ../../infrastructure/receive-inbound/ledger.ts's exact pattern: the shared rebuild-key lock, the
+ *  balance advisory lock, `validateEntry` (rejects qty<=0 before the DB), the
+ *  `no_negative_stock`->`NegativeStockError` mapping, `last_movement_at`, and the per-movement
+ *  `wms.stock.moved` outbox+audit pairing (G9) — none of which the hand-written SQL this replaces
+ *  had. */
+export interface LedgerPort {
+  postPick(tx: NodePgDatabase, params: PostPickParams, actorId: string, deps: ClockDeps): Promise<PostedLedgerMovement>;
 }
 
 export type AuditTarget = 'order';
@@ -49,6 +85,11 @@ export interface OrderRow {
   readonly shipToPhone: string | null;
   readonly shipToAddress: string | null;
   readonly shipToArea: string | null;
+  /** WBS 2.12 part 1: PickLine's own `picked_by` (01-Data-Model.sql:768) — null before the order
+   *  reaches 'picked'. CheckOrder's own self-check gate compares this to `ctx.userId`. */
+  readonly pickedBy: string | null;
+  /** WBS 2.12 part 1: CheckOrder's own `checked_by` — null before the order reaches 'checked'. */
+  readonly checkedBy: string | null;
 }
 
 export interface OrderLineRow {
@@ -60,6 +101,11 @@ export interface OrderUpdateColumns {
   readonly status: OutboundOrderStatus;
   readonly creditCheckPassed?: boolean;
   readonly creditCheckedAt?: Date;
+  /** WBS 2.12 part 1: set once, the call PickLine completes the order on (coalesce — never
+   *  overwritten by a later call). */
+  readonly pickedBy?: string;
+  /** WBS 2.12 part 1: set once, on the call CheckOrder succeeds on. */
+  readonly checkedBy?: string;
 }
 
 export interface ClientQualificationRow {
@@ -178,6 +224,31 @@ export interface ConsumedLineRow {
   readonly locationId: string;
   readonly batchNo: string;
   readonly qtyActual: string;
+}
+
+// --- PickLine / CheckOrder (WBS 2.12 part 1, brief Master decisions 2/3) ------------------------
+
+/** The ONE order_lines row a PickLine call targets — scoped to (lineId, orderId) so a lineId from
+ *  a different order can never be picked against this order. `locationId`/`batchNo` are the single
+ *  lot Allocate reserved for this line (null when the line was never allocated any stock).
+ *  Fix round 1 finding 3: `reservedQty` is that same row's own `qty_actual` — Allocate's own stamp
+ *  of the quantity reserved from that one lot, read BEFORE this call's own `updateOrderLinePick`
+ *  overwrites the column with the actually-picked amount. */
+export interface PickOrderLineRow {
+  readonly lineId: string;
+  readonly skuId: string;
+  readonly qtyOrdered: string;
+  readonly uom: string;
+  readonly locationId: string | null;
+  readonly batchNo: string | null;
+  readonly reservedQty: string | null;
+}
+
+export interface UpdateOrderLinePickParams {
+  readonly lineId: string;
+  readonly status: string;
+  readonly qtyActual: string;
+  readonly varianceReason: string | null;
 }
 
 /** Every DB statement the process-outbound use case needs (part 1). Implemented by
@@ -318,4 +389,30 @@ export interface OutboundOrderRepository {
    *  `wms.stock_balance` row's `qty_allocated` by the line's `qty_actual`. Throws
    *  `StockBalanceRowMissingError` when the UPDATE matches no row. */
   decrementLotAllocated(tx: NodePgDatabase, params: IncrementLotAllocatedParams): Promise<void>;
+
+  // --- PickLine / CheckOrder (WBS 2.12 part 1) -------------------------------------------------
+  /** The ONE order_lines row this PickLine call targets — scoped to (lineId, orderId). */
+  getOrderLineForPick(
+    tx: NodePgDatabase,
+    params: { readonly lineId: string; readonly orderId: string },
+  ): Promise<PickOrderLineRow | null>;
+  /** Fix round 1 finding 2: `true` when a `wms.stock_movements` 'pick' row already exists for THIS
+   *  line (`ref_table='wms.order_lines'`/`ref_id`=lineId) — the double-pick guard, called BEFORE
+   *  any write. */
+  hasPickMovementForLine(tx: NodePgDatabase, params: { readonly lineId: string }): Promise<boolean>;
+  /** Count of order_lines rows on this order (with a reserved lot, `location_id is not null`) that
+   *  are still open — fix round 1 findings 2/5: a reserved line is open until EITHER a matching
+   *  `wms.stock_movements` 'pick' row exists for it (`ref_table='wms.order_lines'`/`ref_id`=the
+   *  LINE's own id, never the order — the double-pick fix), OR its own `qty_actual` reads `0`
+   *  (a zero-quantity pick intentionally posts no ledger row, finding 5 — see
+   *  ../../domain/process-outbound/invariants.ts's `assertLineNotAlreadyPicked` doc comment for why
+   *  `qty_actual = 0` can only mean "already zero-picked" on a reserved line). Zero means the order
+   *  just completed picking. Ledger-based (never `order_lines.qty_actual is null`): Allocate
+   *  ALREADY writes `qty_actual`/`status` on every line to record its own reservation outcome
+   *  (../../application/process-outbound/allocate.ts), so that column alone can never distinguish
+   *  "reserved" from "physically picked" — the append-only pick ledger (plus the zero-pick
+   *  exception above) is the only reliable signal this call itself controls. */
+  countOpenPickLines(tx: NodePgDatabase, orderId: string): Promise<number>;
+  /** Sets `qty_actual`/`status`/`variance_reason` on the one line this call picked. */
+  updateOrderLinePick(tx: NodePgDatabase, params: UpdateOrderLinePickParams): Promise<void>;
 }

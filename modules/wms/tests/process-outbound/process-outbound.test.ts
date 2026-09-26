@@ -38,8 +38,10 @@ import {
   allocate,
   approveOutbound,
   cancelOutbound,
+  checkOrder,
   createOutbound,
   generatePickList,
+  pickLine,
   runOutboundChecks,
 } from '../../application/process-outbound/index.js';
 import { createProcessOutboundDeps } from '../../api/process-outbound/composition.js';
@@ -51,15 +53,21 @@ import {
   DeliveryAddressIncompleteError,
   IllegalTransitionError,
   InsufficientStockError,
+  LineAlreadyPickedError,
+  LineNotReservedForPickError,
   OutboundLocationBlockedError,
   NoServicePriceError,
+  OrderLineNotFoundError,
   OrderNotFoundError,
   OrderQuantityExceededError,
+  PickQuantityExceedsReservedError,
   RoleRequiredError,
+  SelfCheckNotAllowedError,
   ShelfLifeTooShortError,
   SkuBlockedError,
   SkuClientMismatchError,
   StaleVersionError,
+  VarianceReasonRequiredError,
 } from '../../domain/process-outbound/errors.js';
 // pg-reviewer finding 1 (2.11 part 1, round 1): stock is seeded through a REAL 'receipt' movement
 // via the module's own public postMovement (../../index.js) — never a direct wms.stock_balance
@@ -2671,5 +2679,691 @@ describe('Scenario: RLS — a caller scoped to another entity cannot see or allo
       allocate(outsiderCtx, { orderId, expectedVersion: version, correlationId: nextCorrelationId() }, deps),
     ).rejects.toBeInstanceOf(OrderNotFoundError);
     expect((await getOrder(orderId)).status).toBe('approved');
+  });
+});
+
+// =====================================================================================================
+// Part 3 — PickLine + CheckOrder (WBS 2.12 part 1, _slice-2.12.brief.md). Meets doc 38 row 2.12's own
+// acceptance criterion, verbatim: "Self-check rejected". New machine edges: {allocated,
+// partially_allocated} --START_PICKING--> picking, picking --COMPLETE_PICKING--> picked,
+// picked --CHECK--> checked. PackOrder/LoadOrder are part 2, not exercised here.
+//
+// RED until pg-backend adds `pickLine`/`checkOrder` to application/process-outbound/index.js and
+// `SelfCheckNotAllowedError`/`VarianceReasonRequiredError` to domain/process-outbound/errors.ts.
+// =====================================================================================================
+
+/** Full-value column read for wms.outbound_orders this part needs beyond `getOrder`'s own four
+ *  columns (status, version, credit_check_passed, credit_checked_at) — `picked_by`/`checked_by`
+ *  (01-Data-Model.sql:768). */
+async function getOrderPickCheck(orderId: string): Promise<{
+  status: string;
+  version: number;
+  picked_by: string | null;
+  checked_by: string | null;
+}> {
+  const result: QueryResult<{ status: string; version: number; picked_by: string | null; checked_by: string | null }> = await pool.query(
+    `select status, version, picked_by, checked_by from wms.outbound_orders where id = $1`,
+    [orderId],
+  );
+  const row = result.rows[0];
+  if (!row) throw new Error(`no wms.outbound_orders row for id ${orderId}`);
+  return row;
+}
+
+/** Both quantity columns of one wms.stock_balance row — PickLine's own real-consumption invariant
+ *  (Master decision 2) needs both qty_on_hand AND qty_allocated, unlike Allocate/Cancel's own
+ *  qty_allocated-only helper (getStockBalanceQtyAllocated). */
+async function getStockBalanceBoth(clientId: string, skuId: string, locationId: string, batchNo: string): Promise<{
+  qty_on_hand: string;
+  qty_allocated: string;
+}> {
+  const result: QueryResult<{ qty_on_hand: string; qty_allocated: string }> = await pool.query(
+    `select qty_on_hand::text as qty_on_hand, qty_allocated::text as qty_allocated from wms.stock_balance
+      where client_id = $1 and sku_id = $2 and location_id = $3 and batch_no = $4`,
+    [clientId, skuId, locationId, batchNo],
+  );
+  const row = result.rows[0];
+  if (!row) throw new Error(`no wms.stock_balance row for client ${clientId} sku ${skuId} location ${locationId} batch ${batchNo}`);
+  return row;
+}
+
+/** Every wms.stock_movements row of type 'pick' for a client — asserted exactly, never `.some`. */
+async function pickMovementsForClient(clientId: string): Promise<
+  Array<{ qty: string; from_location_id: string | null; sku_id: string }>
+> {
+  const result: QueryResult<{ qty: string; from_location_id: string | null; sku_id: string }> = await pool.query(
+    `select qty::text as qty, from_location_id, sku_id::text as sku_id from wms.stock_movements
+      where client_id = $1 and movement_type = 'pick'`,
+    [clientId],
+  );
+  return result.rows;
+}
+
+/** Walks an order through the full pipeline (create → checks → approve → allocate) via the real
+ *  commands, to 'allocated' — PickLine's own precondition. Mirrors buildApprovedOrder's own
+ *  "real commands, not a shortcut" discipline. Batch is always '' (buildValidScenario/
+ *  seedStockViaReceipt's own default — no batchNo override there). */
+async function buildAllocatedOrder(
+  overrides: Parameters<typeof buildValidScenario>[0] = {},
+): Promise<{
+  orderId: string;
+  lineId: string;
+  version: number;
+  clientId: string;
+  skuId: string;
+  locationId: string;
+}> {
+  const built = await buildApprovedOrder(overrides);
+  const afterAllocate = await allocate(roleCtx, { orderId: built.orderId, expectedVersion: built.version, correlationId: nextCorrelationId() }, deps);
+  expect(afterAllocate.status).toBe('allocated');
+  return {
+    orderId: built.orderId,
+    lineId: built.lineIds[0] as string,
+    version: afterAllocate.version,
+    clientId: built.clientId,
+    skuId: built.skuId,
+    locationId: built.locationId,
+  };
+}
+
+/** A two-line allocated order (both lines fully covered by their own stock), for the
+ *  picking-then-picked transition scenario, which needs an intermediate "picking" state that a
+ *  single-line order can never observe (the FIRST PickLine call would also be the LAST). */
+async function buildAllocatedTwoLineOrder(): Promise<{
+  orderId: string;
+  lineIdA: string;
+  lineIdB: string;
+  version: number;
+  clientId: string;
+  skuIdA: string;
+  skuIdB: string;
+  locationIdA: string;
+  locationIdB: string;
+}> {
+  const clientId = await insertClient();
+  const priceListId = await insertPriceList();
+  const contractId = await insertContract(clientId, { priceListId });
+  const skuIdA = await insertSku(clientId);
+  const skuIdB = await insertSku(clientId);
+  const zoneId = await insertZone();
+  const locationIdA = await insertLocation(zoneId);
+  const locationIdB = await insertLocation(zoneId);
+  const QTY = '4.000';
+  await seedStockViaReceipt({ clientId, skuId: skuIdA, locationId: locationIdA, qtyOnHand: QTY });
+  await seedStockViaReceipt({ clientId, skuId: skuIdB, locationId: locationIdB, qtyOnHand: QTY });
+  const { orderId, lineIds } = await createDraftOutboundOrderFixture({
+    clientId,
+    contractId,
+    shipToName: 'x',
+    shipToPhone: 'x',
+    shipToAddress: 'x',
+    shipToArea: 'x',
+    lines: [
+      { skuId: skuIdA, qtyOrdered: QTY },
+      { skuId: skuIdB, qtyOrdered: QTY },
+    ],
+  });
+  const version = await forceApprove(orderId);
+  const afterAllocate = await allocate(roleCtx, { orderId, expectedVersion: version, correlationId: nextCorrelationId() }, deps);
+  expect(afterAllocate.status).toBe('allocated');
+  return {
+    orderId,
+    lineIdA: lineIds[0] as string,
+    lineIdB: lineIds[1] as string,
+    version: afterAllocate.version,
+    clientId,
+    skuIdA,
+    skuIdB,
+    locationIdA,
+    locationIdB,
+  };
+}
+
+// --- Scenario: PickLine records the picked quantity and posts a pick ledger movement ---------------
+
+describe('Scenario: PickLine records the picked quantity and posts a pick ledger movement', () => {
+  it('a full-quantity pick posts a wms.stock_movements "pick" row, drops qty_on_hand AND qty_allocated by that amount, line becomes "complete"', async () => {
+    const order = await buildAllocatedOrder();
+    const before = await getStockBalanceBoth(order.clientId, order.skuId, order.locationId, '');
+    expect(before.qty_on_hand).toBe(QTY_ORDERED);
+    expect(before.qty_allocated).toBe(QTY_ORDERED);
+
+    const correlationId = nextCorrelationId();
+    const result = await pickLine(
+      roleCtx,
+      { orderId: order.orderId, lineId: order.lineId, expectedVersion: order.version, qtyActual: QTY_ORDERED, correlationId },
+      deps,
+    );
+    expect(result.status).toBe('picked'); // sole line, complete -> order also complete.
+
+    const movements = await pickMovementsForClient(order.clientId);
+    expect(movements).toHaveLength(1);
+    expect(movements[0]).toMatchObject({ qty: QTY_ORDERED, from_location_id: order.locationId, sku_id: order.skuId });
+
+    const after = await getStockBalanceBoth(order.clientId, order.skuId, order.locationId, '');
+    expect(after.qty_on_hand).toBe('0.000');
+    expect(after.qty_allocated).toBe('0.000');
+
+    const line = await getOrderLine(order.lineId);
+    expect(line.status).toBe('complete');
+    expect(line.qty_actual).toBe(QTY_ORDERED);
+  });
+
+  it('a fractional 3-decimal full pick (5.250) drops both quantities exactly, no float drift', async () => {
+    const clientId = await insertClient();
+    const priceListId = await insertPriceList();
+    const contractId = await insertContract(clientId, { priceListId });
+    const skuId = await insertSku(clientId);
+    const zoneId = await insertZone();
+    const locationId = await insertLocation(zoneId);
+    const QTY = '5.250';
+    await seedStockViaReceipt({ clientId, skuId, locationId, qtyOnHand: QTY });
+    const { orderId, lineIds } = await createDraftOutboundOrderFixture({
+      clientId,
+      contractId,
+      shipToName: 'x',
+      shipToPhone: 'x',
+      shipToAddress: 'x',
+      shipToArea: 'x',
+      lines: [{ skuId, qtyOrdered: QTY }],
+    });
+    const version = await forceApprove(orderId);
+    const afterAllocate = await allocate(roleCtx, { orderId, expectedVersion: version, correlationId: nextCorrelationId() }, deps);
+    expect(afterAllocate.status).toBe('allocated');
+    const lineId = lineIds[0] as string;
+
+    const result = await pickLine(
+      roleCtx,
+      { orderId, lineId, expectedVersion: afterAllocate.version, qtyActual: QTY, correlationId: nextCorrelationId() },
+      deps,
+    );
+    expect(result.status).toBe('picked');
+
+    const after = await getStockBalanceBoth(clientId, skuId, locationId, '');
+    expect(after.qty_on_hand).toBe('0.000');
+    expect(after.qty_allocated).toBe('0.000');
+    const movements = await pickMovementsForClient(clientId);
+    expect(movements).toEqual([expect.objectContaining({ qty: QTY, from_location_id: locationId, sku_id: skuId })]);
+  });
+});
+
+// --- Scenario: The order transitions to picking on the first PickLine call, then picked when complete
+
+describe('Scenario: The order transitions to picking on the first PickLine call, then picked when complete', () => {
+  it('status is "picking" after the first line, "picked" (picked_by set) after the last line completes', async () => {
+    const order = await buildAllocatedTwoLineOrder();
+
+    const afterFirst = await pickLine(
+      roleCtx,
+      { orderId: order.orderId, lineId: order.lineIdA, expectedVersion: order.version, qtyActual: '4.000', correlationId: nextCorrelationId() },
+      deps,
+    );
+    expect(afterFirst.status).toBe('picking');
+    expect((await getOrderPickCheck(order.orderId)).status).toBe('picking');
+
+    const afterSecond = await pickLine(
+      roleCtx,
+      { orderId: order.orderId, lineId: order.lineIdB, expectedVersion: afterFirst.version, qtyActual: '4.000', correlationId: nextCorrelationId() },
+      deps,
+    );
+    expect(afterSecond.status).toBe('picked');
+    const finalOrder = await getOrderPickCheck(order.orderId);
+    expect(finalOrder.status).toBe('picked');
+    expect(finalOrder.picked_by).toBe(ROLE_ACTOR_UUID);
+  });
+});
+
+// --- Scenario: A shortage on PickLine requires a variance_reason -------------------------------------
+
+describe('Scenario: A shortage on PickLine requires a variance_reason', () => {
+  it('rejects with VarianceReasonRequiredError before any write when qty_actual < qty_ordered and no variance_reason is given', async () => {
+    const order = await buildAllocatedOrder();
+    const correlationId = nextCorrelationId();
+    const shortQty = '4.000'; // < QTY_ORDERED (10.000).
+
+    await expect(
+      pickLine(roleCtx, { orderId: order.orderId, lineId: order.lineId, expectedVersion: order.version, qtyActual: shortQty, correlationId }, deps),
+    ).rejects.toBeInstanceOf(VarianceReasonRequiredError);
+
+    // Nothing written BY PickLine: the line is exactly as Allocate itself already left it (Allocate
+    // stamps status='complete'/qty_actual=the reserved amount on every fully-reserved line as its
+    // OWN reservation outcome — application/process-outbound/allocate.ts LINE_STATUS_COMPLETE — this
+    // order reached "allocated" so its sole line was fully reserved before PickLine ever ran). Stock
+    // balance, movements, order version and outbox/audit prove the rejected call itself wrote nothing.
+    const line = await getOrderLine(order.lineId);
+    expect(line.status).toBe('complete');
+    expect(line.qty_actual).toBe(QTY_ORDERED);
+    const balance = await getStockBalanceBoth(order.clientId, order.skuId, order.locationId, '');
+    expect(balance.qty_on_hand).toBe(QTY_ORDERED);
+    expect(balance.qty_allocated).toBe(QTY_ORDERED);
+    expect(await pickMovementsForClient(order.clientId)).toHaveLength(0);
+    expect((await getOrderPickCheck(order.orderId)).status).toBe('allocated');
+    expect(await anyOutboxCountForCorrelation(correlationId)).toBe(0);
+    expect(await auditCountForCorrelation(correlationId)).toBe(0);
+  });
+
+  it('a fractional 3-decimal shortage (9.999 picked of 10.000 ordered) with no reason is also rejected', async () => {
+    const order = await buildAllocatedOrder();
+    await expect(
+      pickLine(
+        roleCtx,
+        { orderId: order.orderId, lineId: order.lineId, expectedVersion: order.version, qtyActual: '9.999', correlationId: nextCorrelationId() },
+        deps,
+      ),
+    ).rejects.toBeInstanceOf(VarianceReasonRequiredError);
+  });
+
+  it('the SAME shortage WITH a variance_reason succeeds — line "partial", reason recorded', async () => {
+    const order = await buildAllocatedOrder();
+    const shortQty = '4.000';
+    const reason = 'damaged in transit';
+    const result = await pickLine(
+      roleCtx,
+      { orderId: order.orderId, lineId: order.lineId, expectedVersion: order.version, qtyActual: shortQty, varianceReason: reason, correlationId: nextCorrelationId() },
+      deps,
+    );
+    expect(result.status).toBe('picked'); // sole line, now settled (partial), order still completes.
+    const line = await getOrderLine(order.lineId);
+    expect(line.status).toBe('partial');
+    expect(line.qty_actual).toBe(shortQty);
+    expect(line.variance_reason).toBe(reason);
+  });
+});
+
+// --- Scenario: PickLine is illegal before allocation --------------------------------------------------
+
+describe('Scenario: PickLine is illegal before allocation', () => {
+  it('rejects with IllegalTransitionError when the order is only "approved"', async () => {
+    const built = await buildApprovedOrder();
+    await expect(
+      pickLine(
+        roleCtx,
+        { orderId: built.orderId, lineId: built.lineIds[0] as string, expectedVersion: built.version, qtyActual: QTY_ORDERED, correlationId: nextCorrelationId() },
+        deps,
+      ),
+    ).rejects.toBeInstanceOf(IllegalTransitionError);
+    expect((await getOrder(built.orderId)).status).toBe('approved');
+  });
+});
+
+// --- Scenario: PickLine fix round 1 bug-fix scenarios (findings 2/3/4/5/6/7) --------------------------
+
+describe('Scenario: PickLine rejects a repeat pick on an already-picked line (finding 2)', () => {
+  it('picking the SAME line twice (fresh expectedVersion, fresh correlationId each time) rejects the second call with LineAlreadyPickedError, before any write', async () => {
+    const order = await buildAllocatedTwoLineOrder();
+    const afterFirst = await pickLine(
+      roleCtx,
+      { orderId: order.orderId, lineId: order.lineIdA, expectedVersion: order.version, qtyActual: '4.000', correlationId: nextCorrelationId() },
+      deps,
+    );
+    expect(afterFirst.status).toBe('picking'); // line B still open — the order stays "picking".
+
+    const beforeLine = await getOrderLine(order.lineIdA);
+    const correlationId = nextCorrelationId();
+    await expect(
+      pickLine(
+        roleCtx,
+        { orderId: order.orderId, lineId: order.lineIdA, expectedVersion: afterFirst.version, qtyActual: '4.000', correlationId },
+        deps,
+      ),
+    ).rejects.toBeInstanceOf(LineAlreadyPickedError);
+
+    // Nothing written by the rejected second attempt: the line, the order version/status and the
+    // pick-movement count are exactly where the first (legitimate) call left them.
+    expect(await getOrderLine(order.lineIdA)).toEqual(beforeLine);
+    expect((await getOrder(order.orderId)).status).toBe('picking');
+    expect((await getOrder(order.orderId)).version).toBe(afterFirst.version);
+    expect(await pickMovementsForClient(order.clientId)).toHaveLength(1); // line A's own pick, once.
+    expect(await anyOutboxCountForCorrelation(correlationId)).toBe(0);
+    expect(await auditCountForCorrelation(correlationId)).toBe(0);
+  });
+});
+
+describe('Scenario: PickLine rejects an over-pick beyond the line\'s reserved quantity (finding 3)', () => {
+  it('qtyActual greater than the reserved quantity rejects with PickQuantityExceedsReservedError, before any write', async () => {
+    const order = await buildAllocatedOrder(); // reserved = QTY_ORDERED (10.000).
+    const overQty = '11.000';
+    const correlationId = nextCorrelationId();
+
+    await expect(
+      pickLine(roleCtx, { orderId: order.orderId, lineId: order.lineId, expectedVersion: order.version, qtyActual: overQty, correlationId }, deps),
+    ).rejects.toBeInstanceOf(PickQuantityExceedsReservedError);
+
+    const line = await getOrderLine(order.lineId);
+    expect(line.status).toBe('complete'); // Allocate's own stamp, untouched.
+    expect(line.qty_actual).toBe(QTY_ORDERED);
+    expect((await getOrderPickCheck(order.orderId)).status).toBe('allocated');
+    expect(await pickMovementsForClient(order.clientId)).toHaveLength(0);
+    expect(await anyOutboxCountForCorrelation(correlationId)).toBe(0);
+    expect(await auditCountForCorrelation(correlationId)).toBe(0);
+  });
+
+  it('a fractional 3-decimal over-pick (reserved 5.250, picked 5.251) is also rejected', async () => {
+    const clientId = await insertClient();
+    const priceListId = await insertPriceList();
+    const contractId = await insertContract(clientId, { priceListId });
+    const skuId = await insertSku(clientId);
+    const zoneId = await insertZone();
+    const locationId = await insertLocation(zoneId);
+    const QTY = '5.250';
+    await seedStockViaReceipt({ clientId, skuId, locationId, qtyOnHand: QTY });
+    const order = await buildForceApprovedSingleLineOrder(clientId, contractId, skuId, QTY);
+    const afterAllocate = await allocate(roleCtx, { orderId: order.orderId, expectedVersion: order.version, correlationId: nextCorrelationId() }, deps);
+    expect(afterAllocate.status).toBe('allocated');
+
+    await expect(
+      pickLine(
+        roleCtx,
+        { orderId: order.orderId, lineId: order.lineId, expectedVersion: afterAllocate.version, qtyActual: '5.251', correlationId: nextCorrelationId() },
+        deps,
+      ),
+    ).rejects.toBeInstanceOf(PickQuantityExceedsReservedError);
+    expect(await pickMovementsForClient(clientId)).toHaveLength(0);
+  });
+});
+
+describe("Scenario: A partial pick with a reason releases the line's FULL reserved qty_allocated, not just the picked amount (finding 4)", () => {
+  it('qty_on_hand drops only by the picked amount; qty_allocated drops to zero (the whole reservation released)', async () => {
+    const order = await buildAllocatedOrder(); // reserved = QTY_ORDERED (10.000).
+    const pickedQty = '4.000';
+    const reason = 'damaged in transit';
+
+    const result = await pickLine(
+      roleCtx,
+      { orderId: order.orderId, lineId: order.lineId, expectedVersion: order.version, qtyActual: pickedQty, varianceReason: reason, correlationId: nextCorrelationId() },
+      deps,
+    );
+    expect(result.status).toBe('picked'); // sole line settled (partial) -> order still completes.
+
+    const balance = await getStockBalanceBoth(order.clientId, order.skuId, order.locationId, '');
+    expect(balance.qty_on_hand).toBe('6.000'); // 10.000 - 4.000 picked.
+    expect(balance.qty_allocated).toBe('0.000'); // the FULL 10.000 reservation released, not 6.000.
+  });
+});
+
+describe('Scenario: A zero-qty pick with a variance_reason releases the reservation and posts no ledger row (finding 5)', () => {
+  it('no wms.stock_movements "pick" row is posted; qty_allocated drops to zero; qty_on_hand is untouched; the order can still proceed', async () => {
+    const order = await buildAllocatedOrder(); // reserved = QTY_ORDERED (10.000).
+    const reason = 'total loss';
+
+    const result = await pickLine(
+      roleCtx,
+      { orderId: order.orderId, lineId: order.lineId, expectedVersion: order.version, qtyActual: '0.000', varianceReason: reason, correlationId: nextCorrelationId() },
+      deps,
+    );
+    expect(result.status).toBe('picked'); // qty_actual=0 line does not count as "open" -> order completes.
+
+    expect(await pickMovementsForClient(order.clientId)).toHaveLength(0);
+    const balance = await getStockBalanceBoth(order.clientId, order.skuId, order.locationId, '');
+    expect(balance.qty_on_hand).toBe(QTY_ORDERED); // untouched — no ledger write at all.
+    expect(balance.qty_allocated).toBe('0.000'); // the full reservation released.
+
+    const line = await getOrderLine(order.lineId);
+    expect(line.status).toBe('partial');
+    expect(line.qty_actual).toBe('0.000');
+    expect(line.variance_reason).toBe(reason);
+  });
+});
+
+describe('Scenario: PickLine rejects a positive quantity against a line with no reservation (finding 6)', () => {
+  it('a line whose location_id is null (never allocated — the open remainder of a partially_allocated order) rejects qtyActual > 0 with LineNotReservedForPickError, before any write', async () => {
+    const clientId = await insertClient();
+    const priceListId = await insertPriceList();
+    const contractId = await insertContract(clientId, { priceListId });
+    const skuId = await insertSku(clientId); // never stocked -> Allocate leaves it "open".
+    const order = await buildForceApprovedSingleLineOrder(clientId, contractId, skuId, '4.000');
+
+    const afterAllocate = await allocate(roleCtx, { orderId: order.orderId, expectedVersion: order.version, correlationId: nextCorrelationId() }, deps);
+    expect(afterAllocate.status).toBe('partially_allocated');
+    const line = await getOrderLine(order.lineId);
+    expect(line.location_id).toBeNull();
+
+    const correlationId = nextCorrelationId();
+    await expect(
+      pickLine(
+        roleCtx,
+        { orderId: order.orderId, lineId: order.lineId, expectedVersion: afterAllocate.version, qtyActual: '1.000', correlationId },
+        deps,
+      ),
+    ).rejects.toBeInstanceOf(LineNotReservedForPickError);
+
+    expect((await getOrder(order.orderId)).status).toBe('partially_allocated');
+    expect((await getOrder(order.orderId)).version).toBe(afterAllocate.version);
+    expect(await pickMovementsForClient(clientId)).toHaveLength(0);
+    expect(await anyOutboxCountForCorrelation(correlationId)).toBe(0);
+    expect(await auditCountForCorrelation(correlationId)).toBe(0);
+  });
+});
+
+describe('Scenario: PickLine rejects an unknown lineId with a typed 422, never a bare 500 (finding 7)', () => {
+  it('a lineId not on the order rejects with OrderLineNotFoundError, before any write', async () => {
+    const order = await buildAllocatedOrder();
+    const unknownLineId = randomUUID();
+    const correlationId = nextCorrelationId();
+
+    await expect(
+      pickLine(
+        roleCtx,
+        { orderId: order.orderId, lineId: unknownLineId, expectedVersion: order.version, qtyActual: QTY_ORDERED, correlationId },
+        deps,
+      ),
+    ).rejects.toBeInstanceOf(OrderLineNotFoundError);
+
+    expect((await getOrder(order.orderId)).status).toBe('allocated');
+    expect((await getOrder(order.orderId)).version).toBe(order.version);
+    expect(await pickMovementsForClient(order.clientId)).toHaveLength(0);
+    expect(await anyOutboxCountForCorrelation(correlationId)).toBe(0);
+    expect(await auditCountForCorrelation(correlationId)).toBe(0);
+  });
+});
+
+// --- Scenario: CheckOrder rejects a self-check ---------------------------------------------------------
+
+describe('Scenario: CheckOrder rejects a self-check', () => {
+  it('the same actor who picked the order calling CheckOrder is rejected with SelfCheckNotAllowedError, status stays "picked"', async () => {
+    const order = await buildAllocatedOrder();
+    const picked = await pickLine(
+      roleCtx,
+      { orderId: order.orderId, lineId: order.lineId, expectedVersion: order.version, qtyActual: QTY_ORDERED, correlationId: nextCorrelationId() },
+      deps,
+    );
+    expect(picked.status).toBe('picked');
+    expect((await getOrderPickCheck(order.orderId)).picked_by).toBe(ROLE_ACTOR_UUID);
+
+    const correlationId = nextCorrelationId();
+    await expect(
+      checkOrder(roleCtx, { orderId: order.orderId, expectedVersion: picked.version, correlationId }, deps),
+    ).rejects.toBeInstanceOf(SelfCheckNotAllowedError);
+
+    const after = await getOrderPickCheck(order.orderId);
+    expect(after.status).toBe('picked');
+    expect(after.checked_by).toBeNull();
+    expect(await anyOutboxCountForCorrelation(correlationId)).toBe(0);
+    expect(await auditCountForCorrelation(correlationId)).toBe(0);
+  });
+});
+
+// --- Scenario: CheckOrder succeeds when the checker differs from the picker ----------------------------
+
+describe('Scenario: CheckOrder succeeds when the checker differs from the picker', () => {
+  it('status becomes "checked", checked_by is set to the second actor', async () => {
+    const order = await buildAllocatedOrder();
+    const picked = await pickLine(
+      roleCtx,
+      { orderId: order.orderId, lineId: order.lineId, expectedVersion: order.version, qtyActual: QTY_ORDERED, correlationId: nextCorrelationId() },
+      deps,
+    );
+    expect(picked.status).toBe('picked');
+
+    const correlationId = nextCorrelationId();
+    const result = await checkOrder(noRoleCtx, { orderId: order.orderId, expectedVersion: picked.version, correlationId }, deps);
+    expect(result.status).toBe('checked');
+
+    const after = await getOrderPickCheck(order.orderId);
+    expect(after.status).toBe('checked');
+    expect(after.checked_by).toBe(NO_ROLE_ACTOR_UUID);
+    expect(await outboxRowsForCorrelationAndType(correlationId, 'wms.outbound.checked')).toHaveLength(1);
+    expect(await auditCountForCorrelation(correlationId)).toBe(1);
+  });
+});
+
+// --- Scenario: CheckOrder is illegal before picking completes ------------------------------------------
+
+describe('Scenario: CheckOrder is illegal before picking completes', () => {
+  it('rejects with IllegalTransitionError when the order is still "allocated" (no PickLine called yet)', async () => {
+    const order = await buildAllocatedOrder();
+    await expect(
+      checkOrder(roleCtx, { orderId: order.orderId, expectedVersion: order.version, correlationId: nextCorrelationId() }, deps),
+    ).rejects.toBeInstanceOf(IllegalTransitionError);
+    expect((await getOrder(order.orderId)).status).toBe('allocated');
+  });
+
+  it('rejects with IllegalTransitionError when the order is "picking" (one of two lines still open)', async () => {
+    const order = await buildAllocatedTwoLineOrder();
+    const afterFirst = await pickLine(
+      roleCtx,
+      { orderId: order.orderId, lineId: order.lineIdA, expectedVersion: order.version, qtyActual: '4.000', correlationId: nextCorrelationId() },
+      deps,
+    );
+    expect(afterFirst.status).toBe('picking');
+    await expect(
+      checkOrder(roleCtx, { orderId: order.orderId, expectedVersion: afterFirst.version, correlationId: nextCorrelationId() }, deps),
+    ).rejects.toBeInstanceOf(IllegalTransitionError);
+    expect((await getOrder(order.orderId)).status).toBe('picking');
+  });
+});
+
+// --- Scenario: Stale version is rejected on PickLine and CheckOrder ------------------------------------
+
+describe('Scenario: Stale version is rejected on PickLine and CheckOrder', () => {
+  it('rejects a stale expectedVersion on PickLine with StaleVersionError, nothing written', async () => {
+    const order = await buildAllocatedOrder();
+    const correlationId = nextCorrelationId();
+    await expect(
+      pickLine(
+        roleCtx,
+        { orderId: order.orderId, lineId: order.lineId, expectedVersion: order.version + 999, qtyActual: QTY_ORDERED, correlationId },
+        deps,
+      ),
+    ).rejects.toBeInstanceOf(StaleVersionError);
+    expect(await pickMovementsForClient(order.clientId)).toHaveLength(0);
+    expect(await anyOutboxCountForCorrelation(correlationId)).toBe(0);
+    expect(await auditCountForCorrelation(correlationId)).toBe(0);
+  });
+
+  it('rejects a stale expectedVersion on CheckOrder with StaleVersionError, nothing written', async () => {
+    const order = await buildAllocatedOrder();
+    const picked = await pickLine(
+      roleCtx,
+      { orderId: order.orderId, lineId: order.lineId, expectedVersion: order.version, qtyActual: QTY_ORDERED, correlationId: nextCorrelationId() },
+      deps,
+    );
+    const correlationId = nextCorrelationId();
+    await expect(
+      checkOrder(noRoleCtx, { orderId: order.orderId, expectedVersion: picked.version + 999, correlationId }, deps),
+    ).rejects.toBeInstanceOf(StaleVersionError);
+    const after = await getOrderPickCheck(order.orderId);
+    expect(after.status).toBe('picked');
+    expect(after.checked_by).toBeNull();
+    expect(await anyOutboxCountForCorrelation(correlationId)).toBe(0);
+    expect(await auditCountForCorrelation(correlationId)).toBe(0);
+  });
+});
+
+// --- Scenario: Idempotent replay and conflicting replay on PickLine and CheckOrder ----------------------
+
+describe('Scenario: Idempotent replay and conflicting replay on PickLine and CheckOrder', () => {
+  it('replays the stored PickLine result for the same key + same body, no second write', async () => {
+    const order = await buildAllocatedOrder();
+    const idemKey = `pickline-replay-${randomUUID()}`;
+    const correlationId = nextCorrelationId();
+    const body = { orderId: order.orderId, lineId: order.lineId, expectedVersion: order.version, qtyActual: QTY_ORDERED, correlationId };
+    const first = await pickLine(roleCtx, { ...body, idem: idemFor('pickLine', idemKey, body) }, deps);
+    // Fix round 1, finding 1 (ledger adapter): a nonzero-qty PickLine call ALSO posts its own
+    // 'wms.stock.moved' outbox+audit pair via postMovementInTx (G9), in ADDITION to this command's
+    // own order-level 'wms.outbound.picked' event — both under the SAME correlationId, so the
+    // outbox count is 2 after the FIRST (real) write, never 1.
+    expect(await anyOutboxCountForCorrelation(correlationId)).toBe(2);
+    const second = await pickLine(roleCtx, { ...body, idem: idemFor('pickLine', idemKey, body) }, deps);
+    expect(second).toEqual(first);
+    expect(await pickMovementsForClient(order.clientId)).toHaveLength(1);
+    // The replay is served entirely from the stored idempotency result — it writes NOTHING new,
+    // ledger or otherwise: the count stays 2 after the replay, never 4.
+    expect(await anyOutboxCountForCorrelation(correlationId)).toBe(2);
+    expect(await auditCountForCorrelation(correlationId)).toBe(1);
+  });
+
+  it('rejects a conflicting PickLine replay (same key, different body) with IdempotencyConflictError', async () => {
+    const order = await buildAllocatedOrder();
+    const idemKey = `pickline-mismatch-${randomUUID()}`;
+    const firstBody = { orderId: order.orderId, lineId: order.lineId, expectedVersion: order.version, qtyActual: QTY_ORDERED, correlationId: nextCorrelationId() };
+    await pickLine(roleCtx, { ...firstBody, idem: idemFor('pickLine', idemKey, firstBody) }, deps);
+    const differentBody = { orderId: order.orderId, lineId: order.lineId, expectedVersion: order.version, qtyActual: QTY_ORDERED, correlationId: nextCorrelationId() };
+    await expect(
+      pickLine(roleCtx, { ...differentBody, idem: idemFor('pickLine', idemKey, differentBody) }, deps),
+    ).rejects.toBeInstanceOf(IdempotencyConflictError);
+  });
+
+  it('replays the stored CheckOrder result for the same key + same body, no second write', async () => {
+    const order = await buildAllocatedOrder();
+    const picked = await pickLine(
+      roleCtx,
+      { orderId: order.orderId, lineId: order.lineId, expectedVersion: order.version, qtyActual: QTY_ORDERED, correlationId: nextCorrelationId() },
+      deps,
+    );
+    const idemKey = `checkorder-replay-${randomUUID()}`;
+    const correlationId = nextCorrelationId();
+    const body = { orderId: order.orderId, expectedVersion: picked.version, correlationId };
+    const first = await checkOrder(noRoleCtx, { ...body, idem: idemFor('checkOrder', idemKey, body) }, deps);
+    const second = await checkOrder(noRoleCtx, { ...body, idem: idemFor('checkOrder', idemKey, body) }, deps);
+    expect(second).toEqual(first);
+    expect(await anyOutboxCountForCorrelation(correlationId)).toBe(1);
+    expect(await auditCountForCorrelation(correlationId)).toBe(1);
+  });
+
+  it('rejects a conflicting CheckOrder replay (same key, different body) with IdempotencyConflictError', async () => {
+    const order = await buildAllocatedOrder();
+    const picked = await pickLine(
+      roleCtx,
+      { orderId: order.orderId, lineId: order.lineId, expectedVersion: order.version, qtyActual: QTY_ORDERED, correlationId: nextCorrelationId() },
+      deps,
+    );
+    const idemKey = `checkorder-mismatch-${randomUUID()}`;
+    const firstBody = { orderId: order.orderId, expectedVersion: picked.version, correlationId: nextCorrelationId() };
+    await checkOrder(noRoleCtx, { ...firstBody, idem: idemFor('checkOrder', idemKey, firstBody) }, deps);
+    const differentBody = { orderId: order.orderId, expectedVersion: picked.version, correlationId: nextCorrelationId() };
+    await expect(
+      checkOrder(noRoleCtx, { ...differentBody, idem: idemFor('checkOrder', idemKey, differentBody) }, deps),
+    ).rejects.toBeInstanceOf(IdempotencyConflictError);
+  });
+});
+
+// --- Scenario: RLS — a caller scoped to another entity cannot pick or check the order -------------------
+
+describe('Scenario: RLS — a caller scoped to another entity cannot pick or check the order', () => {
+  it('PickLine as the outsider fails with OrderNotFoundError, status and stock unchanged', async () => {
+    const order = await buildAllocatedOrder();
+    await expect(
+      pickLine(
+        outsiderCtx,
+        { orderId: order.orderId, lineId: order.lineId, expectedVersion: order.version, qtyActual: QTY_ORDERED, correlationId: nextCorrelationId() },
+        deps,
+      ),
+    ).rejects.toBeInstanceOf(OrderNotFoundError);
+    expect((await getOrder(order.orderId)).status).toBe('allocated');
+    expect(await pickMovementsForClient(order.clientId)).toHaveLength(0);
+  });
+
+  it('CheckOrder as the outsider fails with OrderNotFoundError, status unchanged', async () => {
+    const order = await buildAllocatedOrder();
+    const picked = await pickLine(
+      roleCtx,
+      { orderId: order.orderId, lineId: order.lineId, expectedVersion: order.version, qtyActual: QTY_ORDERED, correlationId: nextCorrelationId() },
+      deps,
+    );
+    await expect(
+      checkOrder(outsiderCtx, { orderId: order.orderId, expectedVersion: picked.version, correlationId: nextCorrelationId() }, deps),
+    ).rejects.toBeInstanceOf(OrderNotFoundError);
+    expect((await getOrderPickCheck(order.orderId)).status).toBe('picked');
   });
 });

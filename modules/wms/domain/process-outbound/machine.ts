@@ -18,10 +18,13 @@
 //   approved --ALLOCATE_FULL--> allocated
 //   approved --ALLOCATE_PARTIAL--> partially_allocated
 //   {allocated, partially_allocated} --CANCEL--> cancelled
-// Every other status (picking, picked, checked, packed, loaded, dispatched, delivered) is still a
-// legal enum VALUE with NO producing/outgoing edge (2.12's job) — `canTransition`/
-// `allowedEventsFrom` treat those states exactly like a foreign status: no event is ever legal
-// from them here.
+// WBS 2.12 part 1 (_slice-2.12.brief.md, Master decision 1) ADDS:
+//   {allocated, partially_allocated} --START_PICKING--> picking
+//   picking --COMPLETE_PICKING--> picked
+//   picked --CHECK--> checked
+// Every other status (packed, loaded, dispatched, delivered) is still a legal enum VALUE with NO
+// producing/outgoing edge (part 2's job) — `canTransition`/`allowedEventsFrom` treat those states
+// exactly like a foreign status: no event is ever legal from them here.
 
 import { createActor, createMachine } from 'xstate';
 
@@ -48,8 +51,8 @@ export const OUTBOUND_ORDER_STATUS = {
 
 export type OutboundOrderStatus = (typeof OUTBOUND_ORDER_STATUS)[keyof typeof OUTBOUND_ORDER_STATUS];
 
-/** The 6 event types this part's machine accepts (part 1's own 4 + part 2's own 2 —
- *  ALLOCATE_FULL/ALLOCATE_PARTIAL, brief Master decision 1). */
+/** The 9 event types this machine accepts (2.11 part 1's own 4 + part 2's own 2 —
+ *  ALLOCATE_FULL/ALLOCATE_PARTIAL — + 2.12 part 1's own 3 — START_PICKING/COMPLETE_PICKING/CHECK). */
 export const OUTBOUND_ORDER_EVENTS = {
   RUN_CHECKS_PASS: 'RUN_CHECKS_PASS',
   RUN_CHECKS_CREDIT_FAIL: 'RUN_CHECKS_CREDIT_FAIL',
@@ -57,6 +60,9 @@ export const OUTBOUND_ORDER_EVENTS = {
   CANCEL: 'CANCEL_OUTBOUND',
   ALLOCATE_FULL: 'ALLOCATE_FULL',
   ALLOCATE_PARTIAL: 'ALLOCATE_PARTIAL',
+  START_PICKING: 'START_PICKING',
+  COMPLETE_PICKING: 'COMPLETE_PICKING',
+  CHECK: 'CHECK_ORDER',
 } as const;
 
 export type OutboundOrderEventType = (typeof OUTBOUND_ORDER_EVENTS)[keyof typeof OUTBOUND_ORDER_EVENTS];
@@ -102,15 +108,28 @@ export const outboundOrderMachine = createMachine({
     [OUTBOUND_ORDER_STATUS.ALLOCATED]: {
       on: {
         [OUTBOUND_ORDER_EVENTS.CANCEL]: OUTBOUND_ORDER_STATUS.CANCELLED,
+        [OUTBOUND_ORDER_EVENTS.START_PICKING]: OUTBOUND_ORDER_STATUS.PICKING,
       },
     },
     [OUTBOUND_ORDER_STATUS.PARTIALLY_ALLOCATED]: {
       on: {
         [OUTBOUND_ORDER_EVENTS.CANCEL]: OUTBOUND_ORDER_STATUS.CANCELLED,
+        [OUTBOUND_ORDER_EVENTS.START_PICKING]: OUTBOUND_ORDER_STATUS.PICKING,
       },
     },
-    [OUTBOUND_ORDER_STATUS.PICKING]: {},
-    [OUTBOUND_ORDER_STATUS.PICKED]: {},
+    // WBS 2.12 part 1 (brief Master decision 1): {allocated, partially_allocated} --START_PICKING-->
+    // picking --COMPLETE_PICKING--> picked --CHECK--> checked. PackOrder/LoadOrder (part 2) add no
+    // edge here yet.
+    [OUTBOUND_ORDER_STATUS.PICKING]: {
+      on: {
+        [OUTBOUND_ORDER_EVENTS.COMPLETE_PICKING]: OUTBOUND_ORDER_STATUS.PICKED,
+      },
+    },
+    [OUTBOUND_ORDER_STATUS.PICKED]: {
+      on: {
+        [OUTBOUND_ORDER_EVENTS.CHECK]: OUTBOUND_ORDER_STATUS.CHECKED,
+      },
+    },
     [OUTBOUND_ORDER_STATUS.CHECKED]: {},
     [OUTBOUND_ORDER_STATUS.PACKED]: {},
     [OUTBOUND_ORDER_STATUS.LOADED]: {},
