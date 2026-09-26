@@ -5,7 +5,7 @@
 | field | value |
 |---|---|
 | Phase | 0 CLOSED · 1 Commercial Core (done except 1.11, BLOCKED D-178) · 2 Warehouse (9/19) · pilot-first (D-127): seed 019 + synthetic data. Doc 38 **v4.6 (154 rows, D-187/ADR-0004)**. |
-| Current task | Lane 1: **WBS 2.11 DONE** — all 5 parts (`a96b013`,`156b042`,`f30f7c7`,`3fadbde`,`f9aeecc`); part 5 closed condition 10 (D-189, per-contract/per-SKU limit, migration 0026, PASS(3 findings, 2 rounds)) — doc-38 row 2.11 fully met, all ten conditions. Lane 1 next: **2.12** (pick → check → pack → load), same `wms/process-outbound` lock. Lane 3: **3.1 parts 1+2 both DONE-in-part @ `e3137d5` (part 1) / `8d2ead9` (part 2)** — `RegisterVehicle` PASS(0 open round 2); `AssertVehicleAssignable` (the real INV-C4-1 gate) PASS(1 finding, 2 rounds), gate mechanism complete/tested/proven, not yet wired to a real assignment write path (future delivery-module slice); `fleet` lock **released**. Lane 2: 2.9b DONE @ `716bf8e` → 4.2 part 1 (`billing.billable_events` domain + repository insert, D-186) DONE-in-part @ `3739487` — PASS(23 findings fixed, 2 rounds); part 2 (pg-reviewer confirmation of the SQLSTATE 23505 duplicate-detection test, mutation-proven by the lane) reviewed inside 4.1a's own round 1, not a separate commit; `billing` lock held. Next: accounting core 4.1a→4.1b→4.19→4.20 (SCR-ACC-01, A2). |
+| Current task | Lane 1: **2.12 part 1** (PickLine + CheckOrder; part 2 = Pack/Load) in `wms/process-outbound` — 2.11 DONE @ `f9aeecc`. Lane 2: **4.2 part 2** (qty as exact-decimal `Quantity` + pg-reviewer round 1 incl. the mutation-proven SQLSTATE 23505 test) — part 1 DONE-in-part @ `6874b17`, `billing` lock held; then 4.1a → 4.1b → 4.19 → 4.20. Lane 3: **3.12** (`imile.driver_ids` + time-bounded assignments + termination trigger) → 3.13 on the `imile` lock (D-190) — 3.1 parts 1+2 DONE-in-part @ `e3137d5` / `8d2ead9`, `fleet` released. One DB per lane (`bash scripts/lane-db.sh <id>`, P4a @ `436be60`). |
 | Golden slice / tier / schema / session model | 2.9 ACCEPTED (`.golden-slice-accepted`, `scripts/new-slice.sh` active) · Pilot Tier 0 = local Docker `postgres:16` (D-129), Oracle DEFERRED-POST-PILOT · migrations 0001–0026 applied (0022 withdrawn), next free **0027** · D-174/D-180 session model: lane sessions sonnet/medium, Master sonnet/medium (opus only ADR/security/D-117), pg-reviewer opus, no haiku |
 
 ## Lanes
@@ -35,6 +35,6 @@
 
 ## Next 3 tasks
 
-1. Lane 1: 2.12 (pick → check → pack → load) in `wms/process-outbound` — 2.11 DONE, dependency satisfied
-2. Lane 2: 4.1a (accounting core; also carries 4.2 part 2 — pg-reviewer confirms the SQLSTATE 23505 test in round 1) → 4.1b → 4.19 → 4.20 (ADR-0004)
-3. Lane 3: awaiting the Master's next task assignment — 3.4 (delivery tasks/routes/POD) once 2.12 is DONE, per the earlier Next-3-tasks note
+1. Lane 1: 2.12 part 1 → part 2 → 2.16 part 1a (PDA shell + 72-h offline queue + kiosk, OTP login) → 1b (PIN, after SCR-IDN-01) → 2.18 (D-190)
+2. Lane 2: 4.2 part 2 → 4.1a → 4.1b → 4.19 → 4.20 (ADR-0004)
+3. Lane 3: 3.12 → 3.13 → 3.4 once 2.12 is DONE (D-190)
