@@ -324,12 +324,12 @@ language sql stable security definer as $$
 $$;
 
 -- نطاق الكيانات المسموح بها للمستخدم
-create or replace function platform.allowed_entities() returns uuid[]
-language sql stable security definer as $$
-  select coalesce(array_agg(distinct ue.entity_id), '{}')
-  from identity.user_entities ue
+-- (P6b-2 / migration 0031, SCR-PLAT-CTX-01, D-190: narrowed to the active entity app.entity_id
+--  when set; search_path pinned. Kept identical to 0031 — schema-file parity, 0009 precedent.)
+create or replace function platform.allowed_entities() returns uuid[] language sql stable security definer set search_path = pg_catalog, pg_temp as $$
+  select coalesce(array_agg(distinct ue.entity_id), '{}') from identity.user_entities ue
   where ue.user_id = platform.current_user_id()
-$$;
+    and (nullif(current_setting('app.entity_id', true), '') is null or ue.entity_id = nullif(current_setting('app.entity_id', true), '')::uuid) $$;
 
 -- ═══════════════════════════════════════════════════════════════════════════
 -- 3. الكتالوج والتسعير (catalog) — M03

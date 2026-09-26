@@ -131,7 +131,10 @@ export function createUserEntitiesLookup(ctx: WithContextCtx): UserEntitiesLooku
           'session\'s own entity scope (platform.allowed_entities()), never another user\'s.',
       );
     }
-    return withContext(ctx, async (tx) => {
+    // entityId: null (P6b-2 pre-migration review, change 1): since 0031 allowed_entities() narrows
+    // to the active entity when app.entity_id is set, so the lookup always clears it to read the
+    // user's FULL entity set — even when the caller's ctx already carries an active entity.
+    return withContext({ ...ctx, entityId: null }, async (tx) => {
       const result = await tx.execute<{ entity_id: string }>(sql`
         select unnest(platform.allowed_entities()) as entity_id
       `);
