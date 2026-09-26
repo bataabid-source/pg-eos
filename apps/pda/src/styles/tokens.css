@@ -1,0 +1,24 @@
+/* WBS 2.16 part 1a — minimal stylesheet for the PDA shell. No design-token set is defined by the
+   D-blueprint for this app yet (brief's own "not a design decision" note) — kept minimal until a
+   later slice needs real tokens. */
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family:
+    'Segoe UI',
+    system-ui,
+    -apple-system,
+    sans-serif;
+  /* Kiosk-mode hardening (brief Scope, fix round 1 finding 3): suppress text-selection callout on
+     this shared industrial device, alongside the contextmenu suppression in kiosk.ts. Global —
+     no per-screen content this part relies on native text selection. */
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}

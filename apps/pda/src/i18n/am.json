@@ -1,0 +1,20 @@
+{
+  "app.name": "ፕሪምየም መጋዘን",
+  "screen.home": "መነሻ",
+  "screen.receive": "መቀበል",
+  "screen.putAway": "ማከማቸት",
+  "screen.pick": "መልቀም",
+  "screen.check": "ማረጋገጥ",
+  "screen.load": "መጫን",
+  "screen.count": "መቁጠር",
+  "screen.transferReturn": "ማስተላለፍ / መመለስ",
+  "screen.lookup": "መፈለግ",
+  "kiosk.enter": "ወደ ኪዮስክ ሁነታ ግባ",
+  "locale.select.label": "ቋንቋ",
+  "locale.name.ar": "ዓረብኛ",
+  "locale.name.en": "እንግሊዝኛ",
+  "locale.name.hi": "ሂንዲ",
+  "locale.name.ur": "ኡርዱ",
+  "locale.name.bn": "ቤንጋሊኛ",
+  "locale.name.am": "አማርኛ"
+}
