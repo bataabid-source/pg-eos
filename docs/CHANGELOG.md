@@ -4,6 +4,13 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — domain-kit browser entry: apps run in a real browser again (2026-09-26)
+
+- `packages/domain-kit/index.ts` re-exported `id-generator.ts`, which imports `node:crypto`; any browser bundle importing Money/Quantity died at load ("Module node:crypto has been externalized") — apps/admin and apps/pda could not run in a browser. Fix: `index.browser.ts` (money, quantity, clock — no id-generator) behind a nested `exports["."].browser` condition (own `types` + `default`, before the Node entry). No importer changed; server code keeps the full barrel. Web Crypto rejected: `SequentialIdGenerator` needs a synchronous SHA-256.
+- Tests: `browser-entry.test.ts` walks the `.ts` sources from the browser condition (no `node:` in the closure; no id-generator exports; node entry still has them) plus a drift guard (node keys minus the two generators == browser keys); `browser-usage.test.ts` (jsdom, devDependency `jsdom ^27.0.0`, same as the apps). 94/94 with and without `dist`; `@pg-eos/admin` and `@pg-eos/pda` vite builds succeed.
+- Review: round 1 FAIL(4: dist-dependent test under turbo `^build`, no drift guard, browser types leaking generator types, stale headers) → round 2 PASS.
+- Model: claude-opus-5-5 (Master) · Delegated: pg-tester, pg-backend (sonnet), pg-reviewer (opus).
+
 ## X — D-191 amendment: pg-scribe back to sonnet; no AskUserQuestion in a slice; lane self-relaunch (2026-09-26)
 
 - GM verbatim: "أعد pg-scribe إلى sonnet، وأضف قاعدتي «لا AskUserQuestion داخل الشريحة» و«إعادة الإطلاق الذاتي بعد التنظيف» إلى lane.md وslice.md، وسجّلها تعديلاً على D-191." `pg-scribe` → `model: sonnet` (evidence: on haiku it wrote unbuilt features — auto-sync, PIN storage, custom caching — into 2.16 part 1a-2's commit message and CHANGELOG; caught by lane 1, squash-merged as 67ef627 with an accurate message). CLAUDE.md MODEL ROUTING, docs/MODEL_ROUTING.md and PROJECT_STATE updated.
