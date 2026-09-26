@@ -162,18 +162,30 @@ if [ "$g15_present" = "1" ]; then
   ' "$OUT.G15")"
 fi
 verdict_nonsql G15 "doc 40 Part E scenarios S1–S20 20/20" "$g15_present" "$g15_res"
-# G16 — stryker on domain/ with thresholds.break = 75, and a final-score line as proof it ran.
-g16_present=0; { ls stryker.config.* >/dev/null 2>&1 || ls stryker.conf.* >/dev/null 2>&1; } && has_script mutation && g16_present=1
+# G16 — stryker on every module's domain/ (modules/*/stryker.config.json, thresholds.break = 75,
+# ADR-0005 §6): the root `pnpm mutation` runs the modules one at a time (shared database); every
+# config must print its own "Final mutation score" line and every score must be >= 75.
+g16_cfgs=(modules/*/stryker.config.json)
+g16_present=0; [ -f "${g16_cfgs[0]}" ] && has_script mutation && g16_present=1
 g16_res=missing
 if [ "$g16_present" = "1" ]; then
-  cfg="$(ls stryker.config.* stryker.conf.* 2>/dev/null | head -1)"
-  if ! grep -Eq '^[^#/]*break[[:space:]]*:[[:space:]]*75\b' "$cfg"; then g16_res="red:thresholds.break is not 75 in $cfg"
-  elif ! grep -Eq 'domain/' "$cfg"; then g16_res="red:mutate target does not name domain/ in $cfg"
-  else
+  g16_res="$(node -e '
+    const fs=require("fs"); const bad=[];
+    for (const f of process.argv.slice(1)) { let c; try { c=JSON.parse(fs.readFileSync(f,"utf8")); } catch { bad.push(f+": not JSON"); continue; }
+      if (!c.thresholds || c.thresholds.break !== 75) bad.push(f+": thresholds.break is not 75");
+      if (!Array.isArray(c.mutate) || !c.mutate.some(m=>/^domain\//.test(m))) bad.push(f+": mutate does not target domain/"); }
+    console.log(bad.length ? "red:"+bad.join("; ") : "green");' "${g16_cfgs[@]}")"
+  if [ "$g16_res" = "green" ]; then
     pnpm -s mutation >"$OUT.G16" 2>&1 || true
-    score="$(grep -Eo 'Final mutation score[^0-9]*[0-9]+(\.[0-9]+)?' "$OUT.G16" | grep -Eo '[0-9]+(\.[0-9]+)?$' | tail -1)"
-    if [ -z "$score" ]; then g16_res="red:no 'Final mutation score' line — stryker did not run to completion"
-    elif awk -v s="$score" 'BEGIN{exit !(s+0 >= 75)}'; then g16_res=green; else g16_res="red:mutation score $score % < 75 %"; fi
+    # The temp log is removed on exit; keep a copy so a red G16 can be diagnosed (reports/ is git-ignored).
+    mkdir -p reports/mutation && cp "$OUT.G16" reports/mutation/guards-G16.log
+    mapfile -t g16_scores < <(grep -Eo 'Final mutation score[^0-9]*[0-9]+(\.[0-9]+)?' "$OUT.G16" | grep -Eo '[0-9]+(\.[0-9]+)?$')
+    if [ "${#g16_scores[@]}" -ne "${#g16_cfgs[@]}" ]; then
+      g16_res="red:${#g16_scores[@]} of ${#g16_cfgs[@]} modules printed a 'Final mutation score' line — stryker did not run to completion everywhere"
+    else
+      g16_res=green
+      for s in "${g16_scores[@]}"; do awk -v s="$s" 'BEGIN{exit !(s+0 >= 75)}' || { g16_res="red:a module's mutation score $s % < 75 %"; break; }; done
+    fi
   fi
 fi
 verdict_nonsql G16 "stryker mutation on domain/ >= 75 %" "$g16_present" "$g16_res"

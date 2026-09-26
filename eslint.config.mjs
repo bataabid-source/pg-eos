@@ -89,6 +89,7 @@ export default tseslint.config(
       '**/build/**',
       '**/.turbo/**',
       '**/coverage/**',
+      '**/.stryker-tmp/**',
       // Each `.claude/worktrees/<id>` is a separate git worktree of this same repo (a concurrent
       // Claude Code session on its own branch). Left unignored, its nested tsconfig.json/eslint
       // config make typescript-eslint's project discovery ambiguous ("multiple candidate

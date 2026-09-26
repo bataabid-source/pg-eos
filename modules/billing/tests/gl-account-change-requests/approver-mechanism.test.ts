@@ -2,7 +2,7 @@
 //
 // NEW test file, not in the brief's original RED-test-paths list (docs/notes/slice-briefs/
 // _slice-4.1a-part2.brief.md §"RED tests" names only .feature/.test.ts/machine.unit.test.ts/
-// invariants.property.test.ts) — the brief was written before round-1 finding 2's resolution added
+// invariants.property.integration.test.ts) — the brief was written before round-1 finding 2's resolution added
 // the whole "Approver mechanism — SCR-PLAT-APPR-01" section (D-190). Per the Master's own
 // instruction relaying this task, a 5th test file is a normal RED-test addition pg-tester is
 // allowed to make; this deviation is called out again in the closing report.

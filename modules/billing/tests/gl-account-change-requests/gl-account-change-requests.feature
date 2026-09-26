@@ -14,7 +14,7 @@
 #
 # Every scenario below is exercised by ./gl-account-change-requests.test.ts (DB-level: table CHECKs,
 # the shared code-format/account-type function, the composite FK, the partial unique indexes) and/or
-# ./machine.unit.test.ts (the pure XState v5 status machine) and/or ./invariants.property.test.ts
+# ./machine.unit.test.ts (the pure XState v5 status machine) and/or ./invariants.property.integration.test.ts
 # (domain <-> DB agreement) and/or ./invariants.unit.test.ts and ./contract.test.ts (part 3's new
 # pure invariant and widened Zod refines).
 

@@ -15,16 +15,16 @@ Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewe
 - lane 3 · hr · 3.13 · since 2026-09-26
 
 ## Last 5 feat/fix commits (git log)
+- `1c77ae9` fix(X): apply the OpenAPI review — honest 409 set, corrected comments
+- `b10c963` feat(X): OpenAPI registry populated — 72 operations from the existing contracts
 - `d1b3a3f` fix(X): apply round-2 review to the PG_APP_USER change
 - `82bbab7` fix(X): require PG_APP_USER — withContext never runs as a superuser
 - `33a5446` feat(3.12): outbox publish + INV-C4-1 driver-document gate (part 2c-i)
-- `1461d24` fix(3.13): confirm-side SoD DB backstop — employee_id immutable, migration 0037
-- `70754ce` feat(2.16): OTP login endpoint (identity), part 1a-3
 
 ## Blockers
-- scripts/deploy.sh missing → G15–G17 NOT RUNNABLE (report-only); 0.6b DEFERRED-POST-PILOT (D-129).
+- G16 runnable (Stryker per module, all ≥ 75 on 2026-09-26); G15/G17 NOT RUNNABLE until Playwright / trace screen; deploy.sh waits on 0.6b (D-129).
 - S1–S20 0/20 — no Playwright yet; integration lane bootstraps it (STREAMS §Enablement 3).
-- Known red tests (fix, never skip): platform evaluate-alerts, schema-invariants, audit-chain-*, wms receive-inbound T9 fixtures.
+- The "known red" set (platform evaluate-alerts/schema-invariants/audit-chain, wms T9) ran green 2026-09-26 under coverage gates; CI is the arbiter.
 - Identity threshold test race under turbo (X part 3); superuser-role catalog test deferred (X part 2) — MASTER_BACKLOG.
 - Open G-01: G8 anchor storage (D-115); imile entity_id/CHECKs/outbox; 2.15 space_reservations.qty CHECK; 3.1 shift_groups.vehicle_id.
 - INV-C4-1 DB-level enforcement on tms.delivery_tasks / tms.routes.vehicle_id required before 3.4 (stream B).
@@ -33,6 +33,6 @@ Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewe
 - Master batch (frozen paths): entityId on WithContextCtx; domain-kit browser break; eslint cwd bug; new-slice.sh stale citations.
 
 ## Next
-1. Integration lane (03:10 UTC): green the known red tests; Playwright + S1/S2; CI gate ④ wired.
-2. Master: scripts/scribe.mjs v2 · coverage ≥ 90% (vitest) · Stryker nightly · then wave-1 contracts commit.
+1. Integration lane (03:10 UTC): green the known red tests; Playwright + S1/S2 (`test:scenarios`); CI gate ④ wired.
+2. Master: wave-1 contracts commit (stream A/B Zod + catalog names) · LANE_LOCKS table-only cleanup · scribe v2.
 3. Wave 1: lane 1 stream A (2.16 → 2.18) · lane 2 stream B (4.1b p2 → 4.19 → 4.20, migration 0038).

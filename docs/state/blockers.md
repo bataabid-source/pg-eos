@@ -1,6 +1,6 @@
-scripts/deploy.sh missing → G15–G17 NOT RUNNABLE (report-only); 0.6b DEFERRED-POST-PILOT (D-129).
+G16 runnable (Stryker per module, all ≥ 75 on 2026-09-26); G15/G17 NOT RUNNABLE until Playwright / trace screen; deploy.sh waits on 0.6b (D-129).
 S1–S20 0/20 — no Playwright yet; integration lane bootstraps it (STREAMS §Enablement 3).
-Known red tests (fix, never skip): platform evaluate-alerts, schema-invariants, audit-chain-*, wms receive-inbound T9 fixtures.
+The "known red" set (platform evaluate-alerts/schema-invariants/audit-chain, wms T9) ran green 2026-09-26 under coverage gates; CI is the arbiter.
 Identity threshold test race under turbo (X part 3); superuser-role catalog test deferred (X part 2) — MASTER_BACKLOG.
 Open G-01: G8 anchor storage (D-115); imile entity_id/CHECKs/outbox; 2.15 space_reservations.qty CHECK; 3.1 shift_groups.vehicle_id.
 INV-C4-1 DB-level enforcement on tms.delivery_tasks / tms.routes.vehicle_id required before 3.4 (stream B).

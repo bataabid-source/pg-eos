@@ -53,7 +53,9 @@ import {
   QUOTE_TAG_EDITABLE,
   quoteMachine,
   advanceQuote,
+  allowedEventsFrom,
   canTransition,
+  getReturnRoles,
 } from '../../domain/manage-quote/machine.js';
 import { IllegalTransitionError } from '../../domain/manage-quote/errors.js';
 
@@ -197,5 +199,74 @@ describe('advanceQuote — assertTransition-style helper', () => {
     [QUOTE_STATUS.EXPIRED, QUOTE_EVENTS.SUBMIT_FOR_REVIEW],
   ])('throws IllegalTransitionError for %s -> %s', (from, event) => {
     expect(() => advanceQuote(from, [event])).toThrow(IllegalTransitionError);
+  });
+
+  it('the thrown message names the illegal event, the from-status, and the allowed-events list', () => {
+    expect(() => advanceQuote(QUOTE_STATUS.DRAFT, [QUOTE_EVENTS.APPROVE_FINANCE])).toThrow(
+      'APPROVE_FINANCE is not a legal transition from quote status "draft". ' +
+        '(Allowed from "draft": SUBMIT_FOR_REVIEW)',
+    );
+  });
+
+  it('the thrown message reports "none, terminal state" from a state with zero allowed events', () => {
+    expect(() => advanceQuote(QUOTE_STATUS.ACCEPTED, [QUOTE_EVENTS.SEND_QUOTE])).toThrow(
+      'SEND_QUOTE is not a legal transition from quote status "accepted". ' +
+        '(Allowed from "accepted": none, terminal state)',
+    );
+  });
+
+  it('a mid-sequence illegal event throws using the CURRENT (already-advanced) status, not the original one', () => {
+    expect(() =>
+      advanceQuote(QUOTE_STATUS.DRAFT, [QUOTE_EVENTS.SUBMIT_FOR_REVIEW, QUOTE_EVENTS.SEND_QUOTE]),
+    ).toThrow('SEND_QUOTE is not a legal transition from quote status "commercial_review".');
+  });
+});
+
+describe('allowedEventsFrom — every event legal from a given status, per the exhaustive table above', () => {
+  it('draft allows only SUBMIT_FOR_REVIEW', () => {
+    expect(allowedEventsFrom(QUOTE_STATUS.DRAFT)).toEqual([QUOTE_EVENTS.SUBMIT_FOR_REVIEW]);
+  });
+
+  it('commercial_review allows APPROVE_COMMERCIAL and RETURN_TO_DRAFT, in QUOTE_EVENTS declaration order', () => {
+    expect(allowedEventsFrom(QUOTE_STATUS.COMMERCIAL_REVIEW)).toEqual([
+      QUOTE_EVENTS.APPROVE_COMMERCIAL,
+      QUOTE_EVENTS.RETURN_TO_DRAFT,
+    ]);
+  });
+
+  it('sent allows both RECORD_DECISION events, in QUOTE_EVENTS declaration order', () => {
+    expect(allowedEventsFrom(QUOTE_STATUS.SENT)).toEqual([
+      QUOTE_EVENTS.RECORD_DECISION_ACCEPTED,
+      QUOTE_EVENTS.RECORD_DECISION_REJECTED,
+    ]);
+  });
+
+  it('every terminal status (accepted/rejected/expired) allows zero events', () => {
+    expect(allowedEventsFrom(QUOTE_STATUS.ACCEPTED)).toEqual([]);
+    expect(allowedEventsFrom(QUOTE_STATUS.REJECTED)).toEqual([]);
+    expect(allowedEventsFrom(QUOTE_STATUS.EXPIRED)).toEqual([]);
+  });
+});
+
+describe('getReturnRoles — the role(s) allowed to call ReturnToDraft FROM a given status, read from machine meta', () => {
+  it('commercial_review returns exactly [SALES_MGR]', () => {
+    expect(getReturnRoles(QUOTE_STATUS.COMMERCIAL_REVIEW)).toEqual(['SALES_MGR']);
+  });
+
+  it('finance_review returns exactly [CFO, GM], in that order', () => {
+    expect(getReturnRoles(QUOTE_STATUS.FINANCE_REVIEW)).toEqual(['CFO', 'GM']);
+  });
+
+  it('every status with no ReturnToDraft edge returns an empty array, never undefined', () => {
+    for (const status of [
+      QUOTE_STATUS.DRAFT,
+      QUOTE_STATUS.APPROVED,
+      QUOTE_STATUS.SENT,
+      QUOTE_STATUS.ACCEPTED,
+      QUOTE_STATUS.REJECTED,
+      QUOTE_STATUS.EXPIRED,
+    ]) {
+      expect(getReturnRoles(status)).toEqual([]);
+    }
   });
 });

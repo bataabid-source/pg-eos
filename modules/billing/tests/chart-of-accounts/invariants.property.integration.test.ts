@@ -1,4 +1,4 @@
-// modules/billing/tests/chart-of-accounts/invariants.property.test.ts — WBS 4.1a (lane 2).
+// modules/billing/tests/chart-of-accounts/invariants.property.integration.test.ts — WBS 4.1a (lane 2).
 //
 // Property test (fast-check): for every generated string, the domain-level account-code format
 // check and the database CHECK constraint on billing.gl_accounts.code agree (accept iff accept).

@@ -1,9 +1,9 @@
-// modules/billing/tests/gl-account-change-requests/invariants.property.test.ts — WBS 4.1a part 2.
+// modules/billing/tests/gl-account-change-requests/invariants.property.integration.test.ts — WBS 4.1a part 2.
 //
 // Property tests (fast-check): for every generated (change_kind, target_account_id-or-null,
 // proposed_code, proposed_account_type) tuple, the domain-level pre-check and the DB CHECK/
 // composite-FK agree (accept <=> accept) — same discipline as 4.1a part 1's own code/CHECK
-// agreement test (../chart-of-accounts/invariants.property.test.ts) and 4.1b's own kind/source_table
+// agreement test (../chart-of-accounts/invariants.property.integration.test.ts) and 4.1b's own kind/source_table
 // agreement test.
 //
 // DOMAIN SURFACE ASSUMED (report to the Master/build brief):
@@ -27,7 +27,7 @@
 //
 // The DB side of every property below is proven by an ACTUAL insert attempt through the admin pool
 // (never by reading the constraint definition) — same technique as
-// ../chart-of-accounts/invariants.property.test.ts's own dbAcceptsCode.
+// ../chart-of-accounts/invariants.property.integration.test.ts's own dbAcceptsCode.
 
 import { Pool } from 'pg';
 import type { QueryResult } from 'pg';
@@ -101,7 +101,7 @@ async function insertChangeRequest(input: {
 /** True iff the DB accepts a change-request row carrying this proposed_code (account_type and
  *  pairing held constant at a KNOWN-VALID value, so only the code-format CHECK is exercised). A
  *  23505 (unique_violation, a doc_no/code collision across fast-check runs) is treated as "the CHECK
- *  itself did not reject it", same convention as ../chart-of-accounts/invariants.property.test.ts. */
+ *  itself did not reject it", same convention as ../chart-of-accounts/invariants.property.integration.test.ts. */
 async function dbAcceptsProposedCode(code: string): Promise<boolean> {
   try {
     const result = await insertChangeRequest({
@@ -172,7 +172,7 @@ async function dbAcceptsPairing(
 }
 
 // Well-formed X-XX-XXX-XXX strings — the domain SHOULD accept every one of these (same arbitrary
-// shape as ../chart-of-accounts/invariants.property.test.ts).
+// shape as ../chart-of-accounts/invariants.property.integration.test.ts).
 const wellFormedCodeArb = fc
   .tuple(
     fc.integer({ min: 1, max: 9 }),

@@ -27,8 +27,10 @@ import { describe, expect, it } from 'vitest';
 import {
   PRICE_LIST_EVENTS,
   PRICE_LIST_STATUS,
+  PRICE_LIST_TAG_EDITABLE,
   priceListMachine,
   advancePriceList,
+  allowedEventsFrom,
   canTransition,
 } from '../../domain/maintain-price-list/machine.js';
 import { IllegalTransitionError } from '../../domain/maintain-price-list/errors.js';
@@ -133,5 +135,93 @@ describe('advancePriceList — assertTransition-style helper', () => {
     [PRICE_LIST_STATUS.EXPIRED, PRICE_LIST_EVENTS.EXPIRE],
   ])('throws IllegalTransitionError for %s -> %s', (from, event) => {
     expect(() => advancePriceList(from, [event])).toThrow(IllegalTransitionError);
+  });
+
+  it('stops the moment an illegal event is hit — never applies it silently and never advances further', () => {
+    // draft -[ACTIVATE]-> active -[ACTIVATE again, illegal]-> throws before any further event.
+    expect(() => advancePriceList(PRICE_LIST_STATUS.DRAFT, [PRICE_LIST_EVENTS.ACTIVATE, PRICE_LIST_EVENTS.ACTIVATE]))
+      .toThrow(IllegalTransitionError);
+  });
+
+  it('the thrown message names the exact illegal event and the exact "from" status (draft/EXPIRE)', () => {
+    expect(() => advancePriceList(PRICE_LIST_STATUS.DRAFT, [PRICE_LIST_EVENTS.EXPIRE])).toThrow(
+      /EXPIRE_PRICE_LIST is not a legal transition from price-list status "draft"/,
+    );
+  });
+
+  it('the thrown message lists the exact allowed events from "draft" (only ACTIVATE_PRICE_LIST)', () => {
+    expect(() => advancePriceList(PRICE_LIST_STATUS.DRAFT, [PRICE_LIST_EVENTS.EXPIRE])).toThrow(
+      /Allowed from "draft": ACTIVATE_PRICE_LIST\)$/,
+    );
+  });
+
+  it('the thrown message says "none, terminal state" when nothing is allowed from "expired"', () => {
+    expect(() => advancePriceList(PRICE_LIST_STATUS.EXPIRED, [PRICE_LIST_EVENTS.ACTIVATE])).toThrow(
+      /Allowed from "expired": none, terminal state\)$/,
+    );
+  });
+
+  it('the thrown message names "active" (not draft) after a successful first hop', () => {
+    // Confirms the throw reports the actor's CURRENT state after already-applied events, not the
+    // original `current` argument — a mutant that reported `current` instead of the live state
+    // would still say "draft" here.
+    expect(() =>
+      advancePriceList(PRICE_LIST_STATUS.DRAFT, [PRICE_LIST_EVENTS.ACTIVATE, PRICE_LIST_EVENTS.ACTIVATE]),
+    ).toThrow(/not a legal transition from price-list status "active"/);
+  });
+});
+
+describe('PRICE_LIST_STATUS / PRICE_LIST_EVENTS — exact string values (chk_price_lists_status)', () => {
+  it('PRICE_LIST_STATUS has exactly the 3 values draft/active/expired', () => {
+    expect(PRICE_LIST_STATUS.DRAFT).toBe('draft');
+    expect(PRICE_LIST_STATUS.ACTIVE).toBe('active');
+    expect(PRICE_LIST_STATUS.EXPIRED).toBe('expired');
+    expect(Object.values(PRICE_LIST_STATUS).sort()).toEqual(['active', 'draft', 'expired']);
+  });
+
+  it('PRICE_LIST_EVENTS has exactly the 2 values ACTIVATE_PRICE_LIST/EXPIRE_PRICE_LIST', () => {
+    expect(PRICE_LIST_EVENTS.ACTIVATE).toBe('ACTIVATE_PRICE_LIST');
+    expect(PRICE_LIST_EVENTS.EXPIRE).toBe('EXPIRE_PRICE_LIST');
+    expect(Object.values(PRICE_LIST_EVENTS).sort()).toEqual(['ACTIVATE_PRICE_LIST', 'EXPIRE_PRICE_LIST']);
+  });
+
+  it('PRICE_LIST_TAG_EDITABLE is exactly "editable"', () => {
+    expect(PRICE_LIST_TAG_EDITABLE).toBe('editable');
+  });
+});
+
+describe('allowedEventsFrom — exact allowed-event list per state', () => {
+  it('from "draft": exactly [ACTIVATE_PRICE_LIST]', () => {
+    expect(allowedEventsFrom(PRICE_LIST_STATUS.DRAFT)).toEqual([PRICE_LIST_EVENTS.ACTIVATE]);
+  });
+
+  it('from "active": exactly [EXPIRE_PRICE_LIST]', () => {
+    expect(allowedEventsFrom(PRICE_LIST_STATUS.ACTIVE)).toEqual([PRICE_LIST_EVENTS.EXPIRE]);
+  });
+
+  it('from "expired": exactly [] (terminal, no event allowed)', () => {
+    expect(allowedEventsFrom(PRICE_LIST_STATUS.EXPIRED)).toEqual([]);
+  });
+});
+
+describe('priceListMachine — draft carries the editable tag, active/expired do not', () => {
+  function hasEditableTag(state: string): boolean {
+    const actor = actorAt(state);
+    actor.start();
+    const has = actor.getSnapshot().hasTag(PRICE_LIST_TAG_EDITABLE);
+    actor.stop();
+    return has;
+  }
+
+  it('"draft" hasTag(editable) === true', () => {
+    expect(hasEditableTag(PRICE_LIST_STATUS.DRAFT)).toBe(true);
+  });
+
+  it('"active" hasTag(editable) === false', () => {
+    expect(hasEditableTag(PRICE_LIST_STATUS.ACTIVE)).toBe(false);
+  });
+
+  it('"expired" hasTag(editable) === false', () => {
+    expect(hasEditableTag(PRICE_LIST_STATUS.EXPIRED)).toBe(false);
   });
 });

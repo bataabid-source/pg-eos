@@ -4,7 +4,7 @@
 // other test file in this module exercises DIRECTLY: `assertValidDimensionTypeKindSourcePair`
 // (both accept and throw paths) and that the thrown `InvalidDimensionTypeKindSourcePairError`
 // actually states what's allowed in its `.message`. Until this file, only DB-backed integration
-// tests (./dimensions.test.ts, ./invariants.property.test.ts) exercised the concept indirectly,
+// tests (./dimensions.test.ts, ./invariants.property.integration.test.ts) exercised the concept indirectly,
 // through the isValidDimensionTypeKindSourcePair boolean and live INSERTs — never the assert/throw
 // function itself, and never the error message's own content.
 //
@@ -14,7 +14,7 @@
 // STATUS: `modules/billing/domain/dimensions/invariants.ts` and `./errors.ts` exist and are GREEN
 // — this file's assertions exercise real domain code directly, no DB connection required. (History:
 // this file's domain layer landed ahead of migration 0030_2_dimensions.sql for part 1; that
-// migration is now applied, and dimensions.test.ts / invariants.property.test.ts, which ARE
+// migration is now applied, and dimensions.test.ts / invariants.property.integration.test.ts, which ARE
 // DB-integration, are GREEN too — see their own headers.)
 
 import { describe, expect, it } from 'vitest';

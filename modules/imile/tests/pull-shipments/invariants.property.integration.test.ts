@@ -1,4 +1,4 @@
-// modules/imile/tests/pull-shipments/invariants.property.test.ts — WBS 3.14 (part 2).
+// modules/imile/tests/pull-shipments/invariants.property.integration.test.ts — WBS 3.14 (part 2).
 //
 // Property tests (fast-check) for the pure domain invariants in
 // modules/imile/domain/pull-shipments/invariants.ts, plus the module brief's cross-cutting
