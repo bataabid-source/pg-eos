@@ -5,25 +5,25 @@
 | field | value |
 |---|---|
 | Phase | 0 CLOSED · 1 Commercial Core (done except 1.11, BLOCKED D-178) · 2 Warehouse (9/19) · pilot-first (D-127): seed 019 + synthetic data. Doc 38 **v4.6 (154 rows, D-187/ADR-0004)**. |
-| Current task | Lane 1: **2.12 DONE (all 4 parts) @ `<this commit>` — awaiting Master's next assignment** in `wms/process-outbound` — 2.11 DONE @ `f9aeecc`. Lane 2: **WBS 4.1b part 1 DONE-in-part @ `921d923`** — `billing.dimension_types` (kind/source_table hybrid, D-190), migration `0030` applied, 46/46 green; `billing.line_dimensions`+values deferred to `4.1b part 2` (design fully ruled, not yet built); 4.1a part 1 DONE @ `b31fe44` (part 2 write path still BLOCKED on GM permission-model ruling); `billing` lock held. Lane 3: **3.13 part 3 DONE @ `fdebfc7`** — mutation-proven Kuwait-boundary tests + citation/labeling cleanup, all findings closed, PASS(1 finding, 2 rounds); 3.13 parts 1-3 DONE (`6c16c41`/`016cce9`/`fdebfc7`), part 4 (frozen snapshot + 48h dispute) TODO; `hr`+`imile` locks held (3.12 part 1 DONE-in-part @ `b9c3b1d`, part 2 also open). One DB per lane (`bash scripts/lane-db.sh <id>`, P4a @ `436be60`). |
+| Current task | Lane 1: **2.16 part 1a DONE-in-part @ `<this commit>`** (PDA PWA shell — routing, kiosk mode, nine-screen skeleton, i18n; 1 test-coverage item deferred) in `pda`; part 1a-2 next (offline queue + PWA manifest/service-worker + the deferred kiosk test) — 2.12 DONE (all 4 parts) @ `830bfaf`, `wms/process-outbound` released. Lane 2: **WBS 4.1b part 1 DONE-in-part @ `921d923`** — `billing.dimension_types` (kind/source_table hybrid, D-190), migration `0030` applied, 46/46 green; `billing.line_dimensions`+values deferred to `4.1b part 2` (design fully ruled, not yet built); 4.1a part 1 DONE @ `b31fe44` (part 2 write path still BLOCKED on GM permission-model ruling); `billing` lock held. Lane 3: **3.13 part 3 DONE @ `fdebfc7`** — mutation-proven Kuwait-boundary tests + citation/labeling cleanup, all findings closed, PASS(1 finding, 2 rounds); 3.13 parts 1-3 DONE (`6c16c41`/`016cce9`/`fdebfc7`), part 4 (frozen snapshot + 48h dispute) TODO; `hr`+`imile` locks held (3.12 part 1 DONE-in-part @ `b9c3b1d`, part 2 also open). One DB per lane (`bash scripts/lane-db.sh <id>`, P4a @ `436be60`). |
 | Golden slice / tier / schema / session model | 2.9 ACCEPTED (`.golden-slice-accepted`, `scripts/new-slice.sh` active) · Pilot Tier 0 = local Docker `postgres:16` (D-129), Oracle DEFERRED-POST-PILOT · migrations 0001–0032 applied (0022 withdrawn), next free **0033** (0031 claimed by P6b-2) · D-174/D-180 session model: lane sessions sonnet/medium, Master sonnet/medium (opus only ADR/security/D-117), pg-reviewer opus, no haiku |
 
 ## Lanes
 
 | lane | task | module lock | worktree |
 |---|---|---|---|
-| 1 | 2.12 DONE (all 4 parts) @ `<this commit>` — awaiting Master's next assignment — 2.11 DONE, all ten conditions | `wms/process-outbound` (`wms/receive-inbound` released — 183/183 clean on `pgeos_lane1`, orphans confirmed, nothing to carry) | `../pg-eos-lane-1` |
+| 1 | 2.16 part 1a DONE-in-part @ `<this commit>` — PDA shell/kiosk/i18n, 1 test-coverage item deferred; part 1a-2 next — 2.12 DONE (all 4 parts) @ `830bfaf` | `pda` (`wms/process-outbound` released — 2.12 fully DONE) | `../pg-eos-lane-1` |
 | 2 | 4.1b part 1 DONE-in-part @ `921d923` — `4.1b part 2` design-ready, not yet built; 4.1a part 1 DONE @ `b31fe44`, part 2 in progress (design ruled, D-190) | `billing` | `../pg-eos-lane-2` |
 | 3 | 3.13 parts 1-3 DONE (`6c16c41`/`016cce9`/`fdebfc7`), part 4 (frozen snapshot + 48h dispute) TODO; 3.12 part 1 DONE-in-part @ `b9c3b1d`, part 2 also open (8 round-2 findings); `hr`+`imile` held; 3.4 now READY (2.12 DONE) | `hr`, `imile` | `../pg-eos-lane-3` |
 
 ## Last 5 DONE (newest first)
 | task | commit |
 |---|---|
-| 2.12 part 4 — PackOrder + LoadOrder (lane 1), DONE — **doc-38 row 2.12 fully DONE (all 4 parts)**; no migration; 271/271 tests green, guards green; round 1 FAIL(5) → fix round → round 2 PASS(0) | `<this commit>` |
+| 2.16 part 1a — PDA PWA shell: routing, kiosk mode, nine-screen skeleton, i18n (lane 1), DONE-in-part — 37/37 tests green, typecheck green; round 1 FAIL(7) → fix round → round 2 FAIL(1, test-coverage gap only) → commit GREEN subset per REVIEW CAP, PASS(7 findings, 2 rounds) | `<this commit>` |
+| 2.12 part 4 — PackOrder + LoadOrder (lane 1), DONE — **doc-38 row 2.12 fully DONE (all 4 parts)**; no migration; 271/271 tests green, guards green; round 1 FAIL(5) → fix round → round 2 PASS(0) | `830bfaf` |
 | 2.12 part 3 — `order_lines.picked_by`/`picked_at` + full self-check signal (lane 1), DONE — closes SCR-WMS-OUT-03 (D-190 option a); migration 0032 applied; 247/247 tests green, guards green; pre-migration PASS(0, 2 rounds) + slice-close PASS(0, 2 rounds) | `4eda437` |
 | 2.12 part 2 — PickLine/CheckOrder: 3 test-coverage gaps + 1 self-check logic fix (lane 1), DONE — 245/245 tests green, guards green; round 1 FAIL(4) → fix round → round 2 PASS(0) | `d19677f` |
 | 3.13 part 3 — mutation-proven Kuwait-boundary tests + citation/labeling cleanup (lane 3), DONE — 44/44 tests green, guards green; round 1 FAIL(4, fixed), round 2 FAIL(1, fixed by Master directly), PASS(1 finding, 2 rounds) | `fdebfc7` |
-| 4.1b part 1 — `billing.dimension_types` kind/source_table hybrid design (lane 2), DONE-in-part — migration 0030 applied, 46/46 green; PASS(29 findings, 5 rounds: pre-migration round 1 FAIL(12)→round 2 FAIL(11)→confirmation FAIL(1)→CLOSED; slice-close round 1 FAIL(5)→round 2 PASS(0)); `line_dimensions`+values deferred to part 2 (design ruled, D-190) | `921d923` |
 
 ## Blockers
 
@@ -35,6 +35,6 @@
 
 ## Next 3 tasks
 
-1. Lane 1: 2.12 DONE — awaiting Master's next assignment; plausible next: 2.16 part 1a (PDA shell + 72-h offline queue + kiosk, OTP login) → 1b (PIN, after SCR-IDN-01) → 2.18 (D-190)
+1. Lane 1: 2.16 part 1a DONE-in-part — next: 2.16 part 1a-2 (72-h offline queue + PWA manifest/service-worker + the deferred kiosk-mode test) → 1a-3 (OTP login) → 1b (PIN, after SCR-IDN-01)
 2. Lane 2: 4.1a part 2 (gl_account_change_requests) → 4.1a part 3 (is_active, deactivate/reactivate) → 4.1b part 2 (line_dimensions + values) → 4.19 → 4.20 (ADR-0004)
 3. Lane 3: 3.13 part 4 (frozen snapshot + 48-h dispute) → 3.12 part 2 (8 round-2 findings) → 3.4 (2.12 now DONE, dependency met)

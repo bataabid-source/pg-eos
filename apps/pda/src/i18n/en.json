@@ -1,0 +1,20 @@
+{
+  "app.name": "Premium WH",
+  "screen.home": "Home",
+  "screen.receive": "Receive",
+  "screen.putAway": "Put Away",
+  "screen.pick": "Pick",
+  "screen.check": "Check",
+  "screen.load": "Load",
+  "screen.count": "Count",
+  "screen.transferReturn": "Transfer / Return",
+  "screen.lookup": "Lookup",
+  "kiosk.enter": "Enter kiosk mode",
+  "locale.select.label": "Language",
+  "locale.name.ar": "Arabic",
+  "locale.name.en": "English",
+  "locale.name.hi": "Hindi",
+  "locale.name.ur": "Urdu",
+  "locale.name.bn": "Bengali",
+  "locale.name.am": "Amharic"
+}

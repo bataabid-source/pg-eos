@@ -1,0 +1,20 @@
+{
+  "app.name": "প্রিমিয়াম গুদাম",
+  "screen.home": "হোম",
+  "screen.receive": "গ্রহণ করুন",
+  "screen.putAway": "সংরক্ষণ করুন",
+  "screen.pick": "বাছাই করুন",
+  "screen.check": "পরীক্ষা করুন",
+  "screen.load": "লোড করুন",
+  "screen.count": "গণনা করুন",
+  "screen.transferReturn": "স্থানান্তর / ফেরত",
+  "screen.lookup": "অনুসন্ধান করুন",
+  "kiosk.enter": "কিয়স্ক মোডে প্রবেশ করুন",
+  "locale.select.label": "ভাষা",
+  "locale.name.ar": "আরবি",
+  "locale.name.en": "ইংরেজি",
+  "locale.name.hi": "হিন্দি",
+  "locale.name.ur": "উর্দু",
+  "locale.name.bn": "বাংলা",
+  "locale.name.am": "আমহারিক"
+}

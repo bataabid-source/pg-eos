@@ -1,0 +1,20 @@
+{
+  "app.name": "प्रीमियम गोदाम",
+  "screen.home": "होम",
+  "screen.receive": "प्राप्त करें",
+  "screen.putAway": "भंडारण करें",
+  "screen.pick": "पिक करें",
+  "screen.check": "जाँच करें",
+  "screen.load": "लोड करें",
+  "screen.count": "गणना करें",
+  "screen.transferReturn": "स्थानांतरण / वापसी",
+  "screen.lookup": "खोजें",
+  "kiosk.enter": "कियोस्क मोड में प्रवेश करें",
+  "locale.select.label": "भाषा",
+  "locale.name.ar": "अरबी",
+  "locale.name.en": "अंग्रेज़ी",
+  "locale.name.hi": "हिन्दी",
+  "locale.name.ur": "उर्दू",
+  "locale.name.bn": "बंगाली",
+  "locale.name.am": "अम्हारी"
+}
