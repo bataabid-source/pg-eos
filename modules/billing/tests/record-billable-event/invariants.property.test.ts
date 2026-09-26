@@ -41,7 +41,7 @@
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 
-// The module under test — does not exist yet with this domain-level shape (RED).
+// The module under test.
 import {
   assertBillableSourceTable,
   assertClientMatches,

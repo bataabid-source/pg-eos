@@ -85,3 +85,12 @@ Feature: Record a billable event — repository insert port (WBS 4.2)
     And the platform.outbox payload's own qty key is a JSON STRING equal to the exact same text,
       never a JSON number
     And the platform.audit_log new_value's own qty key is likewise the exact same text
+
+  Scenario: a non-canonical qty input is stored, emitted and audited in its canonical numeric(14,3) form
+    Given qty is supplied as a NON-canonical decimal STRING (e.g. "10", "007" or "1.5") rather than
+      the numeric(14,3) canonical text ("10.000", "7.000" or "1.500")
+    When insertBillableEvent is called
+    Then the stored billing.billable_events.qty column carries the CANONICAL numeric(14,3) text, not
+      the caller's raw non-canonical string
+    And the platform.outbox payload's own qty key carries the same CANONICAL text
+    And the platform.audit_log new_value's own qty key carries the same CANONICAL text

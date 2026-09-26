@@ -5,7 +5,7 @@
 | field | value |
 |---|---|
 | Phase | 0 CLOSED · 1 Commercial Core (done except 1.11, BLOCKED D-178) · 2 Warehouse (9/19) · pilot-first (D-127): seed 019 + synthetic data. Doc 38 **v4.6 (154 rows, D-187/ADR-0004)**. |
-| Current task | Lane 1: **2.12 part 1** (PickLine + CheckOrder; part 2 = Pack/Load) in `wms/process-outbound` — 2.11 DONE @ `f9aeecc`. Lane 2: **4.1a next, but 4.2 part 3 goes first** (CoA structure X-XX-XXX-XXX + class 1-9 waits) — **WBS 4.2 parts 1+2 DONE-in-part; part 3 open (2 test-only findings) — 4.2 DONE when part 3 lands** (stale test comments, missing non-canonical-qty regression test), `billing` lock held, same lock continues. Lane 3: **3.12 part 1 DONE-in-part @ `b9c3b1d`** — `AssignDriverId` command; round 2 FAILED(8 findings), no round 3 (REVIEW CAP), part 2 filed in MASTER_BACKLOG, `imile` lock held → 3.13 next (D-190). One DB per lane (`bash scripts/lane-db.sh <id>`, P4a @ `436be60`). |
+| Current task | Lane 1: **2.12 part 1** (PickLine + CheckOrder; part 2 = Pack/Load) in `wms/process-outbound` — 2.11 DONE @ `f9aeecc`. Lane 2: **4.1a next** (CoA structure X-XX-XXX-XXX + class 1-9) — **WBS 4.2 DONE @ `<this commit>` — all three parts**, `billing` lock held, same lock continues. Lane 3: **3.12 part 1 DONE-in-part @ `b9c3b1d`** — `AssignDriverId` command; round 2 FAILED(8 findings), no round 3 (REVIEW CAP), part 2 filed in MASTER_BACKLOG, `imile` lock held → 3.13 next (D-190). One DB per lane (`bash scripts/lane-db.sh <id>`, P4a @ `436be60`). |
 | Golden slice / tier / schema / session model | 2.9 ACCEPTED (`.golden-slice-accepted`, `scripts/new-slice.sh` active) · Pilot Tier 0 = local Docker `postgres:16` (D-129), Oracle DEFERRED-POST-PILOT · migrations 0001–0026 applied (0022 withdrawn), next free **0027** · D-174/D-180 session model: lane sessions sonnet/medium, Master sonnet/medium (opus only ADR/security/D-117), pg-reviewer opus, no haiku |
 
 ## Lanes
@@ -13,13 +13,13 @@
 | lane | task | module lock | worktree |
 |---|---|---|---|
 | 1 | 2.12 pick → check (checker ≠ picker) → pack → load (2.11 DONE, all ten conditions) | `wms/process-outbound` + `wms/receive-inbound` | `../pg-eos-lane-1` |
-| 2 | **WBS 4.2 parts 1+2 DONE-in-part; part 3 open (2 test-only findings) — 4.2 DONE when part 3 lands** | `billing` | `../pg-eos-lane-2` |
+| 2 | 4.1a next (CoA structure X-XX-XXX-XXX + class 1-9) — WBS 4.2 DONE, all three parts | `billing` | `../pg-eos-lane-2` |
 | 3 | 3.12 part 1 DONE-in-part @ `b9c3b1d`; part 2 open (8 round-2 findings, MASTER_BACKLOG); `imile` held; then 3.13, then 3.4 once 2.12 DONE | `imile` | `../pg-eos-lane-3` |
 
 ## Last 5 DONE (newest first)
 | task | commit |
 |---|---|
-| 4.2 part 2 — qty as exact-decimal `Quantity`, canonicalized end to end (lane 2) — **WBS 4.2 parts 1+2 DONE-in-part; part 3 open (2 test-only findings) — 4.2 DONE when part 3 lands** — PASS(5 findings, 2 rounds); round 2 FAIL(2, deferred to 4.2 part 3: stale test comments, missing non-canonical-qty regression test) | `<this commit>` |
+| 4.2 part 3 — close deferred findings: stale test comments, non-canonical-qty regression test (lane 2) — **WBS 4.2 DONE @ `<this commit>` — all three parts** — PASS(0 findings, 1 rounds) | `<this commit>` |
 | 3.12 part 1 — `AssignDriverId` command, no migration (lane 3), DONE-in-part — round-1 fixes applied; round 2 FAIL(8 findings), no round 3 (REVIEW CAP), part 2 opened | `b9c3b1d` |
 | P3 — hash-placeholder resolver, CI check, gov-ratio script (Master), + round-1 review fixes (ancestor-of-base staleness rule, slice/pg-scribe wiring) | `2cfa3eb` |
 | 4.2 part 1 — `billing.billable_events` domain + repository insert (lane 2), DONE-in-part — PASS(23 findings fixed, 2 rounds); part 2 (pg-reviewer confirmation of SQLSTATE 23505 test) reviewed in 4.1a round 1 | `6874b17` |
@@ -36,5 +36,5 @@
 ## Next 3 tasks
 
 1. Lane 1: 2.12 part 1 → part 2 → 2.16 part 1a (PDA shell + 72-h offline queue + kiosk, OTP login) → 1b (PIN, after SCR-IDN-01) → 2.18 (D-190)
-2. Lane 2: 4.2 part 3 first (2 test-only findings, closes WBS 4.2) → 4.1a → 4.1b → 4.19 → 4.20 (ADR-0004)
+2. Lane 2: 4.1a → 4.1b → 4.19 → 4.20 (ADR-0004)
 3. Lane 3: 3.12 part 2 (8 round-2 findings, `imile` lock held) → 3.13 → 3.4 once 2.12 is DONE (D-190)

@@ -204,9 +204,9 @@ async function getEvent(id: string): Promise<{
   return row;
 }
 
-// RED (Master, WBS 4.2 part 2): reads the STORED `qty` column back as TEXT — `numeric(14,3)`,
-// database/schema/01-Data-Model.sql:1055 — never cast through a JS `number` anywhere in this
-// assertion path, so a precision-losing round trip would show up here as a text mismatch.
+// Reads the STORED `qty` column back as TEXT — `numeric(14,3)`, database/schema/01-Data-Model.sql:
+// 1055 — never cast through a JS `number` anywhere in this assertion path, so a precision-losing
+// round trip would show up here as a text mismatch.
 async function getEventQtyText(id: string): Promise<string> {
   const result: QueryResult<{ qty: string }> = await pool.query(
     `select qty::text as qty from billing.billable_events where id = $1`,
@@ -251,9 +251,9 @@ async function outboxCountForCorrelation(correlationId: string): Promise<number>
   return Number(result.rows[0]?.n ?? '0');
 }
 
-// RED (Master, WBS 4.2 part 2): the raw `payload` jsonb of the outbox row, for asserting the `qty`
-// key inside it is a JSON STRING (exact decimal text, matching `Quantity#toString()`), never a JSON
-// NUMBER (which round-trips through IEEE-754 the instant it is JSON.parse()'d back out).
+// The raw `payload` jsonb of the outbox row, for asserting the `qty` key inside it is a JSON STRING
+// (exact decimal text, matching `Quantity#toString()`), never a JSON NUMBER (which round-trips
+// through IEEE-754 the instant it is JSON.parse()'d back out).
 async function outboxPayloadForCorrelation(correlationId: string): Promise<Record<string, unknown> | null> {
   const result: QueryResult<{ payload: Record<string, unknown> }> = await pool.query(
     `select payload from platform.outbox where correlation_id = $1`,
@@ -641,5 +641,48 @@ describe('Scenario: qty round-trips as an exact decimal Quantity, never a JS num
     fixtureEventIds.push(result.id);
 
     expect(await getEventQtyText(result.id)).toBe(maxQty);
+  });
+});
+
+// --- Scenario: a non-canonical qty input is stored, emitted and audited in its canonical form -----
+//
+// round-2 review finding 2: every qty value used ANYWHERE ELSE in this suite ('10.000', '12.345',
+// '99999999999.999') is already canonical numeric(14,3) text — so a regression in repository.ts back
+// to using the caller's raw `params.qty` (instead of `assertPositiveQty(params.qty).toString()`,
+// part 2's fix) would pass every other test in this file untouched. This scenario supplies a
+// NON-canonical qty string and asserts the CANONICAL form shows up in all three sinks the fix
+// touches (SQL insert, outbox payload, audit new_value) — the one test that would actually catch
+// that regression.
+
+describe('Scenario: a non-canonical qty input is stored, emitted and audited in its canonical numeric(14,3) form', () => {
+  it.each([
+    ['10', '10.000'],
+    ['007', '7.000'],
+    ['1.5', '1.500'],
+  ])('qty %s is stored/emitted/audited as canonical %s, never the raw caller string', async (rawQty, canonicalQty) => {
+    const triple = await freshTriple();
+    const input = { ...baseInput(triple), qty: rawQty };
+
+    const result = await callInsert(OWNER_ACTOR_UUID, input);
+    fixtureEventIds.push(result.id);
+
+    // (a) the stored billing.billable_events.qty column — the numeric(14,3) column itself would
+    // canonicalize a raw '10'/'007'/'1.5' insert regardless, so this alone would NOT catch a
+    // regression back to `params.qty` for the SQL path (Postgres normalizes numeric text on write).
+    // It is (b) and (c) below — the outbox payload and the audit new_value, both plain jsonb text
+    // built in application code from the returned Quantity's `.toString()` — that actually prove the
+    // fix: a regression back to raw `params.qty` would leave THOSE two as '10'/'007'/'1.5', failing
+    // this assertion even though (a) still passes.
+    expect(await getEventQtyText(result.id)).toBe(canonicalQty);
+
+    const payload = await outboxPayloadForCorrelation(input.correlationId);
+    expect(payload).not.toBeNull();
+    expect(typeof payload?.['qty']).toBe('string');
+    expect(payload?.['qty']).toBe(canonicalQty);
+
+    const audit = await auditRowForRecord(result.id);
+    expect(audit?.new_value).not.toBeNull();
+    expect(typeof audit?.new_value?.['qty']).toBe('string');
+    expect(audit?.new_value?.['qty']).toBe(canonicalQty);
   });
 });
