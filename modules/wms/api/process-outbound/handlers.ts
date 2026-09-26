@@ -28,6 +28,8 @@ import {
   CheckOrderInputSchema,
   CreateOutboundInputSchema,
   GeneratePickListInputSchema,
+  LoadOrderInputSchema,
+  PackOrderInputSchema,
   PickLineInputSchema,
   RunOutboundChecksInputSchema,
 } from '@pg-eos/contracts/wms/process-outbound';
@@ -40,6 +42,8 @@ import {
   checkOrder,
   createOutbound,
   generatePickList,
+  loadOrder,
+  packOrder,
   pickLine,
   runOutboundChecks,
   type ProcessOutboundDeps,
@@ -62,6 +66,8 @@ const IDEMPOTENCY_ENDPOINT_CANCEL = 'wms.process-outbound.cancel-outbound';
 const IDEMPOTENCY_ENDPOINT_ALLOCATE = 'wms.process-outbound.allocate';
 const IDEMPOTENCY_ENDPOINT_PICK_LINE = 'wms.process-outbound.pick-line';
 const IDEMPOTENCY_ENDPOINT_CHECK_ORDER = 'wms.process-outbound.check-order';
+const IDEMPOTENCY_ENDPOINT_PACK_ORDER = 'wms.process-outbound.pack-order';
+const IDEMPOTENCY_ENDPOINT_LOAD_ORDER = 'wms.process-outbound.load-order';
 
 export interface ApiHeaders {
   readonly [headerName: string]: string | undefined;
@@ -362,6 +368,42 @@ export async function handleCheckOrder(
       const input = CheckOrderInputSchema.parse(request.body);
       const idem = buildIdem(request, IDEMPOTENCY_ENDPOINT_CHECK_ORDER, input);
       return checkOrder(request.ctx, { ...input, idem }, deps);
+    },
+    deps,
+    extractCorrelationId(request.body),
+  );
+}
+
+// --- WBS 2.12 part 4: PackOrder / LoadOrder (brief Master decisions 2/3/4/5/6) ---------------------
+
+export async function handlePackOrder(
+  request: ApiRequest<unknown>,
+  deps: ProcessOutboundDeps,
+): Promise<ApiResult<Awaited<ReturnType<typeof packOrder>>>> {
+  const missingKey = requireIdempotencyKey(request.headers);
+  if (missingKey) return missingKey;
+  return handle(
+    () => {
+      const input = PackOrderInputSchema.parse(request.body);
+      const idem = buildIdem(request, IDEMPOTENCY_ENDPOINT_PACK_ORDER, input);
+      return packOrder(request.ctx, { ...input, idem }, deps);
+    },
+    deps,
+    extractCorrelationId(request.body),
+  );
+}
+
+export async function handleLoadOrder(
+  request: ApiRequest<unknown>,
+  deps: ProcessOutboundDeps,
+): Promise<ApiResult<Awaited<ReturnType<typeof loadOrder>>>> {
+  const missingKey = requireIdempotencyKey(request.headers);
+  if (missingKey) return missingKey;
+  return handle(
+    () => {
+      const input = LoadOrderInputSchema.parse(request.body);
+      const idem = buildIdem(request, IDEMPOTENCY_ENDPOINT_LOAD_ORDER, input);
+      return loadOrder(request.ctx, { ...input, idem }, deps);
     },
     deps,
     extractCorrelationId(request.body),
