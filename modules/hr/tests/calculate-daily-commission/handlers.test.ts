@@ -12,23 +12,23 @@
 //     translated, same class as DuplicatePlateNoError/EmployeeAlreadyAssignedError);
 //   - NoApplicableCommissionRuleError -> 422 (brief: "422, a data-completeness problem, not a
 //     conflict");
-//   - AmbiguousCommissionRuleError -> 422 (fix round finding 3d: more than one matching rule, no
-//     tie-break invented — brief default 2);
-//   - EmployeeNotInCallerEntityError -> 422 (fix round finding 1: the target employeeId either does
-//     not exist or does not belong to the caller's own resolved entity — modules/hr/domain/
-//     calculate-daily-commission/errors.ts's own header explains the 422 choice, PROBLEM_STATUS
-//     has no 404);
-//   - NotInternalActorError -> 422 (round-2 fix round finding 2 — this file had NO handler-layer
-//     coverage of this mapping at all; a non-internal actor WITH a resolved entity calling the
-//     handler asserts the Problem response's status/title, complementing
-//     calculate-daily-commission.test.ts's own integration-level test at :743-774, which only
+//   - AmbiguousCommissionRuleError -> 422 (brief default 2: more than one matching rule, no
+//     tie-break invented);
+//   - EmployeeNotInCallerEntityError -> 422 (part 1's own round-1 finding 1: the target employeeId
+//     either does not exist or does not belong to the caller's own resolved entity — modules/hr/
+//     domain/calculate-daily-commission/errors.ts's own header explains the 422 choice,
+//     PROBLEM_STATUS has no 404);
+//   - NotInternalActorError -> 422 (MASTER_BACKLOG 3.13 part 2 item 2 — this file had NO
+//     handler-layer coverage of this mapping at all; a non-internal actor WITH a resolved entity
+//     calling the handler asserts the Problem response's status/title, complementing
+//     calculate-daily-commission.test.ts's own integration-level test at :864-895, which only
 //     checks the thrown class, not the HTTP-layer mapping);
 //   - a missing ctx.userId -> 422 MissingActorError (cross-module convention, same as every prior
 //     slice's own handlers.test.ts);
 //   - an unexpected thrown error -> 500, generic detail, logged through deps.logger.error (pino, no
-//     console.log — CLAUDE.md · AGENT CONSTRAINTS). Fix round finding 1: a non-existent employeeId
-//     used to fall through to an untyped FK-violation 500 before pg-backend's own fix landed — that
-//     hole is now closed by EmployeeNotInCallerEntityError above, so this file's own "unknown error"
+//     console.log — CLAUDE.md · AGENT CONSTRAINTS). Part 1's own round-1 finding 1: a non-existent
+//     employeeId used to fall through to an untyped FK-violation 500 before pg-backend's own fix
+//     landed — that hole is now closed by EmployeeNotInCallerEntityError above, so this file's own "unknown error"
 //     500 coverage below is triggered a genuinely different way: an injected, untyped repository
 //     failure past every typed guard (same pattern as modules/hr/tests/register-employee/
 //     handlers.test.ts's own "an unexpected repository failure -> 500" test).
@@ -63,7 +63,7 @@ const pool = new Pool({
 });
 
 const FIXTURE_ACTOR_UUID = '00000000-0000-4000-8000-0000003130c1';
-// round-2 fix round finding 2 — a real entity-scoped actor (unlike a missing-ctx.userId case) whose
+// MASTER_BACKLOG 3.13 part 2 item 2 — a real entity-scoped actor (unlike a missing-ctx.userId case) whose
 // ctx.isInternal is false, added so this file has its own handler-layer NotInternalActorError -> 422
 // coverage (see this file's own header).
 const NON_INTERNAL_ACTOR_UUID = '00000000-0000-4000-8000-0000003130c2';
@@ -196,7 +196,7 @@ beforeAll(async () => {
     [FIXTURE_ACTOR_UUID, entityId],
   );
 
-  // round-2 fix round finding 2 — the NotInternalActorError handler-layer fixture actor.
+  // MASTER_BACKLOG 3.13 part 2 item 2 — the NotInternalActorError handler-layer fixture actor.
   await pool.query(
     `insert into identity.users (id, email, full_name_ar, user_type) values ($1, $2, $3, 'internal')
        on conflict (id) do update set email = excluded.email, full_name_ar = excluded.full_name_ar`,
@@ -212,13 +212,13 @@ beforeAll(async () => {
   );
 });
 
-// Fixture-isolation fix (fix round, WBS 3.13 part 1 — same cause and same fix as
-// calculate-daily-commission.test.ts's own afterEach, see its comment there for the full rationale):
-// hr.commission_rules matching is entity_id + applies_to + tier + valid window scoped only, not
-// employee-scoped, so every describe block here that calls createFixtureCommissionRule() with the
-// same default tier window for the same entityId accumulates overlapping rule rows across
-// describe blocks unless swept between tests. Round-1 fix round: this file's own "two overlapping
-// rules -> 422 AmbiguousCommissionRuleError" describe block below deliberately creates two
+// Fixture-isolation fix (same cause and same fix as calculate-daily-commission.test.ts's own
+// afterEach, see its comment there for the full rationale): hr.commission_rules matching is
+// entity_id + applies_to + tier + valid window scoped only, not employee-scoped, so every describe
+// block here that calls createFixtureCommissionRule() with the same default tier window for the
+// same entityId accumulates overlapping rule rows across describe blocks unless swept between
+// tests. This file's own "two overlapping rules -> 422 AmbiguousCommissionRuleError" describe
+// block below deliberately creates two
 // overlapping rows in the SAME test, so each test's own commission_rules fixture row(s) are still
 // deleted immediately afterward (in addition to the defence-in-depth sweep still present in the
 // shared afterAll below).
@@ -400,7 +400,7 @@ describe('a missing ctx.userId maps to a 422 Problem titled MissingActorError (c
   });
 });
 
-describe('a non-existent employeeId maps to a 422 Problem titled EmployeeNotInCallerEntityError (fix round, finding 1 — pg-backend closed the pre-fix RED-500 hole: a caller-supplied employeeId that does not resolve to a visible hr.employees row in the caller\'s own entity is caught BEFORE the shipments/rule-matching steps)', () => {
+describe('a non-existent employeeId maps to a 422 Problem titled EmployeeNotInCallerEntityError (part 1\'s own round-1 finding 1 — pg-backend closed the pre-fix RED-500 hole: a caller-supplied employeeId that does not resolve to a visible hr.employees row in the caller\'s own entity is caught BEFORE the shipments/rule-matching steps)', () => {
   it('handleCalculateDailyCommission: a non-existent employeeId -> 422, title "EmployeeNotInCallerEntityError", no row written', async () => {
     const deps = createCalculateDailyCommissionDeps({ clock, ids });
     const body = validBody(randomUUID());
@@ -418,7 +418,7 @@ describe('a non-existent employeeId maps to a 422 Problem titled EmployeeNotInCa
   });
 });
 
-describe('a non-internal actor with a resolved entity maps to a 422 Problem titled NotInternalActorError (round-2 fix round finding 2 — handler-layer coverage, complementing calculate-daily-commission.test.ts\'s own integration-level test)', () => {
+describe('a non-internal actor with a resolved entity maps to a 422 Problem titled NotInternalActorError (MASTER_BACKLOG 3.13 part 2 item 2 — handler-layer coverage, complementing calculate-daily-commission.test.ts\'s own integration-level test)', () => {
   it('handleCalculateDailyCommission: ctx.isInternal is false, actor has a real identity.user_entities row -> 422, title "NotInternalActorError", no row written', async () => {
     await createFixtureCommissionRule();
     const employeeId = await createFixtureEmployee();
@@ -445,7 +445,7 @@ describe('a non-internal actor with a resolved entity maps to a 422 Problem titl
   });
 });
 
-describe('two overlapping hr.commission_rules rows map to a 422 Problem titled AmbiguousCommissionRuleError (fix round, finding 3d — brief default 2: no tie-break invented)', () => {
+describe("two overlapping hr.commission_rules rows map to a 422 Problem titled AmbiguousCommissionRuleError (brief default 2: no tie-break invented)", () => {
   it('handleCalculateDailyCommission: two overlapping candidate rules for the same entity/tier -> 422, title "AmbiguousCommissionRuleError", no row written', async () => {
     await createFixtureCommissionRule();
     await createFixtureCommissionRule(); // deliberately overlapping: same entity, same default tier window.
@@ -466,7 +466,7 @@ describe('two overlapping hr.commission_rules rows map to a 422 Problem titled A
 });
 
 describe('an unknown error maps to 500 with a generic detail, and is logged through deps.logger.error', () => {
-  it('handleCalculateDailyCommission: an unexpected repository failure (repo.insertCommissionDaily throws, past every typed check) -> 500, generic detail, logger.error receives { correlationId, err: <the Error object> } (fix round, finding 1: a non-existent employeeId no longer reaches an untyped 500 — see the EmployeeNotInCallerEntityError describe above — so this coverage is now triggered the same, genuinely-untyped way modules/hr/tests/register-employee/handlers.test.ts\'s own "an unexpected repository failure -> 500" test does: injecting a broken repo method past every typed guard)', async () => {
+  it('handleCalculateDailyCommission: an unexpected repository failure (repo.insertCommissionDaily throws, past every typed check) -> 500, generic detail, logger.error receives { correlationId, err: <the Error object> } (part 1\'s own round-1 finding 1: a non-existent employeeId no longer reaches an untyped 500 — see the EmployeeNotInCallerEntityError describe above — so this coverage is now triggered the same, genuinely-untyped way modules/hr/tests/register-employee/handlers.test.ts\'s own "an unexpected repository failure -> 500" test does: injecting a broken repo method past every typed guard)', async () => {
     await createFixtureCommissionRule();
     const employeeId = await createFixtureEmployee();
     await createFixtureDriverIdWithAssignment(employeeId);

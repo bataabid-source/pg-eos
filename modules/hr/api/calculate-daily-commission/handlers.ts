@@ -17,7 +17,7 @@
 //   - EntityScopeAmbiguousError / EmployeeNotInCallerEntityError map to 422 (round-1 review
 //     findings 1 and 5 — see ../../domain/calculate-daily-commission/errors.js's own header for
 //     why each is 422, not a raw 404, within this Problem envelope);
-//   - NotInternalActorError maps to 422 (part 2 round-2 finding 2 — a non-internal caller with a
+//   - NotInternalActorError maps to 422 (MASTER_BACKLOG 3.13 part 2 item 2 — a non-internal caller with a
 //     real entity scope, translated from hr.commission_daily's own migration-0027 RLS write-policy
 //     gate; same status as the expire-contract/RoleRequiredError precedent this class cites);
 //   - MissingActorError maps to 422 (cross-module convention, same as every prior slice's own
