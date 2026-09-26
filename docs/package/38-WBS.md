@@ -1,6 +1,8 @@
 # PG-EOS — Work Breakdown Structure
-**Document 38 · Version 4.6 · 25 September 2026**
+**Document 38 · Version 4.7 · 26 September 2026**
 
+> **v4.7 (26 September 2026, Master issuance under D-190):** `Lane` column of rows **2.16** and **2.18** M → **1** (phase 2 closes on lane 1), rows **3.12** and **3.13** 2 → **3** (lane 2 holds the accounting thread to 4.20). No row added or removed — still 154.
+>
 > **v4.6 (25 September 2026, Master issuance under GM decision D-187 / ADR-0004):** rows **4.1a**, **4.1b**, **4.19**, **4.20**, **4.21**, **4.12a**, **4.12b**, **4.22**, **4.7a**, **3.6a**, **4.23**, **4.24**, **5.6a**, **5.11a**, **5.11b**, **7.13**, **7.14** added exactly as gap analysis A0 §6 proposes (`docs/notes/2026-09-25-accounting-gap-analysis.md`; ADR-0004 Consequences 1); **4.1** amended (task "Chart of accounts — real data" and five entities, A0 §6 · ADR-0004 D2 (j)) and **4.11** amended (auto-posted from billing events via outbox; deps 4.20, 4.4); Phase 4 gate amended per A0 §6; G-01 request SCR-ACC-01; 137 → 154 rows.
 >
 > **v4.5 (25 September 2026, Master issuance D-185 under GM directives D-168 / D-169 and D-144 §5 item 5, D-173 precedent):** row **2.9b** (schedule inbound + logistics terms — SCR-WMS-INB-01 §7–§8, lane 2, staged since D-168) moved from the Staged section into doc 38 so the commit-msg hook accepts `feat(2.9b)`; 136 → 137 rows.
@@ -106,9 +108,9 @@
 | 2.13 | Inventory count: blind, recount mandatory, adjustment by approval | 🤖 | 2.8 | **2** | WH_MGR | System qty invisible to counter |
 | 2.14 | Daily occupancy snapshot + overflow (ST-12) billable event | 🤖 | 2.8 | **2** | WH_MGR | Overflow event generated on exceed |
 | 2.15 | Space management: allocations, reservations, `check_space_available()` guard | 🤖 | 2.1, 1.7 | **2** | SALES_MGR | Over-allocation raises with exact available qty |
-| 2.16 | PDA app: nine screens, offline queue (**72 h**), sync, kiosk mode, shared-device PIN login (doc 40 §D4) | 🤖 | 2.9–2.13 | **M** | WH_MGR | Scan response ≤ 1.0 s; shift cannot close with queue > 0 |
+| 2.16 | PDA app: nine screens, offline queue (**72 h**), sync, kiosk mode, shared-device PIN login (doc 40 §D4) | 🤖 | 2.9–2.13 | **1** | WH_MGR | Scan response ≤ 1.0 s; shift cannot close with queue > 0 |
 | 2.17 | Warehouse Grafana board | 🔧 | 2.16 | **M** | SYSADMIN | Board live |
-| 2.18 | Scenarios S1, S2, S18 pass | ✅ | 2.16 | **M** | WH_MGR | Playwright green |
+| 2.18 | Scenarios S1, S2, S18 pass | ✅ | 2.16 | **1** | WH_MGR | Playwright green |
 | 2.19 | Super-user sign-off + 90-min PDA training delivered | 🧑 | 2.18 | **A** | WH_MGR | Sign-off recorded |
 
 **Phase gate:** 2.5, 2.7 gates met · 2.18 green · 2.19 signed.
@@ -131,8 +133,8 @@
 | 3.9 | Driver app: payment engine (cash live, link behind flag, partial rejected) | 🤖 | 3.7 | **1** | CFO | Link delivery impossible without gateway ref |
 | 3.10 | Driver app: custody ledger, watermark, daily earnings, notifications | 🤖 | 3.7 | **1** | DEL_MGR | Custody > 0 blocks day close; watermark contains server time |
 | 3.11 | Driver app: ranking with six admin settings | 🤖 | 3.10 | **1** | GM | `linked_to_penalty` off by default |
-| 3.12 | `imile.driver_ids` + time-bounded assignments + termination trigger | 🤖 | 3.3 | **2** | DEL_MGR | `verify_attribution()` zero rows; terminated driver's ID auto-released |
-| 3.13 | Commission engine (daily, frozen snapshot, 48-h dispute) | 🤖 | 3.12 | **2** | HR_MGR | Attribution through assignment table only |
+| 3.12 | `imile.driver_ids` + time-bounded assignments + termination trigger | 🤖 | 3.3 | **3** | DEL_MGR | `verify_attribution()` zero rows; terminated driver's ID auto-released |
+| 3.13 | Commission engine (daily, frozen snapshot, 48-h dispute) | 🤖 | 3.12 | **3** | HR_MGR | Attribution through assignment table only |
 | 3.14 | iMile station agent (dedicated account, remote UI operator, health reporting) | 🤖 | 0.12 | **3** | DEL_MGR | Pull every 10 min; stop > 15 min alerts |
 | 3.15 | Sorting engine: scan → cage/zone/driver in < 1 s | 🤖 | 3.14, 2.16 | **3** | DEL_MGR | ≥ 95% sorted by scan without intervention (lab) |
 | 3.16 | Dispatch plan engine (adjacency, capacity, rotation, exclusions) + **ADR-27 earned autonomy**: `imile.dispatch_autonomy`, the seven-check quality gate in `sorting_plans.quality_gate`, `edits_pct`, and the eight `dispatch.*` thresholds | 🤖 | 3.15 | **3** | DEL_MGR | ≥ 95% drivers with ≤ 3 zones on seed data; auto-approval impossible before the gate passes and autonomy is earned |

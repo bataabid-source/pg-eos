@@ -4,6 +4,16 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — bookkeeping 2026-09-26: D-190 (full delegation), D-176 amended, doc 38 v4.7 (2026-09-26)
+
+- `docs/DECISION_LOG.md`: D-190 records the GM's full delegation verbatim and the decisions taken under it; the D-176 row carries its verbatim amendment.
+- `docs/package/38-WBS.md` v4.7: Lane 2.16/2.18 M → 1, 3.12/3.13 2 → 3 (154 rows unchanged); MASTER_BACKLOG mirrors it; 2.17 DEFERRED-POST-PILOT.
+- PROJECT_STATE: lane 3 row corrected — it works on 3.12 (was "awaiting assignment"); lane 1 on 2.12 part 1; lane 2 on 4.2 part 2.
+- Governance budget interpretation (D-190): a P-wave commit is a named GM directive and carries `Override: GM` legitimately; the one-per-day cap applies to bookkeeping commits. Today on main: P2 `2b09d8b` and catalog `7e7e91e` (both Override), P3 `2cfa3eb` (ci), P4a `436be60` (build), and this bookkeeping commit (Override).
+- Docker Gordon (`docker ai`) is not used in any merge or review path (D-190: needs interactive confirmation per tool; gave a wrong isolation fix).
+- Local branch cleanup (Master checkout, `git branch -d` only): lane/3-2.16 deleted; 12 refused as not ancestor-merged (rebase-merge). `git cherry` shows 8 of them with no commit missing from main (lane/1-2.11p2, p4, p5, lane/1-r2, lane/3, lane/3-3.1, lane/3-3.1-part2, lane/3-3.17) and 4 with unique commits (lane/1: 2, lane/1-2.11p3: 1, lane/2: 1, docs/d165-gm-sheet-5: 1) — force-deleting either set is the GM's (D-190 (3)).
+- Model: claude-opus-5-5 (Master) · Delegated: none.
+
 ## X — P4a: one database per lane worktree (2026-09-26)
 
 - **Why:** the three lane worktrees (`../pg-eos-lane-1/2/3`) shared one database, `pgeos`, in the local Docker container, so their test fixtures polluted each other. P4a gives each lane its own database in the SAME container, never a separate container.
