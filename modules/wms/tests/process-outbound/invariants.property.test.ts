@@ -34,8 +34,11 @@ import {
   assertCheckerNotPicker,
   assertContractActive,
   assertDeliveryAddressComplete,
+  assertLineNotAlreadyPicked,
+  assertLineReservedForPick,
   assertNonBlockedLocationsSufficient,
   assertOrderQuantityWithinLimit,
+  assertPickedWithinReserved,
   assertServicePriced,
   assertShelfLifeSufficient,
   assertSkuBelongsToOrderClient,
@@ -56,8 +59,11 @@ import {
   ContractNotActiveError,
   DeliveryAddressIncompleteError,
   InsufficientStockError,
+  LineAlreadyPickedError,
+  LineNotReservedForPickError,
   OutboundLocationBlockedError,
   NoServicePriceError,
+  PickQuantityExceedsReservedError,
   OrderQuantityExceededError,
   SelfCheckNotAllowedError,
   ShelfLifeTooShortError,
@@ -924,24 +930,146 @@ describe('assertVarianceReasonRequired — property (PickLine shortage check, WB
   });
 });
 
-// --- assertCheckerNotPicker (CheckOrder self-check gate — doc 38 row 2.12's own acceptance line) ----
+// --- assertPickedWithinReserved (PickLine over-pick gate, fix round 1 finding 3 — WBS 2.12 part 2
+// item 1, deferred by part 1's review cap, doc `docs/notes/slice-briefs/_slice-2.12.brief.md`
+// Master decision 4) --------------------------------------------------------------------------------
 
-describe('assertCheckerNotPicker — property (CheckOrder self-check gate, WBS 2.12 part 1)', () => {
-  it('never throws when checkerId !== pickedBy', () => {
+describe('assertPickedWithinReserved — property (PickLine over-pick gate, WBS 2.12 part 2)', () => {
+  it('never throws when qtyActual <= reserved', () => {
     fc.assert(
-      fc.property(uuidArb, uuidArb, orderIdArb, (checkerId, pickedBy, orderId) => {
-        fc.pre(checkerId !== pickedBy);
-        expect(() => assertCheckerNotPicker({ orderId, checkerId, pickedBy })).not.toThrow();
+      fc.property(thousandthsArb, fc.integer({ min: 0, max: MAX_QTY_THOUSANDTHS }), uuidArb, (reservedT, deficit, lineId) => {
+        const qtyActualT = Math.max(0, reservedT - deficit);
+        const reserved = thousandthsToQty(reservedT);
+        const qtyActual = thousandthsToQty(qtyActualT);
+        expect(() => assertPickedWithinReserved({ lineId, reserved, qtyActual })).not.toThrow();
       }),
     );
   });
 
-  it('always throws SelfCheckNotAllowedError when checkerId === pickedBy, carrying i18nKey wms.outbound.check.selfCheckNotAllowed', () => {
+  it('always throws PickQuantityExceedsReservedError when qtyActual > reserved, carrying i18nKey wms.outbound.pick.qtyExceedsReserved', () => {
+    fc.assert(
+      fc.property(
+        fc.integer({ min: 0, max: MAX_QTY_THOUSANDTHS - 1 }),
+        fc.integer({ min: 1, max: THOUSANDTHS_PER_UNIT }),
+        uuidArb,
+        (reservedT, excess, lineId) => {
+          const overT = reservedT + excess;
+          const reserved = thousandthsToQty(reservedT);
+          const qtyActual = thousandthsToQty(overT);
+          const error = (() => {
+            try {
+              assertPickedWithinReserved({ lineId, reserved, qtyActual });
+              return null;
+            } catch (err: unknown) {
+              return err;
+            }
+          })();
+          expect(error).toBeInstanceOf(PickQuantityExceedsReservedError);
+          expect((error as PickQuantityExceedsReservedError).i18nKey).toBe('wms.outbound.pick.qtyExceedsReserved');
+          expect((error as PickQuantityExceedsReservedError).params).toEqual({ lineId, reserved, qtyActual });
+        },
+      ),
+    );
+  });
+});
+
+// --- assertLineReservedForPick (PickLine no-reservation gate, fix round 1 finding 6 — WBS 2.12
+// part 2 item 1) -------------------------------------------------------------------------------------
+
+describe('assertLineReservedForPick — property (PickLine no-reservation gate, WBS 2.12 part 2)', () => {
+  it('never throws when locationId is non-null, whatever qtyActual', () => {
+    fc.assert(
+      fc.property(thousandthsArb, uuidArb, uuidArb, (qtyT, locationId, lineId) => {
+        const qtyActual = thousandthsToQty(qtyT);
+        expect(() => assertLineReservedForPick({ lineId, locationId, qtyActual })).not.toThrow();
+      }),
+    );
+  });
+
+  it('never throws when locationId is null and qtyActual is exactly zero', () => {
+    fc.assert(
+      fc.property(uuidArb, (lineId) => {
+        expect(() => assertLineReservedForPick({ lineId, locationId: null, qtyActual: '0.000' })).not.toThrow();
+      }),
+    );
+  });
+
+  it('always throws LineNotReservedForPickError when locationId is null and qtyActual > 0, carrying i18nKey wms.outbound.pick.lineNotReserved', () => {
+    fc.assert(
+      fc.property(fc.integer({ min: 1, max: MAX_QTY_THOUSANDTHS }), uuidArb, (qtyT, lineId) => {
+        const qtyActual = thousandthsToQty(qtyT);
+        const error = (() => {
+          try {
+            assertLineReservedForPick({ lineId, locationId: null, qtyActual });
+            return null;
+          } catch (err: unknown) {
+            return err;
+          }
+        })();
+        expect(error).toBeInstanceOf(LineNotReservedForPickError);
+        expect((error as LineNotReservedForPickError).i18nKey).toBe('wms.outbound.pick.lineNotReserved');
+        expect((error as LineNotReservedForPickError).params).toEqual({ lineId, qtyActual });
+      }),
+    );
+  });
+});
+
+// --- assertLineNotAlreadyPicked (PickLine double-pick guard, fix round 1 finding 2 — WBS 2.12
+// part 2 item 1, trivial boolean-in property still required for coverage parity, Master decision 4)
+// -----------------------------------------------------------------------------------------------------
+
+describe('assertLineNotAlreadyPicked — property (PickLine double-pick guard, WBS 2.12 part 2)', () => {
+  it('never throws when alreadyPicked is false', () => {
+    fc.assert(
+      fc.property(uuidArb, (lineId) => {
+        expect(() => assertLineNotAlreadyPicked(lineId, false)).not.toThrow();
+      }),
+    );
+  });
+
+  it('always throws LineAlreadyPickedError when alreadyPicked is true, carrying i18nKey wms.outbound.pick.lineAlreadyPicked', () => {
+    fc.assert(
+      fc.property(uuidArb, (lineId) => {
+        const error = (() => {
+          try {
+            assertLineNotAlreadyPicked(lineId, true);
+            return null;
+          } catch (err: unknown) {
+            return err;
+          }
+        })();
+        expect(error).toBeInstanceOf(LineAlreadyPickedError);
+        expect((error as LineAlreadyPickedError).i18nKey).toBe('wms.outbound.pick.lineAlreadyPicked');
+        expect((error as LineAlreadyPickedError).params).toEqual({ lineId });
+      }),
+    );
+  });
+});
+
+// --- assertCheckerNotPicker (CheckOrder self-check gate — doc 38 row 2.12's own acceptance line).
+// WBS 2.12 part 2, Master decision 3/5 (_slice-2.12.brief.md): the invariant's signature widens from
+// `{orderId, checkerId, pickedBy}` to `{orderId, checkerId, wasPicker: boolean}` — the checker is
+// rejected whenever they touched this order's picking in ANY way (the last picked_by OR any posted
+// pick movement's performed_by), not merely when they equal the order's own last picked_by. RED
+// until pg-backend lands the new signature on domain/process-outbound/invariants.ts's own
+// assertCheckerNotPicker (this file will not even compile against today's `pickedBy`-shaped
+// signature, which IS the point). ----------------------------------------------------------------
+
+describe('assertCheckerNotPicker — property (CheckOrder self-check gate, WBS 2.12 part 2)', () => {
+  it('never throws when wasPicker is false', () => {
+    fc.assert(
+      fc.property(uuidArb, orderIdArb, (checkerId, orderId) => {
+        expect(() => assertCheckerNotPicker({ orderId, checkerId, wasPicker: false })).not.toThrow();
+      }),
+    );
+  });
+
+  it('always throws SelfCheckNotAllowedError when wasPicker is true, carrying i18nKey wms.outbound.check.selfCheckNotAllowed', () => {
     fc.assert(
       fc.property(uuidArb, orderIdArb, (actorId, orderId) => {
         const error = (() => {
           try {
-            assertCheckerNotPicker({ orderId, checkerId: actorId, pickedBy: actorId });
+            assertCheckerNotPicker({ orderId, checkerId: actorId, wasPicker: true });
             return null;
           } catch (err: unknown) {
             return err;
