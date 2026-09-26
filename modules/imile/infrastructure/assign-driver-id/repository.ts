@@ -24,7 +24,7 @@
 //
 // `markDriverIdAssigned` is a compare-and-set UPDATE (round-2 fix round, finding 1): guarded by
 // `where id = $1 and status = 'available'` in the SAME statement, atomically replacing the earlier
-// SELECT-then-UPDATE (which raced a concurrent trg_close_assignment_on_suspension between the read
+// SELECT-then-UPDATE (which raced a concurrent trg_close_on_suspension between the read
 // and the write). Zero rows returned means the row was not 'available' at the instant of the
 // UPDATE — the application layer maps that to DriverIdNotAvailableError.
 //
@@ -158,7 +158,7 @@ async function insertAssignment(
 }
 
 /** Compare-and-set (round-2 fix round, finding 1): the guard (`status = 'available'`) and the write
- *  are the SAME statement, so a concurrent status change (e.g. trg_close_assignment_on_suspension
+ *  are the SAME statement, so a concurrent status change (e.g. trg_close_on_suspension
  *  firing between a separate read and write) can never be silently overwritten — the UPDATE simply
  *  matches zero rows and this function reports that to the caller instead of writing anything. No
  *  separate `for update` row lock is needed — the guarded UPDATE itself is the lock. */
