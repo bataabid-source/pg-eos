@@ -71,11 +71,23 @@ async function createFixtureDriverId(status: 'available' | 'assigned' = 'availab
   return id;
 }
 
+// Migration 0029 (SCR-HR-EMP-01, doc 40 §C7) adds chk_employees_code_format on hr.employees:
+// code ~ '^PG-[0-9]{4}$'. This suite's own fixture codes stay in the PG-6000-PG-6999 range
+// (disjoint from assign-driver-id.test.ts's PG-5xxx and hr's own 1xxx-4xxx/9xxx and 7xxx ranges)
+// and use a module-level counter for uniqueness within this file's own inserts (no afterEach
+// cleanup here — all fixture rows persist until this suite's own afterAll, so every call site in
+// this file needs a distinct code).
+let employeeCodeCounter = 0;
+function nextEmployeeCode(): string {
+  const suffix = (100 + employeeCodeCounter++).toString();
+  return `PG-6${suffix}`;
+}
+
 async function createFixtureEmployee(): Promise<string> {
   const result: QueryResult<{ id: string }> = await pool.query(
     `insert into hr.employees (entity_id, code, name_ar, hire_date, status)
        values ($1, $2, $3, current_date, 'active') returning id::text as id`,
-    [entityId, `EMP-H-3120-${randomUUID()}`, 'موظف اختبار معالجات إسناد معرّف — WBS 3.12'],
+    [entityId, nextEmployeeCode(), 'موظف اختبار معالجات إسناد معرّف — WBS 3.12'],
   );
   const id = result.rows[0]?.id;
   if (!id) throw new Error('failed to insert fixture hr.employees row');
