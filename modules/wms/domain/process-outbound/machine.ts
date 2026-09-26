@@ -51,8 +51,9 @@ export const OUTBOUND_ORDER_STATUS = {
 
 export type OutboundOrderStatus = (typeof OUTBOUND_ORDER_STATUS)[keyof typeof OUTBOUND_ORDER_STATUS];
 
-/** The 9 event types this machine accepts (2.11 part 1's own 4 + part 2's own 2 —
- *  ALLOCATE_FULL/ALLOCATE_PARTIAL — + 2.12 part 1's own 3 — START_PICKING/COMPLETE_PICKING/CHECK). */
+/** The 11 event types this machine accepts (2.11 part 1's own 4 + part 2's own 2 —
+ *  ALLOCATE_FULL/ALLOCATE_PARTIAL — + 2.12 part 1's own 3 — START_PICKING/COMPLETE_PICKING/CHECK —
+ *  + 2.12 part 4's own 2 — PACK/LOAD). */
 export const OUTBOUND_ORDER_EVENTS = {
   RUN_CHECKS_PASS: 'RUN_CHECKS_PASS',
   RUN_CHECKS_CREDIT_FAIL: 'RUN_CHECKS_CREDIT_FAIL',
@@ -63,6 +64,8 @@ export const OUTBOUND_ORDER_EVENTS = {
   START_PICKING: 'START_PICKING',
   COMPLETE_PICKING: 'COMPLETE_PICKING',
   CHECK: 'CHECK_ORDER',
+  PACK: 'PACK_OUTBOUND',
+  LOAD: 'LOAD_OUTBOUND',
 } as const;
 
 export type OutboundOrderEventType = (typeof OUTBOUND_ORDER_EVENTS)[keyof typeof OUTBOUND_ORDER_EVENTS];
@@ -118,8 +121,8 @@ export const outboundOrderMachine = createMachine({
       },
     },
     // WBS 2.12 part 1 (brief Master decision 1): {allocated, partially_allocated} --START_PICKING-->
-    // picking --COMPLETE_PICKING--> picked --CHECK--> checked. PackOrder/LoadOrder (part 2) add no
-    // edge here yet.
+    // picking --COMPLETE_PICKING--> picked --CHECK--> checked. PackOrder/LoadOrder edges (part 4)
+    // are added below, from `checked` onward.
     [OUTBOUND_ORDER_STATUS.PICKING]: {
       on: {
         [OUTBOUND_ORDER_EVENTS.COMPLETE_PICKING]: OUTBOUND_ORDER_STATUS.PICKED,
@@ -130,8 +133,19 @@ export const outboundOrderMachine = createMachine({
         [OUTBOUND_ORDER_EVENTS.CHECK]: OUTBOUND_ORDER_STATUS.CHECKED,
       },
     },
-    [OUTBOUND_ORDER_STATUS.CHECKED]: {},
-    [OUTBOUND_ORDER_STATUS.PACKED]: {},
+    // WBS 2.12 part 4 (brief Master decision 1): checked --PACK_OUTBOUND--> packed --LOAD_OUTBOUND-->
+    // loaded. `loaded`/`dispatched`/`delivered` carry no further edge yet (a future WBS/TMS slice's
+    // job, doc-38 row 2.12 stops at `loaded`).
+    [OUTBOUND_ORDER_STATUS.CHECKED]: {
+      on: {
+        [OUTBOUND_ORDER_EVENTS.PACK]: OUTBOUND_ORDER_STATUS.PACKED,
+      },
+    },
+    [OUTBOUND_ORDER_STATUS.PACKED]: {
+      on: {
+        [OUTBOUND_ORDER_EVENTS.LOAD]: OUTBOUND_ORDER_STATUS.LOADED,
+      },
+    },
     [OUTBOUND_ORDER_STATUS.LOADED]: {},
     [OUTBOUND_ORDER_STATUS.DISPATCHED]: {},
     [OUTBOUND_ORDER_STATUS.DELIVERED]: {},

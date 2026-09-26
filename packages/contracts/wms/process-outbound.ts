@@ -116,3 +116,25 @@ export const CheckOrderInputSchema = z
   .meta({ id: 'CheckOrderInput' });
 
 export type CheckOrderInput = z.infer<typeof CheckOrderInputSchema>;
+
+// --- WBS 2.12 part 4: PackOrder, LoadOrder (closes doc-38 row 2.12) ------------------------------
+
+export const PackOrderInputSchema = z
+  .object({
+    orderId: UUID_ID,
+    expectedVersion: EXPECTED_VERSION,
+    correlationId: UUID_ID,
+  })
+  .meta({ id: 'PackOrderInput' });
+
+export type PackOrderInput = z.infer<typeof PackOrderInputSchema>;
+
+export const LoadOrderInputSchema = z
+  .object({
+    orderId: UUID_ID,
+    expectedVersion: EXPECTED_VERSION,
+    correlationId: UUID_ID,
+  })
+  .meta({ id: 'LoadOrderInput' });
+
+export type LoadOrderInput = z.infer<typeof LoadOrderInputSchema>;

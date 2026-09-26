@@ -152,7 +152,8 @@ async function updateOrder(tx: NodePgDatabase, orderId: string, columns: OrderUp
            credit_check_passed = coalesce(${columns.creditCheckPassed ?? null}::boolean, credit_check_passed),
            credit_checked_at = coalesce(${columns.creditCheckedAt?.toISOString() ?? null}::timestamptz, credit_checked_at),
            picked_by = coalesce(${columns.pickedBy ?? null}::uuid, picked_by),
-           checked_by = coalesce(${columns.checkedBy ?? null}::uuid, checked_by)
+           checked_by = coalesce(${columns.checkedBy ?? null}::uuid, checked_by),
+           packed_by = coalesce(${columns.packedBy ?? null}::uuid, packed_by)
      where id = ${orderId}::uuid
     returning version
   `);

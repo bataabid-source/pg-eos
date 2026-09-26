@@ -106,6 +106,8 @@ export interface OrderUpdateColumns {
   readonly pickedBy?: string;
   /** WBS 2.12 part 1: set once, on the call CheckOrder succeeds on. */
   readonly checkedBy?: string;
+  /** WBS 2.12 part 4: set once, on the call PackOrder succeeds on. */
+  readonly packedBy?: string;
 }
 
 export interface ClientQualificationRow {
