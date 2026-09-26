@@ -4,6 +4,15 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — P6b-2: RLS narrows to the active entity (SCR-PLAT-CTX-01, migration 0031) (2026-09-26)
+
+- `platform.allowed_entities()` (0031 + `01-Data-Model.sql:327` parity): the user's `identity.user_entities` intersected with `app.entity_id` when set; unset/empty → exactly the old set. `SECURITY DEFINER`, `search_path = pg_catalog, pg_temp`, self-check block. `withContext` always sets `app.entity_id` (NULL when no entity); `createUserEntitiesLookup` reads with `entityId: null` so switching entity is never blocked. Malformed GUC → 22P02 (fail-closed); the API validates `X-Entity-Id` as a uuid.
+- Behaviour changes (recorded defaults, D-190): `next_doc_no` follows the active entity; fleet register-vehicle's single-entity resolution now succeeds for multi-entity users with an active entity; an Idempotency-Key reused under a different active entity → live key: `IdempotencyConflictError('mismatch')` (no replay), expired key: 42501 on reclaim until `purge_idempotency_keys()`; the N-11 alert job runs with no entityId.
+- Tests: `tests/isolation/tests/active-entity-rls.test.ts` — (a) active entity A reads/writes only A, B insert → 42501; (b) no entity → old behaviour; (c) outside entity → zero rows and writes refused; positive write, empty GUC, malformed → 22P02, GUC reverts after commit, lookup returns the full set, idempotency cross-entity. Isolation 223/223.
+- Review: pre-migration (opus) APPROVED WITH CHANGES (5); slice-close round 1 FAIL(2) → round 2 FAIL(2, one correcting round 1's own claim) → one confirmation read (codified REVIEW CAP rule) PASS. Builder pg-backend-core (opus, routing v2).
+- `docs/notes/SCR-PLAT-CTX-01-active-entity-rls.md` applied in full — not kept (NOTES rule).
+- Model: claude-opus-5-5 (Master) · Delegated: pg-tester (sonnet), pg-backend-core (opus), pg-reviewer (opus).
+
 ## X — D-191: agent routing table v2 (2026-09-26)
 
 - GM in the Master session, verbatim: "نفّذ جدول توجيه الوكلاء v2 كما استلمته من المستشار، بما فيه pg-scribe على haiku، وسجّله D-191." New agent `.claude/agents/pg-backend-core.md` (copy of pg-backend, `model: opus`) for schema/RLS/permission/core slices; `pg-scribe` → `model: haiku` (supersedes "no haiku", GM 2026-09-23); CLAUDE.md MODEL ROUTING and docs/MODEL_ROUTING.md updated (effort levels recorded there — not a frontmatter key). The session model line in PROJECT_STATE updated.
