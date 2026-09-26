@@ -93,6 +93,10 @@
     "./fleet/assert-vehicle-assignable": {
       "types": "./dist/fleet/assert-vehicle-assignable.d.ts",
       "default": "./dist/fleet/assert-vehicle-assignable.js"
+    },
+    "./imile/assign-driver-id": {
+      "types": "./dist/imile/assign-driver-id.d.ts",
+      "default": "./dist/imile/assign-driver-id.js"
     }
   },
   "scripts": {
