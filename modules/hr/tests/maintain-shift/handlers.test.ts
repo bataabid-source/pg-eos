@@ -84,6 +84,17 @@ function uniqueCode(prefix: string): string {
   return `${prefix}-5.5a-h-${counter}-${Date.now()}`;
 }
 
+// hr.employees.code must match chk_employees_code_format (^PG-[0-9]{4}$, migration
+// 0029_M_hr-employee-checks.sql) — this suite owns the PG-4xxx range (Master's disjoint-range
+// assignment: register-employee PG-1xxx, its handlers PG-2xxx, maintain-shift PG-3xxx, maintain-shift
+// handlers PG-4xxx, hr-employee-checks PG-9xxx), same `PG-${base + counter}` style as
+// modules/hr/tests/register-employee/handlers.test.ts's own uniqueCode().
+let employeeCodeCounter = 0;
+function uniqueEmployeeCode(): string {
+  employeeCodeCounter += 1;
+  return `PG-${(4000 + employeeCodeCounter).toString().padStart(4, '0').slice(-4)}`;
+}
+
 function spyLogger(): Logger & { readonly errorCalls: Array<[Record<string, unknown>, string]> } {
   const errorCalls: Array<[Record<string, unknown>, string]> = [];
   return {
@@ -112,7 +123,7 @@ beforeAll(async () => {
   const employeeResult: QueryResult<{ id: string }> = await pool.query(
     `insert into hr.employees (entity_id, code, name_ar, hire_date, employment_type, status)
      values ($1, $2, $3, current_date, 'full_time', 'active') returning id`,
-    [entityId, uniqueCode('PG'), 'موظف اختبار معالجات'],
+    [entityId, uniqueEmployeeCode(), 'موظف اختبار معالجات'],
   );
   draftEmployeeId = (employeeResult.rows[0] as { id: string }).id;
 
@@ -306,7 +317,7 @@ describe('ShiftGroupShiftMismatchError maps to 422, title = error.name', () => {
     const employeeResult: QueryResult<{ id: string }> = await pool.query(
       `insert into hr.employees (entity_id, code, name_ar, hire_date, employment_type, status)
        values ($1, $2, $3, current_date, 'full_time', 'active') returning id`,
-      [entityId, uniqueCode('PG'), 'موظف آخر'],
+      [entityId, uniqueEmployeeCode(), 'موظف آخر'],
     );
     const otherEmployeeId = (employeeResult.rows[0] as { id: string }).id;
 

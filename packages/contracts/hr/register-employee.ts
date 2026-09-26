@@ -16,12 +16,14 @@
 import { z } from 'zod';
 
 const UUID_ID = z.string().uuid();
-// doc 40 §C7 `PG-####` — 01-Data-Model.sql:1270 `hr.employees.code text not null unique`.
+// doc 40 §C7 `PG-####` — 01-Data-Model.sql:1270 `hr.employees.code text not null unique`, also
+// enforced as chk_employees_code_format (migration 0029).
 const EMPLOYEE_CODE = z.string().regex(/^PG-\d{4}$/);
 // hr.employees.version starts at 1 (migration 0014: int not null default 1).
 const MIN_VERSION = 1;
 const EXPECTED_VERSION = z.number().int().min(MIN_VERSION);
-// 01-Data-Model.sql:1303 comment — the five doc_type values this schema carries (no DB CHECK).
+// 01-Data-Model.sql:1303 comment — the five doc_type values this schema carries, also enforced as
+// chk_employee_documents_doc_type (migration 0029).
 const DOC_TYPES = ['residency', 'passport', 'license', 'health_card', 'contract'] as const;
 // 01-Data-Model.sql:1279 chk_employees_status (13B:2445).
 const EMPLOYEE_STATUSES = ['active', 'on_leave', 'suspended', 'terminated'] as const;

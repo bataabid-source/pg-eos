@@ -113,6 +113,17 @@ function uniqueCode(prefix: string): string {
   return `${prefix}-5.5a-${counter}-${Date.now()}`;
 }
 
+// hr.employees.code must match chk_employees_code_format (^PG-[0-9]{4}$, migration
+// 0029_M_hr-employee-checks.sql) — this suite owns the PG-3xxx range (Master's disjoint-range
+// assignment: register-employee PG-1xxx, its handlers PG-2xxx, maintain-shift PG-3xxx, maintain-shift
+// handlers PG-4xxx, hr-employee-checks PG-9xxx), same `PG-${base + counter}` style as
+// modules/hr/tests/register-employee/register-employee.test.ts's own uniqueCode().
+let employeeCodeCounter = 0;
+function uniqueEmployeeCode(): string {
+  employeeCodeCounter += 1;
+  return `PG-${(3000 + employeeCodeCounter).toString().padStart(4, '0').slice(-4)}`;
+}
+
 /** ISO YYYY-MM-DD, `offsetDays` from the fixed clock's own date (negative -> past). */
 function dateOffset(offsetDays: number): string {
   const base = clock.now();
@@ -159,7 +170,7 @@ async function insertSiteDirect(forEntityId: string): Promise<string> {
 /** admin-pool direct insert of an hr.employees row — fixture driver/lead (register-employee
  *  precedent pattern). */
 async function insertEmployeeDirect(forEntityId: string): Promise<string> {
-  const code = uniqueCode('PG');
+  const code = uniqueEmployeeCode();
   const result: QueryResult<{ id: string }> = await pool.query(
     `insert into hr.employees (entity_id, code, name_ar, hire_date, employment_type, status)
      values ($1, $2, $3, $4, 'full_time', 'active') returning id`,

@@ -53,8 +53,10 @@ import {
 import { createRegisterEmployeeDeps } from '../../api/register-employee/composition.js';
 import {
   DocumentDatesInvalidError,
+  DocumentTypeInvalidError,
   DriverDocumentExpiredError,
   DriverDocumentMissingError,
+  EmployeeCodeFormatInvalidError,
   EmployeeCodeTakenError,
   EmployeeNotActiveError,
   EmployeeNotFoundError,
@@ -332,6 +334,31 @@ describe('Scenario: A duplicate employee code is rejected', () => {
   });
 });
 
+// --- Scenario: A code outside PG-#### is rejected by the domain layer (SCR-HR-EMP-01) -----------
+//
+// The contract (RegisterEmployeeInputSchema) already blocks this at the boundary (see the
+// "@pg-eos/contracts/hr/register-employee" describe block above) — this test calls the application
+// command DIRECTLY, bypassing Zod, the same technique as "Scenario: issue_date after expiry_date is
+// rejected" below, to prove modules/hr/application/register-employee/register-employee.ts's own
+// `assertEmployeeCodeFormat(input.code)` wiring line is a genuine second line of defence, not dead
+// code shadowed by the contract.
+
+describe('Scenario: A code outside PG-#### is rejected by the domain layer (SCR-HR-EMP-01)', () => {
+  it('EmployeeCodeFormatInvalidError (422), nothing written', async () => {
+    const badCode = 'PG-12'; // Zod-shaped input otherwise; only `code` violates ^PG-[0-9]{4}$.
+
+    await expect(
+      registerEmployee(
+        hrMgrCtx,
+        { code: badCode, nameAr: 'اختبار تنسيق الكود', hireDate: TODAY, employmentType: 'full_time', correlationId: nextCorrelationId() },
+        deps,
+      ),
+    ).rejects.toBeInstanceOf(EmployeeCodeFormatInvalidError);
+
+    expect(await employeeCountForCode(badCode)).toBe(0);
+  });
+});
+
 // --- Scenario: Record a residency document ------------------------------------------------------
 
 describe('Scenario: Record a residency document', () => {
@@ -412,6 +439,41 @@ describe('Scenario: issue_date after expiry_date is rejected', () => {
         deps,
       ),
     ).rejects.toBeInstanceOf(DocumentDatesInvalidError);
+
+    expect(await documentCountForEmployee(employee.id)).toBe(0);
+  });
+});
+
+// --- Scenario: A doc_type outside the 5 documented values is rejected by the domain layer
+// (SCR-HR-EMP-01) -----------------------------------------------------------------------------
+//
+// The contract (RecordEmployeeDocumentInputSchema) already blocks this at the boundary — this test
+// calls the application command DIRECTLY, bypassing Zod, same technique as the scenario above, to
+// prove modules/hr/application/register-employee/record-employee-document.ts's own
+// `assertDocTypeAllowed(input.docType)` wiring line is a genuine second line of defence.
+
+describe('Scenario: A doc_type outside the 5 documented values is rejected by the domain layer (SCR-HR-EMP-01)', () => {
+  it('DocumentTypeInvalidError (422), nothing written', async () => {
+    const employee = await registerEmployee(
+      hrMgrCtx,
+      { code: uniqueCode(), nameAr: 'سائق', hireDate: TODAY, employmentType: 'full_time', correlationId: nextCorrelationId() },
+      deps,
+    );
+    fixtureEmployeeIds.push(employee.id);
+
+    await expect(
+      recordEmployeeDocument(
+        proCtx,
+        {
+          employeeId: employee.id,
+          docType: 'visa', // outside the 5 documented values.
+          expiryDate: dateOffset(400),
+          expectedVersion: 1,
+          correlationId: nextCorrelationId(),
+        },
+        deps,
+      ),
+    ).rejects.toBeInstanceOf(DocumentTypeInvalidError);
 
     expect(await documentCountForEmployee(employee.id)).toBe(0);
   });

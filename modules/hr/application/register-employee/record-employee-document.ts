@@ -12,7 +12,7 @@
 import { withIdempotentContext, type IdempotencyInput, type WithContextCtx } from '@pg-eos/db';
 import { writeOutboxEvent, type CatalogedEventType } from '@pg-eos/events';
 
-import { assertDocumentDatesValid } from '../../domain/register-employee/invariants.js';
+import { assertDocTypeAllowed, assertDocumentDatesValid } from '../../domain/register-employee/invariants.js';
 import { MissingActorError, RoleRequiredError, StaleVersionError } from '../../domain/register-employee/errors.js';
 import type { RegisterEmployeeDeps } from './ports.js';
 
@@ -65,6 +65,7 @@ export async function recordEmployeeDocument(
       );
     }
 
+    assertDocTypeAllowed(input.docType);
     assertDocumentDatesValid(input.issueDate ?? null, input.expiryDate);
 
     const insertedDocument = await deps.repo.insertEmployeeDocument(tx, {
