@@ -152,6 +152,15 @@ async function createFixtureEmployee(labelSuffix: string): Promise<string> {
 // START 'disputed' is therefore built in TWO steps: INSERT as 'calculated' (always legal), then a
 // bare UPDATE to 'disputed' (a legal calculated -> disputed transition, no permission gate on that
 // edge — the guard's own `hr.commission.confirm` check only fires on disputed -> confirmed).
+//
+// pre-migration review round 1 (FAIL, 7 findings), finding 1: once migration 0035 lands, this same
+// calculated -> disputed edge gains an EXISTS check requiring platform.current_user_id() to resolve
+// to the row's own employee's own linked user — a bare admin-pool UPDATE with no session actor set
+// would then fail with insufficient_privilege. This helper now links DISPUTING_DRIVER_ACTOR_UUID to
+// `employeeId` itself (via setDisputingEmployee, idempotent if a caller already did it) and runs the
+// UPDATE inside a dedicated `pool.connect()` client with a TRANSACTION-LOCAL
+// `set_config('app.user_id', ..., true)` scoped to DISPUTING_DRIVER_ACTOR_UUID — same discipline as
+// packages/db/src/with-context.ts and this file's own `withAppRole` helper below.
 async function createFixtureCommissionDaily(params: {
   readonly employeeId: string;
   readonly workDate: string;
@@ -172,14 +181,27 @@ async function createFixtureCommissionDaily(params: {
   fixtureCommissionDailyIds.push(id);
 
   if (params.status === 'disputed') {
-    await pool.query(
-      `update hr.commission_daily set status = 'disputed', dispute_note = $1, disputed_at = $2 where id = $3`,
-      [
-        params.disputeNote ?? 'اعتراض اختباري',
-        (params.disputedAt ?? params.createdAt).toISOString(),
-        id,
-      ],
-    );
+    await setDisputingEmployee(params.employeeId);
+    const client = await pool.connect();
+    try {
+      await client.query('begin');
+      await client.query(`select set_config('app.user_id', $1, true)`, [DISPUTING_DRIVER_ACTOR_UUID]);
+      await client.query(`select set_config('app.is_internal', 'true', true)`);
+      await client.query(
+        `update hr.commission_daily set status = 'disputed', dispute_note = $1, disputed_at = $2 where id = $3`,
+        [
+          params.disputeNote ?? 'اعتراض اختباري',
+          (params.disputedAt ?? params.createdAt).toISOString(),
+          id,
+        ],
+      );
+      await client.query('commit');
+    } catch (error) {
+      await client.query('rollback');
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
   return id;
