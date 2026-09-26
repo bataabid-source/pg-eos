@@ -15,6 +15,10 @@
 
 import { z } from 'zod';
 
+import { IdempotencyKeyHeader } from '../_shared/headers.js';
+import type { RouteDefinitionInput } from '../_shared/registry.js';
+import { OK_RESPONSE, okWithBody, readErrorResponses, writeErrorResponses } from '../_shared/route-responses.js';
+
 const UUID_ID = z.string().uuid();
 // doc 40 §C7 `PG-####` — 01-Data-Model.sql:1270 `hr.employees.code text not null unique`, also
 // enforced as chk_employees_code_format (migration 0029).
@@ -97,3 +101,40 @@ export const CheckDriverAssignableResultSchema = z
   .meta({ id: 'CheckDriverAssignableResult' });
 
 export type CheckDriverAssignableResult = z.infer<typeof CheckDriverAssignableResultSchema>;
+
+// --- OpenAPI route registrations (Master task, docs/STREAMS.md §Enablement item 6) -------------
+// CheckDriverAssignable is read-only (no Idempotency-Key — brief D1) — registered as GET; its flat,
+// all-primitive input schema becomes `request.query`. Neither RegisterEmployee,
+// RecordEmployeeDocument nor ChangeEmployeeStatus has an exported result schema.
+const WRITE_HEADERS = z.object({ 'Idempotency-Key': IdempotencyKeyHeader });
+
+export const ROUTES: readonly RouteDefinitionInput[] = [
+  {
+    method: 'POST',
+    path: '/hr/register-employee/register-employee',
+    summary: 'Register employee',
+    request: { headers: WRITE_HEADERS, body: RegisterEmployeeInputSchema },
+    responses: { 200: OK_RESPONSE, ...writeErrorResponses() },
+  },
+  {
+    method: 'POST',
+    path: '/hr/register-employee/record-employee-document',
+    summary: 'Record employee document',
+    request: { headers: WRITE_HEADERS, body: RecordEmployeeDocumentInputSchema },
+    responses: { 200: OK_RESPONSE, ...writeErrorResponses() },
+  },
+  {
+    method: 'POST',
+    path: '/hr/register-employee/change-employee-status',
+    summary: 'Change employee status',
+    request: { headers: WRITE_HEADERS, body: ChangeEmployeeStatusInputSchema },
+    responses: { 200: OK_RESPONSE, ...writeErrorResponses() },
+  },
+  {
+    method: 'GET',
+    path: '/hr/register-employee/check-driver-assignable',
+    summary: 'Check driver assignable',
+    request: { query: CheckDriverAssignableInputSchema },
+    responses: { 200: okWithBody(CheckDriverAssignableResultSchema), ...readErrorResponses() },
+  },
+];

@@ -16,6 +16,10 @@
 
 import { z } from 'zod';
 
+import { IdempotencyKeyHeader } from '../_shared/headers.js';
+import type { RouteDefinitionInput } from '../_shared/registry.js';
+import { OK_RESPONSE, writeErrorResponses } from '../_shared/route-responses.js';
+
 const UUID_ID = z.string().uuid();
 // wms.inbound_orders.version starts at 1 (migration 0008: int not null default 1).
 const MIN_VERSION = 1;
@@ -38,3 +42,17 @@ export const ScheduleInboundInputSchema = z
   .meta({ id: 'ScheduleInboundInput' });
 
 export type ScheduleInboundInput = z.infer<typeof ScheduleInboundInputSchema>;
+
+// --- OpenAPI route registrations (Master task, docs/STREAMS.md §Enablement item 6) -------------
+export const ROUTES: readonly RouteDefinitionInput[] = [
+  {
+    method: 'POST',
+    path: '/wms/schedule-inbound/schedule',
+    summary: 'Schedule inbound',
+    request: {
+      headers: z.object({ 'Idempotency-Key': IdempotencyKeyHeader }),
+      body: ScheduleInboundInputSchema,
+    },
+    responses: { 200: OK_RESPONSE, ...writeErrorResponses() },
+  },
+];

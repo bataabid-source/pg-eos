@@ -16,6 +16,10 @@
 
 import { z } from 'zod';
 
+import { IdempotencyKeyHeader } from '../_shared/headers.js';
+import type { RouteDefinitionInput } from '../_shared/registry.js';
+import { okWithBody, writeErrorResponses } from '../_shared/route-responses.js';
+
 const UUID_ID = z.string().uuid();
 // platform.alert_rules.code — seed 13B L2839-3043: 'N-01' … 'N-22'.
 const RULE_CODE = z.string().regex(/^N-\d{2}$/);
@@ -83,3 +87,26 @@ export const AcknowledgeAlertResultSchema = z
   .meta({ id: 'AcknowledgeAlertResult' });
 
 export type AcknowledgeAlertResult = z.infer<typeof AcknowledgeAlertResultSchema>;
+
+// --- OpenAPI route registrations (Master task, docs/STREAMS.md §Enablement item 6) -------------
+// Scoped, per modules/platform/api/evaluate-alerts/handlers.ts's own header comment, to
+// AcknowledgeAlert only — EvaluateAlertRules is the pg-boss job body / internal trigger, not an
+// HTTP endpoint, so it has no handler and is not registered here. AlertLogNotFoundError maps to a
+// local 404 (HTTP_STATUS_NOT_FOUND); RoleRequiredError maps to a local 403 (HTTP_STATUS_FORBIDDEN,
+// not PROBLEM_STATUS.FORBIDDEN) — per the Master brief's literal grep rule no 403 is registered
+// here (same default as hr/confirm-commission's own ROUTES comment).
+export const ROUTES: readonly RouteDefinitionInput[] = [
+  {
+    method: 'POST',
+    path: '/platform/evaluate-alerts/acknowledge-alert',
+    summary: 'Acknowledge alert',
+    request: {
+      headers: z.object({ 'Idempotency-Key': IdempotencyKeyHeader }),
+      body: AcknowledgeAlertInputSchema,
+    },
+    responses: {
+      200: okWithBody(AcknowledgeAlertResultSchema),
+      ...writeErrorResponses({ forbidden: true, notFound: true }),
+    },
+  },
+];

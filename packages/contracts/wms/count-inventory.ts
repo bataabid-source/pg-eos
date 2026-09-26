@@ -17,6 +17,10 @@
 
 import { z } from 'zod';
 
+import { IdempotencyKeyHeader } from '../_shared/headers.js';
+import type { RouteDefinitionInput } from '../_shared/registry.js';
+import { OK_RESPONSE, okWithBody, writeErrorResponses } from '../_shared/route-responses.js';
+
 const UUID_ID = z.string().uuid();
 // numeric(14,3), non-negative (a count of 0 on-hand stock is legal).
 const NON_NEGATIVE_QUANTITY = z.string().regex(/^\d{1,11}(?:\.\d{1,3})?$/);
@@ -88,3 +92,39 @@ export const RecountResultSchema = z
   .meta({ id: 'RecountResult' });
 
 export type RecountResult = z.infer<typeof RecountResultSchema>;
+
+// --- OpenAPI route registrations (Master task, docs/STREAMS.md §Enablement item 6) -------------
+// StartCount/AdjustCount have no exported result schema (200 carries no body); CountLocation/
+// Recount carry the D2 blind-count result shape.
+const WRITE_HEADERS = z.object({ 'Idempotency-Key': IdempotencyKeyHeader });
+
+export const ROUTES: readonly RouteDefinitionInput[] = [
+  {
+    method: 'POST',
+    path: '/wms/count-inventory/start-count',
+    summary: 'Start count',
+    request: { headers: WRITE_HEADERS, body: StartCountInputSchema },
+    responses: { 200: OK_RESPONSE, ...writeErrorResponses() },
+  },
+  {
+    method: 'POST',
+    path: '/wms/count-inventory/count-location',
+    summary: 'Count location',
+    request: { headers: WRITE_HEADERS, body: CountLocationInputSchema },
+    responses: { 200: okWithBody(CountLocationResultSchema), ...writeErrorResponses() },
+  },
+  {
+    method: 'POST',
+    path: '/wms/count-inventory/recount',
+    summary: 'Recount',
+    request: { headers: WRITE_HEADERS, body: RecountInputSchema },
+    responses: { 200: okWithBody(RecountResultSchema), ...writeErrorResponses() },
+  },
+  {
+    method: 'POST',
+    path: '/wms/count-inventory/adjust-count',
+    summary: 'Adjust count',
+    request: { headers: WRITE_HEADERS, body: AdjustCountInputSchema },
+    responses: { 200: OK_RESPONSE, ...writeErrorResponses() },
+  },
+];

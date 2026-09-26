@@ -19,6 +19,10 @@
 
 import { z } from 'zod';
 
+import { IdempotencyKeyHeader } from '../_shared/headers.js';
+import type { RouteDefinitionInput } from '../_shared/registry.js';
+import { OK_RESPONSE, writeErrorResponses } from '../_shared/route-responses.js';
+
 const UUID_ID = z.string().uuid();
 
 export const RequestOtpCodeInputSchema = z
@@ -39,3 +43,29 @@ export const VerifyOtpCodeInputSchema = z
   .meta({ id: 'VerifyOtpCodeInput' });
 
 export type VerifyOtpCodeInput = z.infer<typeof VerifyOtpCodeInputSchema>;
+
+// --- OpenAPI route registrations (Master task, docs/STREAMS.md §Enablement item 6) -------------
+// Neither command has an exported result schema (brief, Master decision 3 — the OTP code itself
+// never reaches a response either way). modules/identity/api/otp-login/handlers.ts's own header
+// comment documents that a 409 is deliberately never mapped here (IdempotencyConflictError is
+// absorbed inside login.ts) — the Master brief's response set is still 400/409/422/500 uniformly
+// for every write route, so 409 is registered as doc 40 §A4's own standing possibility, not as a
+// claim this handler currently returns it.
+const WRITE_HEADERS = z.object({ 'Idempotency-Key': IdempotencyKeyHeader });
+
+export const ROUTES: readonly RouteDefinitionInput[] = [
+  {
+    method: 'POST',
+    path: '/identity/otp-login/request-otp-code',
+    summary: 'Request OTP code',
+    request: { headers: WRITE_HEADERS, body: RequestOtpCodeInputSchema },
+    responses: { 200: OK_RESPONSE, ...writeErrorResponses() },
+  },
+  {
+    method: 'POST',
+    path: '/identity/otp-login/verify-otp-code',
+    summary: 'Verify OTP code',
+    request: { headers: WRITE_HEADERS, body: VerifyOtpCodeInputSchema },
+    responses: { 200: OK_RESPONSE, ...writeErrorResponses() },
+  },
+];

@@ -20,6 +20,10 @@
 
 import { z } from 'zod';
 
+import { IdempotencyKeyHeader } from '../_shared/headers.js';
+import type { RouteDefinitionInput } from '../_shared/registry.js';
+import { OK_RESPONSE, readErrorResponses, writeErrorResponses } from '../_shared/route-responses.js';
+
 const UUID_ID = z.string().uuid();
 // numeric(14,3). qtyActual may be 0 (a fully-short receipt with a varianceReason); every other
 // quantity is strictly positive.
@@ -123,3 +127,55 @@ export const CancelInboundInputSchema = z
   .meta({ id: 'CancelInboundInput' });
 
 export type CancelInboundInput = z.infer<typeof CancelInboundInputSchema>;
+
+// --- OpenAPI route registrations (Master task, docs/STREAMS.md §Enablement item 6, THE GOLDEN
+// SLICE) --------------------------------------------------------------------------------------
+// SuggestLocation is read-only — registered as GET, its flat, all-primitive input schema as
+// `request.query`. None of these six commands has an exported result schema — every 200 carries
+// no body.
+const WRITE_HEADERS = z.object({ 'Idempotency-Key': IdempotencyKeyHeader });
+
+export const ROUTES: readonly RouteDefinitionInput[] = [
+  {
+    method: 'POST',
+    path: '/wms/receive-inbound/approve-inbound',
+    summary: 'Approve inbound',
+    request: { headers: WRITE_HEADERS, body: ApproveInboundInputSchema },
+    responses: { 200: OK_RESPONSE, ...writeErrorResponses() },
+  },
+  {
+    method: 'POST',
+    path: '/wms/receive-inbound/receive-line',
+    summary: 'Receive line',
+    request: { headers: WRITE_HEADERS, body: ReceiveLineInputSchema },
+    responses: { 200: OK_RESPONSE, ...writeErrorResponses() },
+  },
+  {
+    method: 'GET',
+    path: '/wms/receive-inbound/suggest-location',
+    summary: 'Suggest location',
+    request: { query: SuggestLocationInputSchema },
+    responses: { 200: OK_RESPONSE, ...readErrorResponses() },
+  },
+  {
+    method: 'POST',
+    path: '/wms/receive-inbound/confirm-putaway',
+    summary: 'Confirm putaway',
+    request: { headers: WRITE_HEADERS, body: ConfirmPutawayInputSchema },
+    responses: { 200: OK_RESPONSE, ...writeErrorResponses() },
+  },
+  {
+    method: 'POST',
+    path: '/wms/receive-inbound/close-inbound',
+    summary: 'Close inbound',
+    request: { headers: WRITE_HEADERS, body: CloseInboundInputSchema },
+    responses: { 200: OK_RESPONSE, ...writeErrorResponses() },
+  },
+  {
+    method: 'POST',
+    path: '/wms/receive-inbound/cancel-inbound',
+    summary: 'Cancel inbound',
+    request: { headers: WRITE_HEADERS, body: CancelInboundInputSchema },
+    responses: { 200: OK_RESPONSE, ...writeErrorResponses() },
+  },
+];

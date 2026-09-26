@@ -19,6 +19,10 @@
 
 import { z } from 'zod';
 
+import { IdempotencyKeyHeader } from '../_shared/headers.js';
+import type { RouteDefinitionInput } from '../_shared/registry.js';
+import { OK_RESPONSE, writeErrorResponses } from '../_shared/route-responses.js';
+
 const UUID_ID = z.string().uuid();
 // sales.contracts.version starts at 1 (migration 0019: int not null default 1).
 const MIN_VERSION = 1;
@@ -139,3 +143,66 @@ export const AddContractSlaInputSchema = z
   .meta({ id: 'AddContractSlaInput' });
 
 export type AddContractSlaInput = z.infer<typeof AddContractSlaInputSchema>;
+
+// --- OpenAPI route registrations (Master task, docs/STREAMS.md §Enablement item 6) -------------
+// None of these eight commands has an exported result schema — every 200 carries no body.
+const WRITE_HEADERS = z.object({ 'Idempotency-Key': IdempotencyKeyHeader });
+
+export const ROUTES: readonly RouteDefinitionInput[] = [
+  {
+    method: 'POST',
+    path: '/sales/manage-contract/create-contract',
+    summary: 'Create contract',
+    request: { headers: WRITE_HEADERS, body: CreateContractInputSchema },
+    responses: { 200: OK_RESPONSE, ...writeErrorResponses() },
+  },
+  {
+    method: 'POST',
+    path: '/sales/manage-contract/sign-contract',
+    summary: 'Sign contract',
+    request: { headers: WRITE_HEADERS, body: SignContractInputSchema },
+    responses: { 200: OK_RESPONSE, ...writeErrorResponses() },
+  },
+  {
+    method: 'POST',
+    path: '/sales/manage-contract/set-contract-price-list',
+    summary: 'Set contract price list',
+    request: { headers: WRITE_HEADERS, body: SetContractPriceListInputSchema },
+    responses: { 200: OK_RESPONSE, ...writeErrorResponses() },
+  },
+  {
+    method: 'POST',
+    path: '/sales/manage-contract/activate-contract',
+    summary: 'Activate contract',
+    request: { headers: WRITE_HEADERS, body: ActivateContractInputSchema },
+    responses: { 200: OK_RESPONSE, ...writeErrorResponses() },
+  },
+  {
+    method: 'POST',
+    path: '/sales/manage-contract/suspend-contract',
+    summary: 'Suspend contract',
+    request: { headers: WRITE_HEADERS, body: SuspendContractInputSchema },
+    responses: { 200: OK_RESPONSE, ...writeErrorResponses() },
+  },
+  {
+    method: 'POST',
+    path: '/sales/manage-contract/resume-contract',
+    summary: 'Resume contract',
+    request: { headers: WRITE_HEADERS, body: ResumeContractInputSchema },
+    responses: { 200: OK_RESPONSE, ...writeErrorResponses() },
+  },
+  {
+    method: 'POST',
+    path: '/sales/manage-contract/expire-contract',
+    summary: 'Expire contract',
+    request: { headers: WRITE_HEADERS, body: ExpireContractInputSchema },
+    responses: { 200: OK_RESPONSE, ...writeErrorResponses() },
+  },
+  {
+    method: 'POST',
+    path: '/sales/manage-contract/add-contract-sla',
+    summary: 'Add contract SLA',
+    request: { headers: WRITE_HEADERS, body: AddContractSlaInputSchema },
+    responses: { 200: OK_RESPONSE, ...writeErrorResponses() },
+  },
+];

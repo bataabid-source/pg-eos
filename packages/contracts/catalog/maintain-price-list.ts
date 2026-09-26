@@ -15,6 +15,10 @@
 
 import { z } from 'zod';
 
+import { IdempotencyKeyHeader } from '../_shared/headers.js';
+import type { RouteDefinitionInput } from '../_shared/registry.js';
+import { OK_RESPONSE, writeErrorResponses } from '../_shared/route-responses.js';
+
 const UUID_ID = z.string().uuid();
 // numeric(14,3): 1-11 integer digits, optional '.' + 1-3 fractional digits.
 const NON_NEGATIVE_QUANTITY = z.string().regex(/^\d{1,11}(?:\.\d{1,3})?$/);
@@ -124,3 +128,56 @@ export const GrantPriceExceptionInputSchema = z
   .meta({ id: 'GrantPriceExceptionInput' });
 
 export type GrantPriceExceptionInput = z.infer<typeof GrantPriceExceptionInputSchema>;
+
+// --- OpenAPI route registrations (Master task, docs/STREAMS.md §Enablement item 6) -------------
+// One POST per command, derived from modules/catalog/api/maintain-price-list/handlers.ts's own
+// IDEMPOTENCY_ENDPOINT_* identifiers (`<module>.<usecase>.<command>` -> `/<module>/<usecase>/
+// <command>`). None of these six commands has an exported result schema, so every 200 carries no
+// body (never invent one).
+
+const WRITE_HEADERS = z.object({ 'Idempotency-Key': IdempotencyKeyHeader });
+
+export const ROUTES: readonly RouteDefinitionInput[] = [
+  {
+    method: 'POST',
+    path: '/catalog/maintain-price-list/create-price-list',
+    summary: 'Create price list',
+    request: { headers: WRITE_HEADERS, body: CreatePriceListInputSchema },
+    responses: { 200: OK_RESPONSE, ...writeErrorResponses() },
+  },
+  {
+    method: 'POST',
+    path: '/catalog/maintain-price-list/upsert-price-list-line',
+    summary: 'Upsert price list line',
+    request: { headers: WRITE_HEADERS, body: UpsertPriceListLineInputSchema },
+    responses: { 200: OK_RESPONSE, ...writeErrorResponses() },
+  },
+  {
+    method: 'POST',
+    path: '/catalog/maintain-price-list/import-price-list-lines',
+    summary: 'Import price list lines',
+    request: { headers: WRITE_HEADERS, body: ImportPriceListLinesInputSchema },
+    responses: { 200: OK_RESPONSE, ...writeErrorResponses() },
+  },
+  {
+    method: 'POST',
+    path: '/catalog/maintain-price-list/activate-price-list',
+    summary: 'Activate price list',
+    request: { headers: WRITE_HEADERS, body: ActivatePriceListInputSchema },
+    responses: { 200: OK_RESPONSE, ...writeErrorResponses() },
+  },
+  {
+    method: 'POST',
+    path: '/catalog/maintain-price-list/expire-price-list',
+    summary: 'Expire price list',
+    request: { headers: WRITE_HEADERS, body: ExpirePriceListInputSchema },
+    responses: { 200: OK_RESPONSE, ...writeErrorResponses() },
+  },
+  {
+    method: 'POST',
+    path: '/catalog/maintain-price-list/grant-price-exception',
+    summary: 'Grant price exception',
+    request: { headers: WRITE_HEADERS, body: GrantPriceExceptionInputSchema },
+    responses: { 200: OK_RESPONSE, ...writeErrorResponses() },
+  },
+];

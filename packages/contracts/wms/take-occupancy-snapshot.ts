@@ -12,6 +12,10 @@
 
 import { z } from 'zod';
 
+import { IdempotencyKeyHeader } from '../_shared/headers.js';
+import type { RouteDefinitionInput } from '../_shared/registry.js';
+import { okWithBody, writeErrorResponses } from '../_shared/route-responses.js';
+
 const UUID_ID = z.string().uuid();
 
 export const TakeOccupancySnapshotInputSchema = z
@@ -34,3 +38,17 @@ export const TakeOccupancySnapshotResultSchema = z
   .meta({ id: 'TakeOccupancySnapshotResult' });
 
 export type TakeOccupancySnapshotResult = z.infer<typeof TakeOccupancySnapshotResultSchema>;
+
+// --- OpenAPI route registrations (Master task, docs/STREAMS.md §Enablement item 6) -------------
+export const ROUTES: readonly RouteDefinitionInput[] = [
+  {
+    method: 'POST',
+    path: '/wms/take-occupancy-snapshot/take-occupancy-snapshot',
+    summary: 'Take occupancy snapshot',
+    request: {
+      headers: z.object({ 'Idempotency-Key': IdempotencyKeyHeader }),
+      body: TakeOccupancySnapshotInputSchema,
+    },
+    responses: { 200: okWithBody(TakeOccupancySnapshotResultSchema), ...writeErrorResponses() },
+  },
+];

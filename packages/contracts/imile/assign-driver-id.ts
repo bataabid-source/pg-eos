@@ -8,6 +8,10 @@
 
 import { z } from 'zod';
 
+import { IdempotencyKeyHeader } from '../_shared/headers.js';
+import type { RouteDefinitionInput } from '../_shared/registry.js';
+import { okWithBody, writeErrorResponses } from '../_shared/route-responses.js';
+
 const UUID_ID = z.string().uuid();
 
 export const AssignDriverIdInputSchema = z
@@ -27,3 +31,17 @@ export const AssignDriverIdResultSchema = z
   .meta({ id: 'AssignDriverIdResult' });
 
 export type AssignDriverIdResult = z.infer<typeof AssignDriverIdResultSchema>;
+
+// --- OpenAPI route registrations (Master task, docs/STREAMS.md §Enablement item 6) -------------
+export const ROUTES: readonly RouteDefinitionInput[] = [
+  {
+    method: 'POST',
+    path: '/imile/assign-driver-id/assign',
+    summary: 'Assign driver id',
+    request: {
+      headers: z.object({ 'Idempotency-Key': IdempotencyKeyHeader }),
+      body: AssignDriverIdInputSchema,
+    },
+    responses: { 200: okWithBody(AssignDriverIdResultSchema), ...writeErrorResponses() },
+  },
+];

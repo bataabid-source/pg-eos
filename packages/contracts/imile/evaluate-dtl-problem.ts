@@ -9,6 +9,10 @@
 
 import { z } from 'zod';
 
+import { IdempotencyKeyHeader } from '../_shared/headers.js';
+import type { RouteDefinitionInput } from '../_shared/registry.js';
+import { okWithBody, writeErrorResponses } from '../_shared/route-responses.js';
+
 const UUID_ID = z.string().uuid();
 const NON_EMPTY_STRING = z.string().min(1);
 const ENGINE_DECISION = z.enum(['accept', 'reject', 'human', 'reclassify']);
@@ -42,3 +46,17 @@ export const EvaluateDtlProblemResultSchema = z
   .meta({ id: 'EvaluateDtlProblemResult' });
 
 export type EvaluateDtlProblemResult = z.infer<typeof EvaluateDtlProblemResultSchema>;
+
+// --- OpenAPI route registrations (Master task, docs/STREAMS.md §Enablement item 6) -------------
+export const ROUTES: readonly RouteDefinitionInput[] = [
+  {
+    method: 'POST',
+    path: '/imile/evaluate-dtl-problem/evaluate',
+    summary: 'Evaluate DTL problem',
+    request: {
+      headers: z.object({ 'Idempotency-Key': IdempotencyKeyHeader }),
+      body: EvaluateDtlProblemInputSchema,
+    },
+    responses: { 200: okWithBody(EvaluateDtlProblemResultSchema), ...writeErrorResponses() },
+  },
+];

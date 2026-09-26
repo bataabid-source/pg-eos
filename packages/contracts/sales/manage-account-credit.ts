@@ -17,6 +17,10 @@
 
 import { z } from 'zod';
 
+import { IdempotencyKeyHeader } from '../_shared/headers.js';
+import type { RouteDefinitionInput } from '../_shared/registry.js';
+import { OK_RESPONSE, writeErrorResponses } from '../_shared/route-responses.js';
+
 const UUID_ID = z.string().uuid();
 // sales.accounts.version starts at 1 (migration 0020: int not null default 1).
 const MIN_VERSION = 1;
@@ -61,3 +65,34 @@ export const ReleaseCreditHoldInputSchema = z
   .meta({ id: 'ReleaseCreditHoldInput' });
 
 export type ReleaseCreditHoldInput = z.infer<typeof ReleaseCreditHoldInputSchema>;
+
+// --- OpenAPI route registrations (Master task, docs/STREAMS.md §Enablement item 6) -------------
+// None of these three commands has an exported result schema — every 200 carries no body.
+// getAccountCreditStatus is a pure read validated by TypeScript alone (module comment above), not
+// a Zod contract — it has no handler in modules/sales/api/manage-account-credit/handlers.ts and is
+// not registered here.
+const WRITE_HEADERS = z.object({ 'Idempotency-Key': IdempotencyKeyHeader });
+
+export const ROUTES: readonly RouteDefinitionInput[] = [
+  {
+    method: 'POST',
+    path: '/sales/manage-account-credit/set-credit-limit',
+    summary: 'Set credit limit',
+    request: { headers: WRITE_HEADERS, body: SetCreditLimitInputSchema },
+    responses: { 200: OK_RESPONSE, ...writeErrorResponses() },
+  },
+  {
+    method: 'POST',
+    path: '/sales/manage-account-credit/set-credit-hold',
+    summary: 'Set credit hold',
+    request: { headers: WRITE_HEADERS, body: SetCreditHoldInputSchema },
+    responses: { 200: OK_RESPONSE, ...writeErrorResponses() },
+  },
+  {
+    method: 'POST',
+    path: '/sales/manage-account-credit/release-credit-hold',
+    summary: 'Release credit hold',
+    request: { headers: WRITE_HEADERS, body: ReleaseCreditHoldInputSchema },
+    responses: { 200: OK_RESPONSE, ...writeErrorResponses() },
+  },
+];

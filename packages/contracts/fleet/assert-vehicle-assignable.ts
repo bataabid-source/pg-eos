@@ -12,6 +12,9 @@
 
 import { z } from 'zod';
 
+import type { RouteDefinitionInput } from '../_shared/registry.js';
+import { readErrorResponses } from '../_shared/route-responses.js';
+
 const UUID_ID = z.string().uuid();
 
 export const AssertVehicleAssignableInputSchema = z
@@ -25,3 +28,19 @@ export const AssertVehicleAssignableInputSchema = z
   .meta({ id: 'AssertVehicleAssignableInput' });
 
 export type AssertVehicleAssignableInput = z.infer<typeof AssertVehicleAssignableInputSchema>;
+
+// --- OpenAPI route registrations (Master task, docs/STREAMS.md §Enablement item 6) -------------
+// No Idempotency-Key — modules/fleet/api/assert-vehicle-assignable/handlers.ts's own header
+// comment: "a pure read-and-assert, no write, no side effect." Registered as GET per the Master
+// brief's read-only convention: the query-name is handleAssertVehicleAssignable's own name, kebab-
+// cased, minus its `Handler` suffix; its flat, all-primitive input schema becomes `request.query`.
+// Resolves with no value on success (brief, Contract line) — the 200 carries no body.
+export const ROUTES: readonly RouteDefinitionInput[] = [
+  {
+    method: 'GET',
+    path: '/fleet/assert-vehicle-assignable/assert-vehicle-assignable',
+    summary: 'Assert vehicle assignable',
+    request: { query: AssertVehicleAssignableInputSchema },
+    responses: { 200: { description: 'OK' }, ...readErrorResponses({ notFound: true }) },
+  },
+];

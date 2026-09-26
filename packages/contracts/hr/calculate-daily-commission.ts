@@ -8,6 +8,10 @@
 
 import { z } from 'zod';
 
+import { IdempotencyKeyHeader } from '../_shared/headers.js';
+import type { RouteDefinitionInput } from '../_shared/registry.js';
+import { okWithBody, writeErrorResponses } from '../_shared/route-responses.js';
+
 const UUID_ID = z.string().uuid();
 // database/schema/13-Schema-Additions.sql:367 `work_date date not null` — a plain calendar date
 // string (YYYY-MM-DD), never a timestamp.
@@ -37,3 +41,17 @@ export const CalculateDailyCommissionResultSchema = z
   .meta({ id: 'CalculateDailyCommissionResult' });
 
 export type CalculateDailyCommissionResult = z.infer<typeof CalculateDailyCommissionResultSchema>;
+
+// --- OpenAPI route registrations (Master task, docs/STREAMS.md §Enablement item 6) -------------
+export const ROUTES: readonly RouteDefinitionInput[] = [
+  {
+    method: 'POST',
+    path: '/hr/calculate-daily-commission/calculate-daily-commission',
+    summary: 'Calculate daily commission',
+    request: {
+      headers: z.object({ 'Idempotency-Key': IdempotencyKeyHeader }),
+      body: CalculateDailyCommissionInputSchema,
+    },
+    responses: { 200: okWithBody(CalculateDailyCommissionResultSchema), ...writeErrorResponses() },
+  },
+];

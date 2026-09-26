@@ -4,6 +4,15 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — OpenAPI registry populated: 72 operations from the existing contracts (enablement item 6) (2026-09-26)
+
+- **Why:** `packages/contracts/openapi/openapi.json` was a stub (`"paths": {}`) — nothing registered into the `ContractRegistry`, so "contract tests from OpenAPI" (doc 36 §5-5) had no document to test (audit 2026-09-26, HIGH).
+- **DEFAULT/RECORD/PROCEED — path convention:** no package document fixes internal API paths (doc 40 §A4 fixes only header/status rules; the client API v1 of doc 40 l.398 is a separate surface). The route is derived mechanically from the identifier every write handler already carries: `IDEMPOTENCY_ENDPOINT_* = '<module>.<use-case>.<command>'` → `POST /<module>/<use-case>/<command>`; read-only handlers → `GET /<module>/<use-case>/<handler-name>`. Nothing else invented; the GM may override the convention before the first NestJS controller binds it.
+- **Change:** 24 contract files export `ROUTES`; `packages/contracts/routes.ts` aggregates, `index.ts` registers at import (zod-only, browser-safe); `_shared/route-responses.ts` holds the shared 200/400/409/422/500 (+403/404 where a handler maps them) response sets with `Problem` bodies; `openapi.json` regenerated: 68 POST + 4 GET = 72, matching the 68 identifiers. `tests/routes.test.ts`: explicit count fixture, Idempotency-Key on every POST, 4xx → `Problem` $ref, validator, byte-for-byte drift check against the committed file.
+- **Not registered, on purpose:** billing (no api layer yet), sales/customer-profile + resolve-price (no handlers), platform EvaluateAlertRules (pg-boss job). Recorded defaults: GET routes carry no 409; otp-login keeps 409 per doc 40 §A4 although its handler does not map IdempotencyConflictError; 403 registered exactly where a handler returns its local `HTTP_STATUS_FORBIDDEN` (hr confirm/dispute-commission, platform evaluate-alerts — corrected by the Master after the builder's literal grep found no `PROBLEM_STATUS.FORBIDDEN`).
+- **Verified:** contracts lint/typecheck/test 48/48, `generate:openapi` then test again (zero drift), root lint + typecheck 28/28 (apps included).
+- Model: Master session · Delegated: pg-builder (sonnet), pg-reviewer (opus) · Review: see trailer of the commit · tokens: builder ~145k, reviewer see report, Master ~10k.
+
 ## X — `scripts/scribe.mjs`: PROJECT_STATE.md is generated (ADR-0005 §6, enablement item 7b) (2026-09-26)
 
 - **Why:** the audit found PROJECT_STATE lines of > 2,000 chars, four `<this commit>` placeholders and a stale lock — all products of hand-editing a 40-line file that carried prose. The 40-line rule was met only by making lines longer.
