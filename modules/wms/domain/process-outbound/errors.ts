@@ -264,9 +264,11 @@ export class VarianceReasonRequiredError extends OutboundCheckError {
 }
 
 /** WBS 2.12 part 1 (Master decision 3, doc 38 row 2.12's own literal acceptance line "Self-check
- *  rejected"): CheckOrder's own mandatory invariant — the checker (`ctx.userId`) must differ from
- *  the order's own `picked_by`. Params: `{ orderId, actorId }` — `actorId` is the checker who was
- *  rejected (same person as `picked_by`). */
+ *  rejected"), widened by part 3 (SCR-WMS-OUT-03, D-190 option a): CheckOrder's own mandatory
+ *  invariant — the checker (`ctx.userId`) must not be `picked_by` of ANY line on the order, nor
+ *  `performed_by` of any pick movement on the order (no longer a comparison to a single
+ *  order-level `picked_by` column). Params: `{ orderId, actorId }` — `actorId` is the checker who
+ *  was rejected. */
 export class SelfCheckNotAllowedError extends OutboundCheckError {
   readonly i18nKey = 'wms.outbound.check.selfCheckNotAllowed';
 

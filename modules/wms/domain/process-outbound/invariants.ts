@@ -431,11 +431,13 @@ export function assertVarianceReasonRequired(check: VarianceReasonCheck): void {
 export interface CheckerNotPickerCheck {
   readonly orderId: string;
   readonly checkerId: string;
-  /** WBS 2.12 part 2 item 4 (Master-ruled widening): `true` when the checker is either the order's
-   *  own `picked_by` OR the `performed_by` of ANY posted pick movement on this order — `picked_by`
-   *  alone only records the LAST picker of a multi-person pick. The application layer
-   *  (../../application/process-outbound/check-order.ts) derives this boolean from I/O; this
-   *  invariant stays pure. */
+  /** WBS 2.12 part 2 item 4, widened by part 3 (SCR-WMS-OUT-03, D-190 option a): `true` when the
+   *  checker is `picked_by` of ANY order LINE OR the `performed_by` of ANY posted pick movement on
+   *  this order — the order's own `outbound_orders.picked_by` column is no longer read for this
+   *  check (it only records the LAST picker of a multi-person pick and misses zero-quantity picks
+   *  on other lines). The application layer (../../application/process-outbound/check-order.ts)
+   *  derives this boolean from I/O as `hasAnyLinePickedBy(orderId, actorId) ||
+   *  hasPickMovementByActor(orderId, actorId)`; this invariant stays pure. */
   readonly wasPicker: boolean;
 }
 

@@ -179,11 +179,15 @@ export async function pickLine(
       Quantity.of(input.qtyActual).compare(Quantity.of(line.qtyOrdered)) === 0 ? LINE_STATUS_COMPLETE : LINE_STATUS_PARTIAL;
     const varianceReason = lineStatus === LINE_STATUS_COMPLETE ? null : (input.varianceReason ?? null);
 
+    const occurredAt = deps.clock.now();
+
     await deps.repo.updateOrderLinePick(tx, {
       lineId: line.lineId,
       status: lineStatus,
       qtyActual: input.qtyActual,
       varianceReason,
+      pickedBy: actorId,
+      pickedAt: occurredAt,
     });
 
     let newStatus = order.status;
@@ -201,7 +205,6 @@ export async function pickLine(
       status: newStatus,
       ...(orderCompletes ? { pickedBy: actorId } : {}),
     });
-    const occurredAt = deps.clock.now();
 
     const eventType = orderCompletes ? OUTBOUND_PICKED_EVENT : isFirstLine ? OUTBOUND_PICKING_STARTED_EVENT : undefined;
     if (eventType) {
