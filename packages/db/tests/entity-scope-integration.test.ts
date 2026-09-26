@@ -51,7 +51,7 @@ import { Pool } from 'pg';
 import type { QueryResult, QueryResultRow } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import type { WithContextCtx } from '@pg-eos/db';
+import type { WithContextCtx } from '../src/with-context.js';
 
 import { resolveActiveEntityId } from '../src/entity-scope.js';
 
@@ -79,7 +79,8 @@ const admin = new Pool({
 // environment when this file is loaded (the Master's own run command:
 // `PGHOST=localhost PGUSER=postgres PGDATABASE=pgeos_p6b PG_APP_USER=pgeos_app`) — this file does
 // not set it itself (finding 4's "no override" discipline extends to this var too).
-const { withContext, createUserEntitiesLookup } = await import('@pg-eos/db');
+const { withContext } = await import('../src/with-context.js');
+const { createUserEntitiesLookup } = await import('../src/entity-scope.js');
 
 function firstRow<T extends QueryResultRow>(result: QueryResult<T>, what: string): T {
   const row = result.rows[0];
