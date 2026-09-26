@@ -18,7 +18,14 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "pg": "^8.13.0"
+    "@pg-eos/contracts": "workspace:*",
+    "@pg-eos/db": "workspace:*",
+    "@pg-eos/domain-kit": "workspace:*",
+    "@pg-eos/identity-mechanisms": "workspace:*",
+    "@pg-eos/logger": "workspace:*",
+    "drizzle-orm": "^0.45.3",
+    "pg": "^8.13.0",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@types/node": "^24.13.6",
