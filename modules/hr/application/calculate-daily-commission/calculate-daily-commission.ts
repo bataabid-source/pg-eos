@@ -12,7 +12,10 @@
 //       commission row (priced by A's own rules) for an entity-B employee.
 //   2. query imile.shipments_attributed (NEVER imile.shipments.driver_code directly — doc 38's
 //      "Attribution through assignment table only" acceptance criterion) grouped by
-//      internal_status, for ofd_at::date = workDate.
+//      internal_status, for the Kuwait-local business day (repository.ts's own
+//      `(ofd_at AT TIME ZONE 'Asia/Kuwait')::date = workDate`, MASTER_BACKLOG 3.13 part 2 item 1 —
+//      never a bare `ofd_at::date` cast, which would depend on the connecting session's own
+//      implicit TimeZone).
 //   3. query candidate hr.commission_rules rows.
 //   4. domain's selectCommissionRule — "none" -> NoApplicableCommissionRuleError, "ambiguous" ->
 //      AmbiguousCommissionRuleError.

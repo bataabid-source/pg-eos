@@ -164,9 +164,10 @@ describe('selectCommissionRule — the feature scenario\'s own concrete example'
   });
 });
 
-// --- computeGrossCommission — property tests (fix round finding 3: this pure function had NO
-// property/unit test at all — only integration-level coverage in calculate-daily-commission.test.ts,
-// and every property arbitrary there pins minDaily to null). Brief default 3, invariants.ts's own
+// --- computeGrossCommission — property tests (MASTER_BACKLOG 3.13 part 2 item 3, originally part 1's
+// own round-2 review finding 3: this pure function had NO property/unit test at all — only
+// integration-level coverage in calculate-daily-commission.test.ts, and every property arbitrary
+// there pins minDaily to null). Brief default 3, invariants.ts's own
 // header: `greatest(delivered_count * rate_per_unit, coalesce(min_daily, 0))`, exact-decimal
 // arithmetic via @pg-eos/domain-kit's Money (numeric(14,3), never a float).
 //
@@ -209,8 +210,8 @@ describe('computeGrossCommission — property (pure, exact-decimal greatest(deli
     .map(([intPart, frac]) => `${intPart}.${frac.toString().padStart(3, '0')}`);
 
   // null sometimes, a real value sometimes (including sometimes GREATER than deliveredCount*rate
-  // and sometimes LESS — finding 3's own complaint: "every property arbitrary there pins minDaily
-  // to null").
+  // and sometimes LESS — MASTER_BACKLOG 3.13 part 2 item 3's own complaint: "every property
+  // arbitrary there pins minDaily to null").
   const minDailyArb: fc.Arbitrary<string | null> = fc.oneof(
     { weight: 1, arbitrary: fc.constant(null) },
     { weight: 3, arbitrary: minDailyAmountArb },
@@ -260,7 +261,7 @@ describe('computeGrossCommission — property (pure, exact-decimal greatest(deli
     );
   });
 
-  // concrete examples pinning the three branches finding 3 named explicitly.
+  // concrete examples pinning the three branches MASTER_BACKLOG 3.13 part 2 item 3 named explicitly.
   it('concrete: minDaily null -> floor is 0, tiered amount wins whenever deliveredCount > 0', () => {
     const result = computeGrossCommission(4, '5.000', null);
     expect(result.toString()).toBe('20.000');
