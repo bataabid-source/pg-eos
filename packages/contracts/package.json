@@ -121,6 +121,10 @@
     "./billing/gl-account-change-requests": {
       "types": "./dist/billing/gl-account-change-requests.d.ts",
       "default": "./dist/billing/gl-account-change-requests.js"
+    },
+    "./identity/otp-login": {
+      "types": "./dist/identity/otp-login.d.ts",
+      "default": "./dist/identity/otp-login.js"
     }
   },
   "scripts": {

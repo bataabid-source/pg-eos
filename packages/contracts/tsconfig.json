@@ -16,7 +16,8 @@
     "imile/**/*.ts",
     "hr/**/*.ts",
     "catalog/**/*.ts",
-    "platform/**/*.ts"
+    "platform/**/*.ts",
+    "identity/**/*.ts"
   ],
   "exclude": [
     "dist",
