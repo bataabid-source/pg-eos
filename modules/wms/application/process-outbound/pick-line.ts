@@ -44,6 +44,10 @@ const OUTBOUND_PICKED_EVENT = 'wms.outbound.picked';
 const OUTBOUND_ORDERS_AGGREGATE_TYPE = 'wms.outbound_orders';
 const LINE_STATUS_COMPLETE = 'complete';
 const LINE_STATUS_PARTIAL = 'partial';
+// WBS 2.12 part 2 item 3, file-local convention (same as ./allocate.ts's own copy, never imported
+// cross-file): Allocate leaves an unreserved line's status at 'open'; any PickLine call moves it
+// off 'open', so this is the only reliable "never picked" signal on such a line.
+const LINE_STATUS_OPEN = 'open';
 
 export interface PickLineInput {
   readonly orderId: string;
@@ -105,13 +109,17 @@ export async function pickLine(
     }
 
     // Fix round 1 finding 2: reject a repeat pick on the same line BEFORE any write. See
-    // ../../domain/process-outbound/invariants.ts's assertLineNotAlreadyPicked doc comment for why
-    // a reserved line's own qty_actual already reading 0 also counts as "already picked" (a
-    // zero-quantity pick intentionally posts no ledger row — finding 5).
+    // ../../domain/process-outbound/invariants.ts's assertLineNotAlreadyPicked doc comment for the
+    // full set of signals this covers: for a reserved line, a posted pick-movement row OR its own
+    // qty_actual already reading 0 (a zero-quantity pick intentionally posts no ledger row —
+    // finding 5); for an unreserved line (WBS 2.12 part 2), its own status no longer being 'open'
+    // (any PickLine call, including a zero-qty one, moves an unreserved line off 'open').
     const alreadyHasLedgerPick = await deps.repo.hasPickMovementForLine(tx, { lineId: line.lineId });
-    const alreadyZeroPicked =
-      line.locationId !== null && Quantity.of(line.reservedQty ?? '0').compare(Quantity.zero()) === 0;
-    assertLineNotAlreadyPicked(line.lineId, alreadyHasLedgerPick || alreadyZeroPicked);
+    const alreadyPicked =
+      line.locationId !== null
+        ? alreadyHasLedgerPick || Quantity.of(line.reservedQty ?? '0').compare(Quantity.zero()) === 0
+        : line.status !== LINE_STATUS_OPEN;
+    assertLineNotAlreadyPicked(line.lineId, alreadyPicked);
 
     // Fix round 1 finding 6: a line with no reservation only accepts qtyActual === 0.
     assertLineReservedForPick({ lineId: line.lineId, locationId: line.locationId, qtyActual: input.qtyActual });

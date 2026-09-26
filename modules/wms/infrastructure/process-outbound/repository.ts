@@ -589,9 +589,10 @@ async function getOrderLineForPick(
     location_id: string | null;
     batch_no: string | null;
     qty_actual: string | null;
+    status: string;
   }>(sql`
     select id, sku_id, qty_ordered::text as qty_ordered, uom, location_id, batch_no,
-           qty_actual::text as qty_actual
+           qty_actual::text as qty_actual, status
       from ${sql.raw(LINE_TABLE)}
      where id = ${params.lineId}::uuid and order_table = ${ORDER_TABLE} and order_id = ${params.orderId}::uuid
   `);
@@ -607,6 +608,8 @@ async function getOrderLineForPick(
         // fix round 1 finding 3: Allocate's own reserved-quantity stamp, read BEFORE this call's
         // own updateOrderLinePick overwrites the column with the actually-picked amount.
         reservedQty: row.qty_actual,
+        // part 2 item 3: the "never picked" signal for an unreserved line.
+        status: row.status,
       }
     : null;
 }
@@ -619,6 +622,23 @@ async function hasPickMovementForLine(tx: NodePgDatabase, params: { readonly lin
       select 1 from wms.stock_movements
        where movement_type = 'pick' and ref_table = 'wms.order_lines'
          and ref_id = ${params.lineId}::uuid
+    ) as exists
+  `);
+  return result.rows[0]?.exists ?? false;
+}
+
+/** WBS 2.12 part 2 item 4: `true` when a `wms.stock_movements` 'pick' row exists on THIS ORDER
+ *  whose `performed_by` is `actorId` — every line of the order, not just one. */
+async function hasPickMovementByActor(
+  tx: NodePgDatabase,
+  params: { readonly orderId: string; readonly actorId: string },
+): Promise<boolean> {
+  const result = await tx.execute<{ exists: boolean }>(sql`
+    select exists (
+      select 1 from wms.stock_movements sm
+      join ${sql.raw(LINE_TABLE)} ol on ol.id = sm.ref_id and sm.ref_table = 'wms.order_lines'
+       where ol.order_table = ${ORDER_TABLE} and ol.order_id = ${params.orderId}::uuid
+         and sm.movement_type = 'pick' and sm.performed_by = ${params.actorId}::uuid
     ) as exists
   `);
   return result.rows[0]?.exists ?? false;
@@ -683,6 +703,7 @@ export const outboundOrderRepository: OutboundOrderRepository = {
   decrementLotAllocated,
   getOrderLineForPick,
   hasPickMovementForLine,
+  hasPickMovementByActor,
   countOpenPickLines,
   updateOrderLinePick,
 };

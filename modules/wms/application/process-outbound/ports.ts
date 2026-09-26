@@ -242,6 +242,11 @@ export interface PickOrderLineRow {
   readonly locationId: string | null;
   readonly batchNo: string | null;
   readonly reservedQty: string | null;
+  /** WBS 2.12 part 2 item 3: `order_lines.status` — the only reliable "never picked" signal on an
+   *  unreserved line (`locationId === null`), since Allocate leaves such a line at `'open'` and
+   *  PickLine's own status computation (LINE_STATUS_COMPLETE/LINE_STATUS_PARTIAL) moves ANY line
+   *  off `'open'`, including a zero-qty pick. */
+  readonly status: string;
 }
 
 export interface UpdateOrderLinePickParams {
@@ -400,6 +405,14 @@ export interface OutboundOrderRepository {
    *  line (`ref_table='wms.order_lines'`/`ref_id`=lineId) — the double-pick guard, called BEFORE
    *  any write. */
   hasPickMovementForLine(tx: NodePgDatabase, params: { readonly lineId: string }): Promise<boolean>;
+  /** WBS 2.12 part 2 item 4: `true` when a `wms.stock_movements` 'pick' row exists on THIS ORDER
+   *  whose `performed_by` is `actorId` — broadens CheckOrder's self-check beyond `picked_by` (which
+   *  records only the LAST picker of a multi-person pick) to every actor who posted ANY pick
+   *  movement on the order. */
+  hasPickMovementByActor(
+    tx: NodePgDatabase,
+    params: { readonly orderId: string; readonly actorId: string },
+  ): Promise<boolean>;
   /** Count of order_lines rows on this order (with a reserved lot, `location_id is not null`) that
    *  are still open — fix round 1 findings 2/5: a reserved line is open until EITHER a matching
    *  `wms.stock_movements` 'pick' row exists for it (`ref_table='wms.order_lines'`/`ref_id`=the

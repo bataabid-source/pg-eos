@@ -3157,6 +3157,98 @@ describe('Scenario: PickLine rejects an unknown lineId with a typed 422, never a
   });
 });
 
+// --- Scenario: PickLine rejects a repeat zero-qty pick on a never-allocated line (WBS 2.12 part 2,
+// _slice-2.12.brief.md item 3 — RED until pick-line.ts/repository.ts/ports.ts land the status-based
+// branch for a locationId === null line; see the brief's own "Root cause of item 3" section). -------
+
+describe('Scenario: PickLine rejects a repeat zero-qty pick on a line that was never allocated (item 3, WBS 2.12 part 2)', () => {
+  it('the first zero-qty pick-with-reason call on a never-allocated line succeeds; the SECOND identical call on the SAME line is rejected with LineAlreadyPickedError, before any further write', async () => {
+    const clientId = await insertClient();
+    const priceListId = await insertPriceList();
+    const contractId = await insertContract(clientId, { priceListId });
+    const stockedSkuId = await insertSku(clientId);
+    const emptySkuId = await insertSku(clientId); // never stocked -> Allocate leaves it "open".
+    const zoneId = await insertZone();
+    const locationId = await insertLocation(zoneId);
+    const STOCKED_QTY = '3.000';
+    await seedStockViaReceipt({ clientId, skuId: stockedSkuId, locationId, qtyOnHand: STOCKED_QTY });
+
+    const { orderId, lineIds } = await createDraftOutboundOrderFixture({
+      clientId,
+      contractId,
+      shipToName: 'x',
+      shipToPhone: 'x',
+      shipToAddress: 'x',
+      shipToArea: 'x',
+      lines: [
+        { skuId: stockedSkuId, qtyOrdered: STOCKED_QTY },
+        { skuId: emptySkuId, qtyOrdered: '2.000' },
+      ],
+    });
+    const [reservedLineId, unreservedLineId] = lineIds as [string, string];
+    const version = await forceApprove(orderId);
+
+    const afterAllocate = await allocate(roleCtx, { orderId, expectedVersion: version, correlationId: nextCorrelationId() }, deps);
+    expect(afterAllocate.status).toBe('partially_allocated');
+    const unreservedLineBefore = await getOrderLine(unreservedLineId);
+    expect(unreservedLineBefore.location_id).toBeNull();
+    expect(unreservedLineBefore.status).toBe('open');
+
+    // First call: a zero-qty pick with a reason on the never-allocated line succeeds — the order's
+    // own FIRST PickLine call (isFirstLine, order was "partially_allocated"), moving it to "picking"
+    // since the reserved line is still open.
+    const firstResult = await pickLine(
+      roleCtx,
+      {
+        orderId,
+        lineId: unreservedLineId,
+        expectedVersion: afterAllocate.version,
+        qtyActual: '0.000',
+        varianceReason: 'never allocated',
+        correlationId: nextCorrelationId(),
+      },
+      deps,
+    );
+    expect(firstResult.status).toBe('picking');
+    const afterFirst = await getOrderLine(unreservedLineId);
+    expect(afterFirst.status).toBe('partial'); // never "open" again — pick-line.ts's own status stamp.
+    expect(afterFirst.qty_actual).toBe('0.000');
+    expect(await pickMovementsForClient(clientId)).toHaveLength(0); // a never-allocated line posts no ledger row.
+
+    // Second call: the SAME zero-qty pick-with-reason on the SAME never-allocated line. Today's
+    // double-pick guard only checks a posted ledger row (never posted for this line) or a RESERVED
+    // line's own qty_actual reading zero (this branch never runs — locationId is null) — neither
+    // signal ever catches this repeat, so it is wrongly re-accepted today. Fixed, it must reject
+    // with LineAlreadyPickedError, before any further write (the brief's own root-cause fix: an
+    // unreserved line's own `status !== 'open'` is the reliable "already picked" signal).
+    const correlationId = nextCorrelationId();
+    await expect(
+      pickLine(
+        roleCtx,
+        {
+          orderId,
+          lineId: unreservedLineId,
+          expectedVersion: firstResult.version,
+          qtyActual: '0.000',
+          varianceReason: 'never allocated',
+          correlationId,
+        },
+        deps,
+      ),
+    ).rejects.toBeInstanceOf(LineAlreadyPickedError);
+
+    // Nothing further written: the line, the order's own version/status, and the reserved line stay
+    // exactly where the first (legitimate) call left them.
+    expect(await getOrderLine(unreservedLineId)).toEqual(afterFirst);
+    expect((await getOrderLine(reservedLineId)).status).toBe('complete'); // untouched by either call; already complete since allocation (full match).
+    expect((await getOrder(orderId)).status).toBe('picking');
+    expect((await getOrder(orderId)).version).toBe(firstResult.version);
+    expect(await pickMovementsForClient(clientId)).toHaveLength(0);
+    expect(await anyOutboxCountForCorrelation(correlationId)).toBe(0);
+    expect(await auditCountForCorrelation(correlationId)).toBe(0);
+  });
+});
+
 // --- Scenario: CheckOrder rejects a self-check ---------------------------------------------------------
 
 describe('Scenario: CheckOrder rejects a self-check', () => {
@@ -3173,6 +3265,46 @@ describe('Scenario: CheckOrder rejects a self-check', () => {
     const correlationId = nextCorrelationId();
     await expect(
       checkOrder(roleCtx, { orderId: order.orderId, expectedVersion: picked.version, correlationId }, deps),
+    ).rejects.toBeInstanceOf(SelfCheckNotAllowedError);
+
+    const after = await getOrderPickCheck(order.orderId);
+    expect(after.status).toBe('picked');
+    expect(after.checked_by).toBeNull();
+    expect(await anyOutboxCountForCorrelation(correlationId)).toBe(0);
+    expect(await auditCountForCorrelation(correlationId)).toBe(0);
+  });
+
+  // WBS 2.12 part 2 item 4 (Master-ruled): `picked_by` records only the LAST picker on a
+  // multi-person pick — this proves `hasPickMovementByActor`'s own join/scope reaches the actor
+  // who posted a pick movement on an EARLIER line of the SAME order but was overwritten as
+  // `picked_by` by the second (completing) actor. Every existing self-check test until now had
+  // checker === picked_by, so this branch of `wasPicker` was never exercised.
+  it('rejects a checker who posted a pick movement on an earlier line but is not picked_by (multi-person pick)', async () => {
+    const order = await buildAllocatedTwoLineOrder();
+    // Actor A (noRoleCtx) picks line A first — posts a real 'pick' movement, qty > 0.
+    const afterFirst = await pickLine(
+      noRoleCtx,
+      { orderId: order.orderId, lineId: order.lineIdA, expectedVersion: order.version, qtyActual: '4.000', correlationId: nextCorrelationId() },
+      deps,
+    );
+    expect(afterFirst.status).toBe('picking');
+    expect(await pickMovementsForClient(order.clientId)).toHaveLength(1);
+
+    // Actor B (roleCtx) picks the LAST line — completes the order, so picked_by is actor B, not A.
+    const afterSecond = await pickLine(
+      roleCtx,
+      { orderId: order.orderId, lineId: order.lineIdB, expectedVersion: afterFirst.version, qtyActual: '4.000', correlationId: nextCorrelationId() },
+      deps,
+    );
+    expect(afterSecond.status).toBe('picked');
+    const afterPick = await getOrderPickCheck(order.orderId);
+    expect(afterPick.status).toBe('picked');
+    expect(afterPick.picked_by).toBe(ROLE_ACTOR_UUID); // last picker only — NOT actor A.
+
+    // Actor A is NOT picked_by, but DID post a pick movement on this order — must still be rejected.
+    const correlationId = nextCorrelationId();
+    await expect(
+      checkOrder(noRoleCtx, { orderId: order.orderId, expectedVersion: afterSecond.version, correlationId }, deps),
     ).rejects.toBeInstanceOf(SelfCheckNotAllowedError);
 
     const after = await getOrderPickCheck(order.orderId);
@@ -3202,6 +3334,41 @@ describe('Scenario: CheckOrder succeeds when the checker differs from the picker
     const after = await getOrderPickCheck(order.orderId);
     expect(after.status).toBe('checked');
     expect(after.checked_by).toBe(NO_ROLE_ACTOR_UUID);
+    expect(await outboxRowsForCorrelationAndType(correlationId, 'wms.outbound.checked')).toHaveLength(1);
+    expect(await auditCountForCorrelation(correlationId)).toBe(1);
+  });
+
+  // WBS 2.12 part 2 item 4: `hasPickMovementByActor` must be scoped by orderId — an actor who
+  // posted a pick movement on a DIFFERENT order must not be flagged as "was picker" here. Without
+  // the `ol.order_id = :orderId` join condition this would wrongly reject.
+  it('does not leak a pick movement from a different order — actor A picked order X, and may check order Y they never touched', async () => {
+    const orderX = await buildAllocatedOrder();
+    const pickedX = await pickLine(
+      roleCtx,
+      { orderId: orderX.orderId, lineId: orderX.lineId, expectedVersion: orderX.version, qtyActual: QTY_ORDERED, correlationId: nextCorrelationId() },
+      deps,
+    );
+    expect(pickedX.status).toBe('picked');
+    expect((await getOrderPickCheck(orderX.orderId)).picked_by).toBe(ROLE_ACTOR_UUID);
+    expect(await pickMovementsForClient(orderX.clientId)).toHaveLength(1);
+
+    const orderY = await buildAllocatedOrder();
+    const pickedY = await pickLine(
+      noRoleCtx,
+      { orderId: orderY.orderId, lineId: orderY.lineId, expectedVersion: orderY.version, qtyActual: QTY_ORDERED, correlationId: nextCorrelationId() },
+      deps,
+    );
+    expect(pickedY.status).toBe('picked');
+    expect((await getOrderPickCheck(orderY.orderId)).picked_by).toBe(NO_ROLE_ACTOR_UUID);
+
+    // Actor A (roleCtx) has a pick movement on order X, never touched order Y — must succeed.
+    const correlationId = nextCorrelationId();
+    const result = await checkOrder(roleCtx, { orderId: orderY.orderId, expectedVersion: pickedY.version, correlationId }, deps);
+    expect(result.status).toBe('checked');
+
+    const after = await getOrderPickCheck(orderY.orderId);
+    expect(after.status).toBe('checked');
+    expect(after.checked_by).toBe(ROLE_ACTOR_UUID);
     expect(await outboxRowsForCorrelationAndType(correlationId, 'wms.outbound.checked')).toHaveLength(1);
     expect(await auditCountForCorrelation(correlationId)).toBe(1);
   });

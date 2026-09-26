@@ -431,17 +431,23 @@ export function assertVarianceReasonRequired(check: VarianceReasonCheck): void {
 export interface CheckerNotPickerCheck {
   readonly orderId: string;
   readonly checkerId: string;
-  readonly pickedBy: string;
+  /** WBS 2.12 part 2 item 4 (Master-ruled widening): `true` when the checker is either the order's
+   *  own `picked_by` OR the `performed_by` of ANY posted pick movement on this order — `picked_by`
+   *  alone only records the LAST picker of a multi-person pick. The application layer
+   *  (../../application/process-outbound/check-order.ts) derives this boolean from I/O; this
+   *  invariant stays pure. */
+  readonly wasPicker: boolean;
 }
 
 /** CheckOrder's mandatory invariant (brief Master decision 3, doc 38 row 2.12's own literal
- *  acceptance line "Self-check rejected"): the checker must differ from the order's own
- *  `picked_by`. */
+ *  acceptance line "Self-check rejected"): the checker must not have taken part in picking this
+ *  order. */
 export function assertCheckerNotPicker(check: CheckerNotPickerCheck): void {
-  if (check.checkerId !== check.pickedBy) return;
+  if (!check.wasPicker) return;
   throw new SelfCheckNotAllowedError(
-    `CheckOrder: order ${check.orderId} was picked by ${check.pickedBy} — the same actor may not ` +
-      `also check it (self-check rejected).`,
+    `CheckOrder: order ${check.orderId} was picked (in part or in full) by ${check.checkerId} — the ` +
+      `same actor may not also check it; a user who took no part in picking this order must perform ` +
+      `the check.`,
     { orderId: check.orderId, actorId: check.checkerId },
   );
 }
@@ -451,16 +457,21 @@ export function assertCheckerNotPicker(check: CheckerNotPickerCheck): void {
 
 /** Finding 2: rejects a PickLine call on a line that has already been picked. `alreadyPicked` is
  *  a boolean the application layer derives from I/O (../../application/process-outbound/
- *  pick-line.ts): either a posted `wms.stock_movements` 'pick' row already exists for this line
- *  (keyed by `ref_table='wms.order_lines'`/`ref_id`=lineId, same precedent
- *  ../count-inventory/ledger.ts already uses), OR — for a zero-quantity pick, which intentionally
- *  posts no ledger row (finding 5) — the line's own `qty_actual` already reads `0` (a reserved
- *  line's `qty_actual` is always positive until PickLine records a zero pick on it; Allocate never
- *  reserves a zero-quantity lot). */
+ *  pick-line.ts), and the signal it checks depends on whether the line was reserved by Allocate:
+ *  - a RESERVED line (`locationId !== null`): either a posted `wms.stock_movements` 'pick' row
+ *    already exists for this line (keyed by `ref_table='wms.order_lines'`/`ref_id`=lineId, same
+ *    precedent ../count-inventory/ledger.ts already uses), OR — for a zero-quantity pick, which
+ *    intentionally posts no ledger row (finding 5) — the line's own `qty_actual` already reads `0`
+ *    (a reserved line's `qty_actual` is always positive until PickLine records a zero pick on it;
+ *    Allocate never reserves a zero-quantity lot).
+ *  - an UNRESERVED line (`locationId === null`, WBS 2.12 part 2): the line's own `status` is no
+ *    longer `'open'` — any PickLine call on an unreserved line, including a zero-qty one, moves it
+ *    off `'open'`, so a non-`'open'` status is itself proof the line was already picked. */
 export function assertLineNotAlreadyPicked(lineId: string, alreadyPicked: boolean): void {
   if (!alreadyPicked) return;
   throw new LineAlreadyPickedError(
-    `PickLine: line ${lineId} already has a posted pick movement — it cannot be picked again.`,
+    `PickLine: line ${lineId} has already been picked (or a zero-quantity pick was already recorded ` +
+      `for it) — it cannot be picked again; only a line still open (unpicked) may be picked.`,
     { lineId },
   );
 }
