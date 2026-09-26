@@ -3,10 +3,10 @@
 # modules/imile/tests/assign-driver-id/assign-driver-id.test.ts.
 # Source: docs/notes/slice-briefs/_slice-3.12.brief.md "Scenario" block (verbatim);
 # database/schema/13-Schema-Additions.sql:280-308 (imile.driver_ids, imile.driver_id_assignments,
-# the two partial-unique indexes), 332-346 (imile.verify_attribution()), 414-431
-# (hr.close_driver_id_on_termination() — already built, not touched by this slice — round-1 review
-# finding 8: this line range was previously misquoted as 416-430/
-# imile.close_assignment_on_suspension(), corrected);
+# the two partial-unique indexes), 332-346 (imile.verify_attribution()), 391-413
+# (hr.close_driver_id_on_termination() / trg_close_driver_id — already built, not touched by this
+# slice), 415-430 (imile.close_assignment_on_suspension() / trg_close_on_suspension — 3.12 part 2
+# review finding 1: the two functions' own line ranges were swapped in this citation, corrected);
 # database/schema/13B-Schema-Reference-Consolidation.sql:2513-2516 (chk_driver_ids_status).
 
 Feature: Assign an iMile driver ID to an employee, time-bounded, respecting the termination trigger

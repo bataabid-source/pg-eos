@@ -30,7 +30,7 @@
 //      id=driverIdRef AND status='available' RETURNING id — the ACTUAL guard against the race step
 //      2's read cannot close on its own (round-2 fix round, finding 1): zero rows means the row was
 //      not 'available' at the instant of the UPDATE (including a concurrent status change racing
-//      with steps 2/3 above — e.g. trg_close_assignment_on_suspension), mapped to
+//      with steps 2/3 above — e.g. trg_close_on_suspension), mapped to
 //      DriverIdNotAvailableError; the whole transaction (including step 3's insert) rolls back, so
 //      "no row is written" holds for this case too.
 //   5. Two platform.audit_log rows: one for the assignment insert, one for the driver_ids status
@@ -129,7 +129,7 @@ export async function assignDriverId(
     // Step 4 — the guard and the write are the SAME statement
     // (../../infrastructure/assign-driver-id/repository.ts's `markDriverIdAssigned` — a
     // compare-and-set UPDATE, `where status = 'available'`), so a concurrent status change racing
-    // with steps 2/3 above (e.g. trg_close_assignment_on_suspension) can never be silently
+    // with steps 2/3 above (e.g. trg_close_on_suspension) can never be silently
     // overwritten back to 'assigned' (round-2 fix round, finding 1). `updated` is `false` only when
     // the row was not 'available' at the instant of the UPDATE; the whole transaction (including
     // step 3's insert) rolls back in that case, so "no row is written" holds even under a race the
