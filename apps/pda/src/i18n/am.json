@@ -16,5 +16,6 @@
   "locale.name.hi": "ሂንዲ",
   "locale.name.ur": "ኡርዱ",
   "locale.name.bn": "ቤንጋሊኛ",
-  "locale.name.am": "አማርኛ"
+  "locale.name.am": "አማርኛ",
+  "queue.unsynced": "ያልተመሳሰለ: {count}"
 }

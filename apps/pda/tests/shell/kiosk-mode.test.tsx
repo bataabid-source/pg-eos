@@ -13,7 +13,7 @@
 // sub-assertion" — here it CAN be tested via a spy, so it is not skipped).
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider } from '@tanstack/react-router';
 
@@ -37,6 +37,10 @@ describe('PDA shell — kiosk mode', () => {
     vi.restoreAllMocks();
     // Restore to keep documentElement clean for other test files in the same run.
     delete (document.documentElement as unknown as Record<string, unknown>).requestFullscreen;
+    // Restore `document.fullscreenElement` too (set by the fullscreenchange test below) — moved
+    // here from inside the test body so it always runs, even if an assertion in that test throws
+    // partway through, preventing state from leaking into later tests.
+    delete (document as unknown as Record<string, unknown>).fullscreenElement;
   });
 
   it('renders a one-time "Enter kiosk mode" button in the app shell', async () => {
@@ -83,5 +87,59 @@ describe('PDA shell — kiosk mode', () => {
     document.dispatchEvent(event);
 
     expect(event.defaultPrevented).toBe(false);
+  });
+
+  // WBS 2.16 part 1a-2 — deferred kiosk-mode test-coverage gap (round-2 finding), added here
+  // per the brief: two NEW tests appended after the five above, which are left untouched.
+
+  it('hides the "Enter kiosk mode" button once fullscreenchange reports fullscreenElement, and reappears once it reports falsy again (Esc)', async () => {
+    render(<RouterProvider router={createRouter('/home')} />);
+    await screen.findByRole('button', { name: t('ar', 'kiosk.enter') });
+
+    // Simulate the browser entering fullscreen: `kiosk.ts`'s `registerFullscreenChange` re-reads
+    // `document.fullscreenElement` via `isFullscreenActive()` on every `fullscreenchange` event.
+    Object.defineProperty(document, 'fullscreenElement', {
+      value: document.documentElement,
+      configurable: true,
+    });
+    document.dispatchEvent(new Event('fullscreenchange'));
+
+    await waitFor(() => {
+      expect(
+        screen.queryByRole('button', { name: t('ar', 'kiosk.enter') }),
+      ).not.toBeInTheDocument();
+    });
+
+    // Simulate exiting fullscreen (Esc): fullscreenElement reports falsy again.
+    Object.defineProperty(document, 'fullscreenElement', {
+      value: null,
+      configurable: true,
+    });
+    document.dispatchEvent(new Event('fullscreenchange'));
+
+    expect(await screen.findByRole('button', { name: t('ar', 'kiosk.enter') })).toBeVisible();
+  });
+
+  it('swallows a rejected requestFullscreen() promise — no unhandled rejection, the button stays visible after the click', async () => {
+    const rejectingSpy = vi.fn().mockRejectedValue(new Error('denied'));
+    Object.defineProperty(document.documentElement, 'requestFullscreen', {
+      value: rejectingSpy,
+      configurable: true,
+      writable: true,
+    });
+
+    const user = userEvent.setup();
+    render(<RouterProvider router={createRouter('/home')} />);
+    const button = await screen.findByRole('button', { name: t('ar', 'kiosk.enter') });
+
+    await user.click(button);
+    // Flush the microtask queue so a rejected promise's own `.catch()` (kiosk.ts's) has run
+    // before the assertion — an unswallowed rejection would surface as an unhandled rejection
+    // and fail this test run regardless of the assertions below.
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(rejectingSpy).toHaveBeenCalledTimes(1);
+    expect(await screen.findByRole('button', { name: t('ar', 'kiosk.enter') })).toBeVisible();
   });
 });

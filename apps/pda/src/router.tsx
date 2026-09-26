@@ -19,6 +19,7 @@ import {
   registerFullscreenChange,
   requestKioskFullscreen,
 } from './kiosk';
+import { count as countQueue, queueStatus, subscribe as subscribeQueue } from './offline-queue';
 import type { Locale, TranslationKey } from './i18n/t';
 import { SUPPORTED_LOCALES, directionOf, isLocale, t } from './i18n/t';
 
@@ -44,12 +45,31 @@ const LOCALE_LABEL_KEY: Record<Locale, TranslationKey> = {
   am: 'locale.name.am',
 };
 
+// fix round 1, finding 1: `data-queue-status` alone is not visible to a warehouse worker looking
+// at the device — the badge needs an actual rendered colour. `'error'` (finding 2) is a fourth,
+// visually distinct state for an IndexedDB failure, never returned by the pure `queueStatus()`
+// (which only ever returns green/yellow/red, per its own doc 40 §D4 contract).
+const QUEUE_STATUS_COLOR: Record<ReturnType<typeof queueStatus> | 'error', string> = {
+  green: '#0a0',
+  yellow: '#c90',
+  red: '#c00',
+  error: '#666',
+};
+
 function AppShell() {
   const shellLocale = useShellLocale();
   const { locale, setLocale } = shellLocale;
   // fix round 1, finding 4a: the "Enter kiosk mode" button is one-time — hidden once fullscreen
   // is active, shown again if fullscreen is exited (Esc, etc.), via a `fullscreenchange` listener.
   const [fullscreenActive, setFullscreenActive] = useState<boolean>(false);
+
+  // Unsynced-queue badge (WBS 2.16 part 1a-2, brief scope "Unsynced counter" + Master decision 2):
+  // initial count on mount, then re-fetched on every `offline-queue.ts` `subscribe()` change.
+  const [unsyncedCount, setUnsyncedCount] = useState<number>(0);
+  // fix round 1, finding 2: a distinct visual state for an IndexedDB failure (unavailable/blocked/
+  // quota-exceeded) — the badge must not misreport "green/0" (all synced) when it actually could
+  // not read the queue at all.
+  const [queueReadFailed, setQueueReadFailed] = useState<boolean>(false);
 
   // Reactive dir/lang attributes on the document root (Master decision 4, fix round 1 finding 2:
   // BOTH dir and lang must be overridden at runtime, same as apps/admin's own precedent).
@@ -66,6 +86,35 @@ function AppShell() {
   useEffect(() => {
     setFullscreenActive(isFullscreenActive());
     return registerFullscreenChange(setFullscreenActive);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    function refreshCount(): void {
+      countQueue()
+        .then((total) => {
+          if (!cancelled) {
+            setUnsyncedCount(total);
+            setQueueReadFailed(false);
+          }
+        })
+        .catch(() => {
+          // `count()` only rejects on a genuine IndexedDB failure (unavailable in this browsing
+          // context, blocked by another tab holding an upgrade lock, quota exceeded, etc.) — an
+          // empty store resolves to 0 without throwing, it never lands here. Surface a distinct
+          // visual state (finding 2) instead of silently keeping the last-known count, which would
+          // misreport "green/0" (fully synced) while the real count is unknown.
+          if (!cancelled) {
+            setQueueReadFailed(true);
+          }
+        });
+    }
+    refreshCount();
+    const unsubscribe = subscribeQueue(refreshCount);
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
   }, []);
 
   return (
@@ -97,6 +146,13 @@ function AppShell() {
               {t(locale, 'kiosk.enter')}
             </button>
           )}
+          <span
+            data-testid="unsynced-queue-badge"
+            data-queue-status={queueReadFailed ? 'error' : queueStatus(unsyncedCount)}
+            style={{ color: QUEUE_STATUS_COLOR[queueReadFailed ? 'error' : queueStatus(unsyncedCount)] }}
+          >
+            {t(locale, 'queue.unsynced', { count: unsyncedCount })}
+          </span>
         </header>
         <div>
           <Outlet />

@@ -5,6 +5,9 @@
 // used as the fallback for a missing key in any other locale, identical mechanism to
 // apps/admin/src/i18n/t.ts).
 //
+// WBS 2.16 part 1a-2 adds ONE more key, `queue.unsynced` (the unsynced-queue badge's accessible
+// label, e.g. "Unsynced: {count}") — nineteen keys total.
+//
 // Fix round 2, finding 5: the "non-empty in every locale" check below now asserts directly
 // against each locale's own raw JSON module (never through `t()`, which silently falls back to
 // `ar` on a missing key and therefore cannot detect a key missing from a non-ar file), and the
@@ -49,12 +52,13 @@ const EXPECTED_KEYS = [
   'locale.name.ur',
   'locale.name.bn',
   'locale.name.am',
+  'queue.unsynced',
 ] as const;
 
-describe('PDA i18n — key set (Master decision 3, round-1 fix: eighteen keys)', () => {
+describe('PDA i18n — key set (Master decision 3, round-1 fix + part 1a-2: nineteen keys)', () => {
   it('the ar.json fallback file declares exactly these keys (order-independent)', () => {
     expect(Object.keys(ar).sort()).toEqual([...EXPECTED_KEYS].sort());
-    expect(Object.keys(ar)).toHaveLength(18);
+    expect(Object.keys(ar)).toHaveLength(19);
   });
 
   it.each(SUPPORTED_LOCALES.filter((locale) => locale !== 'ar'))(

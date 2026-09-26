@@ -16,5 +16,6 @@
   "locale.name.hi": "हिन्दी",
   "locale.name.ur": "उर्दू",
   "locale.name.bn": "बंगाली",
-  "locale.name.am": "अम्हारी"
+  "locale.name.am": "अम्हारी",
+  "queue.unsynced": "अ-सिंक: {count}"
 }
