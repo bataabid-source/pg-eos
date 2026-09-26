@@ -40,6 +40,8 @@ const ADMIN_ROLE = 'postgres';
 export const pool = new Pool({
   host: process.env['PGHOST'] ?? 'localhost',
   port: Number(process.env['PGPORT'] ?? '5432'),
+  // Never used unchecked: withContext calls requireAppUser() before the first connect, and the
+  // lint rule forbids any other `db.*`/pool path, so pg's own PGUSER fallback is unreachable.
   user: process.env['PG_APP_USER'],
   database: process.env['PGDATABASE'] ?? 'pgeos',
 });

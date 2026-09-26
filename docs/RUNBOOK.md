@@ -164,8 +164,9 @@ un-exercised procedure is not a procedure (WBS 0.20's own "tested once" bar).
   package's own `engines` field against `.github/workflows/*.yml`'s `node-version`; pin to the
   newest major that satisfies it. **Exercised:** `jsdom` 30.1.1 → 27.0.0, PR #21, 2026-09-24
   (jsdom 30 needs Node ≥22.22; CI pins 20).
-- **`PG_APP_USER` is REQUIRED (ADR-0005 §7, 2026-09-26):** `packages/db`'s pool throws at import when
-  `PG_APP_USER` is unset or names `postgres` — it never falls back to the superuser any more. Remote
+- **`PG_APP_USER` is REQUIRED (ADR-0005 §7, 2026-09-26):** `withContext` refuses on first use when
+  `PG_APP_USER` is unset or names `postgres`, and on first connect when the role is SUPERUSER or
+  BYPASSRLS (`pg_roles`) — the pool never falls back to the superuser any more. Remote
   sessions get it from `.claude/hooks/session-start.sh`; locally `export PG_APP_USER=pgeos_app`.
   History of the old behaviour, kept for diagnosis: the pool used to
   fall back to the Postgres superuser when `PG_APP_USER` was unset, so writes succeeded and RLS
