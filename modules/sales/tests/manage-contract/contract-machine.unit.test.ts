@@ -49,6 +49,7 @@ import {
   CONTRACT_TAG_USABLE_FOR_ORDER,
   contractMachine,
   advanceContract,
+  allowedEventsFrom,
   canTransition,
   hasContractTag,
 } from '../../domain/manage-contract/machine.js';
@@ -273,5 +274,51 @@ describe('advanceContract — assertTransition-style helper', () => {
     [CONTRACT_STATUS.TERMINATED, CONTRACT_EVENTS.SIGN_CONTRACT],
   ])('throws IllegalTransitionError for %s -> %s', (from, event) => {
     expect(() => advanceContract(from, [event])).toThrow(IllegalTransitionError);
+  });
+
+  it('the thrown message names the illegal event, the from-status, and the allowed-events list', () => {
+    expect(() => advanceContract(CONTRACT_STATUS.DRAFT, [CONTRACT_EVENTS.ACTIVATE_CONTRACT])).toThrow(
+      'ACTIVATE_CONTRACT is not a legal transition from contract status "draft". ' +
+        '(Allowed from "draft": SIGN_CONTRACT)',
+    );
+  });
+
+  it('the thrown message reports "none, terminal state" from a state with zero allowed events', () => {
+    expect(() => advanceContract(CONTRACT_STATUS.TERMINATED, [CONTRACT_EVENTS.SIGN_CONTRACT])).toThrow(
+      'SIGN_CONTRACT is not a legal transition from contract status "terminated". ' +
+        '(Allowed from "terminated": none, terminal state)',
+    );
+  });
+
+  it('a mid-sequence illegal event throws using the CURRENT (already-advanced) status, not the original one', () => {
+    expect(() =>
+      advanceContract(CONTRACT_STATUS.DRAFT, [CONTRACT_EVENTS.SIGN_CONTRACT, CONTRACT_EVENTS.ACTIVATE_CONTRACT, CONTRACT_EVENTS.ACTIVATE_CONTRACT]),
+    ).toThrow('ACTIVATE_CONTRACT is not a legal transition from contract status "active".');
+  });
+});
+
+describe('allowedEventsFrom — every event legal from a given status, per the exhaustive table above', () => {
+  it('draft allows only SIGN_CONTRACT', () => {
+    expect(allowedEventsFrom(CONTRACT_STATUS.DRAFT)).toEqual([CONTRACT_EVENTS.SIGN_CONTRACT]);
+  });
+
+  it('active allows SUSPEND_CONTRACT and EXPIRE_CONTRACT, in CONTRACT_EVENTS declaration order', () => {
+    expect(allowedEventsFrom(CONTRACT_STATUS.ACTIVE)).toEqual([
+      CONTRACT_EVENTS.SUSPEND_CONTRACT,
+      CONTRACT_EVENTS.EXPIRE_CONTRACT,
+    ]);
+  });
+
+  it('suspended allows RESUME_CONTRACT and EXPIRE_CONTRACT, in CONTRACT_EVENTS declaration order', () => {
+    expect(allowedEventsFrom(CONTRACT_STATUS.SUSPENDED)).toEqual([
+      CONTRACT_EVENTS.RESUME_CONTRACT,
+      CONTRACT_EVENTS.EXPIRE_CONTRACT,
+    ]);
+  });
+
+  it('every terminal status (expired/renewed/terminated) allows zero events', () => {
+    expect(allowedEventsFrom(CONTRACT_STATUS.EXPIRED)).toEqual([]);
+    expect(allowedEventsFrom(CONTRACT_STATUS.RENEWED)).toEqual([]);
+    expect(allowedEventsFrom(CONTRACT_STATUS.TERMINATED)).toEqual([]);
   });
 });

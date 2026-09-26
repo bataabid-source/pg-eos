@@ -79,7 +79,8 @@ for dir in "${!touched[@]}"; do
   echo "pre-commit: ② domain unit tests — $dir (${#unit_tests[@]} files)"
   rel=()
   for t in "${unit_tests[@]}"; do rel+=("${t#"$dir"/}"); done
-  (cd "$dir" && npx vitest run "${rel[@]}" >/dev/null 2>&1) || fail "gate ② domain unit tests are red in $dir (run: cd $dir && npx vitest run ${rel[*]})"
+  # Coverage thresholds (ADR-0005 §6) apply to the full module run in `pnpm test`/CI, not to this subset.
+  (cd "$dir" && npx vitest run --coverage.enabled=false "${rel[@]}" >/dev/null 2>&1) || fail "gate ② domain unit tests are red in $dir (run: cd $dir && npx vitest run --coverage.enabled=false ${rel[*]})"
 done
 
 if [ "$db_changed" -eq 1 ]; then

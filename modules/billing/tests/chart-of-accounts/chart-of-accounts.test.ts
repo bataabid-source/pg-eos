@@ -213,7 +213,7 @@ describe('account_type values in the allowed list are accepted through a direct 
 // One case per allowed value (domain and DB both expected to accept) plus a handful of known-bad
 // strings (domain and DB both expected to reject) — a small closed-list agreement check, not a full
 // fast-check property (the account_type space is a small closed list, not open-ended like the code
-// format, which already has its own property test in ./invariants.property.test.ts).
+// format, which already has its own property test in ./invariants.property.integration.test.ts).
 const ACCOUNT_TYPE_AGREEMENT_CASES: ReadonlyArray<readonly [string, boolean]> = [
   ...ALLOWED_ACCOUNT_TYPES.map((type) => [type, true] as const),
   [OUT_OF_LIST_ACCOUNT_TYPE, false],

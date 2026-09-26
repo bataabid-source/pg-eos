@@ -27,7 +27,7 @@
 //     unique (entity_id, code)
 //   )   -- entity_scope RLS (NOT reference_write — avoids 4.1a's permission-gap wall)
 //
-// Domain surface (see also ./invariants.property.test.ts) — pg-backend landed this; it is GREEN
+// Domain surface (see also ./invariants.property.integration.test.ts) — pg-backend landed this; it is GREEN
 // and correct:
 //   modules/billing/domain/dimensions/invariants.ts
 //     - `isValidDimensionTypeKindSourcePair(kind: 'list' | 'reference', sourceTable: string | null): boolean`

@@ -119,6 +119,64 @@ describe('assertValidValidity — property: validTo >= validFrom (Master decisio
   });
 });
 
+describe('assertValidValidity — deterministic boundary and message-substring pins', () => {
+  it('never throws when validTo === validFrom exactly (the boundary itself is acceptable)', () => {
+    expect(() => assertValidValidity({ validFrom: '2024-06-15', validTo: '2024-06-15' })).not.toThrow();
+  });
+
+  it('never throws when reviewAt === validFrom exactly (the boundary itself is acceptable)', () => {
+    expect(() =>
+      assertValidValidity({ validFrom: '2024-06-15', validTo: null, reviewAt: '2024-06-15' }),
+    ).not.toThrow();
+  });
+
+  it('never throws when reviewAt is explicitly null (not just omitted)', () => {
+    expect(() => assertValidValidity({ validFrom: '2024-06-15', validTo: null, reviewAt: null })).not.toThrow();
+  });
+
+  it('throws InvalidValidityError with the exact validTo/validFrom values in the message', () => {
+    expect(() => assertValidValidity({ validFrom: '2024-06-15', validTo: '2024-06-01' })).toThrow(
+      /validTo \(2024-06-01\) is before validFrom \(2024-06-15\)/,
+    );
+  });
+
+  it('throws InvalidValidityError with the exact reviewAt/validFrom values in the message', () => {
+    expect(() =>
+      assertValidValidity({ validFrom: '2024-06-15', validTo: null, reviewAt: '2024-06-01' }),
+    ).toThrow(/reviewAt \(2024-06-01\) is before validFrom \(2024-06-15\)/);
+  });
+
+  it('one day before validFrom throws; one day after (or equal) never throws — validTo boundary', () => {
+    expect(() => assertValidValidity({ validFrom: '2024-06-15', validTo: '2024-06-14' })).toThrow(
+      InvalidValidityError,
+    );
+    expect(() => assertValidValidity({ validFrom: '2024-06-15', validTo: '2024-06-15' })).not.toThrow();
+    expect(() => assertValidValidity({ validFrom: '2024-06-15', validTo: '2024-06-16' })).not.toThrow();
+  });
+});
+
+describe('assertPriceMeetsFloor — message-substring pin (exact price/minPrice values)', () => {
+  it('the message names the exact price and the exact floor', () => {
+    expect(() => assertPriceMeetsFloor(Quantity.of('5.000'), Quantity.of('10.000'))).toThrow(
+      /price 5\.000 is below the floor 10\.000/,
+    );
+  });
+});
+
+describe('assertListEditable — message-substring pin (exact status and tag name)', () => {
+  it('the message names the exact status "active" and the "editable" tag', () => {
+    expect(() => assertListEditable(PRICE_LIST_STATUS.ACTIVE)).toThrow(
+      /this list's status is "active"/,
+    );
+  });
+
+  it('the message names the exact status "expired"', () => {
+    expect(() => assertListEditable(PRICE_LIST_STATUS.EXPIRED)).toThrow(
+      /this list's status is "expired"/,
+    );
+  });
+});
+
 describe('assertValidValidity — property: reviewAt >= validFrom (Master decision 9)', () => {
   it('never throws when reviewAt is omitted', () => {
     fc.assert(

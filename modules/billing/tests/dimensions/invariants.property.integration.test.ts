@@ -1,4 +1,4 @@
-// modules/billing/tests/dimensions/invariants.property.test.ts — WBS 4.1b PART 1 (lane 2).
+// modules/billing/tests/dimensions/invariants.property.integration.test.ts — WBS 4.1b PART 1 (lane 2).
 //
 // Property test (fast-check): for any generated (kind, source_table) pair, the domain-level
 // pre-check and the database CHECK constraint on billing.dimension_types agree (accept iff
@@ -32,7 +32,7 @@
 //
 // The DB side of the agreement is proven by actually attempting the insert against
 // billing.dimension_types and reading the CHECK-violation SQLSTATE (23514) — same style as
-// modules/billing/tests/chart-of-accounts/invariants.property.test.ts.
+// modules/billing/tests/chart-of-accounts/invariants.property.integration.test.ts.
 
 import { randomUUID } from 'node:crypto';
 

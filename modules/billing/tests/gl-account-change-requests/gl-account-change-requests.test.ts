@@ -48,7 +48,7 @@ const pool = new Pool({
 const NAME_AR = 'طلب تعديل حساب اختبار — WBS 4.1a part 2';
 const VALID_ACCOUNT_TYPE = 'expense'; // one of the 9 allowed values (0028_2), unused elsewhere in this file's own literals.
 // Distinct code family from ../chart-of-accounts/*.test.ts (classes 1-5) and
-// ../gl-account-change-requests/invariants.property.test.ts (classes 7-9) — class 6, this file's own block.
+// ../gl-account-change-requests/invariants.property.integration.test.ts (classes 7-9) — class 6, this file's own block.
 const CHECK_VIOLATION_SQLSTATE = '23514';
 const FOREIGN_KEY_VIOLATION_SQLSTATE = '23503'; // composite FK — NOT a CHECK. Distinct SQLSTATE, asserted explicitly below.
 const UNIQUE_VIOLATION_SQLSTATE = '23505';
@@ -641,7 +641,7 @@ describe('Scenario: A second pending request for the same target_account_id (or 
 });
 
 // --- change_kind/target_account_id pairing CHECK (brief §Schema) — proven at the DB level here; ---
-// --- the domain <-> DB agreement property is in ./invariants.property.test.ts ----------------------
+// --- the domain <-> DB agreement property is in ./invariants.property.integration.test.ts ----------------------
 
 describe('the change_kind/target_account_id pairing CHECK: create requires a null target, update requires a non-null one', () => {
   it('change_kind=create WITH a non-null target_account_id is rejected by the DB CHECK', async () => {

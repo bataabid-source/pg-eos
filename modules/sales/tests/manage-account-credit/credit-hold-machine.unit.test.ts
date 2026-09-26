@@ -150,4 +150,11 @@ describe('assertReleaseLegal — throws NotOnHoldError iff RELEASE is illegal fr
   it('does NOT throw for held', () => {
     expect(() => assertReleaseLegal(CREDIT_STATUS.HELD)).not.toThrow();
   });
+
+  it('the thrown message names the exact credit state RELEASE was rejected from', () => {
+    expect(() => assertReleaseLegal(CREDIT_STATUS.CLEAR)).toThrow(
+      'ReleaseCreditHold: RELEASE is not a legal transition from credit state "clear" — the ' +
+        'account is not currently on hold (Master decision 4).',
+    );
+  });
 });

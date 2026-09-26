@@ -4,7 +4,7 @@
 // (CLAUDE.md · AGENT CONSTRAINTS). The application layer
 // (../../application/pull-shipments/pull-shipments.ts) calls these for every portal record BEFORE
 // any DB write. pg-tester's property tests exercise these directly
-// (../../tests/pull-shipments/invariants.property.test.ts).
+// (../../tests/pull-shipments/invariants.property.integration.test.ts).
 
 /** One shipment record as reported by the iMile portal. Field shapes derive from
  *  `imile.shipments` (database/schema/01-Data-Model.sql:1315-1339) — never a column not on that

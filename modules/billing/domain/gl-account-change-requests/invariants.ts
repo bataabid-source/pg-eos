@@ -12,7 +12,7 @@
 // — a future Submit command (part 2b) reuses
 // ../chart-of-accounts/invariants.ts's own `isValidAccountCode`/`assertValidAccountType`/
 // `ALLOWED_ACCOUNT_TYPES` directly, exactly as pg-tester's own property test
-// (../../tests/gl-account-change-requests/invariants.property.test.ts) proves against those
+// (../../tests/gl-account-change-requests/invariants.property.integration.test.ts) proves against those
 // functions, never a duplicate here. This file's DB-level counterpart is
 // `billing.is_valid_gl_account_code`/`billing.is_valid_gl_account_type` (migration
 // 0034_2_gl-account-change-requests.sql), the shared SQL functions called from BOTH tables' CHECKs.

@@ -24,6 +24,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  OUTBOUND_EVENT_ROLES,
   OUTBOUND_ORDER_EVENTS,
   OUTBOUND_ORDER_STATUS,
   advanceOutboundOrder,
@@ -32,6 +33,43 @@ import {
   type OutboundOrderStatus,
 } from '../../domain/process-outbound/machine.js';
 import { IllegalTransitionError } from '../../domain/process-outbound/errors.js';
+
+describe('OUTBOUND_ORDER_EVENTS — exact 11-entry map, event names verbatim', () => {
+  it('carries exactly these 11 event type strings', () => {
+    expect(OUTBOUND_ORDER_EVENTS).toEqual({
+      RUN_CHECKS_PASS: 'RUN_CHECKS_PASS',
+      RUN_CHECKS_CREDIT_FAIL: 'RUN_CHECKS_CREDIT_FAIL',
+      APPROVE: 'APPROVE_OUTBOUND',
+      CANCEL: 'CANCEL_OUTBOUND',
+      ALLOCATE_FULL: 'ALLOCATE_FULL',
+      ALLOCATE_PARTIAL: 'ALLOCATE_PARTIAL',
+      START_PICKING: 'START_PICKING',
+      COMPLETE_PICKING: 'COMPLETE_PICKING',
+      CHECK: 'CHECK_ORDER',
+      PACK: 'PACK_OUTBOUND',
+      LOAD: 'LOAD_OUTBOUND',
+    });
+    expect(Object.keys(OUTBOUND_ORDER_EVENTS)).toHaveLength(11);
+  });
+});
+
+describe('OUTBOUND_EVENT_ROLES — exact role gate map', () => {
+  it('gates exactly APPROVE and CANCEL to WH_MGR, and gates no other event', () => {
+    expect(OUTBOUND_EVENT_ROLES).toEqual({
+      [OUTBOUND_ORDER_EVENTS.APPROVE]: 'WH_MGR',
+      [OUTBOUND_ORDER_EVENTS.CANCEL]: 'WH_MGR',
+    });
+    expect(Object.keys(OUTBOUND_EVENT_ROLES)).toHaveLength(2);
+  });
+
+  it.each(
+    Object.values(OUTBOUND_ORDER_EVENTS).filter(
+      (event) => event !== OUTBOUND_ORDER_EVENTS.APPROVE && event !== OUTBOUND_ORDER_EVENTS.CANCEL,
+    ),
+  )('%s has no role gate (undefined)', (event) => {
+    expect(OUTBOUND_EVENT_ROLES[event]).toBeUndefined();
+  });
+});
 
 // chk_outbound_orders_status (13B-Schema-Reference-Consolidation.sql:2326-2327), verbatim.
 const ALL_14_STATUSES: readonly OutboundOrderStatus[] = [
@@ -171,6 +209,62 @@ describe('every other transition is illegal', () => {
     expect(() => advanceOutboundOrder(OUTBOUND_ORDER_STATUS.DRAFT, [OUTBOUND_ORDER_EVENTS.APPROVE])).toThrow(
       IllegalTransitionError,
     );
+  });
+
+  it('advanceOutboundOrder\'s thrown message names the exact event, the exact from-state and the exact allowed-events list (comma-joined)', () => {
+    let caught: unknown;
+    try {
+      advanceOutboundOrder(OUTBOUND_ORDER_STATUS.DRAFT, [OUTBOUND_ORDER_EVENTS.APPROVE]);
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeInstanceOf(IllegalTransitionError);
+    expect((caught as Error).message).toBe(
+      'APPROVE_OUTBOUND is not a legal transition from outbound-order status "draft". ' +
+        '(Allowed from "draft": RUN_CHECKS_PASS, RUN_CHECKS_CREDIT_FAIL, CANCEL_OUTBOUND)',
+    );
+  });
+
+  it('advanceOutboundOrder\'s thrown message reports "none, terminal state" from a state with no allowed events', () => {
+    let caught: unknown;
+    try {
+      advanceOutboundOrder(OUTBOUND_ORDER_STATUS.CANCELLED, [OUTBOUND_ORDER_EVENTS.CANCEL]);
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeInstanceOf(IllegalTransitionError);
+    expect((caught as Error).message).toBe(
+      'CANCEL_OUTBOUND is not a legal transition from outbound-order status "cancelled". ' +
+        '(Allowed from "cancelled": none, terminal state)',
+    );
+  });
+
+  it('advanceOutboundOrder with an empty events array is a no-op and returns the current state unchanged', () => {
+    expect(advanceOutboundOrder(OUTBOUND_ORDER_STATUS.APPROVED, [])).toBe(OUTBOUND_ORDER_STATUS.APPROVED);
+  });
+
+  it('advanceOutboundOrder applies a legal multi-event sequence in order, ending at the final state', () => {
+    expect(
+      advanceOutboundOrder(OUTBOUND_ORDER_STATUS.DRAFT, [
+        OUTBOUND_ORDER_EVENTS.RUN_CHECKS_PASS,
+        OUTBOUND_ORDER_EVENTS.APPROVE,
+        OUTBOUND_ORDER_EVENTS.ALLOCATE_FULL,
+      ]),
+    ).toBe(OUTBOUND_ORDER_STATUS.ALLOCATED);
+  });
+
+  it('advanceOutboundOrder stops at the FIRST illegal event in a sequence, reporting that event\'s own from-state', () => {
+    let caught: unknown;
+    try {
+      advanceOutboundOrder(OUTBOUND_ORDER_STATUS.DRAFT, [
+        OUTBOUND_ORDER_EVENTS.RUN_CHECKS_PASS,
+        OUTBOUND_ORDER_EVENTS.RUN_CHECKS_PASS,
+      ]);
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeInstanceOf(IllegalTransitionError);
+    expect((caught as Error).message).toContain('from outbound-order status "checks_pending"');
   });
 
   it('allowedEventsFrom("draft") is exactly [RUN_CHECKS_PASS, RUN_CHECKS_CREDIT_FAIL, CANCEL]', () => {

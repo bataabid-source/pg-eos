@@ -140,6 +140,37 @@ describe('assertAccountCreditOk — property (Master decision 1)', () => {
       }),
     );
   });
+
+  // pg-reviewer mutation gap: the null-holdReason branch (`holdReason ?? '(no reason recorded)'`
+  // for the message, `holdReason ?? ''` for the .reason property) was never exercised — every
+  // property-test case above always supplied a non-null reason when creditHold was true.
+  it('a null holdReason falls back to "(no reason recorded)" in the message and "" on the .reason property', () => {
+    try {
+      assertAccountCreditOk({ accountId: ACCOUNT_ID_FIXTURE, creditHold: true, holdReason: null });
+      throw new Error('expected AccountOnCreditHoldError to be thrown');
+    } catch (error) {
+      expect(error).toBeInstanceOf(AccountOnCreditHoldError);
+      if (error instanceof AccountOnCreditHoldError) {
+        expect(error.message).toBe(
+          `sales.accounts ${ACCOUNT_ID_FIXTURE} is on credit hold: (no reason recorded)`,
+        );
+        expect(error.reason).toBe('');
+        expect(error.accountId).toBe(ACCOUNT_ID_FIXTURE);
+      }
+    }
+  });
+
+  it('a non-null holdReason is echoed verbatim in the message, never the fallback text', () => {
+    try {
+      assertAccountCreditOk({ accountId: ACCOUNT_ID_FIXTURE, creditHold: true, holdReason: 'overdue' });
+      throw new Error('expected AccountOnCreditHoldError to be thrown');
+    } catch (error) {
+      expect(error).toBeInstanceOf(AccountOnCreditHoldError);
+      if (error instanceof AccountOnCreditHoldError) {
+        expect(error.message).toBe(`sales.accounts ${ACCOUNT_ID_FIXTURE} is on credit hold: overdue`);
+      }
+    }
+  });
 });
 
 describe('assertOnHold — property (Master decision 4, ReleaseCreditHold\'s own no-op guard)', () => {
@@ -185,5 +216,17 @@ describe('assertReasonPresent — property (pg-reviewer fix round 1, finding 3)'
 
   it('the empty string itself always throws', () => {
     expect(() => assertReasonPresent('')).toThrow(InvalidReasonError);
+  });
+
+  it('the thrown message is the exact pinned string', () => {
+    expect(() => assertReasonPresent('')).toThrow('reason must be a non-empty, non-whitespace-only string.');
+  });
+});
+
+describe('assertCreditLimitValid — exact thrown message (pinned)', () => {
+  it('interpolates the exact rejected creditLimit string', () => {
+    expect(() => assertCreditLimitValid('-5.500')).toThrow(
+      'SetCreditLimit: creditLimit (-5.500) must be non-negative — zero is legal (Master decision 5).',
+    );
   });
 });

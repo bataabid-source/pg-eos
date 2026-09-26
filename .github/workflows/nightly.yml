@@ -1,0 +1,70 @@
+# PG-EOS · nightly — CLAUDE.md · TESTING / doc 36 §4-3: Stryker mutation on domain/ (G16, ≥ 75 %),
+# the full acceptance run (G15, S1–S20) once tests/scenarios exists, and apply.sh --recreate on an
+# ephemeral database. Red here does not block a merge (CI does) but is reported every morning.
+name: Nightly
+
+on:
+  schedule:
+    - cron: "17 0 * * *"   # 03:17 Asia/Kuwait
+  workflow_dispatch:
+
+concurrency:
+  group: nightly
+  cancel-in-progress: true
+
+jobs:
+  mutation:
+    name: "G16 mutation on domain/ (≥ 75 %) + G15 scenarios + recreate"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: pgeos
+          POSTGRES_USER: postgres
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C --lc-ctype=C.UTF-8"
+          TZ: Asia/Kuwait
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d pgeos"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: localhost
+      PGPORT: 5432
+      PGUSER: postgres
+      PGDATABASE: pgeos
+      PG_APP_USER: pgeos_app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Assert psql 16
+        run: psql --version | grep -q ' 16\.'
+      - name: Install Chrome for Puppeteer
+        run: pnpm --filter @pg-eos/documents exec puppeteer browsers install chrome
+      - name: Allow Chrome sandbox on the runner
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+      - name: Assert stryker resolves inside a module (pnpm strict layout)
+        run: cd modules/fleet && pnpm -s exec stryker --version
+      - name: Apply schema on a fresh database (apply.sh --recreate)
+        run: bash database/schema/apply.sh --recreate
+      # One module at a time: every module's tests share the one database (same reason as CI's
+      # --concurrency=1), and Stryker runs each module's vitest project many times.
+      - name: G16 — Stryker on every module's domain/ (break at 75 %)
+        run: pnpm -s mutation   # scripts/mutation-all.sh — one module per process, own timeout
+      - name: G15 — doc 40 Part E scenarios S1–S20 (when the runner exists)
+        run: |
+          if node -e "process.exit(require('./package.json').scripts['test:scenarios'] ? 0 : 1)"; then
+            pnpm -s test:scenarios
+          else
+            echo "test:scenarios not present yet — G15 stays NOT RUNNABLE (docs/STREAMS.md §Enablement 3)"
+          fi

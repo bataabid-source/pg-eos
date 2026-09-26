@@ -38,8 +38,8 @@ inside a wave: the branch carrying a migration first, then the others; each merg
 
 1. Security — DONE in this commit set: `PG_APP_USER` required and verified against `pg_roles` on first connect, no superuser fallback (ADR-0005 §7). The approval chain already binds `approved_by` to the session (`0034:394`); re-checked in 4.1b part 2's pre-migration review.
 2. Greening — fix (never skip) the known red tests: `modules/platform/tests/evaluate-alerts/**`, `modules/platform/tests/integration/{schema-invariants,audit-chain-seq,audit-chain-concurrency}.test.ts`, `modules/wms/tests/receive-inbound` T9 fixtures.
-3. Real gates — vitest coverage ≥ 90% on `domain/`; Stryker nightly ≥ 75%; Playwright with S1/S2 first; `scripts/deploy.sh` running G15–G17.
-4. Domain purity — the 4 `*.property.test.ts` files opening a `pg.Pool` move to integration.
+3. Real gates — DONE: vitest coverage ≥ 90% on `domain/` enforced on every module run (`coverage.enabled`, thresholds 90/90/90/90; pre-commit's subset runs disable it); Stryker 10 per module (`pnpm mutation`, break 75, read by `guards-run.sh` G16) and `.github/workflows/nightly.yml` (mutation + recreate + S1–S20 once `test:scenarios` exists). OPEN: Playwright S1/S2 (integration lane); `scripts/deploy.sh` waits on 0.6b (DEFERRED-POST-PILOT, D-129) — G15/G17 runners arrive with their features.
+4. Domain purity — DONE: the 4 `*.property.test.ts` files opening a `pg.Pool` are renamed `*.property.integration.test.ts` (out of pre-commit gate ②, still in every module run).
 5. Deduplication — `logger` and `requireIdempotencyKey` into `packages/`; `scripts/new-slice.sh` imports them.
 6. OpenAPI — every module registers in `packages/contracts/_shared/registry.ts`; contract tests derive from it.
 7. Documents v2 — CLAUDE.md ≤ 80 lines (history → `docs/GOVERNANCE-HISTORY.md`), generated PROJECT_STATE (`scripts/scribe.mjs`), CHANGELOG entry ≤ 12 lines, LANE_LOCKS table only, stream locks in `scripts/check-locks.sh`, four agents (ADR-0005 §5).

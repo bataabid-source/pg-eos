@@ -118,7 +118,7 @@ describe('accountClassFromCode — reject/throw branch', () => {
   });
 });
 
-describe('isValidAccountCode / accountClassFromCode agree (sanity, complements ./invariants.property.test.ts)', () => {
+describe('isValidAccountCode / accountClassFromCode agree (sanity, complements ./invariants.property.integration.test.ts)', () => {
   it('isValidAccountCode(code) === true implies accountClassFromCode(code) does not throw', () => {
     expect(isValidAccountCode(WELL_FORMED_CODE)).toBe(true);
     expect(() => accountClassFromCode(WELL_FORMED_CODE)).not.toThrow();

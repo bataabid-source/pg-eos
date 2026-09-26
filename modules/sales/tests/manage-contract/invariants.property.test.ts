@@ -19,16 +19,22 @@ import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 
 import {
+  assertAccountQualified,
   assertContractExpirable,
   assertContractNotExpiredByDate,
   assertContractUsableForOrder,
   assertPriceListApplicable,
+  assertPriceListAssignable,
   assertSlaAssignable,
   assertValidEndDate,
   assertValidStartDate,
+  todayIso,
+  type AccountQualificationInput,
   type PriceListCandidate,
 } from '../../domain/manage-contract/invariants.js';
 import {
+  AccountNotFoundError,
+  AccountNotQualifiedError,
   ContractExpiredByDateError,
   ContractNotActiveError,
   ContractNotYetExpirableError,
@@ -296,5 +302,93 @@ describe('assertPriceListApplicable — property: agrees with an independent per
         }
       }),
     );
+  });
+});
+
+// --- mutation-coverage gap fill: assertAccountQualified, todayIso, assertPriceListAssignable had NO
+// property test in this file even though they exist verbatim in domain/manage-contract/invariants.ts
+// (reused from manage-quote's own INV-C2-1-style check, Master decision 2). ---
+
+describe('assertAccountQualified — property: AccountNotFoundError iff null, else AccountNotQualifiedError iff closed/no CR', () => {
+  const ACCOUNT_STATUS_CLOSED = 'closed';
+  const statusStringArb = fc.constantFrom('active', 'closed', 'suspended');
+  const crNumberArb = fc.option(fc.string({ minLength: 1 }), { nil: null });
+
+  it('a null account always throws AccountNotFoundError', () => {
+    expect(() => assertAccountQualified(null)).toThrow(AccountNotFoundError);
+  });
+
+  it('agrees with an independent reference for every (status, crNumber) combination', () => {
+    fc.assert(
+      fc.property(statusStringArb, crNumberArb, (status, crNumber) => {
+        const account: AccountQualificationInput = { status, crNumber };
+        const shouldThrow = status === ACCOUNT_STATUS_CLOSED || crNumber === null;
+        if (shouldThrow) {
+          expect(() => assertAccountQualified(account)).toThrow(AccountNotQualifiedError);
+        } else {
+          expect(() => assertAccountQualified(account)).not.toThrow();
+        }
+      }),
+    );
+  });
+
+  it('closed status with a non-null crNumber still throws (either condition alone is sufficient)', () => {
+    expect(() => assertAccountQualified({ status: 'closed', crNumber: 'CR-1' })).toThrow(AccountNotQualifiedError);
+  });
+
+  it('non-closed status with a null crNumber still throws (either condition alone is sufficient)', () => {
+    expect(() => assertAccountQualified({ status: 'active', crNumber: null })).toThrow(AccountNotQualifiedError);
+  });
+
+  it('active status with a non-null crNumber never throws', () => {
+    expect(() => assertAccountQualified({ status: 'active', crNumber: 'CR-1' })).not.toThrow();
+  });
+});
+
+describe('todayIso — property: always the first 10 characters of clockNow.toISOString()', () => {
+  it('agrees with an independent string-slicing reference for arbitrary dates', () => {
+    fc.assert(
+      fc.property(
+        fc.date({ min: new Date('2000-01-01'), max: new Date('2100-01-01'), noInvalidDate: true }),
+        (clockNow) => {
+          const iso = clockNow.toISOString();
+          const expected = `${iso.slice(0, 4)}-${iso.slice(5, 7)}-${iso.slice(8, 10)}`;
+          expect(todayIso(clockNow)).toBe(expected);
+          expect(todayIso(clockNow)).toHaveLength(10);
+        },
+      ),
+    );
+  });
+
+  it('a known fixed date produces the exact expected string', () => {
+    expect(todayIso(new Date('2025-03-14T23:59:59.999Z'))).toBe('2025-03-14');
+  });
+});
+
+describe('assertPriceListAssignable — property: throws IllegalTransitionError iff status is not price-list-assignable', () => {
+  // Independent tag-membership reference — every status except the three terminal ones
+  // (expired/renewed/terminated), per machine.ts's own CONTRACT_TAG_PRICE_LIST_ASSIGNABLE comment.
+  const ASSIGNABLE_STATUSES = new Set<ContractStatus>([
+    CONTRACT_STATUS.DRAFT,
+    CONTRACT_STATUS.SIGNED,
+    CONTRACT_STATUS.ACTIVE,
+    CONTRACT_STATUS.SUSPENDED,
+  ]);
+  const statusArb: fc.Arbitrary<ContractStatus> = fc.constantFrom(...Object.values(CONTRACT_STATUS));
+
+  it('agrees with an independent assignable-set reference over the whole enum', () => {
+    fc.assert(
+      fc.property(statusArb, (status) => {
+        if (ASSIGNABLE_STATUSES.has(status)) {
+          expect(() => assertPriceListAssignable(status)).not.toThrow();
+        } else {
+          expect(() => assertPriceListAssignable(status)).toThrow(IllegalTransitionError);
+        }
+      }),
+    );
+  });
+
+  it('the thrown message names the exact non-assignable status', () => {
+    expect(() => assertPriceListAssignable(CONTRACT_STATUS.EXPIRED)).toThrow(/"expired"/);
   });
 });

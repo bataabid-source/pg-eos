@@ -7,7 +7,7 @@
 // (SCR-ACC-01 #2). Both are re-enforced by the database's own CHECK constraints (migration
 // 0028_2_chart-of-accounts.sql) — these functions are the
 // domain-level, no-DB-round-trip line of defence a caller checks BEFORE any insert; pg-tester's
-// property test (../../tests/chart-of-accounts/invariants.property.test.ts) proves the two agree.
+// property test (../../tests/chart-of-accounts/invariants.property.integration.test.ts) proves the two agree.
 
 import { InvalidAccountCodeError, InvalidAccountTypeError } from './errors.js';
 

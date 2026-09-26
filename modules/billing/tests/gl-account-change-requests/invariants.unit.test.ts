@@ -3,7 +3,7 @@
 // Fix round finding 12: pure domain-layer unit tests — no DB, no I/O — for
 // modules/billing/domain/gl-account-change-requests/invariants.ts, exercised directly. Until this
 // file, only the DB-backed integration suite (./gl-account-change-requests.test.ts) and the
-// domain/DB agreement property test (./invariants.property.test.ts) exercised these functions
+// domain/DB agreement property test (./invariants.property.integration.test.ts) exercised these functions
 // indirectly, through live INSERTs — never the assert/throw functions themselves, and never each
 // thrown error's own `.message`/`.name`.
 //

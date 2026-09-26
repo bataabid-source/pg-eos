@@ -14,7 +14,7 @@
 // is the DB CHECK constraint's job — chk_dimension_types_kind_source_table, migration
 // 0030_2_dimensions.sql — and the domain function's job — isValidDimensionTypeKindSourcePair /
 // assertValidDimensionTypeKindSourcePair, modules/billing/domain/dimensions/invariants.ts, see
-// ./invariants.property.test.ts and ./invariants.unit.test.ts). This file only tests what
+// ./invariants.property.integration.test.ts and ./invariants.unit.test.ts). This file only tests what
 // `DimensionTypeInputSchema` itself actually validates: field types/shapes, not cross-field
 // business rules.
 
