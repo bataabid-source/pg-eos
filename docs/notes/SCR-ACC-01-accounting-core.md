@@ -13,7 +13,7 @@
 
 | # | Existing table / column, or new table | What the spec needs | Spec § | ADR-0004 decision | status |
 |---|---|---|---|---|---|
-| 1 | `billing.gl_accounts.code` (01:1181) | CHECK on X-XX-XXX-XXX; class 1–9 from the first segment | §3 | D2 (c) · D3 OD-10 | requested |
+| 1 | `billing.gl_accounts.code` (01:1181) | CHECK on X-XX-XXX-XXX; class 1–9 from the first segment | §3 | D2 (c) · D3 OD-10 | **part 1 applied (migration 0028, 4.1a part 1); part 2 — the write path, `billing.gl_account_change_requests` maker/checker + the `platform.is_approval_chain_approver()` approval-chain primitive (SCR-PLAT-APPR-01) — applied (migration 0034, 4.1a part 2, `<this commit>`); part 3 — `is_active` + deactivate/reactivate — requested, open (4.1a part 3)** |
 | 2 | `billing.gl_accounts.account_type` (01:1183) | Values for Cost of Revenue, Other Income/Expense, Tax, Control/Memorandum | §3 | D2 (c) · D3 OD-10 | requested |
 | 3 | new `billing.fiscal_years`, new `billing.accounting_periods` | Fiscal year; periods open/closed/locked per entity | §5, §1 | D1 5 | requested |
 | 4 | `billing.journal_entries` (01:1189) | Period link; posting to closed/locked period refused | §5, §34 | D1 5 | requested |
