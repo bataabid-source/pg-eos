@@ -88,7 +88,7 @@ function freshDocNo(): string {
 
 interface InsertRequestInput {
   readonly entityId: string;
-  readonly changeKind: 'create' | 'update';
+  readonly changeKind: 'create' | 'update' | 'deactivate' | 'reactivate';
   readonly targetAccountId?: string | null;
   readonly proposedCode?: string | null;
   readonly proposedAccountType?: string | null;
@@ -132,6 +132,36 @@ async function insertGlAccount(forEntityId: string, code: string): Promise<strin
   if (!row) throw new Error('fixture billing.gl_accounts insert returned no row');
   insertedAccountIds.push(row.id);
   return row.id;
+}
+
+// WBS 4.1a part 3 — insertGlAccount above cannot express a parent_id (fixed signature, reused by
+// every part-2 scenario above); this variant is used ONLY by the new deactivate/reactivate/
+// active-children tests below.
+async function insertGlAccountWithParent(forEntityId: string, code: string, parentId: string | null): Promise<string> {
+  const result: QueryResult<{ id: string }> = await pool.query(
+    `insert into billing.gl_accounts (entity_id, code, name_ar, account_type, parent_id) values ($1, $2, $3, $4, $5) returning id`,
+    [forEntityId, code, 'حساب هدف اختبار الإلغاء/إعادة التنشيط — WBS 4.1a part 3', VALID_ACCOUNT_TYPE, parentId],
+  );
+  const row = result.rows[0];
+  if (!row) throw new Error('fixture billing.gl_accounts insert (deactivate/reactivate, part 3) returned no row');
+  insertedAccountIds.push(row.id);
+  return row.id;
+}
+
+// WBS 4.1a part 3 — references the NEW billing.gl_accounts.is_active column (does not exist yet;
+// this is expected to fail with 42703 undefined_column until the migration lands).
+async function setGlAccountActive(id: string, isActive: boolean): Promise<void> {
+  await pool.query(`update billing.gl_accounts set is_active = $2 where id = $1`, [id, isActive]);
+}
+
+async function getGlAccountIsActive(id: string): Promise<boolean> {
+  const result: QueryResult<{ is_active: boolean }> = await pool.query(
+    `select is_active from billing.gl_accounts where id = $1`,
+    [id],
+  );
+  const row = result.rows[0];
+  if (!row) throw new Error(`no billing.gl_accounts row for id ${id}`);
+  return row.is_active;
 }
 
 async function countGlAccountsForCode(code: string): Promise<number> {
@@ -639,6 +669,30 @@ describe('the change_kind/target_account_id pairing CHECK: create requires a nul
   });
 });
 
+// --- WBS 4.1a part 3: chk_glc_requests_change_kind_target widens to also require a non-null target -
+// --- for deactivate/reactivate (brief §Schema design item 3) ---------------------------------------
+
+describe('the change_kind/target_account_id pairing CHECK, widened (WBS 4.1a part 3): deactivate/reactivate also require a non-null target_account_id', () => {
+  it.each(['deactivate', 'reactivate'] as const)(
+    "change_kind=%s WITH a null target_account_id is rejected by the DB CHECK",
+    async (changeKind) => {
+      await expect(
+        insertChangeRequest({ entityId, changeKind, targetAccountId: null }),
+      ).rejects.toMatchObject({ code: CHECK_VIOLATION_SQLSTATE });
+    },
+  );
+
+  it.each(['deactivate', 'reactivate'] as const)(
+    "change_kind=%s WITH a non-null target_account_id is accepted (positive control)",
+    async (changeKind) => {
+      const result = await insertChangeRequest({ entityId, changeKind, targetAccountId: existingGlAccountId });
+      const row = result.rows[0];
+      if (!row) throw new Error('fixture insert returned no id');
+      insertedRequestIds.push(row.id);
+    },
+  );
+});
+
 // --- chk_glc_requests_update_no_code (round-3 fix 4) ------------------------------------------------
 
 describe('chk_glc_requests_update_no_code (round-3 fix 4): an update-kind request must never carry a proposed_code (code is immutable post-creation — billing.assert_gl_account_change_approved() requires new.code = old.code on update and never reads proposed_code there)', () => {
@@ -676,20 +730,487 @@ describe('chk_glc_requests_update_no_code (round-3 fix 4): an update-kind reques
     if (!row) throw new Error('positive-control create insert returned no id');
     insertedRequestIds.push(row.id);
   });
+
+  // WBS 4.1a part 3 — chk_glc_requests_update_no_code is worded `change_kind = 'create' or
+  // proposed_code is null`, so it already forbids proposed_code for ANY non-create change_kind,
+  // deactivate/reactivate included, with no migration change needed for this rule specifically
+  // (brief §Contract design: "deactivate/reactivate need no proposed_* column at all").
+  it.each(['deactivate', 'reactivate'] as const)(
+    "change_kind=%s WITH a non-null proposed_code is rejected by the DB CHECK (same rule as update)",
+    async (changeKind) => {
+      await expect(
+        insertChangeRequest({
+          entityId,
+          changeKind,
+          targetAccountId: existingGlAccountId,
+          proposedCode: freshProposedCode(), // illegal on a deactivate/reactivate request.
+        }),
+      ).rejects.toMatchObject({ code: CHECK_VIOLATION_SQLSTATE });
+    },
+  );
 });
 
-// --- status CHECK closed list — 'deactivate'/'reactivate' change_kind is OUT OF SCOPE this part ----
+// --- status CHECK closed list widens to (create, update, deactivate, reactivate) — WBS 4.1a part 3 -
 
-describe('change_kind is restricted to (create, update) this part — deactivate/reactivate are WBS 4.1a part 3', () => {
-  it("change_kind='deactivate' is rejected by the DB CHECK (not yet a legal value)", async () => {
+describe('change_kind is widened to (create, update, deactivate, reactivate) — WBS 4.1a part 3', () => {
+  it("change_kind='delete' (not a legal value, never has been) is rejected by the DB CHECK", async () => {
     await expect(
       pool.query(
         `insert into billing.gl_account_change_requests
            (entity_id, doc_no, change_kind, target_account_id, status, requested_by)
-         values ($1, $2, 'deactivate', $3, 'draft', $4)`,
+         values ($1, $2, 'delete', $3, 'draft', $4)`,
         [entityId, freshDocNo(), existingGlAccountId, ACCOUNTANT_UUID],
       ),
     ).rejects.toMatchObject({ code: CHECK_VIOLATION_SQLSTATE });
+  });
+
+  it.each(['deactivate', 'reactivate'] as const)(
+    "change_kind=%s is now a legal value (WBS 4.1a part 3) — accepted by the change_kind CHECK",
+    async (changeKind) => {
+      const result = await insertChangeRequest({ entityId, changeKind, targetAccountId: existingGlAccountId });
+      const row = result.rows[0];
+      if (!row) throw new Error('fixture insert returned no id');
+      insertedRequestIds.push(row.id);
+    },
+  );
+});
+
+// --- WBS 4.1a part 3: billing.gl_accounts.is_active + the active-children rule -----------------------
+// (docs/notes/slice-briefs/_slice-4.1a-part3.brief.md §Schema design item 4 — the new unconditional
+// check inside billing.assert_gl_account_change_approved(), running BEFORE the
+// `current_user <> 'pgeos_app'` bypass, since it is a data-integrity invariant, not a maker/checker
+// four-eyes rule) ------------------------------------------------------------------------------------
+
+describe('Scenario: Deactivating a gl_account that has an active child account is rejected by the database', () => {
+  it('an UPDATE setting is_active from true to false on a parent with an active child is rejected — SQLSTATE 23514, message names the parent account id', async () => {
+    const parentAccountId = await insertGlAccountWithParent(entityId, freshProposedCode(), null);
+    await insertGlAccountWithParent(entityId, freshProposedCode(), parentAccountId); // active child (default is_active=true).
+
+    let rejection: unknown;
+    try {
+      await pool.query(`update billing.gl_accounts set is_active = false where id = $1`, [parentAccountId]);
+    } catch (error) {
+      rejection = error;
+    }
+    expect(rejection).toMatchObject({ code: CHECK_VIOLATION_SQLSTATE });
+    expect((rejection as { message?: string }).message ?? '').toContain(parentAccountId);
+  });
+
+  it('the check is unconditional — even the admin pool (current_user <> \'pgeos_app\', the seed/import bypass) is rejected, since this is a data-integrity invariant, not a maker/checker rule', async () => {
+    const parentAccountId = await insertGlAccountWithParent(entityId, freshProposedCode(), null);
+    await insertGlAccountWithParent(entityId, freshProposedCode(), parentAccountId);
+
+    // Fix round finding 4: assert `pool` genuinely connects as something other than pgeos_app BEFORE
+    // trusting the rejection below as proof of the UNCONDITIONAL bypass path — otherwise this test is
+    // indistinguishable from the first test above (same statement, same superuser pool).
+    const currentUserResult: QueryResult<{ current_user: string }> = await pool.query(`select current_user`);
+    expect(currentUserResult.rows[0]?.['current_user']).not.toBe('pgeos_app');
+
+    await expect(
+      pool.query(`update billing.gl_accounts set is_active = false where id = $1`, [parentAccountId]),
+    ).rejects.toMatchObject({ code: CHECK_VIOLATION_SQLSTATE });
+  });
+
+  it('deactivating a parent whose child is ALREADY inactive succeeds on the raw admin pool (positive control — only an ACTIVE child blocks it)', async () => {
+    const parentAccountId = await insertGlAccountWithParent(entityId, freshProposedCode(), null);
+    const childAccountId = await insertGlAccountWithParent(entityId, freshProposedCode(), parentAccountId);
+    await setGlAccountActive(childAccountId, false);
+
+    await pool.query(`update billing.gl_accounts set is_active = false where id = $1`, [parentAccountId]);
+    expect(await getGlAccountIsActive(parentAccountId)).toBe(false);
+  });
+});
+
+// Round-1 fix round findings 1-3: the write-through-approval path (real pgeos_app CFO session), both
+// the success cases and the rejection cases the trigger's own change_kind-keyed disjuncts and
+// old.is_active backstop are meant to enforce. Finding 2: a single shared CFO fixture actor, created
+// ONCE in this describe's own beforeAll — no test below silently depends on a PRECEDING sibling
+// test's fixture setup, and every test here still passes if run alone or reordered.
+describe('WBS 4.1a part 3 — deactivate/reactivate write-through-approval path (shared CFO fixture actor)', () => {
+  beforeAll(async () => {
+    await createAppFixtureActor(APP_CFO_ACTOR_P3_UUID, entityId, ROLE_CFO);
+    await createAppFixtureActor(APP_CFO_ACTOR_P3_OTHER_UUID, entityId, ROLE_CFO);
+  });
+
+  describe('Scenario: Deactivating a gl_account whose children are already inactive (or absent) succeeds (write-through-approval path)', () => {
+    it('a real CFO session: approve a deactivate request, THEN set is_active=false — succeeds when the target has NO children at all', async () => {
+      const targetAccountId = await insertGlAccountWithParent(entityId, freshProposedCode(), null);
+
+      const submitted = await insertChangeRequest({
+        entityId,
+        changeKind: 'deactivate',
+        targetAccountId,
+        status: 'pending_approval',
+        requestedBy: ACCOUNTANT_UUID,
+      });
+      const requestId = submitted.rows[0]?.id;
+      if (!requestId) throw new Error('fixture insert returned no id');
+      insertedRequestIds.push(requestId);
+
+      await withContext(ctxFor(APP_CFO_ACTOR_P3_UUID), async (tx: NodePgDatabase) => {
+        await tx.execute(
+          sql`update billing.gl_account_change_requests
+                 set status = 'approved', approved_by = ${APP_CFO_ACTOR_P3_UUID}, approved_at = now(), decided_at = now()
+               where id = ${requestId}`,
+        );
+        return tx.execute(sql`update billing.gl_accounts set is_active = false where id = ${targetAccountId}`);
+      });
+
+      expect(await getGlAccountIsActive(targetAccountId)).toBe(false);
+      expect(await getRequestStatus(requestId)).toBe('approved');
+    });
+
+    // Finding 3: a GENUINE "children already inactive" case — a real child row, deactivated first,
+    // THEN the parent's own deactivate request is approved and written through the SAME pgeos_app
+    // write path (not the raw admin/superuser pool the earlier describe block's own positive control
+    // used).
+    it('a real CFO session: approve a deactivate request, THEN set is_active=false — succeeds when the target HAS a child, but that child is already inactive', async () => {
+      const parentAccountId = await insertGlAccountWithParent(entityId, freshProposedCode(), null);
+      const childAccountId = await insertGlAccountWithParent(entityId, freshProposedCode(), parentAccountId);
+      await setGlAccountActive(childAccountId, false);
+
+      const submitted = await insertChangeRequest({
+        entityId,
+        changeKind: 'deactivate',
+        targetAccountId: parentAccountId,
+        status: 'pending_approval',
+        requestedBy: ACCOUNTANT_UUID,
+      });
+      const requestId = submitted.rows[0]?.id;
+      if (!requestId) throw new Error('fixture insert returned no id');
+      insertedRequestIds.push(requestId);
+
+      await withContext(ctxFor(APP_CFO_ACTOR_P3_UUID), async (tx: NodePgDatabase) => {
+        await tx.execute(
+          sql`update billing.gl_account_change_requests
+                 set status = 'approved', approved_by = ${APP_CFO_ACTOR_P3_UUID}, approved_at = now(), decided_at = now()
+               where id = ${requestId}`,
+        );
+        return tx.execute(sql`update billing.gl_accounts set is_active = false where id = ${parentAccountId}`);
+      });
+
+      expect(await getGlAccountIsActive(parentAccountId)).toBe(false);
+      expect(await getRequestStatus(requestId)).toBe('approved');
+    });
+  });
+
+  describe('Scenario: A reactivate request follows the same maker/checker path', () => {
+    it('a real CFO session: approve a reactivate request, THEN set is_active=true — succeeds', async () => {
+      const targetAccountId = await insertGlAccountWithParent(entityId, freshProposedCode(), null);
+      await setGlAccountActive(targetAccountId, false); // start inactive.
+
+      const submitted = await insertChangeRequest({
+        entityId,
+        changeKind: 'reactivate',
+        targetAccountId,
+        status: 'pending_approval',
+        requestedBy: ACCOUNTANT_UUID,
+      });
+      const requestId = submitted.rows[0]?.id;
+      if (!requestId) throw new Error('fixture insert returned no id');
+      insertedRequestIds.push(requestId);
+
+      await withContext(ctxFor(APP_CFO_ACTOR_P3_UUID), async (tx: NodePgDatabase) => {
+        await tx.execute(
+          sql`update billing.gl_account_change_requests
+                 set status = 'approved', approved_by = ${APP_CFO_ACTOR_P3_UUID}, approved_at = now(), decided_at = now()
+               where id = ${requestId}`,
+        );
+        return tx.execute(sql`update billing.gl_accounts set is_active = true where id = ${targetAccountId}`);
+      });
+
+      expect(await getGlAccountIsActive(targetAccountId)).toBe(true);
+      expect(await getRequestStatus(requestId)).toBe('approved');
+    });
+  });
+
+  // Finding 1: the trigger's change_kind-keyed disjuncts and old.is_active backstop proven as
+  // REJECTIONS, as pgeos_app, with a real approved-request setup — mirroring the isolation style of
+  // the success scenarios directly above (same shared CFO fixture actor, same withContext/
+  // insertChangeRequest/insertGlAccountWithParent helpers). findRaisedException/
+  // RLS_POLICY_VIOLATION_SQLSTATE are declared further down this file (hoisted function / evaluated
+  // by module-load time before any test body runs — same forward-reference already used by
+  // APP_CFO_ACTOR_P3_UUID above).
+  describe('Scenario: an approved deactivate/reactivate/update request cannot be misused to write something the CFO did not actually approve — the DB rejects with 42501', () => {
+    it('an approved UPDATE request cannot be used to ALSO flip is_active (the update disjunct requires is_active unchanged)', async () => {
+      const targetAccountId = await insertGlAccountWithParent(entityId, freshProposedCode(), null);
+
+      const submitted = await insertChangeRequest({
+        entityId,
+        changeKind: 'update',
+        targetAccountId,
+        proposedAccountType: VALID_ACCOUNT_TYPE,
+        status: 'pending_approval',
+        requestedBy: ACCOUNTANT_UUID,
+      });
+      const requestId = submitted.rows[0]?.id;
+      if (!requestId) throw new Error('fixture insert returned no id');
+      insertedRequestIds.push(requestId);
+
+      let rejection: unknown;
+      try {
+        await withContext(ctxFor(APP_CFO_ACTOR_P3_UUID), async (tx: NodePgDatabase) => {
+          await tx.execute(
+            sql`update billing.gl_account_change_requests
+                   set status = 'approved', approved_by = ${APP_CFO_ACTOR_P3_UUID}, approved_at = now(), decided_at = now()
+                 where id = ${requestId}`,
+          );
+          // The request's own proposed_account_type matches — every OTHER column the 'update'
+          // disjunct checks would pass — but is_active is not something an 'update' request may ever
+          // touch, so this must still be rejected.
+          return tx.execute(
+            sql`update billing.gl_accounts set account_type = ${VALID_ACCOUNT_TYPE}, is_active = false where id = ${targetAccountId}`,
+          );
+        });
+      } catch (error) {
+        rejection = error;
+      }
+      expect(findRaisedException(rejection, RLS_POLICY_VIOLATION_SQLSTATE)).toBeDefined();
+      expect(await getGlAccountIsActive(targetAccountId)).toBe(true); // rolled back — untouched.
+    });
+
+    it('an approved DEACTIVATE request cannot be used to ALSO change content (name_ar) alongside the is_active flip (the deactivate disjunct requires the other 5 mutable columns unchanged)', async () => {
+      const targetAccountId = await insertGlAccountWithParent(entityId, freshProposedCode(), null);
+
+      const submitted = await insertChangeRequest({
+        entityId,
+        changeKind: 'deactivate',
+        targetAccountId,
+        status: 'pending_approval',
+        requestedBy: ACCOUNTANT_UUID,
+      });
+      const requestId = submitted.rows[0]?.id;
+      if (!requestId) throw new Error('fixture insert returned no id');
+      insertedRequestIds.push(requestId);
+
+      let rejection: unknown;
+      try {
+        await withContext(ctxFor(APP_CFO_ACTOR_P3_UUID), async (tx: NodePgDatabase) => {
+          await tx.execute(
+            sql`update billing.gl_account_change_requests
+                   set status = 'approved', approved_by = ${APP_CFO_ACTOR_P3_UUID}, approved_at = now(), decided_at = now()
+                 where id = ${requestId}`,
+          );
+          return tx.execute(
+            sql`update billing.gl_accounts set is_active = false, name_ar = ${'اسم مختلف — لا يوافق عليه الطلب'} where id = ${targetAccountId}`,
+          );
+        });
+      } catch (error) {
+        rejection = error;
+      }
+      expect(findRaisedException(rejection, RLS_POLICY_VIOLATION_SQLSTATE)).toBeDefined();
+      expect(await getGlAccountIsActive(targetAccountId)).toBe(true); // rolled back — untouched.
+    });
+
+    it('an approved DEACTIVATE request on an account that is ALREADY inactive is rejected — the trigger keys on old.is_active, not just the approved change_kind', async () => {
+      const targetAccountId = await insertGlAccountWithParent(entityId, freshProposedCode(), null);
+      await setGlAccountActive(targetAccountId, false); // already inactive BEFORE the request is even approved.
+
+      const submitted = await insertChangeRequest({
+        entityId,
+        changeKind: 'deactivate',
+        targetAccountId,
+        status: 'pending_approval',
+        requestedBy: ACCOUNTANT_UUID,
+      });
+      const requestId = submitted.rows[0]?.id;
+      if (!requestId) throw new Error('fixture insert returned no id');
+      insertedRequestIds.push(requestId);
+
+      let rejection: unknown;
+      try {
+        await withContext(ctxFor(APP_CFO_ACTOR_P3_UUID), async (tx: NodePgDatabase) => {
+          await tx.execute(
+            sql`update billing.gl_account_change_requests
+                   set status = 'approved', approved_by = ${APP_CFO_ACTOR_P3_UUID}, approved_at = now(), decided_at = now()
+                 where id = ${requestId}`,
+          );
+          return tx.execute(sql`update billing.gl_accounts set is_active = false where id = ${targetAccountId}`);
+        });
+      } catch (error) {
+        rejection = error;
+      }
+      expect(findRaisedException(rejection, RLS_POLICY_VIOLATION_SQLSTATE)).toBeDefined();
+      expect(await getGlAccountIsActive(targetAccountId)).toBe(false); // unchanged (was already false).
+    });
+
+    it('an approved REACTIVATE request on an account that is ALREADY active is rejected — same old.is_active backstop, the other direction', async () => {
+      const targetAccountId = await insertGlAccountWithParent(entityId, freshProposedCode(), null); // active by default.
+
+      const submitted = await insertChangeRequest({
+        entityId,
+        changeKind: 'reactivate',
+        targetAccountId,
+        status: 'pending_approval',
+        requestedBy: ACCOUNTANT_UUID,
+      });
+      const requestId = submitted.rows[0]?.id;
+      if (!requestId) throw new Error('fixture insert returned no id');
+      insertedRequestIds.push(requestId);
+
+      let rejection: unknown;
+      try {
+        await withContext(ctxFor(APP_CFO_ACTOR_P3_UUID), async (tx: NodePgDatabase) => {
+          await tx.execute(
+            sql`update billing.gl_account_change_requests
+                   set status = 'approved', approved_by = ${APP_CFO_ACTOR_P3_UUID}, approved_at = now(), decided_at = now()
+                 where id = ${requestId}`,
+          );
+          return tx.execute(sql`update billing.gl_accounts set is_active = true where id = ${targetAccountId}`);
+        });
+      } catch (error) {
+        rejection = error;
+      }
+      expect(findRaisedException(rejection, RLS_POLICY_VIOLATION_SQLSTATE)).toBeDefined();
+      expect(await getGlAccountIsActive(targetAccountId)).toBe(true); // unchanged (was already true).
+    });
+
+    it('a deactivate write attempted with NO approval at all (request still pending_approval) is rejected', async () => {
+      const targetAccountId = await insertGlAccountWithParent(entityId, freshProposedCode(), null);
+
+      const submitted = await insertChangeRequest({
+        entityId,
+        changeKind: 'deactivate',
+        targetAccountId,
+        status: 'pending_approval', // never approved.
+        requestedBy: ACCOUNTANT_UUID,
+      });
+      const requestId = submitted.rows[0]?.id;
+      if (!requestId) throw new Error('fixture insert returned no id');
+      insertedRequestIds.push(requestId);
+
+      let rejection: unknown;
+      try {
+        await withContext(ctxFor(APP_CFO_ACTOR_P3_UUID), async (tx: NodePgDatabase) => {
+          return tx.execute(sql`update billing.gl_accounts set is_active = false where id = ${targetAccountId}`);
+        });
+      } catch (error) {
+        rejection = error;
+      }
+      expect(findRaisedException(rejection, RLS_POLICY_VIOLATION_SQLSTATE)).toBeDefined();
+      expect(await getGlAccountIsActive(targetAccountId)).toBe(true); // unchanged.
+    });
+
+    it('a deactivate write attempted using an approval DECIDED IN AN EARLIER TRANSACTION (replay) is rejected — decided_at = now() no longer matches THIS transaction', async () => {
+      const targetAccountId = await insertGlAccountWithParent(entityId, freshProposedCode(), null);
+
+      const submitted = await insertChangeRequest({
+        entityId,
+        changeKind: 'deactivate',
+        targetAccountId,
+        status: 'pending_approval',
+        requestedBy: ACCOUNTANT_UUID,
+      });
+      const requestId = submitted.rows[0]?.id;
+      if (!requestId) throw new Error('fixture insert returned no id');
+      insertedRequestIds.push(requestId);
+
+      // Approve in its OWN, separate transaction — decided_at is fixed to THAT transaction's now().
+      await withContext(ctxFor(APP_CFO_ACTOR_P3_UUID), async (tx: NodePgDatabase) => {
+        return tx.execute(
+          sql`update billing.gl_account_change_requests
+                 set status = 'approved', approved_by = ${APP_CFO_ACTOR_P3_UUID}, approved_at = now(), decided_at = now()
+               where id = ${requestId}`,
+        );
+      });
+      expect(await getRequestStatus(requestId)).toBe('approved');
+
+      // Replay attempt — a LATER, separate transaction; now() has moved on, decided_at no longer matches.
+      let rejection: unknown;
+      try {
+        await withContext(ctxFor(APP_CFO_ACTOR_P3_UUID), async (tx: NodePgDatabase) => {
+          return tx.execute(sql`update billing.gl_accounts set is_active = false where id = ${targetAccountId}`);
+        });
+      } catch (error) {
+        rejection = error;
+      }
+      expect(findRaisedException(rejection, RLS_POLICY_VIOLATION_SQLSTATE)).toBeDefined();
+      expect(await getGlAccountIsActive(targetAccountId)).toBe(true); // unchanged.
+    });
+
+    it('a deactivate write attempted by a DIFFERENT user than the one the request was approved_by is rejected', async () => {
+      const targetAccountId = await insertGlAccountWithParent(entityId, freshProposedCode(), null);
+
+      const submitted = await insertChangeRequest({
+        entityId,
+        changeKind: 'deactivate',
+        targetAccountId,
+        status: 'pending_approval',
+        requestedBy: ACCOUNTANT_UUID,
+      });
+      const requestId = submitted.rows[0]?.id;
+      if (!requestId) throw new Error('fixture insert returned no id');
+      insertedRequestIds.push(requestId);
+
+      // Approved by APP_CFO_ACTOR_P3_UUID, its own valid session.
+      await withContext(ctxFor(APP_CFO_ACTOR_P3_UUID), async (tx: NodePgDatabase) => {
+        return tx.execute(
+          sql`update billing.gl_account_change_requests
+                 set status = 'approved', approved_by = ${APP_CFO_ACTOR_P3_UUID}, approved_at = now(), decided_at = now()
+               where id = ${requestId}`,
+        );
+      });
+      expect(await getRequestStatus(requestId)).toBe('approved');
+
+      // The write is attempted by a DIFFERENT CFO actor (APP_CFO_ACTOR_P3_OTHER_UUID) — RLS on
+      // gl_accounts permits it (also holds the CFO approver role), but the trigger's own
+      // r.approved_by = platform.current_user_id() match fails, since current_user_id() here is
+      // APP_CFO_ACTOR_P3_OTHER_UUID, not the actor the request was actually approved_by.
+      let rejection: unknown;
+      try {
+        await withContext(ctxFor(APP_CFO_ACTOR_P3_OTHER_UUID), async (tx: NodePgDatabase) => {
+          return tx.execute(sql`update billing.gl_accounts set is_active = false where id = ${targetAccountId}`);
+        });
+      } catch (error) {
+        rejection = error;
+      }
+      expect(findRaisedException(rejection, RLS_POLICY_VIOLATION_SQLSTATE)).toBeDefined();
+      expect(await getGlAccountIsActive(targetAccountId)).toBe(true); // unchanged.
+    });
+  });
+
+  // Round-1 fix round finding 1 (pg-reviewer, opus): the active-children CHECK
+  // (billing.assert_gl_account_change_approved(), lines 778-782 above) runs UNCONDITIONALLY, even
+  // for an approved request under a real pgeos_app session — the two scenarios further above
+  // (lines 784-822) only proved this on the raw admin/superuser pool (current_user = 'postgres'),
+  // never through withContext as a real CFO session. Since the trigger is NOT security definer, the
+  // child lookup inside it runs under the CALLER's own RLS — a pgeos_app session is exactly the path
+  // where a child invisible to that session's RLS could silently let a deactivation through. This is
+  // the only test in the file that exercises that path.
+  describe('Scenario: an approved deactivate request cannot bypass the active-children CHECK even under a real pgeos_app CFO session', () => {
+    it('a real CFO session: approve a deactivate request for a parent with a REAL active child — the write is still rejected (23514), nothing is committed', async () => {
+      const parentAccountId = await insertGlAccountWithParent(entityId, freshProposedCode(), null);
+      await insertGlAccountWithParent(entityId, freshProposedCode(), parentAccountId); // active child (default is_active=true).
+
+      const submitted = await insertChangeRequest({
+        entityId,
+        changeKind: 'deactivate',
+        targetAccountId: parentAccountId,
+        status: 'pending_approval',
+        requestedBy: ACCOUNTANT_UUID,
+      });
+      const requestId = submitted.rows[0]?.id;
+      if (!requestId) throw new Error('fixture insert returned no id');
+      insertedRequestIds.push(requestId);
+
+      let rejection: unknown;
+      try {
+        await withContext(ctxFor(APP_CFO_ACTOR_P3_UUID), async (tx: NodePgDatabase) => {
+          await tx.execute(
+            sql`update billing.gl_account_change_requests
+                   set status = 'approved', approved_by = ${APP_CFO_ACTOR_P3_UUID}, approved_at = now(), decided_at = now()
+                 where id = ${requestId}`,
+          );
+          return tx.execute(sql`update billing.gl_accounts set is_active = false where id = ${parentAccountId}`);
+        });
+      } catch (error) {
+        rejection = error;
+      }
+      expect(findRaisedException(rejection, CHECK_VIOLATION_SQLSTATE)).toBeDefined();
+      // rolled back — the whole transaction, including the request approval above, never committed.
+      expect(await getGlAccountIsActive(parentAccountId)).toBe(true);
+      expect(await getRequestStatus(requestId)).toBe('pending_approval');
+    });
   });
 });
 
@@ -734,6 +1255,8 @@ const APP_ACCOUNTANT_ACTOR_UUID = '00000000-0000-4000-8000-0000004a2a10';
 const APP_ACCOUNTANT_OTHER_ENTITY_ACTOR_UUID = '00000000-0000-4000-8000-0000004a2a11';
 const APP_NO_PERMISSION_ACTOR_UUID = '00000000-0000-4000-8000-0000004a2a12';
 const APP_CFO_ACTOR_UUID = '00000000-0000-4000-8000-0000004a2a13'; // finding 8: a real CFO session for the headline "CFO approves" scenario.
+const APP_CFO_ACTOR_P3_UUID = '00000000-0000-4000-8000-0000004a2a20'; // WBS 4.1a part 3 — a dedicated real CFO session for the new deactivate/reactivate scenarios below, distinct from APP_CFO_ACTOR_UUID.
+const APP_CFO_ACTOR_P3_OTHER_UUID = '00000000-0000-4000-8000-0000004a2a21'; // Fix round finding 1(d) — a SECOND, distinct CFO actor, used only by the "approved by a different user" rejection test.
 const ROLE_ACCOUNTANT = 'ACCOUNTANT';
 const ROLE_SALES_REP = 'SALES_REP'; // any role NOT granted billing.gl_accounts.manage (13B:555).
 const ROLE_CFO = 'CFO';

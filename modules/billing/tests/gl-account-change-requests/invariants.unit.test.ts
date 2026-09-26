@@ -24,6 +24,10 @@ import {
   assertDecisionComplete,
   isProposedCodeOnlyForCreate,
   assertProposedCodeOnlyForCreate,
+  isValidDeactivateReactivateDirection,
+  assertValidDeactivateReactivateDirection,
+  isDeactivationAllowed,
+  assertDeactivationAllowed,
 } from '../../domain/gl-account-change-requests/invariants.js';
 import {
   SameApproverAsRequesterError,
@@ -31,6 +35,8 @@ import {
   IncompleteCreateRequestError,
   IncompleteDecisionError,
   ProposedCodeOnUpdateError,
+  InvalidDeactivateReactivateDirectionError,
+  ActiveChildBlocksDeactivationError,
 } from '../../domain/gl-account-change-requests/errors.js';
 
 const REQUESTER_UUID = '00000000-0000-4000-8000-0000004a3a01';
@@ -54,6 +60,18 @@ describe('isValidChangeKindTargetPairing', () => {
 
   it('returns false for update + a null target_account_id', () => {
     expect(isValidChangeKindTargetPairing('update', null)).toBe(false);
+  });
+
+  // WBS 4.1a part 3: the changeKind parameter type widens to also accept 'deactivate' | 'reactivate'
+  // (body unchanged — the else branch already requires a non-null target for anything not 'create').
+  it('returns true for deactivate/reactivate + a non-null target_account_id', () => {
+    expect(isValidChangeKindTargetPairing('deactivate', REQUESTER_UUID)).toBe(true);
+    expect(isValidChangeKindTargetPairing('reactivate', REQUESTER_UUID)).toBe(true);
+  });
+
+  it('returns false for deactivate/reactivate + a null target_account_id', () => {
+    expect(isValidChangeKindTargetPairing('deactivate', null)).toBe(false);
+    expect(isValidChangeKindTargetPairing('reactivate', null)).toBe(false);
   });
 });
 
@@ -262,6 +280,123 @@ describe('isProposedCodeOnlyForCreate / assertProposedCodeOnlyForCreate', () => 
     expect(caught).toBeInstanceOf(ProposedCodeOnUpdateError);
     const asError = caught as ProposedCodeOnUpdateError;
     expect(asError.name).toBe('ProposedCodeOnUpdateError');
+    expect(asError.message.length).toBeGreaterThan(0);
+  });
+
+  // WBS 4.1a part 3: isProposedCodeOnlyForCreate's changeKind parameter type widens to also accept
+  // 'deactivate' | 'reactivate' — body unchanged (only changeKind === 'create' is exempted, so any
+  // other kind, including the two new ones, still requires a null proposedCode).
+  it('returns true for change_kind=deactivate/reactivate with a null proposedCode', () => {
+    expect(isProposedCodeOnlyForCreate('deactivate', null)).toBe(true);
+    expect(isProposedCodeOnlyForCreate('reactivate', null)).toBe(true);
+  });
+
+  it('returns false for change_kind=deactivate/reactivate with a non-null proposedCode', () => {
+    expect(isProposedCodeOnlyForCreate('deactivate', '1-01-001-001')).toBe(false);
+    expect(isProposedCodeOnlyForCreate('reactivate', '1-01-001-001')).toBe(false);
+  });
+
+  it('assertProposedCodeOnlyForCreate throws ProposedCodeOnUpdateError when a deactivate/reactivate request carries a proposedCode', () => {
+    expect(() => assertProposedCodeOnlyForCreate('deactivate', '1-01-001-001')).toThrow(ProposedCodeOnUpdateError);
+    expect(() => assertProposedCodeOnlyForCreate('reactivate', '1-01-001-001')).toThrow(ProposedCodeOnUpdateError);
+  });
+});
+
+// --- isValidDeactivateReactivateDirection / assertValidDeactivateReactivateDirection (WBS 4.1a part 3) --
+// New pure invariant (no I/O, no Date — CLAUDE.md · AGENT CONSTRAINTS): the counterpart the DB
+// trigger's own `old.is_active` check backstops. `currentIsActive` is a plain boolean parameter,
+// never fetched inside this function.
+
+describe('isValidDeactivateReactivateDirection / assertValidDeactivateReactivateDirection', () => {
+  it('returns true for deactivate when currentIsActive is true', () => {
+    expect(isValidDeactivateReactivateDirection('deactivate', true)).toBe(true);
+  });
+
+  it('returns false for deactivate when currentIsActive is false (already inactive)', () => {
+    expect(isValidDeactivateReactivateDirection('deactivate', false)).toBe(false);
+  });
+
+  it('returns true for reactivate when currentIsActive is false', () => {
+    expect(isValidDeactivateReactivateDirection('reactivate', false)).toBe(true);
+  });
+
+  it('returns false for reactivate when currentIsActive is true (already active)', () => {
+    expect(isValidDeactivateReactivateDirection('reactivate', true)).toBe(false);
+  });
+
+  it('returns true for create/update regardless of currentIsActive (unconstrained)', () => {
+    expect(isValidDeactivateReactivateDirection('create', true)).toBe(true);
+    expect(isValidDeactivateReactivateDirection('create', false)).toBe(true);
+    expect(isValidDeactivateReactivateDirection('update', true)).toBe(true);
+    expect(isValidDeactivateReactivateDirection('update', false)).toBe(true);
+  });
+
+  it('assertValidDeactivateReactivateDirection does not throw when the invariant holds', () => {
+    expect(() => assertValidDeactivateReactivateDirection('deactivate', true)).not.toThrow();
+    expect(() => assertValidDeactivateReactivateDirection('reactivate', false)).not.toThrow();
+    expect(() => assertValidDeactivateReactivateDirection('create', false)).not.toThrow();
+    expect(() => assertValidDeactivateReactivateDirection('update', true)).not.toThrow();
+  });
+
+  it('assertValidDeactivateReactivateDirection throws InvalidDeactivateReactivateDirectionError with a non-empty message when deactivating an already-inactive account', () => {
+    let caught: unknown;
+    try {
+      assertValidDeactivateReactivateDirection('deactivate', false);
+    } catch (error) {
+      caught = error;
+    }
+    expect(caught).toBeInstanceOf(Error);
+    expect(caught).toBeInstanceOf(InvalidDeactivateReactivateDirectionError);
+    const asError = caught as InvalidDeactivateReactivateDirectionError;
+    expect(asError.name).toBe('InvalidDeactivateReactivateDirectionError');
+    expect(asError.message.length).toBeGreaterThan(0);
+  });
+
+  it('assertValidDeactivateReactivateDirection throws InvalidDeactivateReactivateDirectionError when reactivating an already-active account', () => {
+    let caught: unknown;
+    try {
+      assertValidDeactivateReactivateDirection('reactivate', true);
+    } catch (error) {
+      caught = error;
+    }
+    expect(caught).toBeInstanceOf(Error);
+    expect(caught).toBeInstanceOf(InvalidDeactivateReactivateDirectionError);
+    const asError = caught as InvalidDeactivateReactivateDirectionError;
+    expect(asError.name).toBe('InvalidDeactivateReactivateDirectionError');
+    expect(asError.message.length).toBeGreaterThan(0);
+  });
+});
+
+// --- isDeactivationAllowed / assertDeactivationAllowed (WBS 4.1a part 3, fix round finding 2) ------
+// New pure invariant (no I/O, no Date — CLAUDE.md · AGENT CONSTRAINTS): the domain counterpart of the
+// active-children check in the DB trigger `billing.assert_gl_account_change_approved()` (migration
+// 0036), which remains its backstop. `hasActiveChild` is a plain boolean parameter, never queried
+// inside this function.
+
+describe('isDeactivationAllowed / assertDeactivationAllowed', () => {
+  it('returns true when hasActiveChild is false (no active child blocks the deactivation)', () => {
+    expect(isDeactivationAllowed(false)).toBe(true);
+  });
+
+  it('returns false when hasActiveChild is true (an active child blocks the deactivation)', () => {
+    expect(isDeactivationAllowed(true)).toBe(false);
+  });
+
+  it('assertDeactivationAllowed does not throw when the invariant holds (hasActiveChild=false)', () => {
+    expect(() => assertDeactivationAllowed(false)).not.toThrow();
+  });
+
+  it('assertDeactivationAllowed throws ActiveChildBlocksDeactivationError with a non-empty message when hasActiveChild=true', () => {
+    let caught: unknown;
+    try {
+      assertDeactivationAllowed(true);
+    } catch (error) {
+      caught = error;
+    }
+    expect(caught).toBeInstanceOf(Error);
+    expect(caught).toBeInstanceOf(ActiveChildBlocksDeactivationError);
+    const asError = caught as ActiveChildBlocksDeactivationError;
+    expect(asError.name).toBe('ActiveChildBlocksDeactivationError');
     expect(asError.message.length).toBeGreaterThan(0);
   });
 });

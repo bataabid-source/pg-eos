@@ -1,9 +1,13 @@
-// modules/billing/domain/gl-account-change-requests/invariants.ts — WBS 4.1a part 2.
+// modules/billing/domain/gl-account-change-requests/invariants.ts — WBS 4.1a part 2 (widened by
+// part 3: `deactivate`/`reactivate` change kinds + the deactivate/reactivate direction invariant).
 //
 // domain/ layer: pure invariant checks — no I/O, no Date, no Math.random() (CLAUDE.md · AGENT
 // CONSTRAINTS). This slice's own NEW invariant is the change_kind/target_account_id pairing
-// (brief's own three-valued-logic CHECK: "create" needs a null target, "update" needs a non-null
-// one). The Master's ruling ("the proposed columns obey the same rules as gl_accounts... through
+// (brief's own three-valued-logic CHECK, covering all four change kinds: "create" needs a null
+// target; "update", "deactivate" and "reactivate" each need a non-null one). WBS 4.1a part 3 also
+// adds the deactivate/reactivate direction rule and the active-children deactivation rule, each the
+// domain counterpart of a check in `billing.assert_gl_account_change_approved()` (migration 0036).
+// The Master's ruling ("the proposed columns obey the same rules as gl_accounts... through
 // ONE function... not a copy") means proposed_code/proposed_account_type are NOT re-validated here
 // — a future Submit command (part 2b) reuses
 // ../chart-of-accounts/invariants.ts's own `isValidAccountCode`/`assertValidAccountType`/
@@ -19,15 +23,24 @@ import {
   IncompleteCreateRequestError,
   IncompleteDecisionError,
   ProposedCodeOnUpdateError,
+  InvalidDeactivateReactivateDirectionError,
+  ActiveChildBlocksDeactivationError,
 } from './errors.js';
 
+/** Every `change_kind` value `billing.gl_account_change_requests` accepts — `create`/`update`
+ *  (WBS 4.1a part 2) plus `deactivate`/`reactivate` (WBS 4.1a part 3, the widened
+ *  `chk_glc_requests_change_kind` CHECK). */
+export type GlAccountChangeKind = 'create' | 'update' | 'deactivate' | 'reactivate';
+
 /** True iff `changeKind`/`targetAccountId` obey the brief's own pairing rule:
- *  `create` requires a null target (nothing exists yet to target); `update` requires a non-null one
- *  (the existing billing.gl_accounts row being changed). Mirrors the DB CHECK verbatim so the
- *  application layer rejects a malformed Submit BEFORE any DB round-trip — pg-tester's own property
- *  test proves this function and the DB CHECK agree on every generated tuple. */
+ *  `create` requires a null target (nothing exists yet to target); every other change kind —
+ *  `update`, `deactivate` AND `reactivate` (WBS 4.1a part 3) — requires a non-null one (the existing
+ *  billing.gl_accounts row being changed, deactivated or reactivated). Mirrors the widened DB CHECK
+ *  `chk_glc_requests_change_kind_target` (`change_kind <> 'create'` on the non-null branch) verbatim
+ *  so the application layer rejects a malformed Submit BEFORE any DB round-trip — pg-tester's own
+ *  property test proves this function and the DB CHECK agree on every generated tuple. */
 export function isValidChangeKindTargetPairing(
-  changeKind: 'create' | 'update',
+  changeKind: GlAccountChangeKind,
   targetAccountId: string | null,
 ): boolean {
   if (changeKind === 'create') return targetAccountId === null;
@@ -132,13 +145,14 @@ export function assertDecisionComplete(
 }
 
 /** True iff `changeKind`/`proposedCode` obey the round-3 fix-4 rule: `code` is immutable
- *  post-creation, so a `change_kind='update'` request must never carry a `proposed_code` — the DB's
- *  own `billing.assert_gl_account_change_approved()` requires `new.code = old.code` on update and
- *  never reads `proposed_code` there, so a `proposed_code` on an update request would otherwise be
- *  silently meaningless rather than rejected up front. Mirrors the DB CHECK
- *  `chk_glc_requests_update_no_code` (migration 0034) verbatim. */
+ *  post-creation, so any non-`create` request — `update`, `deactivate` or `reactivate` (WBS 4.1a
+ *  part 3) — must never carry a `proposed_code`. The DB's own
+ *  `billing.assert_gl_account_change_approved()` requires `new.code = old.code` on update and never
+ *  reads `proposed_code` there, so a `proposed_code` on a non-create request would otherwise be
+ *  silently meaningless rather than rejected up front. Only `changeKind === 'create'` is exempted.
+ *  Mirrors the DB CHECK `chk_glc_requests_update_no_code` (migration 0034) verbatim. */
 export function isProposedCodeOnlyForCreate(
-  changeKind: 'create' | 'update',
+  changeKind: GlAccountChangeKind,
   proposedCode: string | null,
 ): boolean {
   return changeKind === 'create' || proposedCode === null;
@@ -146,13 +160,71 @@ export function isProposedCodeOnlyForCreate(
 
 /** Throws `ProposedCodeOnUpdateError` iff `isProposedCodeOnlyForCreate` is false. */
 export function assertProposedCodeOnlyForCreate(
-  changeKind: 'create' | 'update',
+  changeKind: GlAccountChangeKind,
   proposedCode: string | null,
 ): void {
   if (!isProposedCodeOnlyForCreate(changeKind, proposedCode)) {
     throw new ProposedCodeOnUpdateError(
-      `gl-account-change-request: change_kind='update' must not carry a proposed_code (code is ` +
-        `immutable post-creation).`,
+      `gl-account-change-request: only change_kind='create' may carry a proposed_code ('update', ` +
+        `'deactivate' and 'reactivate' must not — code is immutable post-creation); got ` +
+        `change_kind='${changeKind}'.`,
+    );
+  }
+}
+
+/** The `is_active` value the target account must CURRENTLY hold for each direction-constrained
+ *  change kind (WBS 4.1a part 3): `deactivate` only from active, `reactivate` only from inactive.
+ *  A kind absent from this table (`create`/`update`) is unconstrained by the direction rule. */
+const REQUIRED_CURRENT_IS_ACTIVE: Readonly<Partial<Record<GlAccountChangeKind, boolean>>> = {
+  deactivate: true,
+  reactivate: false,
+};
+
+/** True iff `changeKind` is compatible with the target account's current `is_active` (WBS 4.1a
+ *  part 3): `deactivate` requires `currentIsActive === true`; `reactivate` requires
+ *  `currentIsActive === false`; any other change kind returns `true` (unconstrained). Pure — no I/O,
+ *  no Date; `currentIsActive` is a plain parameter supplied by the caller, never fetched here. The
+ *  DB trigger `billing.assert_gl_account_change_approved()`'s own `old.is_active` check is its
+ *  backstop. */
+export function isValidDeactivateReactivateDirection(
+  changeKind: GlAccountChangeKind,
+  currentIsActive: boolean,
+): boolean {
+  const required = REQUIRED_CURRENT_IS_ACTIVE[changeKind];
+  return required === undefined || required === currentIsActive;
+}
+
+/** Throws `InvalidDeactivateReactivateDirectionError` iff `isValidDeactivateReactivateDirection` is
+ *  false. */
+export function assertValidDeactivateReactivateDirection(
+  changeKind: GlAccountChangeKind,
+  currentIsActive: boolean,
+): void {
+  if (!isValidDeactivateReactivateDirection(changeKind, currentIsActive)) {
+    throw new InvalidDeactivateReactivateDirectionError(
+      `gl-account-change-request: 'deactivate' requires the target account to currently be active ` +
+        `(is_active=true); 'reactivate' requires it to currently be inactive (is_active=false); got ` +
+        `change_kind='${changeKind}' with current is_active=${String(currentIsActive)}.`,
+    );
+  }
+}
+
+/** True iff a `deactivate` of the target account is allowed by the active-children rule (WBS 4.1a
+ *  part 3): an account with at least one active child account cannot be deactivated — its children
+ *  must be deactivated first. Returns `false` iff `hasActiveChild` is true, `true` otherwise. Pure —
+ *  no I/O, no Date; `hasActiveChild` is a plain parameter supplied by the caller, never queried here.
+ *  Domain counterpart of the active-children check in the DB trigger
+ *  `billing.assert_gl_account_change_approved()` (migration 0036), which remains its backstop. */
+export function isDeactivationAllowed(hasActiveChild: boolean): boolean {
+  return !hasActiveChild;
+}
+
+/** Throws `ActiveChildBlocksDeactivationError` iff `isDeactivationAllowed` is false. */
+export function assertDeactivationAllowed(hasActiveChild: boolean): void {
+  if (!isDeactivationAllowed(hasActiveChild)) {
+    throw new ActiveChildBlocksDeactivationError(
+      `gl-account-change-request: 'deactivate' requires the target account to have no active child ` +
+        `account — deactivate the children first.`,
     );
   }
 }

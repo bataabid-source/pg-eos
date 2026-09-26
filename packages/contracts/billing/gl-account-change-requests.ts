@@ -34,9 +34,11 @@ const ACCOUNT_TYPE = z.enum([
   'control_memorandum',
 ]);
 
-// brief §"Schema design": change_kind in ('create','update') this part — deactivate/reactivate are
-// WBS 4.1a part 3.
-const CHANGE_KIND = z.enum(['create', 'update']);
+// change_kind in ('create','update') (WBS 4.1a part 2) widened by WBS 4.1a part 3 to also accept
+// 'deactivate'/'reactivate' — the widened DB CHECK chk_glc_requests_change_kind. No new fields:
+// deactivate/reactivate need no proposed_* column (the direction is implied by changeKind + the
+// target's current is_active).
+const CHANGE_KIND = z.enum(['create', 'update', 'deactivate', 'reactivate']);
 
 export const SubmitGlAccountChangeRequestInputSchema = z
   .object({
@@ -56,9 +58,11 @@ export const SubmitGlAccountChangeRequestInputSchema = z
   .refine(
     (value) =>
       (value.changeKind === 'create' && (value.targetAccountId === null || value.targetAccountId === undefined)) ||
-      (value.changeKind === 'update' && value.targetAccountId !== null && value.targetAccountId !== undefined),
+      (value.changeKind !== 'create' && value.targetAccountId !== null && value.targetAccountId !== undefined),
     {
-      message: "changeKind='create' requires a null targetAccountId; changeKind='update' requires a non-null one",
+      message:
+        "changeKind='create' requires a null targetAccountId; every other changeKind " +
+        "('update', 'deactivate', 'reactivate') requires a non-null one",
       path: ['targetAccountId'],
     },
   )
@@ -79,10 +83,13 @@ export const SubmitGlAccountChangeRequestInputSchema = z
     },
   )
   // Round-3 fix 4 (migration 0034's chk_glc_requests_update_no_code / invariants.ts's
-  // isProposedCodeOnlyForCreate): code is immutable post-creation, so an `update` request must never
-  // carry a proposedCode — rejected here at the API boundary too, not just at the DB.
-  .refine((value) => value.changeKind !== 'update' || value.proposedCode === undefined, {
-    message: "changeKind='update' must not carry a proposedCode (code is immutable post-creation)",
+  // isProposedCodeOnlyForCreate): code is immutable post-creation, so any non-create request
+  // (`update`, and since WBS 4.1a part 3 `deactivate`/`reactivate`) must never carry a proposedCode —
+  // rejected here at the API boundary too, not just at the DB.
+  .refine((value) => value.changeKind === 'create' || value.proposedCode === undefined, {
+    message:
+      "only changeKind='create' may carry a proposedCode ('update', 'deactivate' and 'reactivate' " +
+      'must not — code is immutable post-creation)',
     path: ['proposedCode'],
   })
   .meta({ id: 'SubmitGlAccountChangeRequestInput' });

@@ -36,7 +36,19 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { isValidAccountCode, assertValidAccountType } from '../../domain/chart-of-accounts/invariants.js';
 import { InvalidAccountTypeError } from '../../domain/chart-of-accounts/errors.js';
-import { isValidChangeKindTargetPairing } from '../../domain/gl-account-change-requests/invariants.js';
+import {
+  isValidChangeKindTargetPairing,
+  isValidDeactivateReactivateDirection,
+  isDeactivationAllowed,
+} from '../../domain/gl-account-change-requests/invariants.js';
+
+// WBS 4.1a part 3 (docs/notes/slice-briefs/_slice-4.1a-part3.brief.md): isValidChangeKindTargetPairing
+// widens its changeKind parameter type from 'create' | 'update' to also accept 'deactivate' |
+// 'reactivate' (body unchanged — its else branch already requires a non-null target for anything
+// that isn't 'create'). This file's own dbAcceptsPairing helper below is widened to match, and a NEW
+// property block covers the NEW pure function isValidDeactivateReactivateDirection(changeKind,
+// currentIsActive: boolean): boolean — 'deactivate' requires currentIsActive===true, 'reactivate'
+// requires currentIsActive===false, any other changeKind is unconstrained (always true).
 
 const pool = new Pool({
   host: process.env['PGHOST'] ?? 'localhost',
@@ -62,7 +74,7 @@ function randomDocNo(): string {
 }
 
 async function insertChangeRequest(input: {
-  changeKind: 'create' | 'update';
+  changeKind: 'create' | 'update' | 'deactivate' | 'reactivate';
   targetAccountId: string | null;
   proposedCode: string | null;
   proposedAccountType: string;
@@ -137,7 +149,11 @@ async function dbAcceptsProposedAccountType(accountType: string, uniqueSuffix: n
  *  post-creation), targetAccountId is either `targetAccountId` (an existing, real
  *  billing.gl_accounts row) or null — never a dangling uuid, so a rejection can only come from the
  *  pairing CHECK, never the target_account_id FK or the update-no-code CHECK. */
-async function dbAcceptsPairing(changeKind: 'create' | 'update', useRealTarget: boolean, uniqueSuffix: number): Promise<boolean> {
+async function dbAcceptsPairing(
+  changeKind: 'create' | 'update' | 'deactivate' | 'reactivate',
+  useRealTarget: boolean,
+  uniqueSuffix: number,
+): Promise<boolean> {
   try {
     const result = await insertChangeRequest({
       changeKind,
@@ -261,12 +277,19 @@ describe('proposed_account_type: domain assertValidAccountType agrees with the D
 });
 
 describe('change_kind/target_account_id pairing: domain isValidChangeKindTargetPairing agrees with the DB CHECK', () => {
+  // WBS 4.1a part 3: widened from 2 to all 4 changeKind values — isValidChangeKindTargetPairing's
+  // TS parameter type widens to 'create' | 'update' | 'deactivate' | 'reactivate' (body unchanged).
   const pairingCasesArb = fc.record({
-    changeKind: fc.constantFrom<'create' | 'update'>('create', 'update'),
+    changeKind: fc.constantFrom<'create' | 'update' | 'deactivate' | 'reactivate'>(
+      'create',
+      'update',
+      'deactivate',
+      'reactivate',
+    ),
     useRealTarget: fc.boolean(),
   });
 
-  it('for every (change_kind, target_account_id-or-null) combination, the domain pairing check and the DB CHECK agree', async () => {
+  it('for every (change_kind, target_account_id-or-null) combination across all 4 change_kind values, the domain pairing check and the DB CHECK agree', async () => {
     let uniqueSuffix = 0;
     await fc.assert(
       fc.asyncProperty(pairingCasesArb, async ({ changeKind, useRealTarget }) => {
@@ -275,7 +298,7 @@ describe('change_kind/target_account_id pairing: domain isValidChangeKindTargetP
         const dbAccepts = await dbAcceptsPairing(changeKind, useRealTarget, uniqueSuffix);
         expect(dbAccepts).toBe(domainAccepts);
       }),
-      { numRuns: 20 },
+      { numRuns: 30 },
     );
   });
 
@@ -287,5 +310,79 @@ describe('change_kind/target_account_id pairing: domain isValidChangeKindTargetP
   it('update + a real target_account_id is the only accepted "update" pairing; update + null is rejected', () => {
     expect(isValidChangeKindTargetPairing('update', targetAccountId)).toBe(true);
     expect(isValidChangeKindTargetPairing('update', null)).toBe(false);
+  });
+
+  it('deactivate/reactivate + a real target_account_id is accepted; deactivate/reactivate + null is rejected (WBS 4.1a part 3)', () => {
+    expect(isValidChangeKindTargetPairing('deactivate', targetAccountId)).toBe(true);
+    expect(isValidChangeKindTargetPairing('deactivate', null)).toBe(false);
+    expect(isValidChangeKindTargetPairing('reactivate', targetAccountId)).toBe(true);
+    expect(isValidChangeKindTargetPairing('reactivate', null)).toBe(false);
+  });
+});
+
+// --- WBS 4.1a part 3: isValidDeactivateReactivateDirection(changeKind, currentIsActive) ------------
+// (brief §Domain design — the new pure invariant the future 4.1a part 2b Submit command reuses,
+// pairing with the DB trigger's own old.is_active check as its backstop.)
+
+describe('isValidDeactivateReactivateDirection: pure direction invariant, no DB round-trip needed', () => {
+  it('deactivate requires currentIsActive===true; reactivate requires currentIsActive===false; any other changeKind is unconstrained (always true)', () => {
+    fc.assert(
+      fc.property(
+        fc.constantFrom<'create' | 'update' | 'deactivate' | 'reactivate'>('create', 'update', 'deactivate', 'reactivate'),
+        fc.boolean(),
+        (changeKind, currentIsActive) => {
+          const expected =
+            changeKind === 'deactivate'
+              ? currentIsActive === true
+              : changeKind === 'reactivate'
+                ? currentIsActive === false
+                : true;
+          expect(isValidDeactivateReactivateDirection(changeKind, currentIsActive)).toBe(expected);
+        },
+      ),
+      { numRuns: 50 },
+    );
+  });
+
+  it('create/update are unconstrained by this rule regardless of currentIsActive', () => {
+    fc.assert(
+      fc.property(
+        fc.constantFrom<'create' | 'update'>('create', 'update'),
+        fc.boolean(),
+        (changeKind, currentIsActive) => {
+          expect(isValidDeactivateReactivateDirection(changeKind, currentIsActive)).toBe(true);
+        },
+      ),
+    );
+  });
+
+  it('deactivate + currentIsActive=true is valid; deactivate + currentIsActive=false is invalid', () => {
+    expect(isValidDeactivateReactivateDirection('deactivate', true)).toBe(true);
+    expect(isValidDeactivateReactivateDirection('deactivate', false)).toBe(false);
+  });
+
+  it('reactivate + currentIsActive=false is valid; reactivate + currentIsActive=true is invalid', () => {
+    expect(isValidDeactivateReactivateDirection('reactivate', false)).toBe(true);
+    expect(isValidDeactivateReactivateDirection('reactivate', true)).toBe(false);
+  });
+});
+
+// --- WBS 4.1a part 3, fix round finding 2: isDeactivationAllowed(hasActiveChild) -------------------
+// (domain counterpart of the active-children check in the DB trigger
+// billing.assert_gl_account_change_approved(), migration 0036 — that trigger remains its backstop.)
+
+describe('isDeactivationAllowed: pure active-children invariant, no DB round-trip needed', () => {
+  it('for any boolean hasActiveChild, isDeactivationAllowed(hasActiveChild) === !hasActiveChild', () => {
+    fc.assert(
+      fc.property(fc.boolean(), (hasActiveChild) => {
+        expect(isDeactivationAllowed(hasActiveChild)).toBe(!hasActiveChild);
+      }),
+      { numRuns: 50 },
+    );
+  });
+
+  it('hasActiveChild=false is allowed; hasActiveChild=true is blocked', () => {
+    expect(isDeactivationAllowed(false)).toBe(true);
+    expect(isDeactivationAllowed(true)).toBe(false);
   });
 });
