@@ -99,6 +99,9 @@ importers:
 
   modules/billing:
     dependencies:
+      '@pg-eos/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
       '@pg-eos/db':
         specifier: workspace:*
         version: link:../../packages/db

@@ -101,6 +101,10 @@
     "./hr/calculate-daily-commission": {
       "types": "./dist/hr/calculate-daily-commission.d.ts",
       "default": "./dist/hr/calculate-daily-commission.js"
+    },
+    "./billing/chart-of-accounts": {
+      "types": "./dist/billing/chart-of-accounts.d.ts",
+      "default": "./dist/billing/chart-of-accounts.js"
     }
   },
   "scripts": {
