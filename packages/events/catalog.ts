@@ -75,11 +75,23 @@ export const EVENT_CATALOG = [
   // on lane 1's request.
   'wms.outbound.allocated',
   'wms.outbound.partially_allocated',
+  // WBS 2.12 part 1 (lane 1): pick and self-check of an allocated outbound order — picking_started
+  // on the first PickLine, picked when the last line is picked, checked on CheckOrder (doc 40 l.262
+  // names `wms.outbound.checked`). Aggregate `wms.outbound_orders`. Added by the Master on lane 1's
+  // request (packages/* is frozen).
+  'wms.outbound.picking_started',
+  'wms.outbound.picked',
+  'wms.outbound.checked',
   // WBS 3.1 part 1 (lane 3, module `fleet`, D-184): written once per RegisterVehicle, same transaction
   // as the `tms.vehicles` insert. Aggregate `fleet.vehicles`. The package names no fleet event; the
   // name follows doc 40 l.157 `<module>.<aggregate>.<past_tense>` (a lane publishes its own module's
   // events — CLAUDE.md PARALLEL LANES). Added by the Master on lane 3's request.
   'fleet.vehicle.registered',
+  // WBS 3.12 part 2 (lane 3, Master finding 9): written once per AssignDriverId, same transaction as
+  // the `imile.driver_id_assignments` insert and the `imile.driver_ids` status change. Aggregate
+  // `imile.driver_ids`; name per doc 40 §B3 `<module>.<aggregate>.<past_tense>`. Added by the Master
+  // ahead of the publisher (packages/* is frozen).
+  'imile.driver_id.assigned',
   // WBS 4.2 (lane 2, Master ruling 2026-09-26): written once per billable_events insert by the
   // repository insert function, same transaction as the insert. The row is "generated automatically
   // from domain events — no manual entry (P10)" (01-Data-Model.sql:1047); its writers are 4.3's
