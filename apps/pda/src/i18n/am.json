@@ -17,5 +17,14 @@
   "locale.name.ur": "ኡርዱ",
   "locale.name.bn": "ቤንጋሊኛ",
   "locale.name.am": "አማርኛ",
-  "queue.unsynced": "ያልተመሳሰለ: {count}"
+  "queue.unsynced": "ያልተመሳሰለ: {count}",
+  "login.title": "ግባ",
+  "login.email.label": "ኢሜይል",
+  "login.email.submit": "ኮድ ላክ",
+  "login.code.label": "የማረጋገጫ ኮድ",
+  "login.code.submit": "አረጋግጥ",
+  "login.requestSent": "ኮድ ተልኳል፣ በ{minutes} ደቂቃ ውስጥ ያበቃል",
+  "login.error.invalidCode": "ልክ ያልሆነ ኮድ። ወደ ኢሜይልዎ የተላከውን ኮድ ያስገቡ፣ ወይም አዲስ ኮድ ይጠይቁ።",
+  "login.error.requestFailed": "ኮድ መላክ አልተቻለም፣ እንደገና ይሞክሩ",
+  "login.success": "በተሳካ ሁኔታ ገብተዋል"
 }

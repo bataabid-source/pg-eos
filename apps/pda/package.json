@@ -11,6 +11,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@pg-eos/contracts": "workspace:*",
     "@tanstack/react-router": "^1.170.39",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"

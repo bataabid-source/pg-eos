@@ -17,5 +17,14 @@
   "locale.name.ur": "उर्दू",
   "locale.name.bn": "बंगाली",
   "locale.name.am": "अम्हारी",
-  "queue.unsynced": "अ-सिंक: {count}"
+  "queue.unsynced": "अ-सिंक: {count}",
+  "login.title": "लॉग इन करें",
+  "login.email.label": "ईमेल",
+  "login.email.submit": "कोड भेजें",
+  "login.code.label": "सत्यापन कोड",
+  "login.code.submit": "सत्यापित करें",
+  "login.requestSent": "कोड भेज दिया गया, {minutes} मिनट में समाप्त होगा",
+  "login.error.invalidCode": "अमान्य कोड। अपने ईमेल पर भेजा गया कोड दर्ज करें, या नया कोड मंगाएँ।",
+  "login.error.requestFailed": "कोड नहीं भेजा जा सका, फिर से प्रयास करें",
+  "login.success": "सफलतापूर्वक लॉग इन हो गया"
 }

@@ -10,9 +10,12 @@ import {
   createRoute,
   createRouter as createTanstackRouter,
   redirect,
+  useNavigate,
 } from '@tanstack/react-router';
 
 import { PlaceholderScreen } from './features/placeholder-screen/placeholder-screen';
+import { mockClient } from './features/otp-login/mock-client';
+import { OtpLoginScreen } from './features/otp-login/otp-login-screen';
 import {
   isFullscreenActive,
   registerContextMenuSuppression,
@@ -184,6 +187,32 @@ function makePlaceholderRouteComponent(titleKey: Parameters<typeof PlaceholderSc
   };
 }
 
+// WBS 2.16 part 1a-4 — the OTP login screen, wired with the mock client (no backend transport
+// exists yet, same precedent as decision-inbox/platform). Master decision 1: this route is
+// reachable and functional but does not gate the nine placeholder routes below — no session/shift
+// concept exists yet to gate them with (recorded default, not a G-01).
+function LoginRouteComponent() {
+  const { locale } = useContext(LocaleContext);
+  const navigate = useNavigate();
+  return (
+    <OtpLoginScreen
+      client={mockClient}
+      locale={locale}
+      onLoginSuccess={() => {
+        // Master decision 2: token/expiresAt are never persisted here — the screen already
+        // discarded them once onLoginSuccess returns; only the navigation survives.
+        void navigate({ to: '/home' });
+      }}
+    />
+  );
+}
+
+const loginRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/login',
+  component: LoginRouteComponent,
+});
+
 const homeRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/home',
@@ -240,6 +269,7 @@ const lookupRoute = createRoute({
 
 const routeTree = rootRoute.addChildren([
   indexRoute,
+  loginRoute,
   homeRoute,
   receiveRoute,
   putAwayRoute,
