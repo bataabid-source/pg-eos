@@ -40,7 +40,7 @@
 #        modules/wms/    → modules/<module>/     (import paths)
 #      and rename the files themselves by the same rules.
 #   4. Leave every TODO marker the golden slice carries; pg-tester fills the tests first (RED),
-#      pg-backend then makes them green. The script writes no logic of its own.
+#      the builder named by the brief (pg-builder / pg-builder-core) then makes them green. The script writes no logic of its own.
 #   5. Print the produced file list so it can be pasted into the brief's `Deliver:` line.
 #
 # It never touches database/schema/*, packages/contracts/_shared/*, CLAUDE.md or .claude/*.
@@ -225,4 +225,4 @@ done
 echo "new-slice: replicated ${GOLDEN_MODULE}/${GOLDEN_SLUG} → ${MODULE}/${SLUG}"
 echo "Deliver:"
 for p in $produced; do echo "  $p"; done
-echo "Next: pg-tester writes the RED tests, then pg-backend makes them green. No file was given logic here."
+echo "Next: pg-tester writes the RED tests, then the builder named by the brief makes them green. No file was given logic here."

@@ -46,7 +46,7 @@ inside a wave: the branch carrying a migration first, then the others; each merg
 
 ## Operating protocol
 
-- Lane start: read CLAUDE.md, PROJECT_STATE, the brief — nothing else. Sequence: brief → pre-build review → RED → build → GREEN → close review → scribe → one `feat(<WBS>)` commit → push `lane/<id>/<wbs>` → one report trigger to the Master → exit.
+- Lane start: read CLAUDE.md, PROJECT_STATE, the brief — nothing else. Sequence: brief → pre-build review → RED → build → GREEN → close review → scribe → one `feat(<WBS>)` commit → push `lane/<id>-<wbs>` → one report trigger to the Master → exit.
 - Master per report: rebase → gates → guards → merge → delete branch → launch the stream's next slice. Reports to the GM only on: a scenario green, a stream merged, a REAL BLOCKER.
 - Budget: ≤ 150k tokens per slice (written in the brief); > 2× splits the slice. One `chore(X)`/`docs(X)` per day.
 

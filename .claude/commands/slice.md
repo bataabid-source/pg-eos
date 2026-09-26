@@ -17,11 +17,11 @@ Loop (BOOTSTRAP-v5 §2 — mandatory, in order):
   6. Delegate to **pg-tester** first → RED tests (pg-tester writes test files only). If the slice has a
      migration, the MIGRATION-REQUEST row names the RED test paths pg-tester just wrote — `lane-guard.sh`
      refuses the migration file until they exist.
-  7. Delegate build to pg-backend / pg-frontend (never edits a test; a test defect goes back to pg-tester).
+  7. Delegate build to the agent the brief's `builder:` line names — pg-builder (sonnet) or pg-builder-core (opus, ADR-0005 §5) — (never edits a test; a test defect goes back to pg-tester).
   8. Receive REPORT (§5).           9. **pg-tester** verifies: suite GREEN, no test weakened or edited by the builder.
  10. Review by **pg-reviewer** (opus) — also called BEFORE writing any migration that touches the schema, RLS or the audit chain.
  11. PASS → pg-scribe updates state/backlog/CHANGELOG — including every worker's token estimate from its closing
-     REPORT line (pg-tester, pg-backend, pg-frontend, pg-reviewer; a missing estimate is asked for, never guessed); the Master names the brief and SCR notes pg-scribe `git rm`s (NOTES).
+     REPORT line (pg-tester, pg-builder / pg-builder-core, pg-reviewer; a missing estimate is asked for, never guessed); the Master names the brief and SCR notes pg-scribe `git rm`s (NOTES).
      In the slice's own commit, pg-scribe `git rm`s the slice brief and every SCR note the slice applied in full
      (CLAUDE.md · OPERATING RULES · NOTES); an SCR with an open G-01 item stays.
      After `git rebase origin/main` and before staging, run `node scripts/resolve-hashes.mjs --write`
