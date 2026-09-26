@@ -4,6 +4,13 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — P6b-1: active entity resolution (X-Entity-Id → ctx.entityId), no RLS change (2026-09-26)
+
+- `packages/db/src/entity-scope.ts`: `resolveActiveEntityId` (header valid member → it, lowercased; outside/malformed/empty → 403 `EntityScopeForbiddenError`; absent + exactly one entity → auto; absent + 0 or 2+ → 422 `EntityScopeRequiredError`; lookup always called first), errors carry "Allowed:" text and `identity.entityScope.*` i18n keys; `createUserEntitiesLookup` reads `platform.allowed_entities()` inside `withContext` and refuses any userId ≠ ctx.userId (review round 1 security finding: `identity.user_entities` has no RLS). `WithContextCtx.entityId` optional/additive; `PROBLEM_STATUS.FORBIDDEN = 403`; `fast-check` devDependency for @pg-eos/db property tests.
+- RLS unchanged — narrowing via `app.entity_id` is P6b-2 (SCR-PLAT-CTX-01, migration issued when its RED exists). Module handlers adopt the resolver in each lane's next slice; client-portal callers (no user_entities) skip it when `isInternal = false` (reviewer default).
+- Review: round 1 FAIL(7: case normalisation, lookup bound to another user's scope, production lookup untested, hard-coded DB name, D-183 deletes, "Allowed:" text, lookup-order coverage) → round 2 PASS. @pg-eos/db 49/49 (unit + property + integration as pgeos_app).
+- Model: claude-opus-5-5 (Master) · Delegated: pg-tester, pg-backend (sonnet), pg-reviewer (opus).
+
 ## 2.16 part 1a — PDA PWA shell: routing, kiosk mode, nine-screen skeleton, i18n (pda), DONE-in-part — 1 test-coverage item deferred (2026-09-26)
 
 - **Delivered — first-ever slice of the new `apps/pda` app (same standing as WBS 0.19 was for `apps/admin`).** Nine placeholder-screen routes (home/receive/put-away/pick/check/load/count/transfer-return/lookup, `PlaceholderScreen` shared component, one i18n title key each), kiosk mode (fullscreen-on-click via a one-time "Enter kiosk mode" button, `contextmenu` + text-selection suppression), i18n in all six languages (ar/en/hi/ur/bn/am, RTL default for ar/ur, byte-identical `directionOf()` mechanism to `apps/admin/src/i18n/t.ts`) with a working locale selector in the shell, 18 i18n keys total. Hand-authored following `apps/admin`'s own file shape exactly (no `scripts/new-slice.sh` — that scaffolds a backend use-case tree, not a new frontend app), per the brief's own precedent (`docs/notes/slice-briefs/_slice-2.16.brief.md`, kept — 2.16 part 1a-2/1a-3 continue under the same `pda` lock).

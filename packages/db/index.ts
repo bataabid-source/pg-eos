@@ -18,3 +18,10 @@ export { withContext } from './src/with-context.js';
 export { db } from './src/client.js';
 export type { IdempotencyInput, JsonValue } from './src/idempotency.js';
 export { IdempotencyConflictError, withIdempotentContext } from './src/idempotency.js';
+export type { UserEntitiesLookup } from './src/entity-scope.js';
+export {
+  createUserEntitiesLookup,
+  EntityScopeForbiddenError,
+  EntityScopeRequiredError,
+  resolveActiveEntityId,
+} from './src/entity-scope.js';

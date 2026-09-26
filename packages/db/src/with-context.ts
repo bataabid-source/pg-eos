@@ -31,6 +31,11 @@ export interface WithContextCtx {
   readonly userId: string | null;
   readonly clientId: string | null;
   readonly isInternal: boolean;
+  /** Additive, optional (Master task P6b-1): the active entity resolved by
+   *  `resolveActiveEntityId` (entity-scope.ts). No RLS/GUC behaviour changes in this part — no
+   *  session GUC is set from it here; a caller that writes it into a row's own `entity_id` column
+   *  does so explicitly, as in packages/db/tests/entity-scope-integration.test.ts. */
+  readonly entityId?: string | null;
 }
 
 export async function withContext<T>(
