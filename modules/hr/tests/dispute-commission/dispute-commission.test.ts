@@ -241,15 +241,48 @@ async function getCommissionDailyRow(id: string): Promise<
   return result.rows[0];
 }
 
-async function auditRowsForCorrelation(
-  correlationId: string,
-): Promise<Array<{ table_name: string; record_id: string | null; operation: string }>> {
+async function auditRowsForCorrelation(correlationId: string): Promise<
+  Array<{
+    table_name: string;
+    record_id: string | null;
+    operation: string;
+    old_value: unknown;
+    new_value: unknown;
+    changed_fields: readonly string[] | null;
+  }>
+> {
   const result = await pool.query(
-    `select table_name, record_id::text as record_id, operation
+    `select table_name, record_id::text as record_id, operation, old_value, new_value, changed_fields
        from platform.audit_log where correlation_id = $1 and schema_name = 'hr' order by occurred_at`,
     [correlationId],
   );
   return result.rows;
+}
+
+// WBS 3.13 part 5b, finding 2 (deferred from part 4's slice-close review round 2): the SAME real
+// synchronization barrier modules/imile/tests/pull-shipments/pull-shipments.test.ts's own race test
+// uses — a shared arrival counter and a promise that resolves only once BOTH concurrent calls have
+// reached it (fired via `deps.onBeforeUpdate`, after the SELECT and before the optimistic-lock
+// UPDATE), so neither call's UPDATE can start until both calls' own SELECT has already completed —
+// copied into this file, not imported cross-module (same convention as every other sibling suite).
+const RACE_BARRIER_ARRIVALS_EXPECTED = 2;
+const RACE_BARRIER_SAFETY_TIMEOUT_MS = 5_000;
+
+function createArrivalBarrier(expectedArrivals: number, safetyTimeoutMs: number): () => Promise<void> {
+  let arrivals = 0;
+  let release: () => void = () => undefined;
+  const everyoneArrived = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const safety = setTimeout(release, safetyTimeoutMs);
+  return async (): Promise<void> => {
+    arrivals += 1;
+    if (arrivals >= expectedArrivals) {
+      clearTimeout(safety);
+      release();
+    }
+    await everyoneArrived;
+  };
 }
 
 /** read live, never hardcoded (CLAUDE.md "No magic numbers") — this is the same
@@ -397,6 +430,24 @@ describe('Scenario: A driver disputes their own calculated commission within the
     expect(commissionAudit).toHaveLength(1);
     expect(commissionAudit[0]?.operation).toBe('update');
     expect(commissionAudit[0]?.record_id).toBe(commissionDailyId);
+
+    // WBS 3.13 part 5b, finding 3 (deferred from part 4's slice-close review round 2): the audit
+    // row's own old_value/new_value/changed_fields content, not just its existence — matching
+    // exactly the shape dispute-commission.ts's own writeAuditRow call builds (step 5).
+    expect(commissionAudit[0]?.old_value).toEqual({
+      status: 'calculated',
+      disputeNote: null,
+      disputedAt: null,
+    });
+    // clock is a module-level FixedClock at NOW, never advanced by this scenario (file header — a
+    // clock literal safely in the past) — deps.clock.now() inside disputeCommission's own step 1
+    // therefore reads back exactly NOW, the real occurredAt this call wrote to disputed_at.
+    expect(commissionAudit[0]?.new_value).toEqual({
+      status: 'disputed',
+      disputeNote,
+      disputedAt: NOW.toISOString(),
+    });
+    expect(commissionAudit[0]?.changed_fields).toEqual(['status', 'dispute_note', 'disputed_at']);
   });
 });
 
@@ -479,10 +530,12 @@ describe(
 
 describe('round-5 fix round, finding 6: StaleVersionError — optimistic-lock conflict on disputeCommission', () => {
   it(
-    'two concurrent disputeCommission calls against the SAME row: exactly one succeeds ' +
-      '(version 1 -> 2), the other rejects with StaleVersionError, no silent overwrite — same ' +
-      "race technique as modules/imile/tests/pull-shipments/pull-shipments.test.ts's own " +
-      "StaleVersionError test",
+    'two concurrent disputeCommission calls against the SAME row, synchronized on a REAL arrival ' +
+      'barrier (WBS 3.13 part 5b, finding 2 — deps.onBeforeUpdate fires after each call\'s own ' +
+      'SELECT and before its own optimistic-lock UPDATE, so neither UPDATE can start until BOTH ' +
+      "SELECTs have completed): exactly one succeeds (version 1 -> 2), the other rejects with " +
+      'StaleVersionError, no silent overwrite — same barrier technique as ' +
+      "modules/imile/tests/pull-shipments/pull-shipments.test.ts's own StaleVersionError test",
     async () => {
       const employeeId = await createFixtureEmployee('stale-version-race');
       await setDisputingEmployee(employeeId);
@@ -493,8 +546,11 @@ describe('round-5 fix round, finding 6: StaleVersionError — optimistic-lock co
       });
 
       const ctx = { userId: DRIVER_ACTOR_UUID, clientId: null, isInternal: true };
-      const depsA = createDisputeCommissionDeps({ clock, ids });
-      const depsB = createDisputeCommissionDeps({ clock, ids });
+      // ONE barrier instance shared by both concurrent calls' own deps — a genuine
+      // SELECT/SELECT-then-UPDATE/UPDATE interleaving, not timing luck.
+      const barrier = createArrivalBarrier(RACE_BARRIER_ARRIVALS_EXPECTED, RACE_BARRIER_SAFETY_TIMEOUT_MS);
+      const depsA = createDisputeCommissionDeps({ clock, ids, onBeforeUpdate: barrier });
+      const depsB = createDisputeCommissionDeps({ clock, ids, onBeforeUpdate: barrier });
 
       const results = await Promise.allSettled([
         disputeCommission(

@@ -118,4 +118,7 @@ export interface CommissionDailyRepository {
 export interface DisputeCommissionDeps extends ClockDeps {
   readonly repo: CommissionDailyRepository;
   readonly logger: Logger;
+  /** test-only seam, undefined in production, fires after the SELECT and before the
+   *  optimistic-lock UPDATE. */
+  readonly onBeforeUpdate?: (() => Promise<void>) | undefined;
 }
