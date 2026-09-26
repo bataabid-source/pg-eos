@@ -99,6 +99,12 @@ export async function disputeCommission(
       );
     }
 
+    // Test-only seam (undefined in production): fires after the SELECT/checks above and before
+    // the optimistic-lock UPDATE — same placement as pull-shipments.ts's own `onBeforeUpdate`.
+    if (deps.onBeforeUpdate) {
+      await deps.onBeforeUpdate();
+    }
+
     // Step 4 — optimistic-lock UPDATE.
     const updated = await deps.repo.updateToDisputed(tx, {
       id: row.id,

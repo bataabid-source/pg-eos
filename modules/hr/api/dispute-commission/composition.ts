@@ -16,11 +16,13 @@ export function createDisputeCommissionDeps(clockDeps: {
   readonly clock: Clock;
   readonly ids: IdGenerator;
   readonly logger?: Logger;
+  readonly onBeforeUpdate?: (() => Promise<void>) | undefined;
 }): DisputeCommissionDeps {
   return {
     clock: clockDeps.clock,
     ids: clockDeps.ids,
     repo: commissionDailyRepository,
     logger: clockDeps.logger ?? disputeCommissionPinoLogger,
+    onBeforeUpdate: clockDeps.onBeforeUpdate,
   };
 }
