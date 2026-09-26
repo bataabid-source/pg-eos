@@ -22,6 +22,7 @@ import { randomBytes } from 'node:crypto';
 
 import { withContext } from '@pg-eos/db';
 import { sql } from 'drizzle-orm';
+import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 
 import { INTERNAL_NO_ACTOR_CTX } from './context.js';
 import { keyedHash } from './hmac.js';
@@ -87,6 +88,54 @@ function generateToken(): string {
  * already defines for "this account may not be used", and the FK on identity.sessions.user_id
  * already forces the row to exist; only its active state was going unread.
  *
+ * P6c: runs on the CALLER's already-open transaction and opens no connection of its own, so a
+ * caller already holding a pool client (withIdempotentContext) cannot deadlock a bounded pool.
+ * `tx` is typed exactly as getThreshold's (thresholds.ts).
+ *
+ * @throws UnknownOrInactiveUserError when no identity.users row with `is_active` matches
+ *         `userId` — this call writes nothing; the caller's transaction decides what rolls back.
+ * @throws Error when platform.thresholds has no row for SESSION_LIFETIME_MINUTES_KEY.
+ */
+export async function issueSessionInTx(
+  tx: NodePgDatabase,
+  userId: string,
+  opts: SessionClockOptions = {},
+): Promise<IssuedSession> {
+  const now = opts.now ?? defaultClock;
+
+  const users = await tx.execute<{ id: string }>(
+    sql`select id from identity.users where id = ${userId}::uuid and is_active`,
+  );
+  if (!users.rows[0]) {
+    throw UnknownOrInactiveUserError.forUserId(userId);
+  }
+
+  const lifetimeMinutes = await getThreshold(tx, SESSION_LIFETIME_MINUTES_KEY);
+  const issuedAt = now();
+  const expiresAt = minutesAfter(issuedAt, lifetimeMinutes);
+  const token = generateToken();
+
+  const inserted = await tx.execute<{ id: string }>(sql`
+    insert into identity.sessions (user_id, token_hash, issued_at, expires_at)
+    values (
+      ${userId}::uuid,
+      ${keyedHash(token)},
+      ${issuedAt.toISOString()}::timestamptz,
+      ${expiresAt.toISOString()}::timestamptz
+    )
+    returning id
+  `);
+  const row = inserted.rows[0];
+  if (!row) {
+    throw new Error('issueSession: insert into identity.sessions returned no row');
+  }
+
+  return { sessionId: row.id, userId, token, issuedAt, expiresAt };
+}
+
+/**
+ * issueSessionInTx in its own withContext transaction — one implementation, same behaviour.
+ *
  * @throws UnknownOrInactiveUserError when no identity.users row with `is_active` matches
  *         `userId` — nothing is written (the withContext transaction rolls back).
  * @throws Error when platform.thresholds has no row for SESSION_LIFETIME_MINUTES_KEY.
@@ -95,38 +144,7 @@ export async function issueSession(
   userId: string,
   opts: SessionClockOptions = {},
 ): Promise<IssuedSession> {
-  const now = opts.now ?? defaultClock;
-
-  return withContext(INTERNAL_NO_ACTOR_CTX, async (tx) => {
-    const users = await tx.execute<{ id: string }>(
-      sql`select id from identity.users where id = ${userId}::uuid and is_active`,
-    );
-    if (!users.rows[0]) {
-      throw UnknownOrInactiveUserError.forUserId(userId);
-    }
-
-    const lifetimeMinutes = await getThreshold(tx, SESSION_LIFETIME_MINUTES_KEY);
-    const issuedAt = now();
-    const expiresAt = minutesAfter(issuedAt, lifetimeMinutes);
-    const token = generateToken();
-
-    const inserted = await tx.execute<{ id: string }>(sql`
-      insert into identity.sessions (user_id, token_hash, issued_at, expires_at)
-      values (
-        ${userId}::uuid,
-        ${keyedHash(token)},
-        ${issuedAt.toISOString()}::timestamptz,
-        ${expiresAt.toISOString()}::timestamptz
-      )
-      returning id
-    `);
-    const row = inserted.rows[0];
-    if (!row) {
-      throw new Error('issueSession: insert into identity.sessions returned no row');
-    }
-
-    return { sessionId: row.id, userId, token, issuedAt, expiresAt };
-  });
+  return withContext(INTERNAL_NO_ACTOR_CTX, async (tx) => issueSessionInTx(tx, userId, opts));
 }
 
 /**

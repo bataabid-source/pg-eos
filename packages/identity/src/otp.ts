@@ -25,6 +25,7 @@ import { randomInt } from 'node:crypto';
 
 import { withContext } from '@pg-eos/db';
 import { sql } from 'drizzle-orm';
+import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 
 import { INTERNAL_NO_ACTOR_CTX } from './context.js';
 import { hashesEqual, keyedHash } from './hmac.js';
@@ -101,7 +102,60 @@ function generateCode(): string {
 }
 
 /**
- * Issues one OTP for an existing, active user's email.
+ * The identity.users.id of the ACTIVE user with this email, or null — read on the caller's
+ * transaction. Unknown and inactive (`is_active = false`) are deliberately the same `null`.
+ */
+async function activeUserIdByEmailInTx(tx: NodePgDatabase, email: string): Promise<string | null> {
+  const users = await tx.execute<{ id: string }>(
+    sql`select id from identity.users where email = ${email} and is_active`,
+  );
+  return users.rows[0]?.id ?? null;
+}
+
+/**
+ * Issues one OTP for an existing, active user's email, on the CALLER's already-open transaction
+ * (P6c). Opens no connection of its own: a caller already holding a pool client (e.g.
+ * withIdempotentContext in the login endpoint) must not acquire a second one, or a bounded pool
+ * deadlocks under concurrency. `tx` is typed exactly as getThreshold's (thresholds.ts). The
+ * caller's context must satisfy the identity tables' `internal_only` RLS policy.
+ *
+ * @throws UnknownOrInactiveUserError when no active identity.users row matches `email` — this call
+ *         writes nothing; the caller's transaction decides what rolls back.
+ * @throws Error when platform.thresholds has no row for OTP_EXPIRY_MINUTES_KEY (thresholds.ts).
+ */
+export async function generateOtpInTx(
+  tx: NodePgDatabase,
+  email: string,
+  opts: OtpClockOptions = {},
+): Promise<GeneratedOtp> {
+  const now = opts.now ?? defaultClock;
+
+  const userId = await activeUserIdByEmailInTx(tx, email);
+  if (userId === null) {
+    throw UnknownOrInactiveUserError.forEmail(email);
+  }
+
+  const expiryMinutes = await getThreshold(tx, OTP_EXPIRY_MINUTES_KEY);
+  const issuedAt = now();
+  const expiresAt = minutesAfter(issuedAt, expiryMinutes);
+  const code = generateCode();
+
+  const inserted = await tx.execute<{ id: string }>(sql`
+    insert into identity.otp_codes (email, code_hash, expires_at)
+    values (${email}, ${keyedHash(code)}, ${expiresAt.toISOString()}::timestamptz)
+    returning id
+  `);
+  const otpRow = inserted.rows[0];
+  if (!otpRow) {
+    throw new Error('generateOtp: insert into identity.otp_codes returned no row');
+  }
+
+  return { otpId: otpRow.id, userId, email, code, expiresAt };
+}
+
+/**
+ * Issues one OTP for an existing, active user's email, in its own withContext transaction.
+ * Delegates to generateOtpInTx — one implementation.
  *
  * @throws UnknownOrInactiveUserError when no active identity.users row matches `email` — nothing
  *         is written in that case (the withContext transaction rolls back).
@@ -111,38 +165,12 @@ export async function generateOtp(
   email: string,
   opts: OtpClockOptions = {},
 ): Promise<GeneratedOtp> {
-  const now = opts.now ?? defaultClock;
-
-  return withContext(INTERNAL_NO_ACTOR_CTX, async (tx) => {
-    const users = await tx.execute<{ id: string }>(
-      sql`select id from identity.users where email = ${email} and is_active`,
-    );
-    const user = users.rows[0];
-    if (!user) {
-      throw UnknownOrInactiveUserError.forEmail(email);
-    }
-
-    const expiryMinutes = await getThreshold(tx, OTP_EXPIRY_MINUTES_KEY);
-    const issuedAt = now();
-    const expiresAt = minutesAfter(issuedAt, expiryMinutes);
-    const code = generateCode();
-
-    const inserted = await tx.execute<{ id: string }>(sql`
-      insert into identity.otp_codes (email, code_hash, expires_at)
-      values (${email}, ${keyedHash(code)}, ${expiresAt.toISOString()}::timestamptz)
-      returning id
-    `);
-    const otpRow = inserted.rows[0];
-    if (!otpRow) {
-      throw new Error('generateOtp: insert into identity.otp_codes returned no row');
-    }
-
-    return { otpId: otpRow.id, userId: user.id, email, code, expiresAt };
-  });
+  return withContext(INTERNAL_NO_ACTOR_CTX, async (tx) => generateOtpInTx(tx, email, opts));
 }
 
 /**
- * Verifies a code against EVERY live OTP outstanding for that email.
+ * Verifies a code against EVERY live OTP outstanding for that email, on the CALLER's
+ * already-open transaction (P6c) — opens no connection of its own; see generateOtpInTx.
  *
  * Decision order, and why:
  *   1. no live candidate row        → invalid. A live candidate is a row that is unconsumed AND
@@ -197,7 +225,8 @@ export async function generateOtp(
  * and inventing one here is what CLAUDE.md · AGENT CONSTRAINTS forbids; it is flagged to the
  * Master for the task that builds the login endpoint, which is where such a policy belongs.
  */
-export async function verifyOtp(
+export async function verifyOtpInTx(
+  tx: NodePgDatabase,
   email: string,
   code: string,
   opts: OtpClockOptions = {},
@@ -205,61 +234,96 @@ export async function verifyOtp(
   const now = opts.now ?? defaultClock;
   const at = now();
 
-  return withContext(INTERNAL_NO_ACTOR_CTX, async (tx) => {
-    const candidates = await tx.execute<{
-      id: string;
-      code_hash: string;
-      user_id: string;
-      is_active: boolean;
-    }>(sql`
-      select o.id,
-             o.code_hash,
-             u.id as user_id,
-             u.is_active
-        from identity.otp_codes o
-        join identity.users u on u.email = o.email
-       where o.email = ${email}
-         and o.consumed_at is null
-         and o.expires_at >= ${at.toISOString()}::timestamptz
-       order by o.id
-         for update of o
-    `);
+  const candidates = await tx.execute<{
+    id: string;
+    code_hash: string;
+    user_id: string;
+    is_active: boolean;
+  }>(sql`
+    select o.id,
+           o.code_hash,
+           u.id as user_id,
+           u.is_active
+      from identity.otp_codes o
+      join identity.users u on u.email = o.email
+     where o.email = ${email}
+       and o.consumed_at is null
+       and o.expires_at >= ${at.toISOString()}::timestamptz
+     order by o.id
+       for update of o
+  `);
 
-    const liveRows = candidates.rows;
-    if (liveRows.length === 0) {
-      return { valid: false };
-    }
+  const liveRows = candidates.rows;
+  if (liveRows.length === 0) {
+    return { valid: false };
+  }
 
-    if (liveRows.some((row) => !row.is_active)) {
-      return { valid: false };
-    }
+  if (liveRows.some((row) => !row.is_active)) {
+    return { valid: false };
+  }
 
-    const presented = keyedHash(code);
-    const matched = liveRows.find((row) => hashesEqual(row.code_hash, presented));
+  const presented = keyedHash(code);
+  const matched = liveRows.find((row) => hashesEqual(row.code_hash, presented));
 
-    if (!matched) {
-      // Each live id is bound as its own parameter (sql.join), not as one array parameter:
-      // drizzle's sql template unwraps a JS array value into its elements rather than handing
-      // node-postgres an array to serialise, so `= any($1::uuid[])` receives a bare uuid and
-      // Postgres rejects it as a malformed array literal.
-      const liveIds = sql.join(
-        liveRows.map((row) => sql`${row.id}::uuid`),
-        sql`, `,
-      );
-      await tx.execute(sql`
-        update identity.otp_codes
-           set attempts = attempts + 1
-         where id in (${liveIds})
-      `);
-      return { valid: false };
-    }
-
+  if (!matched) {
+    // Each live id is bound as its own parameter (sql.join), not as one array parameter:
+    // drizzle's sql template unwraps a JS array value into its elements rather than handing
+    // node-postgres an array to serialise, so `= any($1::uuid[])` receives a bare uuid and
+    // Postgres rejects it as a malformed array literal.
+    const liveIds = sql.join(
+      liveRows.map((row) => sql`${row.id}::uuid`),
+      sql`, `,
+    );
     await tx.execute(sql`
       update identity.otp_codes
-         set consumed_at = ${at.toISOString()}::timestamptz
-       where id = ${matched.id}
+         set attempts = attempts + 1
+       where id in (${liveIds})
     `);
+    return { valid: false };
+  }
 
-    return { valid: true, userId: matched.user_id, otpId: matched.id };
-  });
+  await tx.execute(sql`
+    update identity.otp_codes
+       set consumed_at = ${at.toISOString()}::timestamptz
+     where id = ${matched.id}
+  `);
+
+  return { valid: true, userId: matched.user_id, otpId: matched.id };
+}
+
+/**
+ * verifyOtpInTx in its own withContext transaction — one implementation, same behaviour. The
+ * injected clock is still read once, before the transaction opens, exactly as before P6c.
+ */
+export async function verifyOtp(
+  email: string,
+  code: string,
+  opts: OtpClockOptions = {},
+): Promise<OtpVerification> {
+  const at = (opts.now ?? defaultClock)();
+  return withContext(INTERNAL_NO_ACTOR_CTX, async (tx) =>
+    verifyOtpInTx(tx, email, code, { now: () => at }),
+  );
+}
+
+/**
+ * Pre-authentication user lookup (P6c — the login endpoint's user-directory read): the id of the
+ * ACTIVE identity.users row with this email, or null. Unknown and inactive (`is_active = false`)
+ * return the SAME null, so a caller cannot tell them apart. Runs under this package's own internal
+ * context and takes no ctx parameter, so that context never leaves the package (context.ts
+ * header); it returns only the id.
+ */
+export async function findActiveUserIdByEmail(email: string): Promise<string | null> {
+  return withContext(INTERNAL_NO_ACTOR_CTX, async (tx) => activeUserIdByEmailInTx(tx, email));
+}
+
+/**
+ * Pre-authentication read of the live platform.thresholds OTP lifetime, in minutes (P6c — the
+ * login endpoint's OTP-expiry read). Runs under this package's own internal context; no ctx
+ * parameter; returns only the number.
+ *
+ * @throws Error when platform.thresholds has no row for OTP_EXPIRY_MINUTES_KEY (thresholds.ts).
+ */
+export async function otpExpiryMinutes(): Promise<number> {
+  return withContext(INTERNAL_NO_ACTOR_CTX, async (tx) => getThreshold(tx, OTP_EXPIRY_MINUTES_KEY));
 }
