@@ -105,6 +105,10 @@
     "./billing/chart-of-accounts": {
       "types": "./dist/billing/chart-of-accounts.d.ts",
       "default": "./dist/billing/chart-of-accounts.js"
+    },
+    "./billing/dimensions": {
+      "types": "./dist/billing/dimensions.d.ts",
+      "default": "./dist/billing/dimensions.js"
     }
   },
   "scripts": {
