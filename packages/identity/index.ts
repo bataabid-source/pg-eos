@@ -21,6 +21,14 @@
 // RLS context, can forge a stored token_hash or run a query under a context nobody chose. Same
 // reasoning as WBS 0.11's `pool` and WBS 0.12's `clearSubscribers`, which are likewise absent from
 // their barrels.
+//
+// P6c: the pre-authentication login path is exported ONLY as the two flows in src/login.ts
+// (requestLoginOtp / verifyLoginOtp), which run under the package's own internal context in
+// sequential transactions. The *InTx variants stay package-internal: they need an internal `tx`,
+// and exporting them would force a caller to forge `isInternal`.
+
+export type { LoginOtpRequestResult, LoginOtpVerification } from './src/login.js';
+export { requestLoginOtp, verifyLoginOtp } from './src/login.js';
 
 export type { GeneratedOtp, OtpClockOptions, OtpVerification } from './src/otp.js';
 export {

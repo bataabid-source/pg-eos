@@ -40,20 +40,16 @@
 // code does read, carries the getThreshold happy-path assertion instead. If a lockout rule is ever
 // added to the docs, the task that adds it seeds its own key.
 //
-// CONCURRENCY — KNOWN, ACCEPTED, NARROW FLAKE (not an oversight). platform.thresholds is keyed by
-// `key`, and the implementation reads a FIXED key, so — unlike every other fixture in this suite —
-// this row cannot be randomUUID()-suffixed per run. It is the ONLY shared-key fixture in the whole
-// WBS 0.17 suite (the other is `identity.session.lifetime_minutes` in session.test.ts). The suite
-// inserts with `on conflict (key) do nothing`, records what it actually inserted, and in afterAll
-// deletes only a row that is still BOTH the key this run inserted AND the value this run wrote —
-// so it can never remove a row another run (or a future production seed) has since replaced.
-// What that does NOT close: if run A inserts the row and finishes while run B — whose insert was a
-// no-op and which therefore deletes nothing — is still mid-test, A's delete removes a row B is
-// relying on, and B fails with "threshold fixture missing at assert time". That window is real, it
-// is accepted for this mechanism-only slice, and the fix is not more fixture machinery here: it is
-// the Master's follow-up landing real production seed rows for these keys, after which
-// `on conflict do nothing` is always a no-op, nothing is ever deleted, and the window is gone. Do
-// not re-architect fixture isolation to work around it; re-run the suite if it is hit.
+// CONCURRENCY — SEED-ONLY, NEVER DELETE (P6c round 1 fix; supersedes an earlier version of this
+// comment). platform.thresholds is keyed by `key`, and the implementation reads a FIXED key, so —
+// unlike every other fixture in this suite — this row cannot be randomUUID()-suffixed per run. It
+// used to be deleted in afterAll (guarded by "still this run's key AND value"), but that guard
+// only protects against a DIFFERENT value winning the row; it does nothing against a concurrent
+// file that depends on the SAME value this run wrote, which is exactly what
+// tests/login-flows.test.ts and tests/deadlock-regression.test.ts now do with this same key. This
+// file therefore only ever inserts with `on conflict (key) do nothing` and never deletes — the
+// same bystander discipline tests/tx-injectable.test.ts's header already documents. The row is
+// removed only by the Master's eventual production seed replacing the whole mechanism.
 
 import { randomUUID } from 'node:crypto';
 
@@ -122,22 +118,16 @@ const pool = new Pool({
   max: 10,
 });
 
-/** Key AND value of each threshold row THIS run actually inserted — see the concurrency note in
- *  the header: afterAll deletes only a row that still matches both. */
-const thresholdRowsSeededByThisRun: { key: string; value: string }[] = [];
 const fixtureEmails: string[] = [];
 
 async function seedThresholdFixtures(): Promise<void> {
   for (const fixture of THRESHOLD_FIXTURES) {
-    const inserted = await pool.query(
+    await pool.query(
       `insert into platform.thresholds (key, value, unit, description_ar, changed_by)
        values ($1, $2, $3, $4, $5)
        on conflict (key) do nothing`,
       [fixture.key, fixture.value, fixture.unit, fixture.descriptionAr, randomUUID()],
     );
-    if (inserted.rowCount === 1) {
-      thresholdRowsSeededByThisRun.push({ key: fixture.key, value: fixture.value });
-    }
   }
 }
 
@@ -229,15 +219,15 @@ afterAll(async () => {
     ]);
     await pool.query('delete from identity.users where email = any($1::text[])', [fixtureEmails]);
   }
-  for (const seeded of thresholdRowsSeededByThisRun) {
-    // `and value = …` is the narrowing guard: if anything else — a concurrent run, or the
-    // Master's eventual production seed — has replaced this row's value since this run inserted
-    // it, the row is no longer this run's to remove and the delete matches nothing.
-    await pool.query('delete from platform.thresholds where key = $1 and value = $2::numeric', [
-      seeded.key,
-      seeded.value,
-    ]);
-  }
+  // SEED-ONLY, NEVER DELETE (P6c round 1 fix — this key is no longer this file's alone to
+  // delete: packages/identity/tests/login-flows.test.ts and deadlock-regression.test.ts now seed
+  // the SAME shared, non-randomUUID()-suffixed key and depend on the row surviving for their own
+  // whole run. The narrowing "and value = …" guard this block used to carry only protected
+  // against a DIFFERENT value winning the row — it did nothing against a concurrent file relying
+  // on the SAME value this run wrote, which is exactly what login-flows.test.ts's identical `'7'`
+  // fixture does, and deleting the row out from under it was the round-1 order-dependent failure.
+  // tx-injectable.test.ts's header documents the same reasoning for why IT never deletes; this
+  // file now joins it as a bystander instead of an owner.
   await pool.end();
 });
 

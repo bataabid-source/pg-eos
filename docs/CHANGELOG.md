@@ -4,6 +4,16 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — P6c part 2: identity login flows (requestLoginOtp / verifyLoginOtp) (2026-09-26)
+
+- Delivered `packages/identity/src/login.ts`: `requestLoginOtp(email, idem, opts?) → {expiresInMinutes, code: string|null}` and `verifyLoginOtp(email, code, idem, opts?) → {valid:false} | {valid:true, userId, sessionId, token: string|null, issuedAt, expiresAt}`, built on the P6c part 1 InTx primitives (`69899c5`). Anti-enumeration: an identical response shape on every path — `IdempotencyConflictError` and `UnknownOrInactiveUserError` are absorbed into the generic result, and the persisted `response_body` is `{issued:true}`. The barrel exports only the two flows plus their types.
+- Tests: `login-flows.test.ts` and `deadlock-regression.test.ts` (new); `otp.test.ts`/`session.test.ts` no longer delete the shared threshold rows (the test-isolation fix carried from P6c part 1's round-2 finding).
+- Identity 58/58 ×6 runs (pg-tester) and ×3 (pg-reviewer, including shuffle). Guards G1–G14 and G18 green.
+- Review: pg-reviewer (opus) — PASS(0 findings, 1 round).
+- Residuals (open, not built here): (a) known-email timing (one extra write transaction) — mitigate at the endpoint, lane 1's `2.16 part 1a-3`; (b) test rows `'7'`/`'43'` stay in the shared DBs' `platform.thresholds` — the real seed for these keys must overwrite (upsert), not do-nothing; (c) endpoint contract note — never echo `code`/`userId`/`sessionId`, and a replay's `token:null` is not a login success.
+- Unblocks lane 1 `2.16 part 1a-3`.
+- Model: opus (Master) · pg-tester sonnet, pg-reviewer opus · Delegated: pg-tester, pg-reviewer, pg-scribe · Review: PASS(0 findings, 1 round) · Tokens (approx): tester 88k, reviewer 20k.
+
 ## 3.13 part 5b — dispute-side race-test barrier + audit-content assertions (hr), DONE — confirm side deferred as part 5c (2026-09-26)
 
 - **Delivered:** closes items (2) and (3) of the two findings 3.13 part 4's slice-close review left open after part 5a closed item (1) (the DB backstop) — DISPUTE SIDE ONLY; the confirm-commission side (same two findings) is `3.13 part 5c`, not built in this commit. `modules/hr/application/dispute-commission/ports.ts`: new optional `onBeforeUpdate?: (() => Promise<void>) | undefined` field on `DisputeCommissionDeps`, a test-only seam undefined in production. `modules/hr/application/dispute-commission/dispute-commission.ts`: the seam is called after the row read + SoD (`isOwnRow`) + window checks, before the optimistic-lock UPDATE — production behavior unchanged. `modules/hr/api/dispute-commission/composition.ts`: threads the same optional field through `createDisputeCommissionDeps`.
