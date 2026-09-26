@@ -4,6 +4,13 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — CLAUDE.md v2 + agent consolidation (ADR-0005 §5–§6, enablement item 7) (2026-09-26)
+
+- **CLAUDE.md v2:** 48 lines (was 144), rules only, each with the hook/lint/gate that enforces it; the previous text is frozen verbatim in `docs/GOVERNANCE-HISTORY.md`. Verified: no script or hook parses CLAUDE.md's content (all 16 references are messages).
+- **Agents 6 → 5:** `pg-backend` + `pg-frontend` merged into `pg-builder` (sonnet; the UI rules are a section of the same file), `pg-backend-core` renamed `pg-builder-core` (opus). `brief-check.sh` accepts `builder: pg-builder | pg-builder-core` only (+ combos); the retired names are refused — 2 new hook-suite cases (117/117). `slice.md`, `new-slice.sh`, `docs/MODEL_ROUTING.md`, the brief template and the active `_slice-2.16` brief updated. `check-setup.sh` is READY again (it expected 5 agents since D-191 added a sixth).
+- **DEFAULT/RECORD/PROCEED:** `pg-scribe` stays as an agent until `scripts/scribe.mjs` exists (ADR-0005 §5 names the script; building it is the next enablement task, not this commit). Lane branch naming stays `lane/<id>-<wbs>` (the existing convention; ADR/STREAMS text aligned).
+- Model: Master session · Delegated: none · Review: n/a (governance text + hook cases, verified by the hook suite) · tokens: ~35k.
+
 ## X — ADR-0005: scenario-driven streams, one Master, four agents, tool-enforced governance (2026-09-26)
 
 - **GM directive (verbatim):** "نعم اعتمد نفذ" — D-192, approving items 11.1–11.5 of the final plan. ADR-0005 (`docs/adr/`) records the decision; `docs/STREAMS.md` is the build order (streams A–F, waves 1–7, enablement week, operating protocol, targets, timeline) and replaces phase × module sequencing.

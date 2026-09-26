@@ -133,7 +133,7 @@ echo "brief-check.sh"
 FX="$TMP/fx"; mkdir -p "$FX/modules/m/domain/uc" "$FX/docs"
 for i in $(seq 1 14); do seq 1 100 > "$FX/modules/m/domain/uc/f$i.ts"; done
 seq 1 3000 > "$FX/docs/big.md"
-bc() { printf 'builder: pg-backend
+bc() { printf 'builder: pg-builder
 %b' "$1" > "$TMP/brief.md"; bash "$REPO/scripts/brief-check.sh" "$TMP/brief.md" --root "$FX" >/dev/null 2>&1; echo $?; }
 bcn() { printf '%b' "$1" > "$TMP/brief.md"; bash "$REPO/scripts/brief-check.sh" "$TMP/brief.md" --root "$FX" >/dev/null 2>&1; echo $?; }
 expect "routing v2: no builder line refused"            1 "$(bcn 'Read ONLY:
@@ -143,11 +143,19 @@ expect "routing v2: unknown builder refused"            1 "$(bcn 'builder: pg-wi
 Read ONLY:
 - `modules/m/domain/uc/f1.ts`
 Write ONLY: x')"
-expect "routing v2: pg-backend-core accepted"           0 "$(bcn 'builder: pg-backend-core
+expect "ADR-0005: pg-builder-core accepted"             0 "$(bcn 'builder: pg-builder-core
 Read ONLY:
 - `modules/m/domain/uc/f1.ts`
 Write ONLY: x')"
-expect "routing v2: core + frontend accepted"           0 "$(bcn 'builder: pg-backend-core + pg-frontend
+expect "ADR-0005: core + builder accepted"              0 "$(bcn 'builder: pg-builder-core + pg-builder
+Read ONLY:
+- `modules/m/domain/uc/f1.ts`
+Write ONLY: x')"
+expect "ADR-0005: retired pg-backend refused"           1 "$(bcn 'builder: pg-backend
+Read ONLY:
+- `modules/m/domain/uc/f1.ts`
+Write ONLY: x')"
+expect "ADR-0005: retired pg-frontend refused"          1 "$(bcn 'builder: pg-frontend
 Read ONLY:
 - `modules/m/domain/uc/f1.ts`
 Write ONLY: x')"

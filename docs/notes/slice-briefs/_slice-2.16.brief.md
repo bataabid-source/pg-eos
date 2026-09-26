@@ -1,6 +1,6 @@
 # SLICE BRIEF — WBS 2.16 part 1a-2 · PDA offline queue + PWA manifest/service-worker + deferred kiosk-mode tests
 
-builder: pg-frontend
+builder: pg-builder
 
 Task: 2.16 part 1a-2 — three items, all filed against the same `pda` lock at part 1a's own close
 (CHANGELOG "2.16 part 1a"; MASTER_BACKLOG): (1) the deferred kiosk-mode test-coverage gap (round-2

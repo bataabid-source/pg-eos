@@ -37,12 +37,13 @@ block="$(awk '
 ' "$BRIEF")"
 [ -n "$block" ] || { echo "brief-check: no 'Read ONLY' block in $BRIEF" >&2; exit 2; }
 
-# Routing v2 (D-191, GM 2026-09-26): the brief names its builder before pg-tester starts —
-# `builder: pg-backend | pg-backend-core | pg-frontend`, optionally two joined by `+`
-# (e.g. `builder: pg-backend-core + pg-frontend`). A brief without a valid line is refused.
-BUILDER_RE='^builder:[[:space:]]*(pg-backend|pg-backend-core|pg-frontend)([[:space:]]*\+[[:space:]]*(pg-backend|pg-backend-core|pg-frontend))?[[:space:]]*$'
+# ADR-0005 §5 (supersedes routing v2, D-191): the brief names its builder before pg-tester starts —
+# `builder: pg-builder | pg-builder-core` (core = opus, for a slice carrying a migration, RLS,
+# permissions or platform/identity/billing core), optionally both joined by `+`. A brief without
+# a valid line is refused.
+BUILDER_RE='^builder:[[:space:]]*(pg-builder|pg-builder-core)([[:space:]]*\+[[:space:]]*(pg-builder|pg-builder-core))?[[:space:]]*$'
 if ! grep -Eq "$BUILDER_RE" "$BRIEF"; then
-  echo "brief-check: no valid 'builder:' line (pg-backend | pg-backend-core | pg-frontend) — routing v2, D-191" >&2
+  echo "brief-check: no valid 'builder:' line (pg-builder | pg-builder-core) — ADR-0005 §5" >&2
   status_builder=1
 else
   status_builder=0
