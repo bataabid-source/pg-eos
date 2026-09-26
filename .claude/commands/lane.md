@@ -15,4 +15,12 @@ You are lane $1 in worktree `../pg-eos-lane-$1` on branch `lane/$1`. Export `PG_
 6. Publish only your own module's events; consume another module's only through names already in `packages/events/catalog.ts` (frozen).
 7. After pg-reviewer PASS: `git rebase main`, gates ①–③ green locally, `pnpm guards:run` green — then STOP. The Master merges; lanes never merge lanes.
 
+8. No `AskUserQuestion` inside a slice (D-191 amendment, GM 2026-09-26): DEFAULT, RECORD, PROCEED — every open question is
+   batched in the closing report to the Master. A rebase that stops on a commit whose content is already on main is resolved
+   with `git rebase --skip` after `git diff` against main shows it empty — no question.
+9. Self-relaunch after clearing (D-191 amendment, GM 2026-09-26): after the slice's commit is pushed and reported, end the report
+   to the Master with a ≤ 3-line "lane $1 handoff" and the exact line `cleared, relaunch needed: /lane $1 — next <WBS>`, then run
+   `clear_session("self")`. The Master relaunches with `/lane $1` by session message as soon as that line arrives. Never clear
+   mid-slice.
+
 When the list is finished, report the lane's tasks with their commit hashes and stop.
