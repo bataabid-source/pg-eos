@@ -710,6 +710,61 @@ describe('handlePickLine: StaleVersionError maps to 409, title = error.name', ()
   });
 });
 
+// --- WBS 2.12 part 2 (_slice-2.12.brief.md), item 2: handleCheckOrder's own missing 400/409 tests —
+// same missing-Idempotency-Key / stale-version pattern as handlePickLine's own pair immediately
+// above. -----------------------------------------------------------------------------------------
+
+describe('handleCheckOrder: a missing Idempotency-Key is rejected with a 400 Problem', () => {
+  it('no Idempotency-Key header -> 400', async () => {
+    const order = await insertFreshApprovedOrderWithLine();
+    const allocateResult = await handleAllocate(
+      requestWithKey({ orderId: order.id, expectedVersion: order.version, correlationId: nextCorrelationId() }),
+      deps,
+    );
+    expect(allocateResult.status).toBe(200);
+    const allocatedVersion = (allocateResult.body as { version: number }).version;
+
+    const pickResult = await handlePickLine(
+      requestWithKey({ orderId: order.id, lineId: order.lineId, expectedVersion: allocatedVersion, qtyActual: '1.000', correlationId: nextCorrelationId() }),
+      deps,
+    );
+    expect(pickResult.status).toBe(200);
+    const pickedVersion = (pickResult.body as { version: number }).version;
+
+    const result = await handleCheckOrder(
+      requestWithoutKey({ orderId: order.id, expectedVersion: pickedVersion, correlationId: nextCorrelationId() }),
+      deps,
+    );
+    expect(result.status).toBe(400);
+  });
+});
+
+describe('handleCheckOrder: StaleVersionError maps to 409, title = error.name', () => {
+  it('a stale expectedVersion -> 409, title "StaleVersionError"', async () => {
+    const order = await insertFreshApprovedOrderWithLine();
+    const allocateResult = await handleAllocate(
+      requestWithKey({ orderId: order.id, expectedVersion: order.version, correlationId: nextCorrelationId() }),
+      deps,
+    );
+    expect(allocateResult.status).toBe(200);
+    const allocatedVersion = (allocateResult.body as { version: number }).version;
+
+    const pickResult = await handlePickLine(
+      requestWithKey({ orderId: order.id, lineId: order.lineId, expectedVersion: allocatedVersion, qtyActual: '1.000', correlationId: nextCorrelationId() }),
+      deps,
+    );
+    expect(pickResult.status).toBe(200);
+    const pickedVersion = (pickResult.body as { version: number }).version;
+
+    const result = await handleCheckOrder(
+      requestWithKey({ orderId: order.id, expectedVersion: pickedVersion + 999, correlationId: nextCorrelationId() }),
+      deps,
+    );
+    expect(result.status).toBe(409);
+    expect(result.body).toMatchObject({ title: 'StaleVersionError' });
+  });
+});
+
 describe('handleCheckOrder: SelfCheckNotAllowedError maps to 422, title = error.name', () => {
   it('the same actor who picked the order calling handleCheckOrder -> 422, title "SelfCheckNotAllowedError", order stays "picked"', async () => {
     const order = await insertFreshApprovedOrderWithLine();

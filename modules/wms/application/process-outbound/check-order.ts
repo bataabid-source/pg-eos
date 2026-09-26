@@ -62,8 +62,18 @@ export async function checkOrder(
       throw new Error(`CheckOrder: order ${input.orderId} is "picked" but picked_by is null (data invariant violated).`);
     }
 
+    // WBS 2.12 part 2 item 4 (Master-ruled widening, strictly broader than the literal wording,
+    // which named only the pick-movement check): `wasPicker` is `picked_by` OR any posted pick
+    // movement's `performed_by` on this order. This still leaves a residual gap out of this part's
+    // fix scope: a picker whose ONLY action was a zero-qty pick on a line OTHER than the last one
+    // picked posts no ledger row and is not `picked_by` either, so today they pass self-check on
+    // neither check. Closing that would need a different signal (e.g. platform.audit_log's
+    // PickLine actors) — a Master/GM call, not decided here.
+    const wasPicker =
+      actorId === order.pickedBy || (await deps.repo.hasPickMovementByActor(tx, { orderId: input.orderId, actorId }));
+
     // Doc 38 row 2.12's own literal acceptance line "Self-check rejected" — BEFORE any write.
-    assertCheckerNotPicker({ orderId: input.orderId, checkerId: actorId, pickedBy: order.pickedBy });
+    assertCheckerNotPicker({ orderId: input.orderId, checkerId: actorId, wasPicker });
 
     const newStatus = advanceOutboundOrder(order.status, [OUTBOUND_ORDER_EVENTS.CHECK]);
     const newVersion = await deps.repo.updateOrder(tx, input.orderId, { status: newStatus, checkedBy: actorId });

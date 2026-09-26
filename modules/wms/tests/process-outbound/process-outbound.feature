@@ -402,6 +402,42 @@ Feature: Process outbound order — create, ten-condition check, approve, cancel
     When the same key is sent with a different body
     Then it is rejected with IdempotencyConflictError (409)
 
+  # ================================================================================================
+  # Part 4 — WBS 2.12 part 2 (_slice-2.12.brief.md), item 3: the zero-qty repeat-pick-on-an-
+  # unreserved-line logic gap. A never-allocated line's own `location_id` stays null and its
+  # `qty_actual` is stamped `0` by Allocate itself, so neither of the double-pick guard's two
+  # existing signals (a posted pick ledger row, or a reserved line's own qty_actual reading zero)
+  # can ever catch a REPEAT zero-qty pick on it — today's guard wrongly re-accepts it.
+  # ================================================================================================
+
+  Scenario: PickLine rejects a repeat zero-qty pick on a line that was never allocated
+    Given a partially_allocated order with one reserved line and one never-allocated line
+      (location_id null)
+    When PickLine is called on the never-allocated line with qtyActual 0 and a variance reason
+    Then the first call succeeds, releases nothing, posts no ledger row, and sets the line to
+      "partial"
+    When PickLine is called again on the SAME never-allocated line with the same zero qtyActual and
+      a variance reason
+    Then the second call is rejected with LineAlreadyPickedError (422), nothing further is written
+
+  # ================================================================================================
+  # Part 5 — WBS 2.12 part 2, item 4: `picked_by` records only the LAST picker on a multi-person
+  # pick, so self-check must reject a checker who is the `performed_by` of ANY pick movement on this
+  # order, not just equal to `picked_by`. Proves `hasPickMovementByActor`'s own join/scope.
+  # ================================================================================================
+
+  Scenario: CheckOrder rejects a checker who posted a pick movement on the order but is not picked_by
+    Given a two-line order where actor A picks the first line and actor B picks the second line
+      and completes the order, so picked_by is actor B
+    When actor A, who never was picked_by but posted a pick movement on this order, calls CheckOrder
+    Then it is rejected with SelfCheckNotAllowedError, status stays "picked"
+
+  Scenario: CheckOrder does not leak a pick movement from a different order
+    Given actor A picks and completes order X, and a different actor picks and completes order Y
+    When actor A, who has a pick movement on order X but never touched order Y, calls CheckOrder on
+      order Y
+    Then it succeeds, status becomes "checked", checked_by is set to actor A
+
   Scenario: RLS — a caller scoped to another entity cannot pick or check the order
     Given an allocated or picked order that belongs to entity PST
     When a caller with no user_entities row for PST calls PickLine or CheckOrder on the order
