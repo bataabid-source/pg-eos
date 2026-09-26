@@ -664,6 +664,23 @@ async function auditCountForCorrelation(correlationId: string): Promise<number> 
   return Number(result.rows[0]?.n ?? '0');
 }
 
+/** WBS 2.12 part 3 fix round (finding 3): the `occurred_at` of the ONE wms.outbound_orders audit
+ *  row a PickLine call wrote under `correlationId` — proves the single-clock-read discipline
+ *  (CLAUDE.md "inject generator and clock") when compared against the SAME call's
+ *  `order_lines.picked_at` stamp: both must be the identical `deps.clock.now()` value, never two
+ *  separate reads of the clock. */
+async function auditOccurredAtForCorrelation(correlationId: string): Promise<Date> {
+  const result: QueryResult<{ occurred_at: Date }> = await pool.query(
+    `select occurred_at from platform.audit_log
+      where correlation_id = $1 and schema_name = 'wms' and table_name = 'outbound_orders'`,
+    [correlationId],
+  );
+  expect(result.rows).toHaveLength(1);
+  const row = result.rows[0];
+  if (!row) throw new Error(`no platform.audit_log row for correlation ${correlationId}`);
+  return row.occurred_at;
+}
+
 /** finding 6 (round 2): rollback proof independent of the correlationId — every outbox row whose
  *  aggregate is this order, and every audit row whose record is this order, whatever correlationId
  *  wrote them. A failed command must leave both counts exactly where they were. */
@@ -2727,6 +2744,24 @@ async function getStockBalanceBoth(clientId: string, skuId: string, locationId: 
   return row;
 }
 
+/** WBS 2.12 part 3 (_slice-2.12.brief.md, SCR-WMS-OUT-03): the line-level pick stamp — set by
+ *  EVERY PickLine call on that line, including a zero-quantity one. Queried directly (never
+ *  through `getOrderLine`, whose own return shape is asserted with `toEqual` elsewhere in this
+ *  file and must not grow untyped extra columns). RED until the migration adds these two columns
+ *  to wms.order_lines. */
+async function getOrderLinePickStamp(lineId: string): Promise<{
+  picked_by: string | null;
+  picked_at: Date | null;
+}> {
+  const result: QueryResult<{ picked_by: string | null; picked_at: Date | null }> = await pool.query(
+    `select picked_by, picked_at from wms.order_lines where id = $1`,
+    [lineId],
+  );
+  const row = result.rows[0];
+  if (!row) throw new Error(`no wms.order_lines row for id ${lineId}`);
+  return row;
+}
+
 /** Every wms.stock_movements row of type 'pick' for a client — asserted exactly, never `.some`. */
 async function pickMovementsForClient(clientId: string): Promise<
   Array<{ qty: string; from_location_id: string | null; sku_id: string }>
@@ -3313,6 +3348,76 @@ describe('Scenario: CheckOrder rejects a self-check', () => {
     expect(await anyOutboxCountForCorrelation(correlationId)).toBe(0);
     expect(await auditCountForCorrelation(correlationId)).toBe(0);
   });
+
+  // WBS 2.12 part 3 (_slice-2.12.brief.md, SCR-WMS-OUT-03, D-190 option a): closes the residual gap
+  // part 2 left open — a picker whose ONLY action on the order was a zero-quantity pick (with a
+  // reason) on a line OTHER than the one that completed the order posts no ledger row
+  // (`hasPickMovementByActor` stays false) and never becomes `outbound_orders.picked_by` (only the
+  // completing call sets that). Neither of part 2's two signals catches them, so today this
+  // wrongly succeeds. Fixed, `order_lines.picked_by` (set on EVERY PickLine call, including a
+  // zero-qty one) must catch it via the new `hasAnyLinePickedBy` repo method.
+  it('rejects a checker whose only action was a zero-qty pick on a line other than the one that completed the order (WBS 2.12 part 3)', async () => {
+    const order = await buildAllocatedTwoLineOrder();
+
+    // Actor A (noRoleCtx) zero-qty-picks line A first, with a reason — posts NO ledger row, and
+    // does not complete the order (line B is still open), so outbound_orders.picked_by stays null.
+    const afterZero = await pickLine(
+      noRoleCtx,
+      {
+        orderId: order.orderId,
+        lineId: order.lineIdA,
+        expectedVersion: order.version,
+        qtyActual: '0.000',
+        varianceReason: 'never picked',
+        correlationId: nextCorrelationId(),
+      },
+      deps,
+    );
+    expect(afterZero.status).toBe('picking');
+    expect(await pickMovementsForClient(order.clientId)).toHaveLength(0);
+    const lineAStamp = await getOrderLinePickStamp(order.lineIdA);
+    expect(lineAStamp.picked_by).toBe(NO_ROLE_ACTOR_UUID);
+    expect(lineAStamp.picked_at).not.toBeNull();
+
+    // Actor B (roleCtx) picks the LAST line at full quantity — completes the order, so
+    // outbound_orders.picked_by is actor B, never actor A.
+    const pickBCorrelationId = nextCorrelationId();
+    const afterSecond = await pickLine(
+      roleCtx,
+      { orderId: order.orderId, lineId: order.lineIdB, expectedVersion: afterZero.version, qtyActual: '4.000', correlationId: pickBCorrelationId },
+      deps,
+    );
+    expect(afterSecond.status).toBe('picked');
+    const afterPick = await getOrderPickCheck(order.orderId);
+    expect(afterPick.status).toBe('picked');
+    expect(afterPick.picked_by).toBe(ROLE_ACTOR_UUID); // completing picker only — NOT actor A.
+    expect(await pickMovementsForClient(order.clientId)).toHaveLength(1); // only actor B's real pick.
+
+    // Fix round (finding 3): a NORMAL (non-zero, full-quantity) pick must ALSO stamp
+    // order_lines.picked_by/picked_at — part 2/3's RED coverage only ever checked the zero-qty
+    // line (actor A, above). And that stamp's `picked_at` must be the EXACT SAME timestamp as the
+    // audit row's own `occurred_at` for this same PickLine call — proving pick-line.ts reused the
+    // one `occurredAt` it computed for the ledger/audit write rather than calling
+    // `deps.clock.now()` a second time for the line update (CLAUDE.md clock-injection discipline).
+    const lineBStamp = await getOrderLinePickStamp(order.lineIdB);
+    expect(lineBStamp.picked_by).toBe(ROLE_ACTOR_UUID);
+    expect(lineBStamp.picked_at).not.toBeNull();
+    const pickBAuditOccurredAt = await auditOccurredAtForCorrelation(pickBCorrelationId);
+    expect(lineBStamp.picked_at?.getTime()).toBe(pickBAuditOccurredAt.getTime());
+
+    // Actor A is not outbound_orders.picked_by and posted no pick movement on this order, but IS
+    // order_lines.picked_by on line A — must still be rejected.
+    const correlationId = nextCorrelationId();
+    await expect(
+      checkOrder(noRoleCtx, { orderId: order.orderId, expectedVersion: afterSecond.version, correlationId }, deps),
+    ).rejects.toBeInstanceOf(SelfCheckNotAllowedError);
+
+    const after = await getOrderPickCheck(order.orderId);
+    expect(after.status).toBe('picked');
+    expect(after.checked_by).toBeNull();
+    expect(await anyOutboxCountForCorrelation(correlationId)).toBe(0);
+    expect(await auditCountForCorrelation(correlationId)).toBe(0);
+  });
 });
 
 // --- Scenario: CheckOrder succeeds when the checker differs from the picker ----------------------------
@@ -3369,6 +3474,50 @@ describe('Scenario: CheckOrder succeeds when the checker differs from the picker
     const after = await getOrderPickCheck(orderY.orderId);
     expect(after.status).toBe('checked');
     expect(after.checked_by).toBe(ROLE_ACTOR_UUID);
+    expect(await outboxRowsForCorrelationAndType(correlationId, 'wms.outbound.checked')).toHaveLength(1);
+    expect(await auditCountForCorrelation(correlationId)).toBe(1);
+  });
+
+  // WBS 2.12 part 3 (_slice-2.12.brief.md, SCR-WMS-OUT-03): `hasAnyLinePickedBy` must be scoped by
+  // orderId exactly like `hasPickMovementByActor` already is (part 2 item 4) — an actor whose
+  // `order_lines.picked_by` is set on a DIFFERENT order's line must not be flagged as "was picker"
+  // here. Without an `order_id = :orderId` join condition this would wrongly reject.
+  it('does not leak an order_lines.picked_by stamp from a different order — actor A zero-qty-picked a line on order X (never completing it), and may check order Y they never touched', async () => {
+    const orderX = await buildAllocatedTwoLineOrder();
+    const afterZero = await pickLine(
+      noRoleCtx,
+      {
+        orderId: orderX.orderId,
+        lineId: orderX.lineIdA,
+        expectedVersion: orderX.version,
+        qtyActual: '0.000',
+        varianceReason: 'never picked',
+        correlationId: nextCorrelationId(),
+      },
+      deps,
+    );
+    expect(afterZero.status).toBe('picking');
+    const lineAStamp = await getOrderLinePickStamp(orderX.lineIdA);
+    expect(lineAStamp.picked_by).toBe(NO_ROLE_ACTOR_UUID);
+
+    const orderY = await buildAllocatedOrder();
+    const pickedY = await pickLine(
+      roleCtx,
+      { orderId: orderY.orderId, lineId: orderY.lineId, expectedVersion: orderY.version, qtyActual: QTY_ORDERED, correlationId: nextCorrelationId() },
+      deps,
+    );
+    expect(pickedY.status).toBe('picked');
+    expect((await getOrderPickCheck(orderY.orderId)).picked_by).toBe(ROLE_ACTOR_UUID);
+
+    // Actor A (noRoleCtx) has an order_lines.picked_by stamp on order X's line A, never touched
+    // order Y — must succeed.
+    const correlationId = nextCorrelationId();
+    const result = await checkOrder(noRoleCtx, { orderId: orderY.orderId, expectedVersion: pickedY.version, correlationId }, deps);
+    expect(result.status).toBe('checked');
+
+    const after = await getOrderPickCheck(orderY.orderId);
+    expect(after.status).toBe('checked');
+    expect(after.checked_by).toBe(NO_ROLE_ACTOR_UUID);
     expect(await outboxRowsForCorrelationAndType(correlationId, 'wms.outbound.checked')).toHaveLength(1);
     expect(await auditCountForCorrelation(correlationId)).toBe(1);
   });

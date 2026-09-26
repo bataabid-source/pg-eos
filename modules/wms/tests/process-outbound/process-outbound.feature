@@ -442,3 +442,29 @@ Feature: Process outbound order — create, ten-condition check, approve, cancel
     Given an allocated or picked order that belongs to entity PST
     When a caller with no user_entities row for PST calls PickLine or CheckOrder on the order
     Then the order is invisible to them and the command fails with OrderNotFoundError
+
+  # ================================================================================================
+  # Part 6 — WBS 2.12 part 3 (_slice-2.12.brief.md, SCR-WMS-OUT-03, D-190 option a). Closes the
+  # residual gap: a picker whose ONLY action was a zero-quantity pick (with a reason) on a line
+  # OTHER than the one that completed the order posts no ledger row and is not
+  # outbound_orders.picked_by either, so neither of part 2's two signals ever catches them.
+  # CheckOrder's self-check now also rejects a checker who is order_lines.picked_by of ANY line on
+  # the order (set by EVERY PickLine call, including a zero-qty one) — the
+  # actorId === order.pickedBy comparison is dropped entirely.
+  # ================================================================================================
+
+  Scenario: CheckOrder rejects a checker whose only action was a zero-qty pick on a line other than the one that completed the order
+    Given a two-line order where actor A zero-qty-picks the first line (with a variance reason,
+      posting no ledger row and never becoming outbound_orders.picked_by) and actor B picks the
+      second line at full quantity, completing the order, so picked_by is actor B
+    When actor A, who is picked_by on the first line's own order_lines row but is neither
+      outbound_orders.picked_by nor the performed_by of any pick movement on this order, calls
+      CheckOrder
+    Then it is rejected with SelfCheckNotAllowedError, status stays "picked"
+
+  Scenario: CheckOrder does not leak an order_lines.picked_by stamp from a different order
+    Given actor A zero-qty-picks a line on order X (never completing it) and a different actor
+      picks and completes order Y
+    When actor A, whose picked_by stamp exists only on order X's line but who never touched order
+      Y, calls CheckOrder on order Y
+    Then it succeeds, status becomes "checked", checked_by is set to actor A

@@ -668,9 +668,25 @@ async function updateOrderLinePick(tx: NodePgDatabase, params: UpdateOrderLinePi
   await tx.execute(sql`
     update ${sql.raw(LINE_TABLE)}
        set status = ${params.status}, qty_actual = ${params.qtyActual}::numeric,
-           variance_reason = ${params.varianceReason}
+           variance_reason = ${params.varianceReason},
+           picked_by = ${params.pickedBy}::uuid, picked_at = ${params.pickedAt.toISOString()}::timestamptz
      where id = ${params.lineId}::uuid
   `);
+}
+
+/** WBS 2.12 part 3: `true` when ANY line on this order carries `picked_by = actorId`. */
+async function hasAnyLinePickedBy(
+  tx: NodePgDatabase,
+  params: { readonly orderId: string; readonly actorId: string },
+): Promise<boolean> {
+  const result = await tx.execute<{ exists: boolean }>(sql`
+    select exists (
+      select 1 from ${sql.raw(LINE_TABLE)}
+       where order_table = ${ORDER_TABLE} and order_id = ${params.orderId}::uuid
+         and picked_by = ${params.actorId}::uuid
+    ) as exists
+  `);
+  return result.rows[0]?.exists ?? false;
 }
 
 export const outboundOrderRepository: OutboundOrderRepository = {
@@ -704,6 +720,7 @@ export const outboundOrderRepository: OutboundOrderRepository = {
   getOrderLineForPick,
   hasPickMovementForLine,
   hasPickMovementByActor,
+  hasAnyLinePickedBy,
   countOpenPickLines,
   updateOrderLinePick,
 };

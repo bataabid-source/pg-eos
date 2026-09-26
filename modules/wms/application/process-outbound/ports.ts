@@ -254,6 +254,8 @@ export interface UpdateOrderLinePickParams {
   readonly status: string;
   readonly qtyActual: string;
   readonly varianceReason: string | null;
+  readonly pickedBy: string;
+  readonly pickedAt: Date;
 }
 
 /** Every DB statement the process-outbound use case needs (part 1). Implemented by
@@ -410,6 +412,13 @@ export interface OutboundOrderRepository {
    *  records only the LAST picker of a multi-person pick) to every actor who posted ANY pick
    *  movement on the order. */
   hasPickMovementByActor(
+    tx: NodePgDatabase,
+    params: { readonly orderId: string; readonly actorId: string },
+  ): Promise<boolean>;
+  /** WBS 2.12 part 3 (D-190 option a): `true` when ANY `order_lines` row on this order carries
+   *  `picked_by = actorId` — set by EVERY `PickLine` call on that line, including a zero-quantity
+   *  pick, unlike `hasPickMovementByActor`'s ledger-only signal. */
+  hasAnyLinePickedBy(
     tx: NodePgDatabase,
     params: { readonly orderId: string; readonly actorId: string },
   ): Promise<boolean>;
