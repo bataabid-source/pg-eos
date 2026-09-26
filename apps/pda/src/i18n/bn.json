@@ -17,5 +17,14 @@
   "locale.name.ur": "উর্দু",
   "locale.name.bn": "বাংলা",
   "locale.name.am": "আমহারিক",
-  "queue.unsynced": "অ-সিঙ্ক: {count}"
+  "queue.unsynced": "অ-সিঙ্ক: {count}",
+  "login.title": "লগ ইন করুন",
+  "login.email.label": "ইমেইল",
+  "login.email.submit": "কোড পাঠান",
+  "login.code.label": "যাচাইকরণ কোড",
+  "login.code.submit": "যাচাই করুন",
+  "login.requestSent": "কোড পাঠানো হয়েছে, {minutes} মিনিটে মেয়াদ শেষ হবে",
+  "login.error.invalidCode": "ভুল কোড। আপনার ইমেইলে পাঠানো কোডটি লিখুন, অথবা নতুন কোড অনুরোধ করুন।",
+  "login.error.requestFailed": "কোড পাঠানো যায়নি, আবার চেষ্টা করুন",
+  "login.success": "সফলভাবে লগ ইন হয়েছে"
 }

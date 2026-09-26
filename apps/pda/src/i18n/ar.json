@@ -17,5 +17,14 @@
   "locale.name.ur": "الأردية",
   "locale.name.bn": "البنغالية",
   "locale.name.am": "الأمهرية",
-  "queue.unsynced": "غير متزامن: {count}"
+  "queue.unsynced": "غير متزامن: {count}",
+  "login.title": "تسجيل الدخول",
+  "login.email.label": "البريد الإلكتروني",
+  "login.email.submit": "إرسال الرمز",
+  "login.code.label": "رمز التحقق",
+  "login.code.submit": "تحقق",
+  "login.requestSent": "تم إرسال الرمز، ينتهي خلال {minutes} دقيقة",
+  "login.error.invalidCode": "رمز غير صالح. أدخل الرمز المُرسَل إلى بريدك الإلكتروني، أو اطلب رمزًا جديدًا.",
+  "login.error.requestFailed": "تعذر إرسال الرمز، حاول مرة أخرى",
+  "login.success": "تم تسجيل الدخول بنجاح"
 }
