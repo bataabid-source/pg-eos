@@ -82,6 +82,11 @@ export const EVENT_CATALOG = [
   'wms.outbound.picking_started',
   'wms.outbound.picked',
   'wms.outbound.checked',
+  // WBS 2.12 part 4 (lane 1): PackOrder (checked → packed, packed_by) and LoadOrder (packed → loaded,
+  // single-order scope — multi-order manifest rules deferred, SCR-WMS-OUT-04). Aggregate
+  // `wms.outbound_orders`. Added by the Master on lane 1's request (packages/* is frozen).
+  'wms.outbound.packed',
+  'wms.outbound.loaded',
   // WBS 3.1 part 1 (lane 3, module `fleet`, D-184): written once per RegisterVehicle, same transaction
   // as the `tms.vehicles` insert. Aggregate `fleet.vehicles`. The package names no fleet event; the
   // name follows doc 40 l.157 `<module>.<aggregate>.<past_tense>` (a lane publishes its own module's
@@ -98,5 +103,12 @@ export const EVENT_CATALOG = [
   // subscribers. Aggregate `billing.billable_events`; name per doc 40 §B3 `<module>.<aggregate>.<past_tense>`.
   // Added by the Master on lane 2's request (packages/* is frozen).
   'billing.billable_event.recorded',
+  // WBS 4.1a part 2 (lane 2, D-190): chart-of-accounts change requests — requested (draft →
+  // pending_approval), approved (CFO via platform.is_approval_chain_approver, gl_accounts written in the
+  // same transaction), rejected. Aggregate `billing.gl_account_change_requests`. Added by the Master
+  // ahead of the publisher (packages/* is frozen).
+  'billing.gl_account_change.requested',
+  'billing.gl_account_change.approved',
+  'billing.gl_account_change.rejected',
 ] as const;
 export type CatalogedEventType = (typeof EVENT_CATALOG)[number];
