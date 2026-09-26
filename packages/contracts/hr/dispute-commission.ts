@@ -31,9 +31,8 @@ export const DisputeCommissionResultSchema = z
 export type DisputeCommissionResult = z.infer<typeof DisputeCommissionResultSchema>;
 
 // --- OpenAPI route registrations (Master task, docs/STREAMS.md §Enablement item 6) -------------
-// modules/hr/api/dispute-commission/handlers.ts maps CannotDisputeAnotherEmployeesRowError to a
-// LOCAL 403 constant, not PROBLEM_STATUS.FORBIDDEN — same default as confirm-commission's own
-// ROUTES comment.
+// modules/hr/api/dispute-commission/handlers.ts maps CannotDisputeAnotherEmployeesRowError to its
+// local HTTP_STATUS_FORBIDDEN, so 403 is registered.
 export const ROUTES: readonly RouteDefinitionInput[] = [
   {
     method: 'POST',

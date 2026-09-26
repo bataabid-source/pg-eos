@@ -35,9 +35,7 @@ export type ConfirmCommissionResult = z.infer<typeof ConfirmCommissionResultSche
 
 // --- OpenAPI route registrations (Master task, docs/STREAMS.md §Enablement item 6) -------------
 // modules/hr/api/confirm-commission/handlers.ts maps SelfReviewNotAllowedError /
-// ConfirmPermissionRequiredError to a LOCAL 403 constant, not PROBLEM_STATUS.FORBIDDEN — per the
-// Master brief's literal grep rule (`PROBLEM_STATUS.FORBIDDEN`, which matches nowhere in this
-// codebase today) no 403 is registered here; flagged in the closing report.
+// ConfirmPermissionRequiredError to its local HTTP_STATUS_FORBIDDEN, so 403 is registered.
 export const ROUTES: readonly RouteDefinitionInput[] = [
   {
     method: 'POST',
