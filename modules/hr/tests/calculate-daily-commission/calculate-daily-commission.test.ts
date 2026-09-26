@@ -64,12 +64,17 @@ import {
   NoApplicableCommissionRuleError,
   NotInternalActorError,
 } from '../../domain/calculate-daily-commission/errors.js';
-// Part 1's OWN round-2 finding 1 — pg-backend's cross-entity/employee-visibility fix (already
-// GREEN, built and merged as 6c16c41: see modules/hr/domain/calculate-daily-commission/errors.ts's
-// own header, and ../../application/calculate-daily-commission/calculate-daily-commission.ts,
-// which reads hr.employees and throws this BEFORE the shipments/rule-matching steps). Part 2's own
-// round-1 finding 1 is a DIFFERENT bug (the Kuwait business-day boundary) — see that finding's own
-// describe block further below, which cites it correctly.
+// Part 1's OWN round-1 finding 1 (NOT round-2 — round-2's own finding 1 is the DIFFERENT Kuwait
+// business-day boundary bug, MASTER_BACKLOG 3.13 part 2 item 1, see that finding's own describe
+// block further below) — pg-backend's cross-entity/employee-visibility fix: see
+// modules/hr/domain/calculate-daily-commission/errors.ts's own header, and
+// ../../application/calculate-daily-commission/calculate-daily-commission.ts, which reads
+// hr.employees and throws this BEFORE the shipments/rule-matching steps. The CHECK itself dates to
+// part 1's own round-1 fix round, but its implementing file
+// (application/calculate-daily-commission.ts) was NOT part of part 1's `6c16c41` commit at all —
+// part 1 shipped contract/domain/migration only and deferred the whole application/infrastructure/
+// api layer to part 2 (`016cce9`), per part 1's round-2 review recommendation not to commit the
+// repository/command layer until the timezone bug was fixed. GREEN and built as of part 2.
 import { EmployeeNotInCallerEntityError } from '../../domain/calculate-daily-commission/errors.js';
 // the package subpath export (@pg-eos/contracts/hr/calculate-daily-commission), not a deep relative
 // path — packages/contracts/hr/calculate-daily-commission.ts is pg-backend's own file to author
@@ -88,7 +93,7 @@ const ACTOR_UUID = '00000000-0000-4000-8000-0000003130a1';
 // no identity.user_entities row is ever inserted for this one — deliberately, same fixture pattern
 // as modules/imile/tests/assign-driver-id/assign-driver-id.test.ts's own `outsiderCtx`.
 const OUTSIDER_ACTOR_UUID = '00000000-0000-4000-8000-0000003130a2';
-// part 2 round-2 finding 2's own actor — a real entity-scoped actor (unlike OUTSIDER_ACTOR_UUID,
+// MASTER_BACKLOG 3.13 part 2 item 2's own actor — a real entity-scoped actor (unlike OUTSIDER_ACTOR_UUID,
 // which has NO identity.user_entities row and so fails at resolveCallerEntityId itself) whose
 // ctx.isInternal is false — this one reaches the application layer's own explicit `ctx.isInternal`
 // gate (calculate-daily-commission.ts step 1a, checked AFTER resolveCallerEntityId succeeds but
@@ -96,7 +101,7 @@ const OUTSIDER_ACTOR_UUID = '00000000-0000-4000-8000-0000003130a2';
 // TRANSLATING what would otherwise surface only as hr.commission_daily's own `internal_write`
 // policy (migration 0027) rejecting the INSERT itself.
 const NON_INTERNAL_WITH_ENTITY_ACTOR_UUID = '00000000-0000-4000-8000-0000003130a3';
-// part 2 round-2 finding 2's own SELECT-visibility actor — a caller scoped to entity B, holding
+// MASTER_BACKLOG 3.13 part 2 item 5's own SELECT-visibility actor — a caller scoped to entity B, holding
 // `hr.commission.read_all` (SALES_MGR/CFO/GM — 13B-Schema-Reference-Consolidation.sql:5216-5222) —
 // proves own_commission's entity-scoped SELECT (migration 0027 item 2) hides an entity-A row from
 // an entity-B read_all holder.
@@ -317,11 +322,11 @@ beforeAll(async () => {
        on conflict (id) do update set email = excluded.email, full_name_ar = excluded.full_name_ar`,
     [OUTSIDER_ACTOR_UUID, `_hr_calcdailycommission_outsider_${OUTSIDER_ACTOR_UUID}_${randomUUID()}@test.invalid`, 'ممثل خارجي اختبار حساب العمولة — WBS 3.13'],
   );
-  // fix round, finding 2a — an identity.users row with user_type 'internal' AND entity membership
-  // below, but whose ctx.isInternal the caller sets to false when used (an entity-scoped actor
-  // whose CALL carries isInternal: false, not the 'agent'/OUTSIDER_ACTOR_UUID shape which has NO
-  // entity membership at all — fix round finding 6 corrected this comment's own mislabeling of a
-  // user_type 'internal' row as "a portal/client-type actor").
+  // MASTER_BACKLOG 3.13 part 2 item 2 — an identity.users row with user_type 'internal' AND
+  // entity membership below, but whose ctx.isInternal the caller sets to false when used (an
+  // entity-scoped actor whose CALL carries isInternal: false, not the 'agent'/OUTSIDER_ACTOR_UUID
+  // shape which has NO entity membership at all — part 1's own round-2 review finding 6 corrected
+  // this comment's own mislabeling of a user_type 'internal' row as "a portal/client-type actor").
   await pool.query(
     `insert into identity.users (id, email, full_name_ar, user_type) values ($1, $2, $3, 'internal')
        on conflict (id) do update set email = excluded.email, full_name_ar = excluded.full_name_ar`,
@@ -331,7 +336,7 @@ beforeAll(async () => {
       'ممثل غير داخلي له نطاق كيان — WBS 3.13',
     ],
   );
-  // fix round, finding 2b — a caller scoped to entity B, holding hr.commission.read_all.
+  // MASTER_BACKLOG 3.13 part 2 item 5 — a caller scoped to entity B, holding hr.commission.read_all.
   await pool.query(
     `insert into identity.users (id, email, full_name_ar, user_type) values ($1, $2, $3, 'internal')
        on conflict (id) do update set email = excluded.email, full_name_ar = excluded.full_name_ar`,
@@ -361,19 +366,19 @@ beforeAll(async () => {
   await grantRole(ENTITY_B_READ_ALL_ACTOR_UUID, SALES_MGR_ROLE_CODE);
 });
 
-// Fixture-isolation fix (fix round, WBS 3.13 part 1): `hr.commission_rules` matching is scoped to
+// Fixture-isolation fix: `hr.commission_rules` matching is scoped to
 // entity_id + applies_to + tier + valid window ONLY — it is NOT employee-scoped. Every scenario in
 // this file that calls createFixtureCommissionRule() with the SAME default tier window
 // (tier_from 0, tier_to null, valid_from RULE_VALID_FROM, valid_to null) for the SAME entityId
 // therefore accumulates overlapping rule rows across scenarios if they are only ever cleaned up in
 // the shared `afterAll`, which correctly (per the brief's own default 2 — no invented tie-break)
 // makes every LATER scenario's calculation hit AmbiguousCommissionRuleError instead of the single
-// rule each scenario actually means to exercise. Fix round finding 3d added one describe block
-// below that deliberately DOES exercise AmbiguousCommissionRuleError, in a single self-contained
-// test — every OTHER scenario's own commission_rules fixture row(s) are still deleted immediately
-// after that scenario finishes (in addition to the defence-in-depth sweep still present in the
-// shared afterAll below) — this is a fixture-isolation fix only, no application/detection
-// semantics are touched.
+// rule each scenario actually means to exercise. One describe block below (brief default 2: no
+// tie-break invented for two overlapping commission_rules rows) deliberately DOES exercise
+// AmbiguousCommissionRuleError, in a single self-contained test — every OTHER scenario's own
+// commission_rules fixture row(s) are still deleted immediately after that scenario finishes (in
+// addition to the defence-in-depth sweep still present in the shared afterAll below) — this is a
+// fixture-isolation fix only, no application/detection semantics are touched.
 afterEach(async () => {
   if (fixtureCommissionRuleIds.length > 0) {
     await pool.query(`delete from hr.commission_rules where id = any($1::uuid[])`, [fixtureCommissionRuleIds]);
@@ -470,7 +475,7 @@ describe("Scenario: A driver's delivered shipments for the day produce a calcula
     expect(row?.delivered_count).toBe(3);
     expect(row?.status).toBe('calculated');
     expect(row?.driver_id_ref).toBe(driverIdRef);
-    // fix round, finding 3b: exact string assertion against numeric(14,3)'s real serialization
+    // exact string assertion against numeric(14,3)'s real serialization
     // ('15.000', not a toBeCloseTo/Number() comparison a floating-point implementation would also
     // pass) — 3 * '5.000' = '15.000'.
     expect(row?.gross_commission).toBe('15.000');
@@ -483,7 +488,7 @@ describe("Scenario: A driver's delivered shipments for the day produce a calcula
     expect(commissionAudit[0]?.operation).toBe('insert');
     expect(commissionAudit[0]?.record_id).toBe(result.commissionDailyId);
 
-    // fix round, finding 3f: assert the audit row's own new_value reflects the real inserted
+    // assert the audit row's own new_value reflects the real inserted
     // values (same pattern WBS 3.12's own audit assertions use — modules/imile/tests/
     // assign-driver-id/assign-driver-id.test.ts's own audit new_value assertion).
     const newValueResult: QueryResult<{ new_value: Record<string, unknown> }> = await pool.query(
@@ -504,10 +509,11 @@ describe("Scenario: A driver's delivered shipments for the day produce a calcula
   });
 });
 
-// --- Scenario 1's own "or min_daily if greater" branch (fix round, finding 3a — this branch of the
-// gross_commission formula was never exercised before: delivered_count * rate_per_unit < min_daily).
+// --- Scenario 1's own "or min_daily if greater" branch (MASTER_BACKLOG 3.13 part 2 item 3 —
+// this branch of the gross_commission formula was never exercised before: delivered_count *
+// rate_per_unit < min_daily).
 
-describe("Scenario 1's own gross_commission formula — the min_daily floor branch (fix round, finding 3a)", () => {
+describe("Scenario 1's own gross_commission formula — the min_daily floor branch (MASTER_BACKLOG 3.13 part 2 item 3)", () => {
   it('delivered_count * rate_per_unit < min_daily -> gross_commission equals min_daily exactly', async () => {
     // rate_per_unit '1.000', min_daily '100.000': 2 deliveries * 1.000 = 2.000 < 100.000, so
     // gross_commission must be the floor, 100.000, not the tiered amount.
@@ -617,12 +623,13 @@ describe('Scenario: A shipment attributed via a stale direct driver_code join is
     expect(unattributed).toContain(staleTrackingNo);
   });
 
-  // fix round, finding 3c: the case above (an orphan driver_id with NO assignment row at all) does
+  // the case above (an orphan driver_id with NO assignment row at all) does
   // not discriminate "attribution through the assignment table" from "a bug that joined driver_code
   // directly, ignoring the assignment window entirely" — a direct-join bug would ALSO exclude a
   // truly orphan code by coincidence (no employee owns it either way), and would also naturally
-  // respect the SQL `ofd_at::date = workDate` filter if the stray shipment fell on a different
-  // calendar day. The real discriminating case, named by the brief's own scenario title ("the
+  // respect the repository's own Kuwait-local business-day filter
+  // (`(ofd_at AT TIME ZONE 'Asia/Kuwait')::date = workDate`, repository.ts:141) if the stray
+  // shipment fell on a different calendar day. The real discriminating case, named by the brief's own scenario title ("the
   // employee who currently holds that driver_id"), needs the mismatched shipment on the SAME
   // calendar day (workDate) as the genuine ones, but with ofd_at before the assignment's own
   // `assigned_from` timestamp — same driver_code, same day, but genuinely outside the assignment's
@@ -655,7 +662,8 @@ describe('Scenario: A shipment attributed via a stale direct driver_code join is
   });
 });
 
-// --- part 2 round-1 finding 1 (real bug, now closed): the Kuwait business-day boundary ------------
+// --- MASTER_BACKLOG 3.13 part 2 item 1 (originally part 1's own round-2 review finding 1, real bug,
+// now closed): the Kuwait business-day boundary --------------------------------------------------
 // pg-backend's fix (../../infrastructure/calculate-daily-commission/repository.ts's own
 // `BUSINESS_TIMEZONE = 'Asia/Kuwait'`, `(ofd_at AT TIME ZONE 'Asia/Kuwait')::date`) replaces a bare
 // `ofd_at::date` cast that depended on the connecting session's own implicit TimeZone. This proves
@@ -666,7 +674,9 @@ describe('Scenario: A shipment attributed via a stale direct driver_code join is
 // NOT be counted under workDate '2024-06-01', it belongs to the FOLLOWING Kuwait business day
 // (2024-06-02).
 //
-// Round-2 fix (this round, finding 1 of the review): the previous version of this test only
+// Part 2's own round-1 fix round (that round has no itemized finding numbers in the record — see
+// MASTER_BACKLOG 3.13 part 3, which is where this rewrite's own remaining gap was actually tracked
+// and closed): the previous version of this test only
 // asserted `deliveredCount === 1`, which BOTH the old buggy UTC-cast code and the Kuwait-explicit
 // fix produce for this exact pair of shipments (a naive UTC ::date cast reads 2024-05-31T22:00:00Z
 // as calendar day May 31, NOT June 1 — the previous comment's claim that a naive cast would count
@@ -676,7 +686,7 @@ describe('Scenario: A shipment attributed via a stale direct driver_code join is
 // some count matched), and separately computes workDate 2024-06-02 and asserts the SECOND shipment
 // lands there instead — a case only the Kuwait-explicit fix, not a naive UTC cast, gets right on
 // both sides of the boundary.
-describe('Part 2 round-1 finding 1 (real bug, now closed) — shipments are attributed to the correct Kuwait-local business day, not the raw UTC calendar date', () => {
+describe('MASTER_BACKLOG 3.13 part 2 item 1 (real bug, now closed) — shipments are attributed to the correct Kuwait-local business day, not the raw UTC calendar date', () => {
   it("a shipment at 2024-05-31T22:00:00Z (UTC May 31, but 2024-06-01T01:00 Kuwait-local) is the ONLY one counted under workDate '2024-06-01' (proved by tracking number, not just count); a shipment at 2024-06-01T22:00:00Z (UTC June 1, but 2024-06-02T01:00 Kuwait-local) is instead the ONLY one counted under workDate '2024-06-02'", async () => {
     await createFixtureCommissionRule();
     const employeeId = await createFixtureEmployee('kuwaitboundary');
@@ -720,21 +730,65 @@ describe('Part 2 round-1 finding 1 (real bug, now closed) — shipments are attr
     ]);
   });
 
-  // part 2 round-1 finding 1's own second gap: getActiveDriverIdRef's Kuwait window
-  // (../../infrastructure/calculate-daily-commission/repository.ts:173-181) had NO boundary test at
-  // all. An assignment with `assigned_from` at 2024-05-31T21:30:00Z (Kuwait-local
-  // 2024-06-01T00:30) is already active at Kuwait midnight for workDate 2024-06-01, even though its
-  // raw UTC timestamp reads "May 31" on a naive read — driver_id_ref must still be set for
-  // workDate 2024-06-01.
-  it("an assignment whose assigned_from is 2024-05-31T21:30:00Z (Kuwait-local 2024-06-01T00:30, active at Kuwait midnight) sets driver_id_ref for workDate '2024-06-01', even though assigned_from reads UTC calendar day May 31", async () => {
+  // MASTER_BACKLOG 3.13 part 3 finding 1 (this part): `getActiveDriverIdRef`'s Kuwait window
+  // (../../infrastructure/calculate-daily-commission/repository.ts:168-184) had a boundary test
+  // (previously right here) whose fixture (`assigned_from` 2024-05-31T21:30:00Z, `assigned_to`
+  // null, workDate 2024-06-01) does NOT actually discriminate the Asia/Kuwait fix from the OLD
+  // buggy naive `::date` comparison — both produce the SAME result for that fixture (confirmed by
+  // manual derivation: new code's window is `assigned_from < 2024-06-01T21:00:00Z` — true — vs. old
+  // naive `assigned_from::date <= workDate` — `2024-05-31 <= 2024-06-01` — also true; both set
+  // driver_id_ref). The two tests below are genuinely discriminating: each produces OPPOSITE
+  // results under the old naive `::date` comparison vs. the new Kuwait-explicit comparison.
+
+  // Discriminator (a): assigned_from is 2024-06-01T21:30:00Z — Kuwait-local 2024-06-02T00:30,
+  // i.e. the START of the NEXT Kuwait business day, so the assignment is NOT yet active at Kuwait
+  // midnight for workDate 2024-06-01. NEW code: `assigned_from (2024-06-01T21:30:00Z) <
+  // ((workDate+1)::timestamp AT TIME ZONE 'Asia/Kuwait')` = `< 2024-06-01T21:00:00Z` — FALSE, so no
+  // row, driver_id_ref stays null. OLD naive code (`assigned_from::date <= workDate`): `2024-06-01
+  // <= 2024-06-01` — TRUE, so the old buggy code would WRONGLY set driver_id_ref. This fixture
+  // genuinely discriminates: the two implementations disagree.
+  it("an assignment whose assigned_from is 2024-06-01T21:30:00Z (Kuwait-local 2024-06-02T00:30, NOT yet active at Kuwait midnight for workDate 2024-06-01) leaves driver_id_ref null for workDate '2024-06-01' — a naive ::date cast would WRONGLY treat the assignment as already active, since assigned_from's raw UTC calendar day also reads 2024-06-01", async () => {
     await createFixtureCommissionRule();
-    const employeeId = await createFixtureEmployee('kuwaitassignboundary');
+    const employeeId = await createFixtureEmployee('kuwaitassignnotyet');
+    const { id: driverIdRef } = await createFixtureDriverId('assigned');
+    // Kuwait-local 2024-06-02T00:30 — NOT yet active at the start of Kuwait business day
+    // 2024-06-01, even though its own UTC timestamp also reads calendar day "2024-06-01".
+    await createFixtureAssignment(driverIdRef, employeeId, '2024-06-01T21:30:00.000Z');
+
+    const deps = createCalculateDailyCommissionDeps({ clock, ids });
+    const result = await calculateDailyCommission(
+      ctx,
+      { employeeId, workDate: TODAY, correlationId: nextCorrelationId() },
+      deps,
+    );
+    fixtureCommissionDailyIds.push(result.commissionDailyId);
+
+    expect(result.deliveredCount).toBe(0);
+    const row = await getCommissionDailyRow(result.commissionDailyId);
+    expect(row?.driver_id_ref).toBeNull();
+  });
+
+  // Discriminator (b): assigned_to is 2024-05-31T21:30:00Z — Kuwait-local 2024-06-01T00:30, i.e.
+  // the assignment is STILL active at the very start of Kuwait business day 2024-06-01 (it does not
+  // end until 00:30 Kuwait-local that day), even though its own UTC timestamp reads calendar day
+  // "2024-05-31". NEW code: `assigned_to (2024-05-31T21:30:00Z) > (workDate::date::timestamp AT
+  // TIME ZONE 'Asia/Kuwait')` = `> 2024-05-31T21:00:00Z` — TRUE, so driver_id_ref stays set. OLD
+  // naive code (`assigned_to::date >= workDate`): `2024-05-31 >= 2024-06-01` — FALSE, so the old
+  // buggy code would WRONGLY treat the assignment as already ended and leave driver_id_ref null.
+  // This fixture also genuinely discriminates, on the opposite (assigned_to) side of the window.
+  it("an assignment whose assigned_to is 2024-05-31T21:30:00Z (Kuwait-local 2024-06-01T00:30, STILL active at the very start of Kuwait business day 2024-06-01) sets driver_id_ref for workDate '2024-06-01' — a naive ::date cast would WRONGLY treat the assignment as already ended, since assigned_to's raw UTC calendar day reads 2024-05-31", async () => {
+    await createFixtureCommissionRule();
+    const employeeId = await createFixtureEmployee('kuwaitassignstillactive');
     const { id: driverIdRef, imileCode } = await createFixtureDriverId('assigned');
-    // Kuwait-local 2024-06-01T00:30 — already active at the START of the Kuwait business day
-    // 2024-06-01, despite its own UTC timestamp reading "2024-05-31".
-    await createFixtureAssignment(driverIdRef, employeeId, '2024-05-31T21:30:00.000Z');
+    const assignmentResult: QueryResult<{ id: string }> = await pool.query(
+      `insert into imile.driver_id_assignments (driver_id_ref, employee_id, assigned_from, assigned_to, assigned_by)
+         values ($1, $2, $3, $4, $5) returning id::text as id`,
+      [driverIdRef, employeeId, '2024-05-01T00:00:00.000Z', '2024-05-31T21:30:00.000Z', ACTOR_UUID],
+    );
+    if (!assignmentResult.rows[0]?.id) throw new Error('failed to insert fixture imile.driver_id_assignments row');
     // one shipment safely inside 2024-06-01's own Kuwait business day, well clear of either
-    // boundary — the point under test is driver_id_ref, not deliveredCount.
+    // boundary — the point under test is driver_id_ref, not deliveredCount (the shipment's own
+    // attribution through shipments_attributed is a separate concern from this repository read).
     await createFixtureShipment(imileCode, '2024-06-01T05:00:00.000Z');
 
     const deps = createCalculateDailyCommissionDeps({ clock, ids });
@@ -753,7 +807,7 @@ describe('Part 2 round-1 finding 1 (real bug, now closed) — shipments are attr
 // --- Scenario: An outsider (non-internal) cannot trigger a calculation -----------------------------
 
 describe('Scenario: An outsider (non-internal) cannot trigger a calculation', () => {
-  it('the command is refused with EntityScopeAmbiguousError (outsiderCtx has NO identity.user_entities row — cardinality 0, fix round finding 3e: tightened from a bare rejects.toThrow() to the specific error class actually expected here) and no hr.commission_daily row is written', async () => {
+  it('the command is refused with EntityScopeAmbiguousError (outsiderCtx has NO identity.user_entities row — cardinality 0, asserted against the specific error class actually expected here, not a bare rejects.toThrow()) and no hr.commission_daily row is written', async () => {
     await createFixtureCommissionRule();
     const employeeId = await createFixtureEmployee('outsider');
     const { id: driverIdRef, imileCode } = await createFixtureDriverId('assigned');
@@ -770,11 +824,14 @@ describe('Scenario: An outsider (non-internal) cannot trigger a calculation', ()
   });
 });
 
-// --- part 1's OWN round-2 finding 1: the cross-entity case pg-backend's fix (6c16c41) already
-// closed — this is regression coverage of an already-merged fix, not part 2's own finding 1 (which
-// is the Kuwait business-day boundary, covered in its own describe block above) ------------------
+// --- part 1's OWN round-1 finding 1 (NOT round-2 — MASTER_BACKLOG 3.13 part 2 item 1 is the
+// DIFFERENT Kuwait business-day boundary bug, covered in its own describe block above): the
+// cross-entity case. The CHECK itself dates to part 1's round-1 fix round, but its implementing
+// file (application/calculate-daily-commission.ts) was NOT in part 1's `6c16c41` commit at all —
+// part 1 shipped contract/domain/migration only and deferred the whole application layer to part 2
+// (`016cce9`) ------------------------------------------------------------------------------------
 
-describe("Part 1's own round-2 finding 1 (already fixed, merged as 6c16c41) — a caller-supplied employeeId belonging to a DIFFERENT entity is refused", () => {
+describe("Part 1's own round-1 finding 1 (the check itself already fixed in part 1's round-1 fix round; its implementing file first committed in part 2 @ 016cce9) — a caller-supplied employeeId belonging to a DIFFERENT entity is refused", () => {
   it('an employee created under entity PDL, called with an actor scoped to entity PST, is refused with EmployeeNotInCallerEntityError and NO row is written', async () => {
     await createFixtureCommissionRule(); // under entityId (PST) — irrelevant here, the employee check fires first.
     // deliberately inserted directly under entityBId (PDL), NOT via createFixtureEmployee (which
@@ -782,7 +839,7 @@ describe("Part 1's own round-2 finding 1 (already fixed, merged as 6c16c41) — 
     const otherEntityEmployeeResult: QueryResult<{ id: string }> = await pool.query(
       `insert into hr.employees (entity_id, code, name_ar, hire_date, status)
          values ($1, $2, $3, current_date, 'active') returning id::text as id`,
-      [entityBId, nextEmployeeCode(), 'موظف كيان آخر — WBS 3.13 finding 1'],
+      [entityBId, nextEmployeeCode(), 'موظف كيان آخر — WBS 3.13 part 1 round-1 finding 1'],
     );
     const otherEntityEmployeeId = otherEntityEmployeeResult.rows[0]?.id;
     if (!otherEntityEmployeeId) throw new Error('failed to insert cross-entity fixture hr.employees row');
@@ -803,10 +860,10 @@ describe("Part 1's own round-2 finding 1 (already fixed, merged as 6c16c41) — 
   });
 });
 
-// --- part 2 round-2 finding 2: the application layer's own ctx.isInternal gate, for a REAL
+// --- MASTER_BACKLOG 3.13 part 2 item 2: the application layer's own ctx.isInternal gate, for a REAL
 // entity-scoped actor
 
-describe("Part 2 round-2 finding 2 — a non-internal actor WITH a real entity scope is refused by NotInternalActorError, TRANSLATING hr.commission_daily's own internal_write policy (not merely EntityScopeAmbiguousError, unlike outsiderCtx above)", () => {
+describe("MASTER_BACKLOG 3.13 part 2 item 2 — a non-internal actor WITH a real entity scope is refused by NotInternalActorError, TRANSLATING hr.commission_daily's own internal_write policy (not merely EntityScopeAmbiguousError, unlike outsiderCtx above)", () => {
   it('NON_INTERNAL_WITH_ENTITY_ACTOR_UUID (real identity.user_entities row, ctx.isInternal: false) is refused with NotInternalActorError and no row is written', async () => {
     await createFixtureCommissionRule();
     const employeeId = await createFixtureEmployee('noninternalwithentity');
@@ -822,7 +879,7 @@ describe("Part 2 round-2 finding 2 — a non-internal actor WITH a real entity s
     };
 
     // resolveCallerEntityId succeeds here (unlike outsiderCtx) — the refusal comes from the
-    // application layer's own explicit ctx.isInternal gate (part 2 round-2 finding 2's fix,
+    // application layer's own explicit ctx.isInternal gate (MASTER_BACKLOG 3.13 part 2 item 2's fix,
     // ../../application/calculate-daily-commission/calculate-daily-commission.ts step 1a, checked
     // AFTER resolveCallerEntityId succeeds but BEFORE any employee/shipment/rule read or the
     // INSERT), TRANSLATING hr.commission_daily's own `internal_write` INSERT/UPDATE policy
@@ -841,10 +898,11 @@ describe("Part 2 round-2 finding 2 — a non-internal actor WITH a real entity s
   });
 });
 
-// --- part 2 round-2 finding 2 (own_commission clause): entity-scoped SELECT hides another
-// entity's row ------------------------------------------------------------------------------------
+// --- MASTER_BACKLOG 3.13 part 2 item 5 (isolation-test positive control; the base test below
+// proves own_commission's entity-scoped SELECT itself, migration 0027 item 2): entity-scoped
+// SELECT hides another entity's row ----------------------------------------------------------------
 
-describe("Part 2 round-2 finding 2 (own_commission clause) — own_commission's entity-scoped SELECT (migration 0027 item 2) hides an entity-A row from an entity-B hr.commission.read_all holder", () => {
+describe("MASTER_BACKLOG 3.13 part 2 item 5 (own_commission clause) — own_commission's entity-scoped SELECT (migration 0027 item 2) hides an entity-A row from an entity-B hr.commission.read_all holder", () => {
   const APP_ROLE = process.env['PG_APP_USER'] ?? 'pgeos_app';
 
   interface AppRoleCtx {
@@ -918,7 +976,7 @@ describe("Part 2 round-2 finding 2 (own_commission clause) — own_commission's 
     expect(result.rows).toEqual([]);
   });
 
-  // fix round, finding 5: the test above has NO positive control — it never proves the SALES_MGR
+  // MASTER_BACKLOG 3.13 part 2 item 5: the test above has NO positive control — it never proves the SALES_MGR
   // actor actually HOLDS hr.commission.read_all, nor that the same actor CAN see an entity-B row
   // (only entity-A rows were ever proven hidden). If the 13B seed granting that permission to
   // SALES_MGR ever changed, the test above could pass for the WRONG reason (the actor simply can't
@@ -945,7 +1003,7 @@ describe("Part 2 round-2 finding 2 (own_commission clause) — own_commission's 
     const entityBEmployeeResult: QueryResult<{ id: string }> = await pool.query(
       `insert into hr.employees (entity_id, code, name_ar, hire_date, status)
          values ($1, $2, $3, current_date, 'active') returning id::text as id`,
-      [entityBId, nextEmployeeCode(), 'موظف كيان آخر — WBS 3.13 fix round finding 5'],
+      [entityBId, nextEmployeeCode(), 'موظف كيان آخر — WBS 3.13 part 2 item 5'],
     );
     const entityBEmployeeId = entityBEmployeeResult.rows[0]?.id;
     if (!entityBEmployeeId) throw new Error('failed to insert entity-B fixture hr.employees row');
@@ -986,9 +1044,9 @@ describe("Part 2 round-2 finding 2 (own_commission clause) — own_commission's 
   });
 });
 
-// --- Scenario: AmbiguousCommissionRuleError (fix round, finding 3d) -------------------------------
+// --- Scenario: AmbiguousCommissionRuleError (brief default 2: no tie-break invented) --------------
 
-describe('Fix round, finding 3d — two overlapping hr.commission_rules rows for the same entity/tier fail with AmbiguousCommissionRuleError (brief default 2, no tie-break invented)', () => {
+describe("brief default 2 (no tie-break invented) — two overlapping hr.commission_rules rows for the same entity/tier fail with AmbiguousCommissionRuleError", () => {
   it('two overlapping commission_rules rows for the same entity and tier window -> rejects with AmbiguousCommissionRuleError, no row written', async () => {
     await createFixtureCommissionRule(); // deliberately overlapping default tier windows.
     await createFixtureCommissionRule();
