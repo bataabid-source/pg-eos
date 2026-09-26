@@ -629,7 +629,7 @@ describe('§9(a): billing.assert_gl_account_change_approved() — UPDATE path, r
       withContext(ctxFor(CFO_ACTOR_UUID), async (tx: NodePgDatabase) => {
         return tx.execute(sql`update billing.gl_accounts set name_en = 'unauthorized change' where id = ${targetId}`);
       }),
-      '0034:',
+      '0036:',
     );
   });
 
@@ -646,7 +646,7 @@ describe('§9(a): billing.assert_gl_account_change_approved() — UPDATE path, r
         );
         return tx.execute(sql`update billing.gl_accounts set account_type = 'asset' where id = ${targetId}`);
       }),
-      '0034:',
+      '0036:',
     );
   });
 
@@ -694,7 +694,7 @@ describe('§9(a): billing.assert_gl_account_change_approved() — UPDATE path, r
       withContext(ctxFor(CFO_ACTOR_UUID), async (tx: NodePgDatabase) => {
         return tx.execute(sql`update billing.gl_accounts set account_type = ${VALID_ACCOUNT_TYPE} where id = ${targetId}`);
       }),
-      '0034:',
+      '0036:',
     );
   });
 
@@ -738,7 +738,7 @@ describe('§9(a): billing.assert_gl_account_change_approved() — UPDATE path, r
           sql`update billing.gl_accounts set account_type = ${VALID_ACCOUNT_TYPE}, name_en = null, parent_id = ${parentId} where id = ${targetId}`,
         );
       }),
-      '0034:',
+      '0036:',
     );
 
     const after: QueryResult<{ name_en: string | null; parent_id: string | null }> = await pool.query(
@@ -775,7 +775,7 @@ describe('§9(a): billing.assert_gl_account_change_approved() — UPDATE path, r
           sql`update billing.gl_accounts set account_type = ${VALID_ACCOUNT_TYPE}, name_en = ${'Existing name_en — left unchanged by this attempt'}, parent_id = null where id = ${targetId}`,
         );
       }),
-      '0034:',
+      '0036:',
     );
 
     const after: QueryResult<{ name_en: string | null; parent_id: string | null }> = await pool.query(
@@ -888,14 +888,14 @@ describe('§9(b): the matched request must be approved by the SAME user performi
     }
 
     expect(rejected).toBe(true);
-    // The trigger raises ONE combined generic '0034:' message for its whole NOT EXISTS clause (the
+    // The trigger raises ONE combined generic '0036:' message for its whole NOT EXISTS clause (the
     // SQL has no separate per-predicate text distinguishing "approved_by mismatch" from "content
     // mismatch" — confirmed against modules/billing domain/migration draft). This test isolates the
     // cross-CFO cause through its CONTROLLED VARIABLES (identical proposed-content match, identical
     // decided_at = now(), ONLY approved_by/current_user_id() differ), not through message text —
     // documented per the Master's fix (a) instruction, since no more specific message exists to
     // assert on.
-    expect(message).toContain('0034:');
+    expect(message).toContain('0036:');
   });
 });
 
@@ -1270,11 +1270,12 @@ describe('§9(i) [fix round finding 6]: the gl_accounts approver write policies 
 
     expect(rejected).toBe(true);
     // 42501 = insufficient_privilege, the generic SQLSTATE Postgres itself raises for an RLS WITH
-    // CHECK violation — distinguishable from the trigger's OWN 42501 rejections (which always carry the
-    // '0034:' message prefix) by the ABSENCE of that prefix. With the trigger disabled for this
-    // transaction, this rejection can only be RLS's own gl_accounts entity-scope check.
+    // CHECK violation — distinguishable from the trigger's OWN 42501 rejections (which always carry
+    // the '0034:' or '0036:' message prefix) by the ABSENCE of both prefixes. With the trigger disabled
+    // for this transaction, this rejection can only be RLS's own gl_accounts entity-scope check.
     expect(code).toBe('42501');
     expect(message).not.toContain('0034:');
+    expect(message).not.toContain('0036:');
   });
 
   // UPDATE-side counterpart to the INSERT test above (round-3 confirmation-pass gap): the same
@@ -1330,6 +1331,7 @@ describe('§9(i) [fix round finding 6]: the gl_accounts approver write policies 
     if (code !== undefined) {
       expect(code).toBe('42501');
       expect(message).not.toContain('0034:');
+      expect(message).not.toContain('0036:');
     }
   });
 

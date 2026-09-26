@@ -87,7 +87,13 @@ describe('SubmitGlAccountChangeRequestInputSchema — invalid input is rejected'
     ['proposedAccountType', 'not_a_real_account_type'],
     ['proposedParentId', 'not-a-uuid'],
     ['proposedIsPostable', 'yes'], // wrong type — not a boolean
-    ['changeKind', 'deactivate'], // out of scope this part (WBS 4.1a part 3)
+    // Fix round finding 5: 'deactivate' is now a LEGAL changeKind enum value (WBS 4.1a part 3), so a
+    // row using it would only still fail via the unrelated pairing/completeness refines below (missing
+    // targetAccountId / stray proposedCode), not via the enum itself — it no longer tests what its own
+    // label claims. 'delete' is not, and never has been, a legal changeKind value (mirrors the raw-SQL
+    // "change_kind='delete'" still-illegal case in gl-account-change-requests.test.ts), so this row is
+    // genuine enum-rejection coverage again.
+    ['changeKind', 'delete'],
   ])('rejects an invalid %s value (%s)', (field, badValue) => {
     const input = { ...minimalValidCreateInput, [field]: badValue };
     const result = SubmitGlAccountChangeRequestInputSchema.safeParse(input);
@@ -191,6 +197,85 @@ describe('SubmitGlAccountChangeRequestInputSchema — round-3 fix 4 refine: an u
 
   it('an update request is otherwise unaffected — a create request with a proposedCode still parses (mirrors the domain\'s isProposedCodeOnlyForCreate)', () => {
     const result = SubmitGlAccountChangeRequestInputSchema.safeParse(minimalValidCreateInput);
+    expect(result.success).toBe(true);
+  });
+});
+
+// --- WBS 4.1a part 3: CHANGE_KIND widens to ['create','update','deactivate','reactivate'] -----------
+// (docs/notes/slice-briefs/_slice-4.1a-part3.brief.md §Contract design). The targetAccountId pairing
+// refine widens from `changeKind === 'update'` to `changeKind !== 'create'` on the non-null branch,
+// and the proposedCode immutability refine widens from `changeKind !== 'update'` to
+// `changeKind !== 'create'` — mirroring the domain/DB widening exactly. No new fields — deactivate/
+// reactivate need no proposed_* column at all.
+
+describe('SubmitGlAccountChangeRequestInputSchema — WBS 4.1a part 3: deactivate/reactivate change kinds', () => {
+  it.each(['deactivate', 'reactivate'] as const)(
+    'accepts changeKind=%s with a non-null targetAccountId',
+    (changeKind) => {
+      const result = SubmitGlAccountChangeRequestInputSchema.safeParse({
+        entityId: VALID_ENTITY_UUID,
+        changeKind,
+        targetAccountId: VALID_TARGET_UUID,
+      });
+      expect(result.success).toBe(true);
+    },
+  );
+
+  it.each(['deactivate', 'reactivate'] as const)(
+    'rejects changeKind=%s with a null targetAccountId',
+    (changeKind) => {
+      const result = SubmitGlAccountChangeRequestInputSchema.safeParse({
+        entityId: VALID_ENTITY_UUID,
+        changeKind,
+        targetAccountId: null,
+      });
+      expect(result.success).toBe(false);
+    },
+  );
+
+  it.each(['deactivate', 'reactivate'] as const)(
+    'rejects changeKind=%s WITHOUT a targetAccountId at all (missing, not just null)',
+    (changeKind) => {
+      const result = SubmitGlAccountChangeRequestInputSchema.safeParse({
+        entityId: VALID_ENTITY_UUID,
+        changeKind,
+      });
+      expect(result.success).toBe(false);
+    },
+  );
+
+  it.each(['deactivate', 'reactivate'] as const)(
+    'rejects changeKind=%s WITH a proposedCode (deactivate/reactivate must never carry one, same rule as update)',
+    (changeKind) => {
+      const result = SubmitGlAccountChangeRequestInputSchema.safeParse({
+        entityId: VALID_ENTITY_UUID,
+        changeKind,
+        targetAccountId: VALID_TARGET_UUID,
+        proposedCode: VALID_CODE,
+      });
+      expect(result.success).toBe(false);
+    },
+  );
+
+  it.each(['deactivate', 'reactivate'] as const)(
+    'accepts changeKind=%s WITHOUT a proposedCode (positive control)',
+    (changeKind) => {
+      const result = SubmitGlAccountChangeRequestInputSchema.safeParse({
+        entityId: VALID_ENTITY_UUID,
+        changeKind,
+        targetAccountId: VALID_TARGET_UUID,
+      });
+      expect(result.success).toBe(true);
+    },
+  );
+
+  it('a create request (targetAccountId null/absent) is unaffected by the widened refines — still parses (positive control, no regression)', () => {
+    const result = SubmitGlAccountChangeRequestInputSchema.safeParse(minimalValidCreateInput);
+    expect(result.success).toBe(true);
+  });
+
+  it('an update request (targetAccountId set, no proposedCode) is unaffected by the widened refines — still parses (positive control, no regression)', () => {
+    const result = SubmitGlAccountChangeRequestInputSchema.safeParse(minimalValidUpdateInput);
     expect(result.success).toBe(true);
   });
 });

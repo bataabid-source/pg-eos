@@ -4,8 +4,9 @@
 // (docs/notes/slice-briefs/_slice-4.1a-part2.brief.md). Every class sets `name` explicitly
 // (CLAUDE.md · AGENT CONSTRAINTS) — an `Error` subclass does NOT get its constructor name for free
 // at runtime. This slice ships domain + migration only this round (no application/api layer — see
-// the brief's own part 2a/2b split note); these seven errors are the ones the domain layer
-// (./machine.ts, ./invariants.ts) throws BEFORE any DB round-trip.
+// the brief's own part 2a/2b split note); these errors are the ones the domain layer
+// (./machine.ts, ./invariants.ts) throws BEFORE any DB round-trip — WBS 4.1a part 3 adds
+// InvalidDeactivateReactivateDirectionError and ActiveChildBlocksDeactivationError.
 
 /** The gl_account_change_requests state machine (./machine.ts) rejected the requested event from
  *  the request's current status — e.g. CANCEL from 'approved', or SUBMIT from 'pending_approval'.
@@ -74,15 +75,39 @@ export class IncompleteDecisionError extends Error {
   }
 }
 
-/** `assertProposedCodeOnlyForCreate` (./invariants.ts): a `change_kind='update'` request must not
- *  carry a `proposed_code` — `code` is immutable post-creation (the DB's own
+/** `assertProposedCodeOnlyForCreate` (./invariants.ts): only a `change_kind='create'` request may
+ *  carry a `proposed_code`; any non-create kind — `update`, `deactivate` or `reactivate` (WBS 4.1a
+ *  part 3) — must not. `code` is immutable post-creation (the DB's own
  *  `billing.assert_gl_account_change_approved()` requires `new.code = old.code` on update and never
- *  reads `proposed_code` there), so a `proposed_code` on an update request would be silently
- *  meaningless rather than rejected. Domain-level equivalent of the DB CHECK
+ *  reads `proposed_code` there), so a `proposed_code` on a non-create request would be silently
+ *  meaningless rather than rejected. The class keeps its original name for API stability. Domain-level equivalent of the DB CHECK
  *  `chk_glc_requests_update_no_code` (migration 0034, round-3 fix 4). */
 export class ProposedCodeOnUpdateError extends Error {
   constructor(message: string) {
     super(message);
     this.name = 'ProposedCodeOnUpdateError';
+  }
+}
+
+/** `assertValidDeactivateReactivateDirection` (./invariants.ts, WBS 4.1a part 3): a `deactivate`
+ *  request targets an account that is already inactive, or a `reactivate` request targets one that
+ *  is already active. Domain-level counterpart of the `old.is_active` check in the DB trigger
+ *  `billing.assert_gl_account_change_approved()`, checked before any DB round-trip. */
+export class InvalidDeactivateReactivateDirectionError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'InvalidDeactivateReactivateDirectionError';
+  }
+}
+
+/** `assertDeactivationAllowed` (./invariants.ts, WBS 4.1a part 3): a `deactivate` request targets an
+ *  account that has at least one active child account — an account cannot be deactivated while any
+ *  child is still active; deactivate the children first. Domain-level counterpart of the
+ *  active-children check in the DB trigger `billing.assert_gl_account_change_approved()` (migration
+ *  0036), checked before any DB round-trip. */
+export class ActiveChildBlocksDeactivationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ActiveChildBlocksDeactivationError';
   }
 }

@@ -1,16 +1,22 @@
-# modules/billing/tests/gl-account-change-requests/gl-account-change-requests.feature — WBS 4.1a part 2.
+# modules/billing/tests/gl-account-change-requests/gl-account-change-requests.feature — WBS 4.1a part 2
+# + part 3.
 #
 # NOTE for whoever reads this file after scripts/new-slice.sh: the scaffolded copy of the golden
 # slice's (wms/receive-inbound) own .feature/.test.ts content is REPLACED here — this slice is the
 # maker/checker write path for billing.gl_accounts (docs/notes/slice-briefs/_slice-4.1a-part2.brief.md),
-# not an inbound-order receiving flow. `deactivate`/`reactivate` are OUT OF SCOPE this part (deferred
-# to WBS 4.1a part 3 — a real `billing.gl_accounts.is_active` column) — `change_kind` is only
-# 'create'/'update' here.
+# not an inbound-order receiving flow.
+#
+# WBS 4.1a part 3 (docs/notes/slice-briefs/_slice-4.1a-part3.brief.md) widens `change_kind` to also
+# carry 'deactivate'/'reactivate', backed by a real `billing.gl_accounts.is_active` column — see the
+# new scenarios at the end of this file. Non-zero-balance enforcement is explicitly OUT of scope here
+# (deferred to WBS 4.20/4.23, per the Master's own prior ruling) — this part enforces only the
+# maker/checker path itself and the active-children rule.
 #
 # Every scenario below is exercised by ./gl-account-change-requests.test.ts (DB-level: table CHECKs,
 # the shared code-format/account-type function, the composite FK, the partial unique indexes) and/or
 # ./machine.unit.test.ts (the pure XState v5 status machine) and/or ./invariants.property.test.ts
-# (domain <-> DB agreement).
+# (domain <-> DB agreement) and/or ./invariants.unit.test.ts and ./contract.test.ts (part 3's new
+# pure invariant and widened Zod refines).
 
 Feature: GL account changes require a maker (ACCOUNTANT) and a checker (CFO) — WBS 4.1a part 2
   As a CFO and an ACCOUNTANT
@@ -20,8 +26,8 @@ Feature: GL account changes require a maker (ACCOUNTANT) and a checker (CFO) —
 
   Background:
     Given entity "PST" and an existing billing.gl_accounts chart (WBS 4.1a part 1)
-    And billing.gl_account_change_requests carries change_kind in ('create','update') only —
-      'deactivate'/'reactivate' are deferred to WBS 4.1a part 3
+    And billing.gl_account_change_requests carries change_kind in ('create','update','deactivate',
+      'reactivate') — the latter two land in WBS 4.1a part 3, backed by billing.gl_accounts.is_active
     And requested_by/approved_by are never the same user (CHECK, and structurally via the
       pre-existing (CFO,ACCOUNTANT) identity.sod_rules row)
 
@@ -94,3 +100,53 @@ Feature: GL account changes require a maker (ACCOUNTANT) and a checker (CFO) —
     When any further transition event is sent to the domain machine
     Then it is rejected by the machine itself — IllegalTransitionError — before any DB call is made
     And the DB status CHECK is the backstop, never the primary enforcement
+
+  # ── WBS 4.1a part 3 — deactivate/reactivate lifecycle (docs/notes/slice-briefs/_slice-4.1a-part3.brief.md) ──
+
+  Scenario: A deactivate request follows the same maker/checker path as create/update
+    Given an existing billing.gl_accounts row with is_active=true and no active children
+    When an ACCOUNTANT submits a change_kind='deactivate' request naming that row as target_account_id
+      and a CFO approves it
+    Then, in ONE transaction, billing.gl_accounts.is_active is set to false for that row AND the
+      request row becomes status='approved'
+    And no other mutable column (name_ar/name_en/account_type/parent_id/is_postable) is touched by
+      this write — deactivate/reactivate touch is_active ONLY
+
+  Scenario: A reactivate request follows the same maker/checker path
+    Given an existing billing.gl_accounts row with is_active=false
+    When an ACCOUNTANT submits a change_kind='reactivate' request naming that row as target_account_id
+      and a CFO approves it
+    Then, in ONE transaction, billing.gl_accounts.is_active is set to true for that row AND the
+      request row becomes status='approved'
+
+  Scenario: Deactivating a gl_account that has an active child account is rejected by the database
+    Given a billing.gl_accounts row P that is the parent_id of another billing.gl_accounts row C,
+      and C.is_active is true
+    When any write attempts to set P.is_active from true to false
+    Then it is rejected — SQLSTATE 23514 (check_violation), the message naming P's own id
+    And this check is unconditional (it fires even for current_user <> 'pgeos_app' — a data-integrity
+      invariant, not a maker/checker four-eyes rule, so seed/import must obey it too)
+
+  Scenario: Deactivating a gl_account whose children are already inactive succeeds
+    Given a billing.gl_accounts row P that is the parent_id of another billing.gl_accounts row C,
+      and C.is_active is already false
+    When an approved deactivate request sets P.is_active from true to false
+    Then the write succeeds — no active child blocks it
+
+  Scenario: Reactivating an already-active account, or deactivating an already-inactive one, is rejected (direction mismatch)
+    Given a billing.gl_accounts row whose current is_active value already matches the direction being
+      requested (is_active=true and change_kind='reactivate', OR is_active=false and
+      change_kind='deactivate')
+    When the pure domain invariant isValidDeactivateReactivateDirection(changeKind, currentIsActive)
+      is evaluated
+    Then it returns false, and assertValidDeactivateReactivateDirection throws
+      InvalidDeactivateReactivateDirectionError before any DB round-trip — the DB trigger's own
+      old.is_active check is the backstop, never the primary enforcement
+
+  Scenario: A deactivate/reactivate request cannot carry a proposedCode
+    Given a change_kind='deactivate' or change_kind='reactivate' request
+    When the request carries a non-null proposedCode
+    Then it is rejected — by the DB CHECK chk_glc_requests_update_no_code (SQLSTATE 23514, the same
+      rule that already forbids it for 'update') and by the widened Zod contract refine at the API
+      boundary — deactivate/reactivate need no proposed_* column at all, the direction is implied
+      entirely by change_kind + the target's current is_active
