@@ -19,11 +19,24 @@ import { randomUUID } from 'node:crypto';
 
 import { Pool } from 'pg';
 import type { QueryResult } from 'pg';
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { FixedClock, SequentialIdGenerator } from '@pg-eos/domain-kit';
 import { createRegisterEmployeeDeps } from '../../api/register-employee/composition.js';
 import { IDEMPOTENCY_KEY_HEADER_NAME } from '@pg-eos/contracts';
+// RegisterEmployeeInputSchema / RecordEmployeeDocumentInputSchema — spied on (never mutated) so the
+// "maps to 422, not 500" tests below can prove the handler's OWN error-mapping switch independently
+// of the contract's front-door validation (which already blocks these two malformed values at 400 —
+// see "an invalid body is rejected with a 400 Problem" above). This is defence-in-depth: it proves
+// that IF the contract's own regex/enum were ever weakened or dropped, the domain assert wiring line
+// inside register-employee.ts / record-employee-document.ts still catches it, and the handler still
+// maps it to 422, never 500.
+import {
+  RecordEmployeeDocumentInputSchema,
+  RegisterEmployeeInputSchema,
+  type RecordEmployeeDocumentInput,
+  type RegisterEmployeeInput,
+} from '@pg-eos/contracts/hr/register-employee';
 // A Logger port-shaped spy — RegisterEmployeeDeps carries `logger: Logger`
 // (../../application/register-employee/ports.ts), and createRegisterEmployeeDeps({ clock, ids, logger })
 // accepts an injected one instead of always defaulting to a real pino-backed logger.
@@ -249,6 +262,84 @@ describe('CheckDriverAssignable requires no Idempotency-Key (read-only, brief D1
     // whatever the business outcome (this employee has no documents -> 422), it must not be the
     // 400 "Idempotency-Key required" Problem a write handler returns.
     expect(result.status).not.toBe(400);
+  });
+});
+
+// --- EmployeeCodeFormatInvalidError / DocumentTypeInvalidError map to 422, not 500 ---------------
+//
+// Both are normally caught at the contract boundary (400 — "an invalid body is rejected" above), so
+// reaching the domain error THROUGH the handler needs the contract's own `.parse()` bypassed for one
+// call; `vi.spyOn` on the (never-mutated) schema is restored in `finally` on every test, success or
+// failure. This is the mutation-proof for the `assertEmployeeCodeFormat` / `assertDocTypeAllowed`
+// wiring lines in register-employee.ts / record-employee-document.ts: commenting either line out
+// makes its test below fail (confirmed once, locally, not committed — see the P6a report).
+
+/** Builds a value shaped like the contract's own inferred output type `T`, while allowing one or
+ *  more fields to violate a type-level narrowing (e.g. a z.enum's union) that the runtime schema —
+ *  bypassed here on purpose — would normally enforce. Routes through `unknown`, never `any`: the
+ *  minimal, explicit escape hatch for the two tests below, whose entire point is to fabricate a
+ *  value the contract's own inferred type forbids. */
+function asContractOutput<T>(raw: Record<string, unknown>): T {
+  return raw as unknown as T;
+}
+
+describe('EmployeeCodeFormatInvalidError maps to 422, not 500, title = error.name', () => {
+  it('handleRegisterEmployee: contract bypassed (spy), an out-of-format code still reaches the domain check -> 422', async () => {
+    const parseSpy = vi.spyOn(RegisterEmployeeInputSchema, 'parse').mockImplementationOnce(
+      () =>
+        ({
+          code: 'PG-12', // violates ^PG-[0-9]{4}$ — the contract would normally reject this at 400.
+          nameAr: 'اختبار تجاوز العقد',
+          hireDate: todayIso(),
+          employmentType: 'full_time',
+          correlationId: randomUUID(),
+        }) satisfies RegisterEmployeeInput,
+    );
+    try {
+      const result = await handleRegisterEmployee(
+        requestWithKey({ code: uniqueCode(), nameAr: 'x', hireDate: todayIso(), employmentType: 'full_time', correlationId: randomUUID() }),
+        deps,
+      );
+      expect(result.status).toBe(422);
+      expect(result.status).not.toBe(500);
+      expect(result.body).toMatchObject({ title: 'EmployeeCodeFormatInvalidError' });
+    } finally {
+      parseSpy.mockRestore();
+    }
+  });
+});
+
+describe('DocumentTypeInvalidError maps to 422, not 500, title = error.name', () => {
+  it('handleRecordEmployeeDocument: contract bypassed (spy), a docType outside the 5 documented values still reaches the domain check -> 422', async () => {
+    const parseSpy = vi.spyOn(RecordEmployeeDocumentInputSchema, 'parse').mockImplementationOnce(() =>
+      asContractOutput<RecordEmployeeDocumentInput>({
+        employeeId: draftEmployeeId,
+        docType: 'visa', // outside the 5 documented values (z.enum narrows the real type to a
+        // 5-value union) — the contract would normally reject this at 400; asContractOutput routes
+        // through `unknown`, never `any`, to build a value the contract's own inferred type
+        // forbids, which is the entire point of this defence-in-depth test.
+        expiryDate: '2099-01-01',
+        expectedVersion: draftEmployeeVersion,
+        correlationId: randomUUID(),
+      }),
+    );
+    try {
+      const result = await handleRecordEmployeeDocument(
+        requestWithKey({
+          employeeId: draftEmployeeId,
+          docType: 'residency',
+          expiryDate: '2099-01-01',
+          expectedVersion: draftEmployeeVersion,
+          correlationId: randomUUID(),
+        }),
+        deps,
+      );
+      expect(result.status).toBe(422);
+      expect(result.status).not.toBe(500);
+      expect(result.body).toMatchObject({ title: 'DocumentTypeInvalidError' });
+    } finally {
+      parseSpy.mockRestore();
+    }
   });
 });
 

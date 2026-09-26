@@ -7,7 +7,14 @@
 // these functions directly (P1, P2).
 
 import { EMPLOYEE_STATUS } from './machine.js';
-import { DocumentDatesInvalidError, DriverDocumentExpiredError, DriverDocumentMissingError, EmployeeNotActiveError } from './errors.js';
+import {
+  DocumentDatesInvalidError,
+  DocumentTypeInvalidError,
+  DriverDocumentExpiredError,
+  DriverDocumentMissingError,
+  EmployeeCodeFormatInvalidError,
+  EmployeeNotActiveError,
+} from './errors.js';
 
 /** database/schema/01-Data-Model.sql:8 — "التوقيت: timestamptz (UTC مخزَّن، Asia/Kuwait معروض)"
  *  (timestamps: timestamptz, stored UTC, DISPLAYED Asia/Kuwait). Every business "today" this use
@@ -100,6 +107,38 @@ export function assertDocumentDatesValid(issueDate: string | null, expiryDate: s
   if (issueDate !== null && issueDate > expiryDate) {
     throw new DocumentDatesInvalidError(
       `issueDate (${issueDate}) is after expiryDate (${expiryDate}). (Allowed: issueDate <= expiryDate)`,
+    );
+  }
+}
+
+/** SCR-HR-EMP-01 §1 row 2, copied verbatim from 01-Data-Model.sql:1303's column comment (never
+ *  invented) — the five hr.employee_documents.doc_type values, mirroring the DB's
+ *  `chk_employee_documents_doc_type` (migration 0029). */
+const VALID_DOC_TYPES = ['residency', 'passport', 'license', 'health_card', 'contract'] as const;
+
+/** SCR-HR-EMP-01 §1 row 2 / 01-Data-Model.sql:1303: RecordEmployeeDocument's own docType, before
+ *  any DB write, mirroring the DB's `chk_employee_documents_doc_type` (migration 0029). */
+export function assertDocTypeAllowed(docType: string): void {
+  if (!(VALID_DOC_TYPES as readonly string[]).includes(docType)) {
+    throw new DocumentTypeInvalidError(
+      `docType "${docType}" is not one of the documented values (${VALID_DOC_TYPES.join(', ')}). ` +
+        `(Allowed: ${VALID_DOC_TYPES.join(', ')})`,
+    );
+  }
+}
+
+/** doc 40 §C7 "code PG-####" (40-Build-Specification-EN.md:328) — ASCII digits only, mirroring the
+ *  DB's `chk_employees_code_format` (migration 0029). RegisterEmployee's own code, before any DB
+ *  write. */
+const EMPLOYEE_CODE_FORMAT = /^PG-[0-9]{4}$/;
+
+/** doc 40 §C7 / 40-Build-Specification-EN.md:328: RegisterEmployee's own code must match
+ *  `^PG-[0-9]{4}$` (ASCII digits only — Arabic-Indic digits do not match), mirroring the DB's
+ *  `chk_employees_code_format` (migration 0029). */
+export function assertEmployeeCodeFormat(code: string): void {
+  if (!EMPLOYEE_CODE_FORMAT.test(code)) {
+    throw new EmployeeCodeFormatInvalidError(
+      `code "${code}" does not match ^PG-[0-9]{4}$ (doc 40 §C7). (Allowed: PG- followed by 4 ASCII digits)`,
     );
   }
 }

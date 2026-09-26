@@ -12,6 +12,7 @@ import { withIdempotentContext, type IdempotencyInput, type WithContextCtx } fro
 import { writeOutboxEvent, type CatalogedEventType } from '@pg-eos/events';
 
 import { EMPLOYEE_STATUS } from '../../domain/register-employee/machine.js';
+import { assertEmployeeCodeFormat } from '../../domain/register-employee/invariants.js';
 import { MissingActorError, RoleRequiredError } from '../../domain/register-employee/errors.js';
 import type { RegisterEmployeeDeps } from './ports.js';
 
@@ -67,6 +68,8 @@ export async function registerEmployee(
         `RegisterEmployee requires role ${REGISTER_EMPLOYEE_ROLES.join(' or ')} (platform.my_roles()).`,
       );
     }
+
+    assertEmployeeCodeFormat(input.code);
 
     const entityId = await deps.repo.resolveCallerEntityId(tx);
 

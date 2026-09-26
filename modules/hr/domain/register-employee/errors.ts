@@ -63,6 +63,27 @@ export class DocumentDatesInvalidError extends Error {
   }
 }
 
+/** SCR-HR-EMP-01 §1 row 2 / 01-Data-Model.sql:1303 column comment: RecordEmployeeDocument's
+ *  `docType` is not one of the five documented values, mirroring the DB's
+ *  `chk_employee_documents_doc_type` (migration 0029). Thrown before any DB write. Maps to HTTP
+ *  422. */
+export class DocumentTypeInvalidError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'DocumentTypeInvalidError';
+  }
+}
+
+/** doc 40 §C7 "code PG-####" / 40-Build-Specification-EN.md:328: RegisterEmployee's `code` does
+ *  not match `^PG-[0-9]{4}$` (ASCII digits only), mirroring the DB's
+ *  `chk_employees_code_format` (migration 0029). Thrown before any DB write. Maps to HTTP 422. */
+export class EmployeeCodeFormatInvalidError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'EmployeeCodeFormatInvalidError';
+  }
+}
+
 /** Optimistic-lock conflict: `expectedVersion` no longer matches the locked hr.employees row's
  *  own `version` — another caller already advanced it. Maps to HTTP 409. */
 export class StaleVersionError extends Error {

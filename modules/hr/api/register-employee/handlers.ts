@@ -12,10 +12,11 @@
 //     produces a 400 Problem (BAD_REQUEST) instead of an uncaught ZodError;
 //   - EmployeeCodeTakenError / StaleVersionError / IdempotencyConflictError -> 409;
 //   - EmployeeNotFoundError, EmployeeNotActiveError, DriverDocumentExpiredError,
-//     DriverDocumentMissingError, DocumentDatesInvalidError, IllegalTransitionError,
-//     RoleRequiredError, EntityScopeAmbiguousError, MissingActorError -> 422 (PROBLEM_STATUS has no
-//     404, so EmployeeNotFoundError also maps to 422, same discipline as OrderNotFoundError in the
-//     golden slice);
+//     DriverDocumentMissingError, DocumentDatesInvalidError, DocumentTypeInvalidError,
+//     EmployeeCodeFormatInvalidError, IllegalTransitionError, RoleRequiredError,
+//     EntityScopeAmbiguousError, MissingActorError -> 422 (PROBLEM_STATUS has no 404, so
+//     EmployeeNotFoundError also maps to 422, same discipline as OrderNotFoundError in the golden
+//     slice);
 //   - an UNKNOWN error maps to a 500 Problem — never rethrown, never crashes the caller, and is
 //     logged server-side via deps.logger.error before the Problem is returned (CLAUDE.md · AGENT
 //     CONSTRAINTS "No console.log — pino");
@@ -51,8 +52,10 @@ import {
 } from '../../application/register-employee/index.js';
 import {
   DocumentDatesInvalidError,
+  DocumentTypeInvalidError,
   DriverDocumentExpiredError,
   DriverDocumentMissingError,
+  EmployeeCodeFormatInvalidError,
   EmployeeCodeTakenError,
   EmployeeNotActiveError,
   EmployeeNotFoundError,
@@ -190,6 +193,8 @@ function errorToApiFailure(error: unknown): ApiFailure {
     error instanceof DriverDocumentExpiredError ||
     error instanceof DriverDocumentMissingError ||
     error instanceof DocumentDatesInvalidError ||
+    error instanceof DocumentTypeInvalidError ||
+    error instanceof EmployeeCodeFormatInvalidError ||
     error instanceof EntityScopeAmbiguousError ||
     error instanceof MissingActorError
   ) {

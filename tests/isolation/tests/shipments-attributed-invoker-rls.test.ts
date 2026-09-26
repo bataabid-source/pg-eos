@@ -148,6 +148,17 @@ function label(name: string, suffix: string): string {
   return `${FIXTURE_PREFIX}-${name}-${RUN_ID}-${suffix}`;
 }
 
+// hr.employees.code must match chk_employees_code_format (^PG-[0-9]{4}$, migration
+// 0029_M_hr-employee-checks.sql) — this suite owns the PG-8xxx range (Master's disjoint-range
+// assignment: register-employee PG-1xxx, its handlers PG-2xxx, maintain-shift PG-3xxx, maintain-shift
+// handlers PG-4xxx, this isolation suite PG-8xxx, hr-employee-checks PG-9xxx), same
+// `PG-${base + counter}` monotonic-counter style as modules/hr/tests/*/uniqueEmployeeCode().
+let employeeCodeCounter = 0;
+function uniqueEmployeeCode(): string {
+  employeeCodeCounter += 1;
+  return `PG-${(8000 + employeeCodeCounter).toString().padStart(4, '0').slice(-4)}`;
+}
+
 /** Seeds one employee (under `entityId`), one active imile.driver_ids row, one active
  *  imile.driver_id_assignments row covering "now", and two imile.shipments rows attributed to that
  *  employee through the view (internal_status 'delivered', ofd_at inside the assignment window) —
@@ -157,7 +168,7 @@ async function seedEmployeeFixture(name: 'a' | 'b', entityId: string): Promise<E
   const employee = await admin.query<{ id: string }>(
     `insert into hr.employees (entity_id, code, name_ar, hire_date)
      values ($1, $2, $3, current_date) returning id`,
-    [entityId, label(name, 'emp'), `موظف اختبار عزل الإسناد ${name}`],
+    [entityId, uniqueEmployeeCode(), `موظف اختبار عزل الإسناد ${name}`],
   );
   const employeeId = firstRow(employee, `insert hr.employees for fixture ${name}`).id;
 
