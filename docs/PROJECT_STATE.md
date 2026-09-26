@@ -35,6 +35,6 @@
 
 ## Next 3 tasks
 
-1. Lane 1: 2.16 part 1a DONE-in-part — next: 2.16 part 1a-2 (72-h offline queue + PWA manifest/service-worker + the deferred kiosk-mode test) → 1a-3 (OTP login) → 1b (PIN, after SCR-IDN-01)
+1. Lane 1: 2.16 part 1a-2 DONE-in-part — next: 2.16 part 1a-3 (OTP login) → 1b (PIN, after SCR-IDN-01)
 2. Lane 2: 4.1a part 2 (gl_account_change_requests) → 4.1a part 3 (is_active, deactivate/reactivate) → 4.1b part 2 (line_dimensions + values) → 4.19 → 4.20 (ADR-0004)
 3. Lane 3: 3.13 part 5 (dispute-side DB backstop migration, race-test barrier, audit-content assertions) → 3.12 part 2 (8 round-2 findings) → 3.4 (2.12 now DONE, dependency met)
