@@ -11,6 +11,8 @@
 // not just runtime-checked. pg-tester's property tests
 // (../../tests/record-billable-event/invariants.property.test.ts) exercise these functions directly.
 
+import { Quantity } from '@pg-eos/domain-kit';
+
 import { ClientMismatchError, InvalidSourceTableError, NonPositiveQtyError } from './errors.js';
 
 /** D1: the closed list of billing-source tables actually named in doc 40 for shipped event hooks
@@ -54,14 +56,39 @@ export function assertClientMatches(sourceClientId: string | null, callerClientI
 
 /** D1/Scenario "qty is rejected unless finite and strictly positive" (round-1 finding 2: the OLD
  *  `qty <= 0` check let `NaN` through, since `NaN <= 0` is `false`). `billing.billable_events` has
- *  no DB CHECK on qty (brief Facts) — this is the ONLY enforcement. */
-export function assertPositiveQty(qty: number): void {
-  if (!Number.isFinite(qty) || qty <= 0) {
+ *  no DB CHECK on qty (brief Facts) — this is the ONLY enforcement.
+ *
+ *  WBS 4.2 part 2 (quantity discipline, CLAUDE.md AGENT CONSTRAINTS): `qty` is a `numeric(14,3)`
+ *  column (01-Data-Model.sql:1055) — exact decimal via `Quantity` (@pg-eos/domain-kit), text in /
+ *  text out, NEVER a JS `number`/`Number()`/`parseFloat()` round trip (same convention as
+ *  modules/wms/domain/{count-inventory,process-outbound,receive-inbound}/invariants.ts's own
+ *  `Quantity.of(...)` usage). `Quantity.of` itself throws `RangeError` for a malformed/out-of-range
+ *  numeric(14,3) string — re-thrown here as the typed `NonPositiveQtyError` so every caller sees one
+ *  error type for "not an acceptable qty", matching the wms precedent's own assertion style.
+ *
+ *  Round-1 (part 2) review finding 2: returns the parsed `Quantity` (not `void`) so every downstream
+ *  consumer (repository.ts's SQL insert, outbox payload, audit `new_value`) uses `.toString()` — the
+ *  CANONICAL numeric(14,3) form — instead of the caller's raw string. `Quantity.of` accepts
+ *  non-canonical input (`'10'`, `'007'`) that the `numeric(14,3)` column stores canonically
+ *  (`10.000`, `7.000`); using the raw string downstream would make the outbox/audit rows disagree
+ *  with the actually-stored row. */
+export function assertPositiveQty(qty: string): Quantity {
+  let value: Quantity;
+  try {
+    value = Quantity.of(qty);
+  } catch {
     throw new NonPositiveQtyError(
-      `RecordBillableEvent requires a finite qty > 0; received ${qty}. ` +
+      `RecordBillableEvent requires a finite qty > 0; received ${JSON.stringify(qty)}. ` +
         `(Allowed: a strictly positive, finite quantity)`,
     );
   }
+  if (!value.isPositive()) {
+    throw new NonPositiveQtyError(
+      `RecordBillableEvent requires a finite qty > 0; received ${JSON.stringify(qty)}. ` +
+        `(Allowed: a strictly positive, finite quantity)`,
+    );
+  }
+  return value;
 }
 
 /** A (sourceTable, sourceId, serviceId) triple — the natural key the pre-existing unique index

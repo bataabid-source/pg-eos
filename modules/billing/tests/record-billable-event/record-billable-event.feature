@@ -76,3 +76,12 @@ Feature: Record a billable event — repository insert port (WBS 4.2)
     When the platform.audit_log row for that insert is read back through platform.sanitize_audit
     Then unit_price, price_source and amount are masked to "•••" even though the stored value is null
     And a non-commercial key (status) is read back unmasked
+
+  Scenario: qty round-trips as an exact decimal Quantity, never a JS number, end to end
+    Given qty is a numeric(14,3) decimal STRING, including a three-decimal-place value and the
+      11-integer-digit boundary "99999999999.999" that a JS number cannot represent bit-for-bit
+    When insertBillableEvent is called
+    Then the stored billing.billable_events.qty column carries the EXACT same text
+    And the platform.outbox payload's own qty key is a JSON STRING equal to the exact same text,
+      never a JSON number
+    And the platform.audit_log new_value's own qty key is likewise the exact same text

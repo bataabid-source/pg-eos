@@ -7,18 +7,19 @@
 // 3 — they were application-layer checks before the rescope removed the application layer
 // entirely).
 //
-// round-1 finding 2 (the real gap): the qty property test must NOT use `noNaN: true` /
-// `noDefaultInfinity: true` to filter non-finite values OUT of the generator — that hid the exact
-// bug it was meant to catch (the old `qty <= 0` check let `NaN` through, since `NaN <= 0` is
-// `false`). The fix uses `Number.isFinite(qty) && qty > 0`; the invalid-direction property below
-// explicitly INCLUDES NaN/Infinity/-Infinity in the values it generates, plus explicit unit cases
-// for each, so a regression back to `qty <= 0` would fail immediately.
+// round-1 finding 2 (the real gap): the qty property test must NOT filter non-finite/malformed
+// values OUT of the generator — that hid the exact bug it was meant to catch (the old `qty <= 0`
+// check let `NaN` through, since `NaN <= 0` is `false`). The fix uses `Quantity.of(qty).isPositive()`
+// (WBS 4.2 part 2, round-1 (part 2) finding 2 — qty is an exact `numeric(14,3)` decimal STRING, never
+// a JS `number`); the invalid-direction property below explicitly INCLUDES NaN/Infinity/-Infinity
+// (as malformed decimal-string text `Quantity.of` rejects) in the values it generates, plus explicit
+// unit cases for each, so a regression back to a weaker check would fail immediately.
 //
-// EXPECTED NEW SURFACE (RED until pg-backend's parallel rewrite lands):
-//   modules/billing/domain/record-billable-event/invariants.ts
-//     - `assertPositiveQty(qty: number): void` — throws NonPositiveQtyError (../errors.js) iff
-//       `!(Number.isFinite(qty) && qty > 0)`; returns (no throw) otherwise. Pure: no I/O, no Date,
-//       no Math.random() (CLAUDE.md AGENT CONSTRAINTS).
+// ACTUAL SURFACE (modules/billing/domain/record-billable-event/invariants.ts):
+//   - `assertPositiveQty(qty: string): Quantity` — throws NonPositiveQtyError (../errors.js) iff
+//     `Quantity.of(qty)` throws or the parsed value is not `.isPositive()`; returns the parsed
+//     `Quantity` (its canonical `.toString()` form) otherwise. Pure: no I/O, no Date, no
+//     Math.random() (CLAUDE.md AGENT CONSTRAINTS).
 //     - `BILLABLE_SOURCE_TABLES: readonly string[]` — the closed list of billing-source tables
 //       named in doc 40 for shipped event hooks (brief D1): wms.inbound_orders,
 //       wms.outbound_orders, wms.occupancy_snapshots, wms.inventory_counts, tms.delivery_tasks.
@@ -54,15 +55,41 @@ import {
   NonPositiveQtyError,
 } from '../../domain/record-billable-event/errors.js';
 
-const positiveQtyArb = fc.double({ min: Number.EPSILON, max: 1_000_000, noNaN: true, noDefaultInfinity: true });
+// WBS 4.2 part 2 (quantity discipline): `assertPositiveQty` takes an exact `numeric(14,3)` decimal
+// STRING (billing.billable_events.qty, 01-Data-Model.sql:1055), never a JS `number` — these
+// generators build valid/invalid decimal-string shapes directly, never routed through a JS `number`
+// (same discipline as `positiveDecimalStringArb`/`nonPositiveDecimalStringArb` further below, which
+// this block now shares).
 
-// round-1 finding 2: the invalid-direction generator EXPLICITLY includes NaN/Infinity/-Infinity —
-// no `noNaN`/`noDefaultInfinity` filtering that would hide them.
+// A generator for exact numeric(14,3)-shaped decimal STRINGS, strictly positive, built from integer
+// and fractional digit strings directly — NEVER routed through a JS `number` — so a value like
+// '99999999999.999' (11 integer digits) stays perfectly exact, something IEEE-754 cannot represent.
+const positiveDecimalStringArb = fc
+  .tuple(
+    fc.integer({ min: 1, max: 99_999_999_999 }), // 1-11 integer digits, never zero-only (qty > 0)
+    fc.integer({ min: 0, max: 999 }), // 0-3 fractional digits
+  )
+  .map(([integerPart, fractionalPart]) => `${integerPart}.${fractionalPart.toString().padStart(3, '0')}`);
+
+// Non-positive numeric(14,3)-shaped decimal strings: zero, and negative magnitudes.
+const nonPositiveDecimalStringArb = fc.oneof(
+  fc.constant('0.000'),
+  fc.constant('0'),
+  fc
+    .tuple(fc.integer({ min: 1, max: 99_999_999_999 }), fc.integer({ min: 0, max: 999 }))
+    .map(([integerPart, fractionalPart]) => `-${integerPart}.${fractionalPart.toString().padStart(3, '0')}`),
+);
+
+const positiveQtyArb = positiveDecimalStringArb;
+
+// round-1 finding 2: the invalid-direction generator EXPLICITLY includes NaN/Infinity/-Infinity (as
+// the literal, malformed decimal-string text `Quantity.of` rejects) — no filtering that would hide
+// them.
 const nonFinitePositiveQtyArb = fc.oneof(
-  fc.double({ min: -1_000_000, max: 0, noNaN: true, noDefaultInfinity: true }),
-  fc.constant(Number.NaN),
-  fc.constant(Number.POSITIVE_INFINITY),
-  fc.constant(Number.NEGATIVE_INFINITY),
+  nonPositiveDecimalStringArb,
+  fc.constant('NaN'),
+  fc.constant('Infinity'),
+  fc.constant('-Infinity'),
 );
 
 const tripleArb = fc.record({
@@ -71,7 +98,7 @@ const tripleArb = fc.record({
   serviceId: fc.uuid(),
 });
 
-describe('assertPositiveQty — property (round-1 finding 2: Number.isFinite(qty) && qty > 0)', () => {
+describe('assertPositiveQty — property (round-1 finding 2 / part 2: Quantity.of(qty).isPositive())', () => {
   it('never throws for a finite, strictly positive qty', () => {
     fc.assert(
       fc.property(positiveQtyArb, (qty) => {
@@ -88,20 +115,20 @@ describe('assertPositiveQty — property (round-1 finding 2: Number.isFinite(qty
     );
   });
 
-  it('qty exactly NaN always throws (the exact round-1 gap: `NaN <= 0` is `false`, so the OLD check let it through)', () => {
-    expect(() => assertPositiveQty(Number.NaN)).toThrow(NonPositiveQtyError);
+  it('qty exactly "NaN" always throws (the exact round-1 gap: `NaN <= 0` is `false`, so the OLD check let it through)', () => {
+    expect(() => assertPositiveQty('NaN')).toThrow(NonPositiveQtyError);
   });
 
-  it('qty exactly Infinity always throws', () => {
-    expect(() => assertPositiveQty(Number.POSITIVE_INFINITY)).toThrow(NonPositiveQtyError);
+  it('qty exactly "Infinity" always throws', () => {
+    expect(() => assertPositiveQty('Infinity')).toThrow(NonPositiveQtyError);
   });
 
-  it('qty exactly -Infinity always throws', () => {
-    expect(() => assertPositiveQty(Number.NEGATIVE_INFINITY)).toThrow(NonPositiveQtyError);
+  it('qty exactly "-Infinity" always throws', () => {
+    expect(() => assertPositiveQty('-Infinity')).toThrow(NonPositiveQtyError);
   });
 
-  it('qty exactly 0 always throws', () => {
-    expect(() => assertPositiveQty(0)).toThrow(NonPositiveQtyError);
+  it('qty exactly "0" always throws', () => {
+    expect(() => assertPositiveQty('0')).toThrow(NonPositiveQtyError);
   });
 });
 
@@ -200,5 +227,56 @@ describe('isNonDuplicateTriple — property (D2 domain-level pre-check, best-eff
         expect(isNonDuplicateTriple([existingTriple], candidate)).toBe(true);
       }),
     );
+  });
+});
+
+// WBS 4.2 part 2: qty quantity-discipline — exact decimal `Quantity`, never a plain JS `number`
+// (CLAUDE.md AGENT CONSTRAINTS: no Math.random()/new Date() in domain/, and doc 40/CLAUDE.md
+// quantity discipline: exact decimal via `Quantity` from @pg-eos/domain-kit, text in / text out,
+// same convention as modules/wms/domain/{count-inventory,process-outbound,receive-inbound}/
+// invariants.ts — NEVER a raw Number() on the value). `assertPositiveQty` takes a genuine
+// `numeric(14,3)` decimal STRING (the wire/DB representation, `billing.billable_events.qty` is
+// `numeric(14,3) not null`, database/schema/01-Data-Model.sql:1055) — round-1 (part 2) finding 2:
+// it RETURNS the parsed `Quantity` (not `void`) so callers use its canonical `.toString()` form
+// downstream, never the caller's raw string.
+
+describe('assertPositiveQty — Quantity string type discipline (WBS 4.2 part 2)', () => {
+  it('never throws for a strictly positive numeric(14,3) decimal STRING (a real Quantity, not a JS number)', () => {
+    fc.assert(
+      fc.property(positiveDecimalStringArb, (qty) => {
+        expect(() => assertPositiveQty(qty)).not.toThrow();
+      }),
+    );
+  });
+
+  it('always throws NonPositiveQtyError for a zero or negative numeric(14,3) decimal STRING', () => {
+    fc.assert(
+      fc.property(nonPositiveDecimalStringArb, (qty) => {
+        expect(() => assertPositiveQty(qty)).toThrow(NonPositiveQtyError);
+      }),
+    );
+  });
+
+  it('accepts the exact numeric(14,3) boundary value "99999999999.999" — 11 integer digits, unrepresentable exactly as a JS number', () => {
+    const maxQty = '99999999999.999';
+    expect(() => assertPositiveQty(maxQty)).not.toThrow();
+  });
+
+  it('round-1 (part 2) finding 7: returns a Quantity whose .toString() is the EXACT input text, proving no Number() round trip anywhere in the check', () => {
+    fc.assert(
+      fc.property(positiveDecimalStringArb, (qty) => {
+        expect(assertPositiveQty(qty).toString()).toBe(qty);
+      }),
+    );
+  });
+
+  it('a three-decimal-place quantity string round-trips through .toString() with its exact textual form unchanged', () => {
+    const qty = '12.345';
+    expect(assertPositiveQty(qty).toString()).toBe(qty);
+  });
+
+  it('the numeric(14,3) boundary value "99999999999.999" round-trips through .toString() with no precision loss', () => {
+    const maxQty = '99999999999.999';
+    expect(assertPositiveQty(maxQty).toString()).toBe(maxQty);
   });
 });
