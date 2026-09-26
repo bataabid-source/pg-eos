@@ -14,6 +14,7 @@ Two different things are called a "brief". This file holds both, so neither is i
 
 ```
 Task: <WBS id + name>            Lane: <A|B|C|1|2|3|M>          Lock: <module(s) claimed>
+builder: pg-backend | pg-backend-core | pg-frontend   (routing v2, D-191 — pg-backend-core for a migration, RLS, permissions or platform/identity/billing core; refused by brief-check if missing)
 Read ONLY: CLAUDE.md · .claude/briefs/<module>.brief.md · <golden slice path> · <doc 40 §> · <schema tables> · <D-blueprint section for screens/KPIs>
 Write ONLY: <paths inside the locked module(s)> · tests/…
 Scenario: <Gherkin block, pasted>

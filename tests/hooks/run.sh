@@ -133,7 +133,24 @@ echo "brief-check.sh"
 FX="$TMP/fx"; mkdir -p "$FX/modules/m/domain/uc" "$FX/docs"
 for i in $(seq 1 14); do seq 1 100 > "$FX/modules/m/domain/uc/f$i.ts"; done
 seq 1 3000 > "$FX/docs/big.md"
-bc() { printf '%b' "$1" > "$TMP/brief.md"; bash "$REPO/scripts/brief-check.sh" "$TMP/brief.md" --root "$FX" >/dev/null 2>&1; echo $?; }
+bc() { printf 'builder: pg-backend
+%b' "$1" > "$TMP/brief.md"; bash "$REPO/scripts/brief-check.sh" "$TMP/brief.md" --root "$FX" >/dev/null 2>&1; echo $?; }
+bcn() { printf '%b' "$1" > "$TMP/brief.md"; bash "$REPO/scripts/brief-check.sh" "$TMP/brief.md" --root "$FX" >/dev/null 2>&1; echo $?; }
+expect "routing v2: no builder line refused"            1 "$(bcn 'Read ONLY:
+- `modules/m/domain/uc/f1.ts`
+Write ONLY: x')"
+expect "routing v2: unknown builder refused"            1 "$(bcn 'builder: pg-wizard
+Read ONLY:
+- `modules/m/domain/uc/f1.ts`
+Write ONLY: x')"
+expect "routing v2: pg-backend-core accepted"           0 "$(bcn 'builder: pg-backend-core
+Read ONLY:
+- `modules/m/domain/uc/f1.ts`
+Write ONLY: x')"
+expect "routing v2: core + frontend accepted"           0 "$(bcn 'builder: pg-backend-core + pg-frontend
+Read ONLY:
+- `modules/m/domain/uc/f1.ts`
+Write ONLY: x')"
 expect "no Read ONLY block → 2"                 2 "$(bc '# brief\nDeliver: x')"
 expect "small list OK"                          0 "$(bc 'Read ONLY:\n- `modules/m/domain/uc/f1.ts`\n- `modules/m/domain/uc/f2.ts`\n\nWrite ONLY: x')"
 expect "brace group expanded"                   0 "$(bc 'Read ONLY:\n- modules/m/domain/uc/{f1,f2,f3}.ts\nWrite ONLY: x')"

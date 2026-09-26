@@ -37,6 +37,17 @@ block="$(awk '
 ' "$BRIEF")"
 [ -n "$block" ] || { echo "brief-check: no 'Read ONLY' block in $BRIEF" >&2; exit 2; }
 
+# Routing v2 (D-191, GM 2026-09-26): the brief names its builder before pg-tester starts —
+# `builder: pg-backend | pg-backend-core | pg-frontend`, optionally two joined by `+`
+# (e.g. `builder: pg-backend-core + pg-frontend`). A brief without a valid line is refused.
+BUILDER_RE='^builder:[[:space:]]*(pg-backend|pg-backend-core|pg-frontend)([[:space:]]*\+[[:space:]]*(pg-backend|pg-backend-core|pg-frontend))?[[:space:]]*$'
+if ! grep -Eq "$BUILDER_RE" "$BRIEF"; then
+  echo "brief-check: no valid 'builder:' line (pg-backend | pg-backend-core | pg-frontend) — routing v2, D-191" >&2
+  status_builder=1
+else
+  status_builder=0
+fi
+
 expand_braces() {
   # a/{b,c}/d → a/b/d a/c/d, every brace group, in order
   local queue=("$1") out=() s pre inner rest a
@@ -103,4 +114,5 @@ if [ "$status" -eq 0 ]; then
 else
   echo "brief-check: split the slice in two BEFORE pg-tester starts (CLAUDE.md · SPLIT BEFORE, NOT AFTER)" >&2
 fi
+[ "$status_builder" -eq 0 ] || status=1
 exit $status

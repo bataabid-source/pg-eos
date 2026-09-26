@@ -9,11 +9,12 @@ trailer is missing or whose tier contradicts this table.
 |---------------------------------------------|----------------|---------|--------------------------------------------|
 | Golden slice 2.9 build                      | pg-backend     | sonnet  | ≤ 60k (brief + golden files only)          |
 | Golden slice 2.9 review                     | pg-reviewer    | opus    | ≤ 40k                                      |
-| Replicated backend slice                    | pg-backend     | sonnet  | ≤ 40k                                      |
+| Replicated backend slice (no schema)        | pg-backend     | sonnet  | ≤ 40k                                      |
 | UI slice from contract + D-blueprint screen | pg-frontend    | sonnet  | ≤ 40k                                      |
 | Tests, guards, mutation                     | pg-tester      | sonnet  | ≤ 30k                                      |
 | Slice review                                | pg-reviewer    | opus    | ≤ 30k                                      |
-| State/backlog/CHANGELOG/i18n/renames        | pg-scribe      | sonnet  | ≤ 10k                                      |
+| Schema/RLS/permission/core backend slice    | pg-backend-core| opus    | ≤ 60k                                      |
+| State/backlog/CHANGELOG/i18n/renames        | pg-scribe      | haiku   | ≤ 10k                                      |
 | Single-file edit ≤ 30 lines, no new logic   | Master, direct | session | —                                          |
 | Planning, briefs, locks, merges, commits    | Master, direct | session | —                                          |
 | ADR / architecture / security design        | Master on opus | opus    | —                                          |
@@ -21,7 +22,7 @@ trailer is missing or whose tier contradicts this table.
 
 Budget is enforced by the brief: 8 files / 1,000 lines (CLAUDE.md · OPERATING RULES · SPLIT BEFORE, NOT AFTER). pg-reviewer flags any delegation whose report shows reads outside the list.
 
-Agents are pinned in `.claude/agents/`: pg-reviewer=opus · pg-backend/pg-frontend/pg-tester/pg-scribe=sonnet.
+Agents are pinned in `.claude/agents/` (routing v2, D-191): pg-reviewer=opus · pg-backend-core=opus · pg-backend/pg-frontend/pg-tester=sonnet · pg-scribe=haiku. Effort (session setting, not frontmatter): reviewer high; builders, tester, lane sessions and the Master medium (Master opus/medium until 4.20 merges, then sonnet/medium per D-174); scribe low. pg-tester runs on opus only for isolation/security tests. One-slice trial: 4.20's builder on claude-fable-5-1, measured against pg-backend-core. Every merge line records builder model · rounds · findings · tokens; after five pg-backend-core slices the table is confirmed or adjusted.
 `inherit` is forbidden; an unsupported alias is REPORTED, never silently
 replaced. Escalation is upward only (sonnet → opus) and only after two failures, for an ADR or
 a security design, or for the WBS 2.9 session. Expected token distribution (EXECUTION-MASTER-v4
