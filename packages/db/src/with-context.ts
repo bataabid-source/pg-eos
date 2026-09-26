@@ -29,7 +29,7 @@ import { sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 
-import { pool } from './client.js';
+import { assertAppRole, pool, requireAppUser } from './client.js';
 
 export interface WithContextCtx {
   readonly userId: string | null;
@@ -47,8 +47,10 @@ export async function withContext<T>(
   ctx: WithContextCtx,
   fn: (tx: NodePgDatabase) => Promise<T>,
 ): Promise<T> {
+  requireAppUser();
   const client = await pool.connect();
   try {
+    await assertAppRole(client);
     await client.query('begin');
     const tx = drizzle(client);
     try {
