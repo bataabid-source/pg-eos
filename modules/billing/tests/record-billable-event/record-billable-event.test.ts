@@ -75,7 +75,7 @@ const pool = new Pool({
 // --- literals ------------------------------------------------------------------------------
 
 const STATUS_PENDING = 'pending';
-const QTY_TEN = 10;
+const QTY_TEN = '10.000';
 const SOURCE_MODULE_WMS = 'wms';
 const SOURCE_TABLE = 'wms.inbound_orders'; // one of the closed list's five allowed values (brief D1).
 const NOT_IN_CLOSED_LIST_SOURCE_TABLE = 'sales.contracts'; // not in the closed list — InvalidSourceTableError.
@@ -204,6 +204,19 @@ async function getEvent(id: string): Promise<{
   return row;
 }
 
+// RED (Master, WBS 4.2 part 2): reads the STORED `qty` column back as TEXT — `numeric(14,3)`,
+// database/schema/01-Data-Model.sql:1055 — never cast through a JS `number` anywhere in this
+// assertion path, so a precision-losing round trip would show up here as a text mismatch.
+async function getEventQtyText(id: string): Promise<string> {
+  const result: QueryResult<{ qty: string }> = await pool.query(
+    `select qty::text as qty from billing.billable_events where id = $1`,
+    [id],
+  );
+  const row = result.rows[0];
+  if (!row) throw new Error(`no billing.billable_events row for id ${id}`);
+  return row.qty;
+}
+
 async function auditRowForRecord(recordId: string): Promise<{
   correlation_id: string | null;
   new_value: Record<string, unknown> | null;
@@ -236,6 +249,17 @@ async function outboxCountForCorrelation(correlationId: string): Promise<number>
     [correlationId],
   );
   return Number(result.rows[0]?.n ?? '0');
+}
+
+// RED (Master, WBS 4.2 part 2): the raw `payload` jsonb of the outbox row, for asserting the `qty`
+// key inside it is a JSON STRING (exact decimal text, matching `Quantity#toString()`), never a JSON
+// NUMBER (which round-trips through IEEE-754 the instant it is JSON.parse()'d back out).
+async function outboxPayloadForCorrelation(correlationId: string): Promise<Record<string, unknown> | null> {
+  const result: QueryResult<{ payload: Record<string, unknown> }> = await pool.query(
+    `select payload from platform.outbox where correlation_id = $1`,
+    [correlationId],
+  );
+  return result.rows[0]?.payload ?? null;
 }
 
 beforeAll(async () => {
@@ -506,11 +530,11 @@ describe('Scenario: the same (sourceTable, sourceId, serviceId) triple is insert
 
 describe('Scenario: qty is not a finite positive number', () => {
   it.each([
-    ['NaN', Number.NaN],
-    ['Infinity', Number.POSITIVE_INFINITY],
-    ['-Infinity', Number.NEGATIVE_INFINITY],
-    ['zero', 0],
-    ['a negative number', -5],
+    ['NaN', 'NaN'],
+    ['Infinity', 'Infinity'],
+    ['-Infinity', '-Infinity'],
+    ['zero', '0'],
+    ['a negative number', '-5'],
   ])('rejects qty = %s with a typed error and writes nothing', async (_label, qty) => {
     const triple = await freshTriple();
 
@@ -571,5 +595,51 @@ describe('Scenario: commercial-column masking on the audit row', () => {
     // a non-commercial key is read back unmasked (status is never classified commercial/secret/
     // personal/payroll) — proves the mask is column-classification-driven, not blanket.
     expect(record['status']).not.toBe(SANITIZE_AUDIT_MASK);
+  });
+});
+
+// --- WBS 4.2 part 2: qty quantity discipline — exact decimal `Quantity`, never a plain JS `number`, ---
+// --- all the way through the pipeline: domain invariant, repository INSERT, the stored ---
+// --- `numeric(14,3)` column, and the `platform.outbox` payload. `InsertBillableEventParams.qty` ---
+// --- types `qty: string` (repository.ts) — these tests supply a genuine decimal STRING (never ---
+// --- routed through Number()/parseFloat()) and prove it round-trips exactly, including a ---
+// --- 3-decimal-place value a `number` cannot always represent bit-for-bit (wms precedent: ---
+// --- modules/wms/infrastructure/receive-inbound/repository.ts's own qty_ordered/qty_actual as text). ---
+
+describe('Scenario: qty round-trips as an exact decimal Quantity, never a JS number, end to end', () => {
+  it('accepts a three-decimal-place qty STRING, and stores/outputs it as the exact same text everywhere (domain, DB column, outbox payload)', async () => {
+    const triple = await freshTriple();
+    const exactQty = '12.345'; // a value that cannot always be represented bit-for-bit as an IEEE-754 double.
+    const input = { ...baseInput(triple), qty: exactQty };
+
+    const result = await callInsert(OWNER_ACTOR_UUID, input);
+    fixtureEventIds.push(result.id);
+
+    // 1. the stored `numeric(14,3)` column carries the EXACT text — no precision drift.
+    expect(await getEventQtyText(result.id)).toBe(exactQty);
+
+    // 2. the platform.outbox payload's own `qty` key is a JSON STRING equal to the exact text —
+    //    never a JSON number (which would silently coerce through IEEE-754 on JSON.parse()).
+    const payload = await outboxPayloadForCorrelation(input.correlationId);
+    expect(payload).not.toBeNull();
+    expect(typeof payload?.['qty']).toBe('string');
+    expect(payload?.['qty']).toBe(exactQty);
+
+    // 3. the platform.audit_log new_value's own `qty` key is likewise the exact text.
+    const audit = await auditRowForRecord(result.id);
+    expect(audit?.new_value).not.toBeNull();
+    expect(typeof audit?.new_value?.['qty']).toBe('string');
+    expect(audit?.new_value?.['qty']).toBe(exactQty);
+  });
+
+  it('accepts the exact numeric(14,3) boundary quantity "99999999999.999" (11 integer digits) without any loss of precision', async () => {
+    const triple = await freshTriple();
+    const maxQty = '99999999999.999';
+    const input = { ...baseInput(triple), qty: maxQty };
+
+    const result = await callInsert(OWNER_ACTOR_UUID, input);
+    fixtureEventIds.push(result.id);
+
+    expect(await getEventQtyText(result.id)).toBe(maxQty);
   });
 });

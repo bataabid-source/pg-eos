@@ -13,9 +13,10 @@
 //      invariants.ts) -> InvalidSourceTableError (422) BEFORE sourceTable is ever interpolated as a
 //      table identifier — narrows `sourceTable` to the closed-list union `BillableSourceTable`, so
 //      the `sql.raw()` use below is type-safe, not just runtime-checked.
-//   2. assertPositiveQty(qty) (round-1 finding 2: `Number.isFinite(qty) && qty > 0`, not `qty <= 0`
-//      alone — rejects NaN/Infinity too) -> NonPositiveQtyError (422). `billing.billable_events` has
-//      no DB CHECK on qty (brief Facts) — this is the ONLY enforcement.
+//   2. assertPositiveQty(qty) (round-1 finding 2: rejects NaN/Infinity/zero/negative; WBS 4.2 part 2:
+//      `qty` is an exact decimal `numeric(14,3)` STRING validated via `Quantity.of(qty).isPositive()`,
+//      never a JS `number`) -> NonPositiveQtyError (422). `billing.billable_events` has no DB CHECK
+//      on qty (brief Facts) — this is the ONLY enforcement.
 //   3. getSourceRow — resolve entity_id/client_id THROUGH the SOURCE ROW named by (sourceTable,
 //      sourceId) — never caller-supplied. A missing/invisible source row -> SourceEventNotFoundError.
 //   4. assertClientMatches(sourceRow.clientId, clientId) -> ClientMismatchError (422).
@@ -146,7 +147,9 @@ export interface InsertBillableEventParams {
   readonly clientId: string;
   readonly contractId?: string | null;
   readonly serviceId: string;
-  readonly qty: number;
+  /** WBS 4.2 part 2: exact decimal `numeric(14,3)` text, never a JS `number` — see
+   *  ../../domain/record-billable-event/invariants.ts's `assertPositiveQty`. */
+  readonly qty: string;
   readonly uom: string;
   readonly sourceModule: string;
   readonly sourceTable: string;
@@ -180,7 +183,11 @@ export async function insertBillableEvent(
   const sourceTable = params.sourceTable;
 
   // Step 2 — the ONLY qty enforcement (no DB CHECK); rejects NaN/Infinity too (round-1 finding 2).
-  assertPositiveQty(params.qty);
+  // Round-1 (part 2) finding 2: use the returned Quantity's CANONICAL `.toString()` form downstream
+  // (SQL insert, outbox payload, audit new_value) — never `params.qty` (the caller's raw string),
+  // since Quantity.of accepts non-canonical input (`'10'`, `'007'`) that numeric(14,3) stores
+  // canonically (`10.000`, `7.000`).
+  const qty = assertPositiveQty(params.qty).toString();
 
   // Step 3 — D1 CORRECTED: entity_id/client_id resolved THROUGH the source row, never caller-supplied.
   const sourceRow = await getSourceRow(tx, sourceTable, params.sourceId);
@@ -226,7 +233,7 @@ export async function insertBillableEvent(
          source_table, source_id, is_intercompany, counterparty_entity_id)
       values
         (${sourceRow.entityId}::uuid, ${params.occurredAt}::timestamptz, ${params.clientId}::uuid,
-         ${contractId}::uuid, ${params.serviceId}::uuid, ${params.qty}::numeric, ${params.uom},
+         ${contractId}::uuid, ${params.serviceId}::uuid, ${qty}::numeric, ${params.uom},
          ${params.sourceModule}, ${sourceTable}, ${params.sourceId}::uuid,
          ${isIntercompany}::boolean, ${counterpartyEntityId}::uuid)
       returning id, status
@@ -254,7 +261,7 @@ export async function insertBillableEvent(
     client_id: params.clientId,
     contract_id: contractId,
     service_id: params.serviceId,
-    qty: params.qty,
+    qty,
     uom: params.uom,
     source_module: params.sourceModule,
     source_table: sourceTable,

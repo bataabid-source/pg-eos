@@ -102,6 +102,9 @@ importers:
       '@pg-eos/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@pg-eos/domain-kit':
+        specifier: workspace:*
+        version: link:../../packages/domain-kit
       '@pg-eos/events':
         specifier: workspace:*
         version: link:../../packages/events

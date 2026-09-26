@@ -16,6 +16,12 @@ Read ONLY:
 
 Write ONLY: `modules/billing/{domain,infrastructure}/record-billable-event/**`, `modules/billing/tests/record-billable-event/**`. `modules/billing/{application,api}/record-billable-event/**` and `packages/contracts/billing/record-billable-event.ts` are DELETE-only this round (no application command, no contract, no api layer — rescoped). `tests/**` always writable (pg-tester).
 
+## Part 2 (round-1 review finding 5 — Read/Write scope, appended, branch `lane/2-4.2p2`)
+Part 1 (commit `6874b17`, merged to main) delivered the rescoped domain+repository slice above. Part 2's own scope, additive to the above:
+- **Read ONLY (part 2):** `packages/domain-kit/quantity.ts` (the `Quantity` type — exact-decimal, text in/out; `.of(...)`/`.toString()`/`.isPositive()` API), `modules/wms/domain/{count-inventory,receive-inbound}/invariants.ts` (the existing `Quantity` usage convention to match, no new pattern invented).
+- **Write ONLY (part 2, additive):** `modules/billing/package.json` (add the `@pg-eos/domain-kit` dependency — covered by the whole-module `billing` lock) and root `pnpm-lock.yaml` (the lockfile update that follows from it, outside any module lock but a mechanical `pnpm install` byproduct, not hand-edited).
+- **Scope:** re-type `assertPositiveQty`/`InsertBillableEventParams.qty` from `number` to the `Quantity` exact-decimal string type end to end (domain invariant, repository insert, outbox payload, audit row) — Master's finding after part 1's merge. No new migration, no application/api layer reintroduced, `packages/events/catalog.ts` untouched (frozen, already granted in part 1).
+
 ## Facts (schema investigation — no migration needed this slice)
 - `billing.billable_events` ALREADY EXISTS in full (`01-Data-Model.sql:1048-1073`): all 21 columns, RLS `entity_scope` policy enabled, ALL 21 columns already classified in `identity.column_classification` (verified live), the `chk_billable_events_status` CHECK (`13B:2354`), and — critically — the unique index `(source_table, source_id, service_id)` that IS the acceptance criterion ("Same event cannot bill twice") already exists live and is explicitly marked in `13B:4129-4130` (ق-38) as NOT to be recreated by any migration.
 - **Conclusion: WBS 4.2 needs NO migration.** The MIGRATION-REQUEST-2.md row records this finding (no number requested) rather than inventing schema work that isn't needed — CLAUDE.md "never fabricate... never invent" cuts both ways: don't invent unneeded migrations either.
