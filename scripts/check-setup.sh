@@ -91,7 +91,7 @@ echo "== 5. Git"
 if [ -d .git ]; then ok ".git present (branch: $(git rev-parse --abbrev-ref HEAD 2>/dev/null))"; else miss ".git — run: git init -b main && git add -A && git commit -m 'chore: SETUP-000 import package v4 + kit'"; fi
 
 echo "== 6. Tools on this machine (PROJECT-SETUP-GUIDE §1) — needed from task 0.4 onward"
-if [ -n "${PG_APP_USER:-}" ]; then ok "PG_APP_USER=${PG_APP_USER} (module tests and guards run as the app role)"; else printf '  \033[33mNOTE\033[0m  PG_APP_USER unset — packages/db falls back to PGUSER/postgres, so RLS is NOT exercised by module tests (0.6a default D2); export PG_APP_USER=pgeos_app before pnpm test / guards:run\n'; fi
+if [ -n "${PG_APP_USER:-}" ] && [ "${PG_APP_USER}" != "postgres" ]; then ok "PG_APP_USER=${PG_APP_USER} (module tests and guards run as the app role)"; else miss "PG_APP_USER unset or 'postgres' — packages/db refuses to connect (ADR-0005 §7); export PG_APP_USER=pgeos_app"; fi
 for t in git node pnpm docker psql claude; do
   if command -v "$t" >/dev/null 2>&1; then ok "$t → $(command -v "$t")"; else
     case $t in

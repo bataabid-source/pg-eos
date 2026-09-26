@@ -13,12 +13,12 @@
 // package barrel (index.ts) — see index.ts, finding 4.
 //
 // Same PG* env-var convention as modules/platform (WBS 0.9/0.10) and this package's own tests.
-// Do NOT change these defaults (localhost/5432/postgres/pgeos) — every other package in this
-// workspace shares them; changing them here would break local dev for everyone. See the KNOWN GAP
-// note below instead.
+// Do NOT change the host/port/database defaults (localhost/5432/pgeos) — every other package in
+// this workspace shares them. The pool ROLE has no default: PG_APP_USER is required (ADR-0005 §7).
 
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
+import type { PoolClient } from 'pg';
 
 // RESOLVED (WBS 0.6a, D-133): withContext's RLS-GUC mechanism (app.user_id / app.client_id /
 // app.is_internal) only has teeth once the runtime pool connects as a non-superuser application
@@ -28,16 +28,47 @@ import { Pool } from 'pg';
 // (database/migrations/0007_*.sql) created exactly that role: `pgeos_app`, no SUPERUSER, no
 // BYPASSRLS, no password (trust auth, Tier 0 only), scoped GRANTs, and the entity_scope
 // USING/WITH CHECK split. Setting PG_APP_USER=pgeos_app makes withContext's queries actually run
-// under RLS instead of silently bypassing it. CI (.github/workflows/ci.yml) sets
-// PG_APP_USER=pgeos_app for every job that touches the database, so gates ②③⑤ run under RLS.
-// Local dev is unchanged: PG_APP_USER is unset by default, so the pool falls back to PGUSER
-// (still 'postgres' locally) — no behaviour change for a developer who has not opted in.
+// under RLS instead of silently bypassing it. CI (.github/workflows/ci.yml) and the remote
+// SessionStart hook set PG_APP_USER=pgeos_app; local shells export it (docs/RUNBOOK.md).
+// ADR-0005 §7 makes it REQUIRED — an unset value used to fall back to PGUSER (a superuser), which
+// silently disabled RLS and every `current_user <> 'pgeos_app'` trigger bypass. The checks run at
+// first use (requireAppUser / assertAppRole, called by withContext), not at import, so pure
+// domain unit tests that import the package barrel keep working without a database.
+// psql-based tooling (apply.sh, guards) keeps using PGUSER directly and is unaffected.
+const ADMIN_ROLE = 'postgres';
+
 export const pool = new Pool({
   host: process.env['PGHOST'] ?? 'localhost',
   port: Number(process.env['PGPORT'] ?? '5432'),
-  user: process.env['PG_APP_USER'] ?? process.env['PGUSER'] ?? 'postgres',
+  user: process.env['PG_APP_USER'],
   database: process.env['PGDATABASE'] ?? 'pgeos',
 });
+
+export function requireAppUser(): string {
+  const appUser = process.env['PG_APP_USER'];
+  if (!appUser || appUser === ADMIN_ROLE) {
+    throw new Error(
+      'PG_APP_USER must name the non-superuser application role (pgeos_app); the pool never falls back to PGUSER (ADR-0005 §7)',
+    );
+  }
+  return appUser;
+}
+
+let roleVerified = false;
+
+// A name check alone would accept PGUSER=someadmin; the catalog answers for every role name.
+export async function assertAppRole(client: PoolClient): Promise<void> {
+  if (roleVerified) return;
+  const result = await client.query<{ bypass: boolean }>(
+    'select (rolsuper or rolbypassrls) as bypass from pg_roles where rolname = current_user',
+  );
+  if (result.rows[0]?.bypass !== false) {
+    throw new Error(
+      `PG_APP_USER=${requireAppUser()} is a superuser or BYPASSRLS role; the pool must connect as a role RLS applies to (ADR-0005 §7)`,
+    );
+  }
+  roleVerified = true;
+}
 
 // node-postgres emits an 'error' event on the pool when an already-idle client's connection is
 // dropped by the backend (network blip, server restart, etc). With zero listeners, Node treats
