@@ -322,6 +322,26 @@ const NAMED_ENTITY_SCOPE_EXCEPTIONS_ENTRIES: ReadonlyArray<readonly [string, Nam
       expectedPolicyNames: ['idem_entity_scope', 'idem_own'],
     },
   ],
+  [
+    'billing.gl_account_change_requests',
+    {
+      reason:
+        'glc_entity_scope (restrictive, FOR ALL, entity_id in allowed_entities() in both USING and ' +
+        'WITH CHECK) is deliberately renamed from entity_scope to avoid migration 0007\'s self-healing ' +
+        'loop, which hunts any policy literally named entity_scope and assumes it is PERMISSIVE — same ' +
+        'precedent as platform.idempotency_keys / idem_entity_scope. The maker/checker split adds five ' +
+        'permissive policies (glc_maker_insert, glc_maker_select, glc_maker_update, glc_approver_select, ' +
+        'glc_approver_update) on top of the restrictive entity boundary — not a policy named entity_scope',
+      expectedPolicyNames: [
+        'glc_entity_scope',
+        'glc_maker_insert',
+        'glc_maker_select',
+        'glc_maker_update',
+        'glc_approver_select',
+        'glc_approver_update',
+      ],
+    },
+  ],
 ];
 
 const NAMED_ENTITY_SCOPE_EXCEPTIONS: ReadonlyMap<string, NamedScopeException> = new Map(

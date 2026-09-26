@@ -117,6 +117,10 @@
     "./hr/confirm-commission": {
       "types": "./dist/hr/confirm-commission.d.ts",
       "default": "./dist/hr/confirm-commission.js"
+    },
+    "./billing/gl-account-change-requests": {
+      "types": "./dist/billing/gl-account-change-requests.d.ts",
+      "default": "./dist/billing/gl-account-change-requests.js"
     }
   },
   "scripts": {
