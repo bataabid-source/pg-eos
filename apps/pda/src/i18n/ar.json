@@ -1,0 +1,20 @@
+{
+  "app.name": "المستودع المتميز",
+  "screen.home": "الرئيسية",
+  "screen.receive": "الاستلام",
+  "screen.putAway": "التخزين",
+  "screen.pick": "الالتقاط",
+  "screen.check": "الفحص",
+  "screen.load": "التحميل",
+  "screen.count": "الجرد",
+  "screen.transferReturn": "النقل / الإرجاع",
+  "screen.lookup": "البحث",
+  "kiosk.enter": "الدخول إلى وضع الكشك",
+  "locale.select.label": "اللغة",
+  "locale.name.ar": "العربية",
+  "locale.name.en": "الإنجليزية",
+  "locale.name.hi": "الهندية",
+  "locale.name.ur": "الأردية",
+  "locale.name.bn": "البنغالية",
+  "locale.name.am": "الأمهرية"
+}

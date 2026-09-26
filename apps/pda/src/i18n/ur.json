@@ -1,0 +1,20 @@
+{
+  "app.name": "پریمیم گودام",
+  "screen.home": "ہوم",
+  "screen.receive": "وصولی",
+  "screen.putAway": "ذخیرہ کریں",
+  "screen.pick": "چنیں",
+  "screen.check": "جانچیں",
+  "screen.load": "لوڈ کریں",
+  "screen.count": "شمار کریں",
+  "screen.transferReturn": "منتقلی / واپسی",
+  "screen.lookup": "تلاش کریں",
+  "kiosk.enter": "کیوسک موڈ میں داخل ہوں",
+  "locale.select.label": "زبان",
+  "locale.name.ar": "عربی",
+  "locale.name.en": "انگریزی",
+  "locale.name.hi": "ہندی",
+  "locale.name.ur": "اردو",
+  "locale.name.bn": "بنگالی",
+  "locale.name.am": "امہاری"
+}
