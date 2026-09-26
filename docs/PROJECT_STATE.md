@@ -5,7 +5,7 @@
 | field | value |
 |---|---|
 | Phase | 0 CLOSED · 1 Commercial Core (done except 1.11, BLOCKED D-178) · 2 Warehouse (9/19) · pilot-first (D-127): seed 019 + synthetic data. Doc 38 **v4.6 (154 rows, D-187/ADR-0004)**. |
-| Current task | Lane 1: **2.12 part 1** (PickLine + CheckOrder; part 2 = Pack/Load) in `wms/process-outbound` — 2.11 DONE @ `f9aeecc`. Lane 2: **4.1a next** (CoA structure X-XX-XXX-XXX + class 1-9) — **WBS 4.2 DONE @ `<this commit>` — all three parts**, `billing` lock held, same lock continues. Lane 3: **3.12 part 1 DONE-in-part @ `b9c3b1d`** — `AssignDriverId` command; round 2 FAILED(8 findings), no round 3 (REVIEW CAP), part 2 filed in MASTER_BACKLOG, `imile` lock held → 3.13 next (D-190). One DB per lane (`bash scripts/lane-db.sh <id>`, P4a @ `436be60`). |
+| Current task | Lane 1: **2.12 part 1** (PickLine + CheckOrder; part 2 = Pack/Load) in `wms/process-outbound` — 2.11 DONE @ `f9aeecc`. Lane 2: **4.1a next** (CoA structure X-XX-XXX-XXX + class 1-9) — **WBS 4.2 DONE @ `4ba65a4` — all three parts**, `billing` lock held, same lock continues. Lane 3: **3.12 part 1 DONE-in-part @ `b9c3b1d`** — `AssignDriverId` command; round 2 FAILED(8 findings), no round 3 (REVIEW CAP), part 2 filed in MASTER_BACKLOG, `imile` lock held → 3.13 next (D-190). One DB per lane (`bash scripts/lane-db.sh <id>`, P4a @ `436be60`). |
 | Golden slice / tier / schema / session model | 2.9 ACCEPTED (`.golden-slice-accepted`, `scripts/new-slice.sh` active) · Pilot Tier 0 = local Docker `postgres:16` (D-129), Oracle DEFERRED-POST-PILOT · migrations 0001–0026 applied (0022 withdrawn), next free **0027** · D-174/D-180 session model: lane sessions sonnet/medium, Master sonnet/medium (opus only ADR/security/D-117), pg-reviewer opus, no haiku |
 
 ## Lanes
@@ -19,7 +19,7 @@
 ## Last 5 DONE (newest first)
 | task | commit |
 |---|---|
-| 4.2 part 3 — close deferred findings: stale test comments, non-canonical-qty regression test (lane 2) — **WBS 4.2 DONE @ `<this commit>` — all three parts** — PASS(0 findings, 1 rounds) | `<this commit>` |
+| 4.2 part 3 — close deferred findings: stale test comments, non-canonical-qty regression test (lane 2) — **WBS 4.2 DONE @ `4ba65a4` — all three parts** — PASS(0 findings, 1 rounds) | `4ba65a4` |
 | 3.12 part 1 — `AssignDriverId` command, no migration (lane 3), DONE-in-part — round-1 fixes applied; round 2 FAIL(8 findings), no round 3 (REVIEW CAP), part 2 opened | `b9c3b1d` |
 | P3 — hash-placeholder resolver, CI check, gov-ratio script (Master), + round-1 review fixes (ancestor-of-base staleness rule, slice/pg-scribe wiring) | `2cfa3eb` |
 | 4.2 part 1 — `billing.billable_events` domain + repository insert (lane 2), DONE-in-part — PASS(23 findings fixed, 2 rounds); part 2 (pg-reviewer confirmation of SQLSTATE 23505 test) reviewed in 4.1a round 1 | `6874b17` |
