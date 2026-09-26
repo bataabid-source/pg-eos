@@ -29,14 +29,18 @@ export const ProblemSchema = z
 export type Problem = z.infer<typeof ProblemSchema>;
 
 /**
- * doc 40 §A4 — the three status codes this slice's write-endpoint rules fix. No other numbers:
+ * doc 40 §A4 — the three status codes this slice's write-endpoint rules fix, plus FORBIDDEN
+ * (Master task P6b-1: `identity.entityScope.forbidden` — an X-Entity-Id header naming an entity
+ * outside the caller's own scope, or malformed). No other numbers:
  *   400 BAD_REQUEST            — write endpoint called without an Idempotency-Key header.
+ *   403 FORBIDDEN              — X-Entity-Id header present but not one of the caller's entities.
  *   409 CONFLICT               — Idempotency-Key reused with a different body, or a stale
  *                                 `version` on a mutable aggregate.
  *   422 UNPROCESSABLE_ENTITY   — illegal state transition.
  */
 export const PROBLEM_STATUS = {
   BAD_REQUEST: 400,
+  FORBIDDEN: 403,
   CONFLICT: 409,
   UNPROCESSABLE_ENTITY: 422,
 } as const;
