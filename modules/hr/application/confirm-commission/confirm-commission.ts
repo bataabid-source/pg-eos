@@ -140,6 +140,10 @@ export async function confirmCommission(
 
     const payrollPeriod = payrollPeriodOf(row.workDate);
 
+    if (deps.onBeforeUpdate) {
+      await deps.onBeforeUpdate();
+    }
+
     // Step 5 — optimistic-lock UPDATE.
     const updated = await deps.repo.updateToConfirmed(tx, {
       id: row.id,

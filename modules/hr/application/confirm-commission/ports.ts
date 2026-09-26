@@ -110,4 +110,7 @@ export interface CommissionDailyRepository {
 export interface ConfirmCommissionDeps extends ClockDeps {
   readonly repo: CommissionDailyRepository;
   readonly logger: Logger;
+  /** test-only seam, undefined in production, fires after all validation and before the
+   *  optimistic-lock UPDATE. */
+  readonly onBeforeUpdate?: (() => Promise<void>) | undefined;
 }
