@@ -44,6 +44,19 @@ export interface InsertedAssignmentRow {
   readonly id: string;
 }
 
+/** WBS 3.12 part 2c-i — the row `getDriverAssignabilityCheck` resolves for `employeeId`: the
+ *  employee's own `hr.employees.entity_id` (the outbox row's own `entityId`, since neither
+ *  `imile.driver_ids` nor `imile.driver_id_assignments` has its own `entity_id` column — brief,
+ *  Event) plus its `status`, paired with every `hr.employee_documents` row (`docType`,
+ *  `expiryDate`) — an employee with zero document rows still returns `documents: []` (a LEFT JOIN,
+ *  not an INNER JOIN — an undocumented employee must reach the domain gate's own
+ *  `DriverDocumentMissingError`, not silently vanish from the query). */
+export interface DriverAssignabilityCheckRow {
+  readonly entityId: string;
+  readonly employeeStatus: string;
+  readonly documents: readonly { readonly docType: string; readonly expiryDate: string }[];
+}
+
 /** Every DB statement the assign-driver-id use case needs, as an interface — the port the
  *  application layer programs against. Implemented by
  *  ../../infrastructure/assign-driver-id/repository.ts. */
@@ -70,6 +83,18 @@ export interface DriverIdAssignmentsRepository {
    *  row was not 'available' at the instant of the UPDATE — the application layer maps `false` to
    *  `DriverIdNotAvailableError`. */
   markDriverIdAssigned(tx: NodePgDatabase, driverIdRef: string): Promise<boolean>;
+
+  /** WBS 3.12 part 2c-i, doc 40 INV-C4-1: read-only, cross-schema (`hr.employees` +
+   *  `hr.employee_documents`) — no `modules/hr` TypeScript import (a direct cross-module import
+   *  fails lint, CLAUDE.md · ARCHITECTURE), same class as WMS's own `getContractCheck`
+   *  (modules/wms/infrastructure/process-outbound/repository.ts:258-279). Serves TWO purposes with
+   *  ONE query (brief, Scenario: "one query serves both purposes, no separate read"): the outbox
+   *  row's own `entityId` (below) AND the employee/document shape
+   *  `../../domain/assign-driver-id/invariants.js`'s `assertDriverAssignable` gates on. */
+  getDriverAssignabilityCheck(
+    tx: NodePgDatabase,
+    employeeId: string,
+  ): Promise<DriverAssignabilityCheckRow>;
 
   /** doc 40 P3/P7: one append-only platform.audit_log row per write this use case performs (the
    *  assignment insert, the driver_ids status update) — same hash-chain mechanism (a DB trigger,

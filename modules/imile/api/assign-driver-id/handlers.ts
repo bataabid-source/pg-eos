@@ -38,7 +38,14 @@ import { AssignDriverIdInputSchema } from '@pg-eos/contracts/imile/assign-driver
 import { IdempotencyConflictError, type IdempotencyInput, type WithContextCtx } from '@pg-eos/db';
 
 import { assignDriverId, type AssignDriverIdDeps } from '../../application/assign-driver-id/index.js';
-import { DriverIdNotAvailableError, EmployeeAlreadyAssignedError, MissingActorError } from '../../domain/assign-driver-id/errors.js';
+import {
+  DriverDocumentExpiredError,
+  DriverDocumentMissingError,
+  DriverIdNotAvailableError,
+  EmployeeAlreadyAssignedError,
+  EmployeeNotActiveError,
+  MissingActorError,
+} from '../../domain/assign-driver-id/errors.js';
 
 const IDEMPOTENCY_ENDPOINT_ASSIGN = 'imile.assign-driver-id.assign';
 
@@ -153,7 +160,12 @@ function errorToApiFailure(error: unknown): ApiFailure {
   if (error instanceof IdempotencyConflictError) {
     return problem(PROBLEM_STATUS.CONFLICT, error.name, error.message);
   }
-  if (error instanceof MissingActorError) {
+  if (
+    error instanceof MissingActorError ||
+    error instanceof EmployeeNotActiveError ||
+    error instanceof DriverDocumentMissingError ||
+    error instanceof DriverDocumentExpiredError
+  ) {
     return problem(PROBLEM_STATUS.UNPROCESSABLE_ENTITY, error.name, error.message);
   }
   if (error instanceof DriverIdNotAvailableError || error instanceof EmployeeAlreadyAssignedError) {
