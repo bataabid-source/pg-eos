@@ -157,6 +157,12 @@ describe('every other transition is illegal', () => {
     [OUTBOUND_ORDER_STATUS.ALLOCATED, OUTBOUND_ORDER_EVENTS.ALLOCATE_PARTIAL],
     [OUTBOUND_ORDER_STATUS.PARTIALLY_ALLOCATED, OUTBOUND_ORDER_EVENTS.ALLOCATE_PARTIAL],
     [OUTBOUND_ORDER_STATUS.CANCELLED, OUTBOUND_ORDER_EVENTS.ALLOCATE_PARTIAL],
+    // WBS 2.12 part 4, fix round finding 5a: PACK is legal ONLY from `checked` — `packed` itself
+    // cannot re-pack. LOAD is legal ONLY from `packed` — `loaded` itself cannot re-load, and PACK
+    // is not legal from `loaded` either (no edge back or forward for either event from `loaded`).
+    [OUTBOUND_ORDER_STATUS.PACKED, OUTBOUND_ORDER_EVENTS.PACK],
+    [OUTBOUND_ORDER_STATUS.LOADED, OUTBOUND_ORDER_EVENTS.LOAD],
+    [OUTBOUND_ORDER_STATUS.LOADED, OUTBOUND_ORDER_EVENTS.PACK],
   ] as const)('canTransition(%s, %s) is false', (from, event) => {
     expect(canTransition(from, event)).toBe(false);
   });
@@ -213,7 +219,25 @@ describe('every other transition is illegal', () => {
     expect(allowedEventsFrom(OUTBOUND_ORDER_STATUS.PICKED)).toEqual([OUTBOUND_ORDER_EVENTS.CHECK]);
   });
 
-  it('allowedEventsFrom("checked") is empty — no producing edge yet (PackOrder is part 2\'s job)', () => {
-    expect(allowedEventsFrom(OUTBOUND_ORDER_STATUS.CHECKED)).toEqual([]);
+  it('allowedEventsFrom("checked") is [PACK_OUTBOUND] — PackOrder is now legal (WBS 2.12 part 4)', () => {
+    expect(allowedEventsFrom(OUTBOUND_ORDER_STATUS.CHECKED)).toEqual([OUTBOUND_ORDER_EVENTS.PACK]);
+  });
+
+  it('allowedEventsFrom("packed") is [LOAD_OUTBOUND] — LoadOrder is now legal (WBS 2.12 part 4)', () => {
+    expect(allowedEventsFrom(OUTBOUND_ORDER_STATUS.PACKED)).toEqual([OUTBOUND_ORDER_EVENTS.LOAD]);
+  });
+
+  // Fix round finding 5a: `loaded`/`dispatched`/`delivered` still carry NO producing edge — a
+  // future WBS/TMS slice's job (brief Master decision 1, doc-38 row 2.12 stops at `loaded`).
+  it('allowedEventsFrom("loaded") is empty — no edge yet (future slice)', () => {
+    expect(allowedEventsFrom(OUTBOUND_ORDER_STATUS.LOADED)).toEqual([]);
+  });
+
+  it('allowedEventsFrom("dispatched") is empty — no edge yet (future slice)', () => {
+    expect(allowedEventsFrom(OUTBOUND_ORDER_STATUS.DISPATCHED)).toEqual([]);
+  });
+
+  it('allowedEventsFrom("delivered") is empty — no edge yet (future slice)', () => {
+    expect(allowedEventsFrom(OUTBOUND_ORDER_STATUS.DELIVERED)).toEqual([]);
   });
 });

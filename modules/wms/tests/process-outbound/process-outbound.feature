@@ -468,3 +468,53 @@ Feature: Process outbound order — create, ten-condition check, approve, cancel
     When actor A, whose picked_by stamp exists only on order X's line but who never touched order
       Y, calls CheckOrder on order Y
     Then it succeeds, status becomes "checked", checked_by is set to actor A
+
+  # ================================================================================================
+  # Part 7 — WBS 2.12 part 4 (_slice-2.12.brief.md): PackOrder (checked -> packed, packed_by) and
+  # LoadOrder (packed -> loaded, no new actor column, SCR-WMS-OUT-04 defers the cross-order/manifest
+  # rules). Closes doc-38 row 2.12 entirely — the row's own title names both remaining steps.
+  # ================================================================================================
+
+  Scenario: PackOrder transitions checked -> packed and stamps packed_by
+    Given a checked order
+    When PackOrder is called
+    Then status is "packed", packed_by is set to the caller
+
+  Scenario: PackOrder is illegal before checked
+    Given an order that is only "allocated" or only "picked" (not yet checked)
+    When PackOrder is called
+    Then it is rejected with IllegalTransitionError and status stays unchanged
+
+  Scenario: LoadOrder transitions packed -> loaded
+    Given a packed order
+    When LoadOrder is called
+    Then status is "loaded"
+
+  Scenario: LoadOrder is illegal before packed
+    Given an order that is only "checked" (not yet packed)
+    When LoadOrder is called
+    Then it is rejected with IllegalTransitionError and status stays unchanged
+
+  Scenario: Stale version is rejected on PackOrder and LoadOrder
+    Given a caller holds an expectedVersion older than the order's current version
+    When PackOrder or LoadOrder is called
+    Then it is rejected with StaleVersionError (409) and nothing changes
+
+  Scenario: Idempotent replay and conflicting replay on PackOrder and LoadOrder
+    Given a command was already called once with an Idempotency-Key
+    When the same key and same body are sent again
+    Then the stored response is replayed and no second write happens
+    When the same key is sent with a different body
+    Then it is rejected with IdempotencyConflictError (409)
+
+  Scenario: RLS — a caller scoped to another entity cannot pack or load the order
+    Given a checked or packed order that belongs to entity PST
+    When a caller with no user_entities row for PST calls PackOrder or LoadOrder on the order
+    Then the order is invisible to them and the command fails with OrderNotFoundError
+
+  Scenario: handlePackOrder / handleLoadOrder map errors to the same Problem statuses as every
+    other command in this use case
+    Given a missing Idempotency-Key header, or a stale expectedVersion
+    When handlePackOrder or handleLoadOrder is called
+    Then a missing Idempotency-Key maps to 400 and a stale expectedVersion maps to 409, title
+      "StaleVersionError"

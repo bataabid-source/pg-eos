@@ -41,10 +41,15 @@ import {
   checkOrder,
   createOutbound,
   generatePickList,
+  loadOrder,
+  packOrder,
   pickLine,
   runOutboundChecks,
 } from '../../application/process-outbound/index.js';
 import { createProcessOutboundDeps } from '../../api/process-outbound/composition.js';
+// handlePackOrder/handleLoadOrder's own 400/409 handler-mapping tests live in
+// ./handlers.test.ts (fix round finding 3), following handleCheckOrder's own placement there —
+// never in this integration-scenario file.
 import {
   CancelReasonRequiredError,
   ClientNotQualifiedError,
@@ -3683,3 +3688,288 @@ describe('Scenario: RLS — a caller scoped to another entity cannot pick or che
     expect((await getOrderPickCheck(order.orderId)).status).toBe('picked');
   });
 });
+
+// =====================================================================================================
+// Part 7 — PackOrder + LoadOrder (WBS 2.12 part 4, _slice-2.12.brief.md). Closes doc-38 row 2.12
+// entirely: `checked --PACK_OUTBOUND--> packed`, `packed --LOAD_OUTBOUND--> loaded`. Neither command
+// carries an invariant beyond the machine's own legality check (SCR-WMS-OUT-04 defers LoadOrder's
+// cross-order/manifest rules — no schema support). Same fixture/RLS/idempotency discipline as
+// Part 3's own PickLine/CheckOrder tests above.
+//
+// RED until pg-backend adds `packOrder`/`loadOrder` to application/process-outbound/index.js,
+// `handlePackOrder`/`handleLoadOrder` to api/process-outbound/handlers.ts, the two new machine
+// edges to domain/process-outbound/machine.ts, and `packed_by`/`OrderUpdateColumns.packedBy` to
+// ports.ts + repository.ts.
+// =====================================================================================================
+
+/** `wms.outbound_orders`' `status`/`version`/`packed_by`/`picked_by`/`checked_by` — Part 7's own
+ *  tests need `packed_by` beyond `getOrder`'s own four (status, version, credit_check_passed,
+ *  credit_checked_at), plus `picked_by`/`checked_by` (already selected by `getOrderPickCheck`
+ *  above) to prove PackOrder/LoadOrder's own `coalesce(...)` update never clobbers the other
+ *  actor-stamp columns (fix round finding 5b). `packed_by` already exists on
+ *  `wms.outbound_orders` (01-Data-Model.sql) — no migration needed for this slice; RED only until
+ *  pg-backend adds `packOrder`/`loadOrder` and `OrderUpdateColumns.packedBy`. */
+async function getOrderPackLoad(orderId: string): Promise<{
+  status: string;
+  version: number;
+  packed_by: string | null;
+  picked_by: string | null;
+  checked_by: string | null;
+}> {
+  const result: QueryResult<{
+    status: string;
+    version: number;
+    packed_by: string | null;
+    picked_by: string | null;
+    checked_by: string | null;
+  }> = await pool.query(
+    `select status, version, packed_by, picked_by, checked_by from wms.outbound_orders where id = $1`,
+    [orderId],
+  );
+  const row = result.rows[0];
+  if (!row) throw new Error(`no wms.outbound_orders row for id ${orderId}`);
+  return row;
+}
+
+/** Walks an order through the full pipeline to 'checked' (allocate -> pick -> check via the real
+ *  commands), PackOrder's own precondition. Mirrors buildAllocatedOrder's own "real commands, not a
+ *  shortcut" discipline; the checker (noRoleCtx) always differs from the picker (roleCtx) so this
+ *  never trips CheckOrder's own self-check gate. */
+async function buildCheckedOrder(
+  overrides: Parameters<typeof buildValidScenario>[0] = {},
+): Promise<{
+  orderId: string;
+  lineId: string;
+  version: number;
+  clientId: string;
+  skuId: string;
+  locationId: string;
+}> {
+  const allocated = await buildAllocatedOrder(overrides);
+  const picked = await pickLine(
+    roleCtx,
+    { orderId: allocated.orderId, lineId: allocated.lineId, expectedVersion: allocated.version, qtyActual: QTY_ORDERED, correlationId: nextCorrelationId() },
+    deps,
+  );
+  expect(picked.status).toBe('picked');
+  const checked = await checkOrder(
+    noRoleCtx,
+    { orderId: allocated.orderId, expectedVersion: picked.version, correlationId: nextCorrelationId() },
+    deps,
+  );
+  expect(checked.status).toBe('checked');
+  return {
+    orderId: allocated.orderId,
+    lineId: allocated.lineId,
+    version: checked.version,
+    clientId: allocated.clientId,
+    skuId: allocated.skuId,
+    locationId: allocated.locationId,
+  };
+}
+
+/** Walks an order through to 'packed' — PackOrder on top of buildCheckedOrder — LoadOrder's own
+ *  precondition. */
+async function buildPackedOrder(
+  overrides: Parameters<typeof buildValidScenario>[0] = {},
+): Promise<{
+  orderId: string;
+  lineId: string;
+  version: number;
+  clientId: string;
+  skuId: string;
+  locationId: string;
+}> {
+  const checkedOrder = await buildCheckedOrder(overrides);
+  const packed = await packOrder(
+    roleCtx,
+    { orderId: checkedOrder.orderId, expectedVersion: checkedOrder.version, correlationId: nextCorrelationId() },
+    deps,
+  );
+  expect(packed.status).toBe('packed');
+  return { ...checkedOrder, version: packed.version };
+}
+
+// --- Scenario: PackOrder transitions checked -> packed and stamps packed_by ------------------------
+
+describe('Scenario: PackOrder transitions checked -> packed and stamps packed_by', () => {
+  it('status becomes "packed", packed_by is set to the caller', async () => {
+    const order = await buildCheckedOrder();
+    // buildCheckedOrder's own pipeline (allocate -> pickLine -> checkOrder) already set both
+    // picked_by (roleCtx) and checked_by (noRoleCtx) before PackOrder runs.
+    const beforePack = await getOrderPickCheck(order.orderId);
+    const correlationId = nextCorrelationId();
+    const result = await packOrder(roleCtx, { orderId: order.orderId, expectedVersion: order.version, correlationId }, deps);
+    expect(result.status).toBe('packed');
+
+    const after = await getOrderPackLoad(order.orderId);
+    expect(after.status).toBe('packed');
+    expect(after.packed_by).toBe(ROLE_ACTOR_UUID);
+    // Fix round finding 5b: PackOrder's own `coalesce(...)` update must not clobber the other
+    // actor-stamp columns already set by earlier steps in the pipeline.
+    expect(after.picked_by).toBe(beforePack.picked_by);
+    expect(after.checked_by).toBe(beforePack.checked_by);
+    expect(await outboxRowsForCorrelationAndType(correlationId, 'wms.outbound.packed')).toHaveLength(1);
+    expect(await auditCountForCorrelation(correlationId)).toBe(1);
+  });
+});
+
+// --- Scenario: PackOrder is illegal before checked --------------------------------------------------
+
+describe('Scenario: PackOrder is illegal before checked', () => {
+  it('rejects with IllegalTransitionError when the order is only "allocated" (never picked)', async () => {
+    const order = await buildAllocatedOrder();
+    await expect(
+      packOrder(roleCtx, { orderId: order.orderId, expectedVersion: order.version, correlationId: nextCorrelationId() }, deps),
+    ).rejects.toBeInstanceOf(IllegalTransitionError);
+    expect((await getOrder(order.orderId)).status).toBe('allocated');
+  });
+
+  it('rejects with IllegalTransitionError when the order is only "picked" (not yet checked)', async () => {
+    const order = await buildAllocatedOrder();
+    const picked = await pickLine(
+      roleCtx,
+      { orderId: order.orderId, lineId: order.lineId, expectedVersion: order.version, qtyActual: QTY_ORDERED, correlationId: nextCorrelationId() },
+      deps,
+    );
+    expect(picked.status).toBe('picked');
+    await expect(
+      packOrder(roleCtx, { orderId: order.orderId, expectedVersion: picked.version, correlationId: nextCorrelationId() }, deps),
+    ).rejects.toBeInstanceOf(IllegalTransitionError);
+    expect((await getOrderPackLoad(order.orderId)).status).toBe('picked');
+  });
+});
+
+// --- Scenario: LoadOrder transitions packed -> loaded -----------------------------------------------
+
+describe('Scenario: LoadOrder transitions packed -> loaded', () => {
+  it('status becomes "loaded"', async () => {
+    const order = await buildPackedOrder();
+    const correlationId = nextCorrelationId();
+    const result = await loadOrder(roleCtx, { orderId: order.orderId, expectedVersion: order.version, correlationId }, deps);
+    expect(result.status).toBe('loaded');
+
+    const after = await getOrderPackLoad(order.orderId);
+    expect(after.status).toBe('loaded');
+    // Fix round finding 5b: no `loaded_by` column exists — this proves LoadOrder's own update
+    // does not accidentally null out `packed_by` set by the prior step.
+    expect(after.packed_by).toBe(ROLE_ACTOR_UUID);
+    expect(await outboxRowsForCorrelationAndType(correlationId, 'wms.outbound.loaded')).toHaveLength(1);
+    expect(await auditCountForCorrelation(correlationId)).toBe(1);
+  });
+});
+
+// --- Scenario: LoadOrder is illegal before packed ---------------------------------------------------
+
+describe('Scenario: LoadOrder is illegal before packed', () => {
+  it('rejects with IllegalTransitionError when the order is only "checked" (not yet packed)', async () => {
+    const order = await buildCheckedOrder();
+    await expect(
+      loadOrder(roleCtx, { orderId: order.orderId, expectedVersion: order.version, correlationId: nextCorrelationId() }, deps),
+    ).rejects.toBeInstanceOf(IllegalTransitionError);
+    expect((await getOrderPackLoad(order.orderId)).status).toBe('checked');
+  });
+});
+
+// --- Scenario: Stale version is rejected on PackOrder and LoadOrder ---------------------------------
+
+describe('Scenario: Stale version is rejected on PackOrder and LoadOrder', () => {
+  it('rejects a stale expectedVersion on PackOrder with StaleVersionError, nothing written', async () => {
+    const order = await buildCheckedOrder();
+    const correlationId = nextCorrelationId();
+    await expect(
+      packOrder(roleCtx, { orderId: order.orderId, expectedVersion: order.version + 999, correlationId }, deps),
+    ).rejects.toBeInstanceOf(StaleVersionError);
+    const after = await getOrderPackLoad(order.orderId);
+    expect(after.status).toBe('checked');
+    expect(after.packed_by).toBeNull();
+    expect(await anyOutboxCountForCorrelation(correlationId)).toBe(0);
+    expect(await auditCountForCorrelation(correlationId)).toBe(0);
+  });
+
+  it('rejects a stale expectedVersion on LoadOrder with StaleVersionError, nothing written', async () => {
+    const order = await buildPackedOrder();
+    const correlationId = nextCorrelationId();
+    await expect(
+      loadOrder(roleCtx, { orderId: order.orderId, expectedVersion: order.version + 999, correlationId }, deps),
+    ).rejects.toBeInstanceOf(StaleVersionError);
+    const after = await getOrderPackLoad(order.orderId);
+    expect(after.status).toBe('packed');
+    expect(await anyOutboxCountForCorrelation(correlationId)).toBe(0);
+    expect(await auditCountForCorrelation(correlationId)).toBe(0);
+  });
+});
+
+// --- Scenario: Idempotent replay and conflicting replay on PackOrder and LoadOrder ------------------
+
+describe('Scenario: Idempotent replay and conflicting replay on PackOrder and LoadOrder', () => {
+  it('replays the stored PackOrder result for the same key + same body, no second write', async () => {
+    const order = await buildCheckedOrder();
+    const idemKey = `packorder-replay-${randomUUID()}`;
+    const correlationId = nextCorrelationId();
+    const body = { orderId: order.orderId, expectedVersion: order.version, correlationId };
+    const first = await packOrder(roleCtx, { ...body, idem: idemFor('packOrder', idemKey, body) }, deps);
+    const second = await packOrder(roleCtx, { ...body, idem: idemFor('packOrder', idemKey, body) }, deps);
+    expect(second).toEqual(first);
+    expect(await anyOutboxCountForCorrelation(correlationId)).toBe(1);
+    expect(await auditCountForCorrelation(correlationId)).toBe(1);
+  });
+
+  it('rejects a conflicting PackOrder replay (same key, different body) with IdempotencyConflictError', async () => {
+    const order = await buildCheckedOrder();
+    const idemKey = `packorder-mismatch-${randomUUID()}`;
+    const firstBody = { orderId: order.orderId, expectedVersion: order.version, correlationId: nextCorrelationId() };
+    await packOrder(roleCtx, { ...firstBody, idem: idemFor('packOrder', idemKey, firstBody) }, deps);
+    const differentBody = { orderId: order.orderId, expectedVersion: order.version, correlationId: nextCorrelationId() };
+    await expect(
+      packOrder(roleCtx, { ...differentBody, idem: idemFor('packOrder', idemKey, differentBody) }, deps),
+    ).rejects.toBeInstanceOf(IdempotencyConflictError);
+  });
+
+  it('replays the stored LoadOrder result for the same key + same body, no second write', async () => {
+    const order = await buildPackedOrder();
+    const idemKey = `loadorder-replay-${randomUUID()}`;
+    const correlationId = nextCorrelationId();
+    const body = { orderId: order.orderId, expectedVersion: order.version, correlationId };
+    const first = await loadOrder(roleCtx, { ...body, idem: idemFor('loadOrder', idemKey, body) }, deps);
+    const second = await loadOrder(roleCtx, { ...body, idem: idemFor('loadOrder', idemKey, body) }, deps);
+    expect(second).toEqual(first);
+    expect(await anyOutboxCountForCorrelation(correlationId)).toBe(1);
+    expect(await auditCountForCorrelation(correlationId)).toBe(1);
+  });
+
+  it('rejects a conflicting LoadOrder replay (same key, different body) with IdempotencyConflictError', async () => {
+    const order = await buildPackedOrder();
+    const idemKey = `loadorder-mismatch-${randomUUID()}`;
+    const firstBody = { orderId: order.orderId, expectedVersion: order.version, correlationId: nextCorrelationId() };
+    await loadOrder(roleCtx, { ...firstBody, idem: idemFor('loadOrder', idemKey, firstBody) }, deps);
+    const differentBody = { orderId: order.orderId, expectedVersion: order.version, correlationId: nextCorrelationId() };
+    await expect(
+      loadOrder(roleCtx, { ...differentBody, idem: idemFor('loadOrder', idemKey, differentBody) }, deps),
+    ).rejects.toBeInstanceOf(IdempotencyConflictError);
+  });
+});
+
+// --- Scenario: RLS — a caller scoped to another entity cannot pack or load the order ----------------
+
+describe('Scenario: RLS — a caller scoped to another entity cannot pack or load the order', () => {
+  it('PackOrder as the outsider fails with OrderNotFoundError, status unchanged', async () => {
+    const order = await buildCheckedOrder();
+    await expect(
+      packOrder(outsiderCtx, { orderId: order.orderId, expectedVersion: order.version, correlationId: nextCorrelationId() }, deps),
+    ).rejects.toBeInstanceOf(OrderNotFoundError);
+    expect((await getOrderPackLoad(order.orderId)).status).toBe('checked');
+  });
+
+  it('LoadOrder as the outsider fails with OrderNotFoundError, status unchanged', async () => {
+    const order = await buildPackedOrder();
+    await expect(
+      loadOrder(outsiderCtx, { orderId: order.orderId, expectedVersion: order.version, correlationId: nextCorrelationId() }, deps),
+    ).rejects.toBeInstanceOf(OrderNotFoundError);
+    expect((await getOrderPackLoad(order.orderId)).status).toBe('packed');
+  });
+});
+
+// handlePackOrder/handleLoadOrder's own 400/409 handler-mapping tests: see ./handlers.test.ts
+// (fix round finding 3 — moved there to follow handleCheckOrder's own placement, the exact 400/409
+// pattern every other handler test in this use case already lives under).

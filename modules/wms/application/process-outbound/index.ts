@@ -39,3 +39,5 @@ export { allocate, type AllocateInput, type AllocateResult } from './allocate.js
 export { generatePickList, type GeneratePickListInput, type GeneratePickListResult } from './generate-pick-list.js';
 export { pickLine, type PickLineInput, type PickLineResult } from './pick-line.js';
 export { checkOrder, type CheckOrderInput, type CheckOrderResult } from './check-order.js';
+export { packOrder, type PackOrderInput, type PackOrderResult } from './pack-order.js';
+export { loadOrder, type LoadOrderInput, type LoadOrderResult } from './load-order.js';

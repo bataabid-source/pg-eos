@@ -46,6 +46,8 @@ import {
   handleCheckOrder,
   handleCreateOutbound,
   handleGeneratePickList,
+  handleLoadOrder,
+  handlePackOrder,
   handlePickLine,
   handleRunOutboundChecks,
   type ApiRequest,
@@ -62,6 +64,12 @@ const pool = new Pool({
 // pg-reviewer round 2 finding 1 (parallel-safety): a per-RUN random actor id, never a fixed UUID —
 // concurrent runs never share, delete or re-create each other's identity.users row.
 const FIXTURE_ACTOR_UUID = randomUUID();
+// WBS 2.12 part 4 fix round finding 3: PackOrder's own setup needs an order walked to 'checked' —
+// CheckOrder's own self-check gate (2.12 part 2) refuses a checker who is also the order's
+// `picked_by`, so a SECOND actor is needed to reach 'checked' at all in this file (every earlier
+// handleCheckOrder test here either fails fast on a 400/409 before the gate runs, or deliberately
+// reuses FIXTURE_ACTOR_UUID to exercise the gate itself — neither path reaches 'checked').
+const CHECKER_ACTOR_UUID = randomUUID();
 const WH_MGR_ROLE_CODE = 'WH_MGR';
 const SERVICE_CODE = 'OF-01';
 // pg-reviewer round 2 finding 8: fixture dates (price_lists.valid_from, contracts.start_date) are
@@ -71,6 +79,7 @@ const clock = new FixedClock(new Date(`${CLOCK_DATE}T00:00:00.000Z`));
 const ids = new SequentialIdGenerator(2111);
 const deps = createProcessOutboundDeps({ clock, ids });
 const ctx = { userId: FIXTURE_ACTOR_UUID, clientId: null, isInternal: true };
+const checkerCtx = { userId: CHECKER_ACTOR_UUID, clientId: null, isInternal: true };
 const ledgerDeps: LedgerDeps = { clock, ids: new SequentialIdGenerator(21115) };
 const RECEIPT_MOVEMENT_TYPE = 'receipt';
 // afterAll unwinds every fixture row this run created (FK-safe order, many tables) — same
@@ -301,7 +310,19 @@ beforeAll(async () => {
     await pool.query(`insert into identity.user_entities (user_id, entity_id) values ($1, $2)`, [FIXTURE_ACTOR_UUID, row.id]);
   }
   const roleResult: QueryResult<{ id: string }> = await pool.query(`select id from identity.roles where code = $1`, [WH_MGR_ROLE_CODE]);
-  await pool.query(`insert into identity.user_roles (user_id, role_id) values ($1, $2)`, [FIXTURE_ACTOR_UUID, (roleResult.rows[0] as { id: string }).id]);
+  const roleId = (roleResult.rows[0] as { id: string }).id;
+  await pool.query(`insert into identity.user_roles (user_id, role_id) values ($1, $2)`, [FIXTURE_ACTOR_UUID, roleId]);
+
+  // CHECKER_ACTOR_UUID: a second internal WH_MGR-capable actor, distinct from FIXTURE_ACTOR_UUID —
+  // CheckOrder's own self-check gate (see the comment at CHECKER_ACTOR_UUID's declaration).
+  await pool.query(
+    `insert into identity.users (id, email, full_name_ar, user_type) values ($1, $2, $3, 'internal')`,
+    [CHECKER_ACTOR_UUID, `_procout_handlers_checker_${randomUUID()}@test.invalid`, 'مدقق اختبار معالجات الصرف'],
+  );
+  for (const row of allEntitiesResult.rows) {
+    await pool.query(`insert into identity.user_entities (user_id, entity_id) values ($1, $2)`, [CHECKER_ACTOR_UUID, row.id]);
+  }
+  await pool.query(`insert into identity.user_roles (user_id, role_id) values ($1, $2)`, [CHECKER_ACTOR_UUID, roleId]);
 });
 
 afterAll(async () => {
@@ -327,10 +348,10 @@ afterAll(async () => {
       ['catalog.price_list_lines', () => pool.query(`delete from catalog.price_list_lines where price_list_id = any($1::uuid[])`, [priceListIds])],
       ['catalog.price_lists', () => pool.query(`delete from catalog.price_lists where id = any($1::uuid[])`, [priceListIds])],
       ['sales.accounts', () => pool.query(`delete from sales.accounts where id = any($1::uuid[])`, [clientIds])],
-      ['platform.idempotency_keys', () => pool.query(`delete from platform.idempotency_keys where user_id = $1`, [FIXTURE_ACTOR_UUID])],
-      ['identity.user_roles', () => pool.query(`delete from identity.user_roles where user_id = $1`, [FIXTURE_ACTOR_UUID])],
-      ['identity.user_entities', () => pool.query(`delete from identity.user_entities where user_id = $1`, [FIXTURE_ACTOR_UUID])],
-      ['identity.users', () => pool.query(`delete from identity.users where id = $1`, [FIXTURE_ACTOR_UUID])],
+      ['platform.idempotency_keys', () => pool.query(`delete from platform.idempotency_keys where user_id = any($1::uuid[])`, [[FIXTURE_ACTOR_UUID, CHECKER_ACTOR_UUID]])],
+      ['identity.user_roles', () => pool.query(`delete from identity.user_roles where user_id = any($1::uuid[])`, [[FIXTURE_ACTOR_UUID, CHECKER_ACTOR_UUID]])],
+      ['identity.user_entities', () => pool.query(`delete from identity.user_entities where user_id = any($1::uuid[])`, [[FIXTURE_ACTOR_UUID, CHECKER_ACTOR_UUID]])],
+      ['identity.users', () => pool.query(`delete from identity.users where id = any($1::uuid[])`, [[FIXTURE_ACTOR_UUID, CHECKER_ACTOR_UUID]])],
     ]);
   } finally {
     await pool.end();
@@ -885,5 +906,95 @@ describe('StockBalanceRowMissingError maps to 422 carrying its i18n key + params
     expect(logger.errorCalls).toHaveLength(0);
     const statusResult: QueryResult<{ status: string }> = await pool.query(`select status from wms.outbound_orders where id = $1`, [order.id]);
     expect(statusResult.rows[0]?.status).toBe('allocated');
+  });
+});
+
+// --- WBS 2.12 part 4 (_slice-2.12.brief.md), fix round finding 3: handlePackOrder / handleLoadOrder
+// own missing-Idempotency-Key / stale-version tests — same pattern as handleCheckOrder's own pair
+// above (lines 717-766), moved here from ./process-outbound.test.ts (never in the integration file,
+// every other handler test in this use case lives in THIS file). -----------------------------------
+
+/** Walks a fresh order through Allocate -> PickLine -> CheckOrder (via the checker actor, never the
+ *  picker — CheckOrder's own self-check gate) to 'checked', PackOrder's own precondition. */
+async function buildCheckedOrderViaHandlers(): Promise<{ id: string; version: number; lineId: string }> {
+  const order = await insertFreshApprovedOrderWithLine();
+  const allocateResult = await handleAllocate(
+    requestWithKey({ orderId: order.id, expectedVersion: order.version, correlationId: nextCorrelationId() }),
+    deps,
+  );
+  expect(allocateResult.status).toBe(200);
+  const allocatedVersion = (allocateResult.body as { version: number }).version;
+
+  const pickResult = await handlePickLine(
+    requestWithKey({ orderId: order.id, lineId: order.lineId, expectedVersion: allocatedVersion, qtyActual: '1.000', correlationId: nextCorrelationId() }),
+    deps,
+  );
+  expect(pickResult.status).toBe(200);
+  const pickedVersion = (pickResult.body as { version: number }).version;
+
+  const checkResult = await handleCheckOrder(
+    { headers: { [IDEMPOTENCY_KEY_HEADER_NAME]: randomUUID() }, body: { orderId: order.id, expectedVersion: pickedVersion, correlationId: nextCorrelationId() }, ctx: checkerCtx },
+    deps,
+  );
+  expect(checkResult.status).toBe(200);
+  const checkedVersion = (checkResult.body as { version: number }).version;
+
+  return { id: order.id, version: checkedVersion, lineId: order.lineId };
+}
+
+/** PackOrder on top of buildCheckedOrderViaHandlers — LoadOrder's own precondition. */
+async function buildPackedOrderViaHandlers(): Promise<{ id: string; version: number; lineId: string }> {
+  const checkedOrder = await buildCheckedOrderViaHandlers();
+  const packResult = await handlePackOrder(
+    requestWithKey({ orderId: checkedOrder.id, expectedVersion: checkedOrder.version, correlationId: nextCorrelationId() }),
+    deps,
+  );
+  expect(packResult.status).toBe(200);
+  return { ...checkedOrder, version: (packResult.body as { version: number }).version };
+}
+
+describe('handlePackOrder: a missing Idempotency-Key is rejected with a 400 Problem', () => {
+  it('no Idempotency-Key header -> 400', async () => {
+    const order = await buildCheckedOrderViaHandlers();
+    const result = await handlePackOrder(
+      requestWithoutKey({ orderId: order.id, expectedVersion: order.version, correlationId: nextCorrelationId() }),
+      deps,
+    );
+    expect(result.status).toBe(400);
+  });
+});
+
+describe('handlePackOrder: StaleVersionError maps to 409, title = error.name', () => {
+  it('a stale expectedVersion -> 409, title "StaleVersionError"', async () => {
+    const order = await buildCheckedOrderViaHandlers();
+    const result = await handlePackOrder(
+      requestWithKey({ orderId: order.id, expectedVersion: order.version + 999, correlationId: nextCorrelationId() }),
+      deps,
+    );
+    expect(result.status).toBe(409);
+    expect(result.body).toMatchObject({ title: 'StaleVersionError' });
+  });
+});
+
+describe('handleLoadOrder: a missing Idempotency-Key is rejected with a 400 Problem', () => {
+  it('no Idempotency-Key header -> 400', async () => {
+    const order = await buildPackedOrderViaHandlers();
+    const result = await handleLoadOrder(
+      requestWithoutKey({ orderId: order.id, expectedVersion: order.version, correlationId: nextCorrelationId() }),
+      deps,
+    );
+    expect(result.status).toBe(400);
+  });
+});
+
+describe('handleLoadOrder: StaleVersionError maps to 409, title = error.name', () => {
+  it('a stale expectedVersion -> 409, title "StaleVersionError"', async () => {
+    const order = await buildPackedOrderViaHandlers();
+    const result = await handleLoadOrder(
+      requestWithKey({ orderId: order.id, expectedVersion: order.version + 999, correlationId: nextCorrelationId() }),
+      deps,
+    );
+    expect(result.status).toBe(409);
+    expect(result.body).toMatchObject({ title: 'StaleVersionError' });
   });
 });
