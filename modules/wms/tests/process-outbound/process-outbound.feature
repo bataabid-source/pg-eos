@@ -343,3 +343,66 @@ Feature: Process outbound order — create, ten-condition check, approve, cancel
     Given an approved order that belongs to entity PST
     When a caller with no user_entities row for PST queries or calls Allocate on the order
     Then the order is invisible to them and Allocate fails with OrderNotFoundError
+
+  # ================================================================================================
+  # Part 3 — PickLine + CheckOrder (WBS 2.12 part 1, _slice-2.12.brief.md). Meets doc 38 row 2.12's
+  # own acceptance criterion, verbatim: "Self-check rejected". New machine edges this part:
+  # {allocated, partially_allocated} --START_PICKING--> picking, picking --COMPLETE_PICKING--> picked,
+  # picked --CHECK--> checked. PackOrder/LoadOrder are part 2, not built here.
+  # ================================================================================================
+
+  Scenario: PickLine records the picked quantity and posts a pick ledger movement
+    Given an allocated order with one line
+    When PickLine is called for that line at the full ordered quantity
+    Then a wms.stock_movements row (movement_type 'pick') is posted, stock_balance.qty_on_hand and
+      qty_allocated both drop by that amount, the line is "complete"
+
+  Scenario: The order transitions to picking on the first PickLine call, then picked when complete
+    Given an allocated order with two lines
+    When PickLine is called on the first line only
+    Then the order status is "picking"
+    When PickLine is then called on the second (last remaining) line
+    Then the order status is "picked" and picked_by is set to the actor who completed it
+
+  Scenario: A shortage on PickLine requires a variance_reason
+    Given qty_actual less than qty_ordered on a line
+    When PickLine is called with no variance_reason
+    Then it is rejected before any write — the line status, stock_balance and stock_movements are
+      unchanged
+
+  Scenario: PickLine is illegal before allocation
+    Given an order that is only "approved", not yet allocated
+    When PickLine is called
+    Then it is rejected with IllegalTransitionError
+
+  Scenario: CheckOrder rejects a self-check
+    Given the same actor who picked the order calls CheckOrder
+    When CheckOrder is called
+    Then it is rejected with SelfCheckNotAllowedError, status stays "picked"
+
+  Scenario: CheckOrder succeeds when the checker differs from the picker
+    Given a picked order whose picker is actor A
+    When CheckOrder is called by actor B
+    Then status is "checked", checked_by is set to actor B
+
+  Scenario: CheckOrder is illegal before picking completes
+    Given an order that is "allocated" or only partially "picking" (not every line complete)
+    When CheckOrder is called
+    Then it is rejected with IllegalTransitionError
+
+  Scenario: Stale version is rejected on PickLine and CheckOrder
+    Given a caller holds an expectedVersion older than the order's current version
+    When PickLine or CheckOrder is called
+    Then it is rejected with StaleVersionError (409) and nothing changes
+
+  Scenario: Idempotent replay and conflicting replay on PickLine and CheckOrder
+    Given a command was already called once with an Idempotency-Key
+    When the same key and same body are sent again
+    Then the stored response is replayed and no second write happens
+    When the same key is sent with a different body
+    Then it is rejected with IdempotencyConflictError (409)
+
+  Scenario: RLS — a caller scoped to another entity cannot pick or check the order
+    Given an allocated or picked order that belongs to entity PST
+    When a caller with no user_entities row for PST calls PickLine or CheckOrder on the order
+    Then the order is invisible to them and the command fails with OrderNotFoundError

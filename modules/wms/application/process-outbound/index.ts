@@ -14,17 +14,22 @@ export type {
   ConsumedLineRow,
   ContractCheckRow,
   IncrementLotAllocatedParams,
+  LedgerPort,
   OrderLineRow,
   OrderRow,
   OrderUpdateColumns,
   OutboundOrderRepository,
   PickListLineRow,
+  PickOrderLineRow,
+  PostedLedgerMovement,
+  PostPickParams,
   ProcessOutboundDeps,
   SkuCheckRow,
   StockAvailabilityRow,
   StockedLocationBlockRow,
   StockLotRow,
   UpdateOrderLineAllocationParams,
+  UpdateOrderLinePickParams,
 } from './ports.js';
 export { createOutbound, type CreateOutboundInput, type CreateOutboundResult } from './create-outbound.js';
 export { runOutboundChecks, type RunOutboundChecksInput, type RunOutboundChecksResult } from './run-outbound-checks.js';
@@ -32,3 +37,5 @@ export { approveOutbound, type ApproveOutboundInput, type ApproveOutboundResult 
 export { cancelOutbound, type CancelOutboundInput, type CancelOutboundResult } from './cancel-outbound.js';
 export { allocate, type AllocateInput, type AllocateResult } from './allocate.js';
 export { generatePickList, type GeneratePickListInput, type GeneratePickListResult } from './generate-pick-list.js';
+export { pickLine, type PickLineInput, type PickLineResult } from './pick-line.js';
+export { checkOrder, type CheckOrderInput, type CheckOrderResult } from './check-order.js';

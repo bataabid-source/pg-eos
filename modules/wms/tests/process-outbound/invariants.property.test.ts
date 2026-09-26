@@ -31,6 +31,7 @@ import { Quantity } from '@pg-eos/domain-kit';
 
 import {
   allocateFromSingleLot,
+  assertCheckerNotPicker,
   assertContractActive,
   assertDeliveryAddressComplete,
   assertNonBlockedLocationsSufficient,
@@ -41,6 +42,7 @@ import {
   assertSkuNotBlocked,
   assertSkuResolved,
   assertSufficientStock,
+  assertVarianceReasonRequired,
   daysBetween,
   evaluateCreditHold,
   type AllocationLotCandidate,
@@ -57,10 +59,12 @@ import {
   OutboundLocationBlockedError,
   NoServicePriceError,
   OrderQuantityExceededError,
+  SelfCheckNotAllowedError,
   ShelfLifeTooShortError,
   SkuBlockedError,
   SkuClientMismatchError,
   SkuNotFoundError,
+  VarianceReasonRequiredError,
 } from '../../domain/process-outbound/errors.js';
 
 const uuidArb = fc.uuid();
@@ -825,6 +829,127 @@ describe('allocateFromSingleLot — property (WBS 2.11 part 2, Allocate, single-
         const result: AllocationResult = allocateFromSingleLot(orderedQty, []);
         expect(result.consumed).toEqual([]);
         expect(result.shortfall).toBe(Quantity.of(orderedQty).toString());
+      }),
+    );
+  });
+});
+
+// =================================================================================================
+// WBS 2.12 part 1 (_slice-2.12.brief.md) — PickLine + CheckOrder pure invariants. RED until
+// domain/process-outbound/invariants.ts exports assertVarianceReasonRequired/assertCheckerNotPicker
+// and domain/process-outbound/errors.ts exports VarianceReasonRequiredError/SelfCheckNotAllowedError.
+// Reuses thousandthsArb/thousandthsToQty (finding 7's own exact-thousandths discipline, above) and
+// blankFieldArb/filledFieldArb (condition 8's own blank-vs-filled discipline, above) — never a new
+// ad-hoc generator for the same shape.
+// =================================================================================================
+
+// --- assertVarianceReasonRequired (PickLine shortage check, brief Master decision 2) ---------------
+
+describe('assertVarianceReasonRequired — property (PickLine shortage check, WBS 2.12 part 1)', () => {
+  it('never throws when qtyActual === qtyOrdered, whatever the varianceReason (including blank/null)', () => {
+    fc.assert(
+      fc.property(thousandthsArb, fieldArb, uuidArb, (qtyT, varianceReason, lineId) => {
+        const qty = thousandthsToQty(qtyT);
+        expect(() =>
+          assertVarianceReasonRequired({ lineId, qtyOrdered: qty, qtyActual: qty, varianceReason }),
+        ).not.toThrow();
+      }),
+    );
+  });
+
+  it('never throws when qtyActual < qtyOrdered and varianceReason is a non-blank string', () => {
+    fc.assert(
+      fc.property(
+        thousandthsArb,
+        fc.integer({ min: 1, max: THOUSANDTHS_PER_UNIT }),
+        filledFieldArb,
+        uuidArb,
+        (orderedT, deficit, reason, lineId) => {
+          const actualT = Math.max(0, orderedT - deficit);
+          fc.pre(actualT < orderedT);
+          expect(() =>
+            assertVarianceReasonRequired({
+              lineId,
+              qtyOrdered: thousandthsToQty(orderedT),
+              qtyActual: thousandthsToQty(actualT),
+              varianceReason: reason,
+            }),
+          ).not.toThrow();
+        },
+      ),
+    );
+  });
+
+  it('always throws VarianceReasonRequiredError when qtyActual < qtyOrdered and varianceReason is blank/null, carrying i18nKey wms.outbound.pick.varianceReasonRequired', () => {
+    fc.assert(
+      fc.property(
+        thousandthsArb,
+        fc.integer({ min: 1, max: THOUSANDTHS_PER_UNIT }),
+        blankFieldArb,
+        uuidArb,
+        (orderedT, deficit, reason, lineId) => {
+          const actualT = Math.max(0, orderedT - deficit);
+          fc.pre(actualT < orderedT);
+          const qtyOrdered = thousandthsToQty(orderedT);
+          const qtyActual = thousandthsToQty(actualT);
+          const error = (() => {
+            try {
+              assertVarianceReasonRequired({ lineId, qtyOrdered, qtyActual, varianceReason: reason });
+              return null;
+            } catch (err: unknown) {
+              return err;
+            }
+          })();
+          expect(error).toBeInstanceOf(VarianceReasonRequiredError);
+          expect((error as VarianceReasonRequiredError).i18nKey).toBe('wms.outbound.pick.varianceReasonRequired');
+          expect((error as VarianceReasonRequiredError).params).toEqual({ lineId, qtyOrdered, qtyActual });
+        },
+      ),
+    );
+  });
+
+  it('a 0.001 shortfall on a fractional quantity with no reason always throws (finding-7-style regression guard, exact thousandths)', () => {
+    fc.assert(
+      fc.property(fc.integer({ min: 1, max: MAX_QTY_THOUSANDTHS }), uuidArb, (orderedT, lineId) => {
+        expect(() =>
+          assertVarianceReasonRequired({
+            lineId,
+            qtyOrdered: thousandthsToQty(orderedT),
+            qtyActual: thousandthsToQty(orderedT - 1),
+            varianceReason: null,
+          }),
+        ).toThrow(VarianceReasonRequiredError);
+      }),
+    );
+  });
+});
+
+// --- assertCheckerNotPicker (CheckOrder self-check gate — doc 38 row 2.12's own acceptance line) ----
+
+describe('assertCheckerNotPicker — property (CheckOrder self-check gate, WBS 2.12 part 1)', () => {
+  it('never throws when checkerId !== pickedBy', () => {
+    fc.assert(
+      fc.property(uuidArb, uuidArb, orderIdArb, (checkerId, pickedBy, orderId) => {
+        fc.pre(checkerId !== pickedBy);
+        expect(() => assertCheckerNotPicker({ orderId, checkerId, pickedBy })).not.toThrow();
+      }),
+    );
+  });
+
+  it('always throws SelfCheckNotAllowedError when checkerId === pickedBy, carrying i18nKey wms.outbound.check.selfCheckNotAllowed', () => {
+    fc.assert(
+      fc.property(uuidArb, orderIdArb, (actorId, orderId) => {
+        const error = (() => {
+          try {
+            assertCheckerNotPicker({ orderId, checkerId: actorId, pickedBy: actorId });
+            return null;
+          } catch (err: unknown) {
+            return err;
+          }
+        })();
+        expect(error).toBeInstanceOf(SelfCheckNotAllowedError);
+        expect((error as SelfCheckNotAllowedError).i18nKey).toBe('wms.outbound.check.selfCheckNotAllowed');
+        expect((error as SelfCheckNotAllowedError).params).toEqual({ orderId, actorId });
       }),
     );
   });

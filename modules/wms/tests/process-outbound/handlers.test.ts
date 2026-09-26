@@ -43,8 +43,10 @@ import {
   handleAllocate,
   handleApproveOutbound,
   handleCancelOutbound,
+  handleCheckOrder,
   handleCreateOutbound,
   handleGeneratePickList,
+  handlePickLine,
   handleRunOutboundChecks,
   type ApiRequest,
 } from '../../api/process-outbound/handlers.js';
@@ -664,6 +666,79 @@ describe('handleGeneratePickList: read-only, works WITHOUT an Idempotency-Key he
       deps,
     );
     expect(result.status).toBe(200);
+  });
+});
+
+// --- WBS 2.12 part 1, fix round 1 finding 8: handlePickLine / handleCheckOrder coverage (same
+// missing-Idempotency-Key / typed-domain-error / stale-version pattern as every earlier command in
+// this file). -----------------------------------------------------------------------------------
+
+describe('handlePickLine: a missing Idempotency-Key is rejected with a 400 Problem', () => {
+  it('no Idempotency-Key header -> 400', async () => {
+    const order = await insertFreshApprovedOrderWithLine();
+    const allocateResult = await handleAllocate(
+      requestWithKey({ orderId: order.id, expectedVersion: order.version, correlationId: nextCorrelationId() }),
+      deps,
+    );
+    expect(allocateResult.status).toBe(200);
+    const allocatedVersion = (allocateResult.body as { version: number }).version;
+
+    const result = await handlePickLine(
+      requestWithoutKey({ orderId: order.id, lineId: order.lineId, expectedVersion: allocatedVersion, qtyActual: '1.000', correlationId: nextCorrelationId() }),
+      deps,
+    );
+    expect(result.status).toBe(400);
+  });
+});
+
+describe('handlePickLine: StaleVersionError maps to 409, title = error.name', () => {
+  it('a stale expectedVersion -> 409, title "StaleVersionError"', async () => {
+    const order = await insertFreshApprovedOrderWithLine();
+    const allocateResult = await handleAllocate(
+      requestWithKey({ orderId: order.id, expectedVersion: order.version, correlationId: nextCorrelationId() }),
+      deps,
+    );
+    expect(allocateResult.status).toBe(200);
+    const allocatedVersion = (allocateResult.body as { version: number }).version;
+
+    const result = await handlePickLine(
+      requestWithKey({ orderId: order.id, lineId: order.lineId, expectedVersion: allocatedVersion + 999, qtyActual: '1.000', correlationId: nextCorrelationId() }),
+      deps,
+    );
+    expect(result.status).toBe(409);
+    expect(result.body).toMatchObject({ title: 'StaleVersionError' });
+  });
+});
+
+describe('handleCheckOrder: SelfCheckNotAllowedError maps to 422, title = error.name', () => {
+  it('the same actor who picked the order calling handleCheckOrder -> 422, title "SelfCheckNotAllowedError", order stays "picked"', async () => {
+    const order = await insertFreshApprovedOrderWithLine();
+    const allocateResult = await handleAllocate(
+      requestWithKey({ orderId: order.id, expectedVersion: order.version, correlationId: nextCorrelationId() }),
+      deps,
+    );
+    expect(allocateResult.status).toBe(200);
+    const allocatedVersion = (allocateResult.body as { version: number }).version;
+
+    const pickResult = await handlePickLine(
+      requestWithKey({ orderId: order.id, lineId: order.lineId, expectedVersion: allocatedVersion, qtyActual: '1.000', correlationId: nextCorrelationId() }),
+      deps,
+    );
+    expect(pickResult.status).toBe(200);
+    expect('body' in pickResult ? pickResult.body : null).toMatchObject({ status: 'picked' });
+    const pickedVersion = (pickResult.body as { version: number }).version;
+
+    // request.ctx is the SAME fixed actor (FIXTURE_ACTOR_UUID) for both requestWithKey calls —
+    // exactly the self-check case doc 38 row 2.12's own acceptance line names.
+    const result = await handleCheckOrder(
+      requestWithKey({ orderId: order.id, expectedVersion: pickedVersion, correlationId: nextCorrelationId() }),
+      deps,
+    );
+    expect(result.status).toBe(422);
+    expect(result.body).toMatchObject({ title: 'SelfCheckNotAllowedError' });
+
+    const statusResult: QueryResult<{ status: string }> = await pool.query(`select status from wms.outbound_orders where id = $1`, [order.id]);
+    expect(statusResult.rows[0]?.status).toBe('picked');
   });
 });
 

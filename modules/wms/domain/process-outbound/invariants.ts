@@ -25,13 +25,18 @@ import {
   ContractNotActiveError,
   DeliveryAddressIncompleteError,
   InsufficientStockError,
+  LineAlreadyPickedError,
+  LineNotReservedForPickError,
   OrderQuantityExceededError,
   OutboundLocationBlockedError,
+  PickQuantityExceedsReservedError,
+  SelfCheckNotAllowedError,
   ShelfLifeTooShortError,
   SkuBlockedError,
   SkuClientMismatchError,
   SkuNotFoundError,
   NoServicePriceError,
+  VarianceReasonRequiredError,
 } from './errors.js';
 
 // --- condition 1: contract active --------------------------------------------------------------
@@ -396,4 +401,108 @@ export function allocateFromSingleLot(
     consumed: [{ lotKey: chosenLot.lotKey, qty: take.toString() }],
     shortfall: ordered.subtract(take).toString(),
   };
+}
+
+// --- assertVarianceReasonRequired (PickLine shortage gate, WBS 2.12 part 1) ---------------------
+
+export interface VarianceReasonCheck {
+  readonly lineId: string;
+  readonly qtyOrdered: string;
+  readonly qtyActual: string;
+  readonly varianceReason: string | null | undefined;
+}
+
+/** PickLine's own shortage gate (brief Master decision 2): a blank/null `varianceReason` is only
+ *  illegal when `qtyActual` is strictly below `qtyOrdered` (exact `Quantity` comparison — never
+ *  `Number()`, same discipline as every other quantity invariant in this file). `qtyActual ===
+ *  qtyOrdered` never throws, whatever `varianceReason` holds. */
+export function assertVarianceReasonRequired(check: VarianceReasonCheck): void {
+  if (Quantity.of(check.qtyActual).compare(Quantity.of(check.qtyOrdered)) >= 0) return;
+  if (check.varianceReason !== null && check.varianceReason !== undefined && check.varianceReason.trim().length > 0) return;
+  throw new VarianceReasonRequiredError(
+    `PickLine: line ${check.lineId}'s picked quantity ${check.qtyActual} is short of the ordered ` +
+      `${check.qtyOrdered} and carries no variance_reason.`,
+    { lineId: check.lineId, qtyOrdered: check.qtyOrdered, qtyActual: check.qtyActual },
+  );
+}
+
+// --- assertCheckerNotPicker (CheckOrder self-check gate, WBS 2.12 part 1) -----------------------
+
+export interface CheckerNotPickerCheck {
+  readonly orderId: string;
+  readonly checkerId: string;
+  readonly pickedBy: string;
+}
+
+/** CheckOrder's mandatory invariant (brief Master decision 3, doc 38 row 2.12's own literal
+ *  acceptance line "Self-check rejected"): the checker must differ from the order's own
+ *  `picked_by`. */
+export function assertCheckerNotPicker(check: CheckerNotPickerCheck): void {
+  if (check.checkerId !== check.pickedBy) return;
+  throw new SelfCheckNotAllowedError(
+    `CheckOrder: order ${check.orderId} was picked by ${check.pickedBy} — the same actor may not ` +
+      `also check it (self-check rejected).`,
+    { orderId: check.orderId, actorId: check.checkerId },
+  );
+}
+
+// --- PickLine fix round 1 (findings 2/3/6): pre-write gates, mirroring the discipline every other
+// invariant in this file already follows — pure, Quantity-exact, thrown BEFORE any write. -------
+
+/** Finding 2: rejects a PickLine call on a line that has already been picked. `alreadyPicked` is
+ *  a boolean the application layer derives from I/O (../../application/process-outbound/
+ *  pick-line.ts): either a posted `wms.stock_movements` 'pick' row already exists for this line
+ *  (keyed by `ref_table='wms.order_lines'`/`ref_id`=lineId, same precedent
+ *  ../count-inventory/ledger.ts already uses), OR — for a zero-quantity pick, which intentionally
+ *  posts no ledger row (finding 5) — the line's own `qty_actual` already reads `0` (a reserved
+ *  line's `qty_actual` is always positive until PickLine records a zero pick on it; Allocate never
+ *  reserves a zero-quantity lot). */
+export function assertLineNotAlreadyPicked(lineId: string, alreadyPicked: boolean): void {
+  if (!alreadyPicked) return;
+  throw new LineAlreadyPickedError(
+    `PickLine: line ${lineId} already has a posted pick movement — it cannot be picked again.`,
+    { lineId },
+  );
+}
+
+export interface PickedWithinReservedCheck {
+  readonly lineId: string;
+  /** `order_lines.qty_actual` as Allocate stamped it — the single lot's reserved quantity. */
+  readonly reserved: string;
+  readonly qtyActual: string;
+}
+
+/** Finding 3: `qtyActual` may never exceed the line's own reserved quantity — an over-pick would
+ *  otherwise silently consume another order's `qty_allocated` (no DB floor on that column) or fail
+ *  as a raw 500 on the DB's own `variance_needs_reason` CHECK. Exact `Quantity` comparison, never
+ *  `Number()` (this file's own discipline throughout). */
+export function assertPickedWithinReserved(check: PickedWithinReservedCheck): void {
+  if (Quantity.of(check.qtyActual).compare(Quantity.of(check.reserved)) <= 0) return;
+  throw new PickQuantityExceedsReservedError(
+    `PickLine: line ${check.lineId}'s picked quantity ${check.qtyActual} exceeds its reserved ` +
+      `quantity ${check.reserved}.`,
+    { lineId: check.lineId, reserved: check.reserved, qtyActual: check.qtyActual },
+  );
+}
+
+export interface LineReservedForPickCheck {
+  readonly lineId: string;
+  /** `order_lines.location_id` — the single lot Allocate reserved for this line, or `null` when
+   *  the line was never allocated any stock (e.g. the open remainder of a partially_allocated
+   *  order). */
+  readonly locationId: string | null;
+  readonly qtyActual: string;
+}
+
+/** Finding 6: a line with no reservation (`locationId` null) may only be "picked" at `qtyActual`
+ *  zero — a positive quantity with nothing reserved is rejected rather than silently accepted with
+ *  no stock consumed and no ledger row. */
+export function assertLineReservedForPick(check: LineReservedForPickCheck): void {
+  if (check.locationId !== null) return;
+  if (Quantity.of(check.qtyActual).compare(Quantity.zero()) === 0) return;
+  throw new LineNotReservedForPickError(
+    `PickLine: line ${check.lineId} has no reservation (location_id is null) — a positive quantity ` +
+      `${check.qtyActual} cannot be picked against it.`,
+    { lineId: check.lineId, qtyActual: check.qtyActual },
+  );
 }

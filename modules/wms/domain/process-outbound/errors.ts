@@ -246,3 +246,82 @@ export class StockBalanceRowMissingError extends OutboundCheckError {
     this.name = 'StockBalanceRowMissingError';
   }
 }
+
+/** WBS 2.12 part 1 (_slice-2.12.brief.md, Master decision 2): PickLine's own shortage gate —
+ *  `qty_actual < qty_ordered` with a blank/null `variance_reason` (reuses `wms.order_lines`' own
+ *  `variance_needs_reason` check pattern, application-layer enforced BEFORE any write so the DB
+ *  constraint itself is never relied on to reject). Params: `{ lineId, qtyOrdered, qtyActual }`. */
+export class VarianceReasonRequiredError extends OutboundCheckError {
+  readonly i18nKey = 'wms.outbound.pick.varianceReasonRequired';
+
+  constructor(
+    message: string,
+    params: { readonly lineId: string; readonly qtyOrdered: string; readonly qtyActual: string },
+  ) {
+    super(message, params);
+    this.name = 'VarianceReasonRequiredError';
+  }
+}
+
+/** WBS 2.12 part 1 (Master decision 3, doc 38 row 2.12's own literal acceptance line "Self-check
+ *  rejected"): CheckOrder's own mandatory invariant — the checker (`ctx.userId`) must differ from
+ *  the order's own `picked_by`. Params: `{ orderId, actorId }` — `actorId` is the checker who was
+ *  rejected (same person as `picked_by`). */
+export class SelfCheckNotAllowedError extends OutboundCheckError {
+  readonly i18nKey = 'wms.outbound.check.selfCheckNotAllowed';
+
+  constructor(message: string, params: { readonly orderId: string; readonly actorId: string }) {
+    super(message, params);
+    this.name = 'SelfCheckNotAllowedError';
+  }
+}
+
+/** WBS 2.12 part 1, fix round 1 finding 7: `PickLine` was given a `lineId` that resolves to no
+ *  `order_lines` row on the given order (does not exist, belongs to a different order, or RLS
+ *  hides it) — a typed 422, not a bare `Error` surfacing as a 500. Params: `{ lineId, orderId }`. */
+export class OrderLineNotFoundError extends OutboundCheckError {
+  readonly i18nKey = 'wms.outbound.pick.lineNotFound';
+
+  constructor(message: string, params: { readonly lineId: string; readonly orderId: string }) {
+    super(message, params);
+    this.name = 'OrderLineNotFoundError';
+  }
+}
+
+/** WBS 2.12 part 1, fix round 1 finding 2: the targeted line already carries a posted `pick`
+ *  ledger row (or, for a zero-quantity pick that intentionally posts none, an already-recorded
+ *  zero `qty_actual` — see ./invariants.ts's `assertLineNotAlreadyPicked` doc comment) — picking
+ *  the same line twice is rejected before any write. Params: `{ lineId }`. */
+export class LineAlreadyPickedError extends OutboundCheckError {
+  readonly i18nKey = 'wms.outbound.pick.lineAlreadyPicked';
+
+  constructor(message: string, params: { readonly lineId: string }) {
+    super(message, params);
+    this.name = 'LineAlreadyPickedError';
+  }
+}
+
+/** WBS 2.12 part 1, fix round 1 finding 3: `qtyActual` exceeds the line's own reserved quantity
+ *  (`order_lines.qty_actual`, Allocate's own stamp) — an over-pick that would otherwise silently
+ *  eat another order's `qty_allocated` (no DB floor on that column). Params:
+ *  `{ lineId, reserved, qtyActual }`. */
+export class PickQuantityExceedsReservedError extends OutboundCheckError {
+  readonly i18nKey = 'wms.outbound.pick.qtyExceedsReserved';
+
+  constructor(message: string, params: { readonly lineId: string; readonly reserved: string; readonly qtyActual: string }) {
+    super(message, params);
+    this.name = 'PickQuantityExceedsReservedError';
+  }
+}
+
+/** WBS 2.12 part 1, fix round 1 finding 6: a positive `qtyActual` was submitted for a line with no
+ *  reservation (`location_id is null` — never allocated, e.g. the open remainder of a
+ *  partially_allocated order). Params: `{ lineId, qtyActual }`. */
+export class LineNotReservedForPickError extends OutboundCheckError {
+  readonly i18nKey = 'wms.outbound.pick.lineNotReserved';
+
+  constructor(message: string, params: { readonly lineId: string; readonly qtyActual: string }) {
+    super(message, params);
+    this.name = 'LineNotReservedForPickError';
+  }
+}

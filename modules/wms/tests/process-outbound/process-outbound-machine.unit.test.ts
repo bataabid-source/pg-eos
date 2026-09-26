@@ -191,15 +191,29 @@ describe('every other transition is illegal', () => {
     );
   });
 
-  it('allowedEventsFrom("allocated") is exactly [CANCEL] (part 2 adds the release path)', () => {
-    expect(allowedEventsFrom(OUTBOUND_ORDER_STATUS.ALLOCATED)).toEqual([OUTBOUND_ORDER_EVENTS.CANCEL]);
+  it('allowedEventsFrom("allocated") is exactly [CANCEL, START_PICKING] (2.12 part 1 adds picking)', () => {
+    expect(allowedEventsFrom(OUTBOUND_ORDER_STATUS.ALLOCATED).sort()).toEqual(
+      [OUTBOUND_ORDER_EVENTS.CANCEL, OUTBOUND_ORDER_EVENTS.START_PICKING].sort(),
+    );
   });
 
-  it('allowedEventsFrom("partially_allocated") is exactly [CANCEL] (part 2 adds the release path)', () => {
-    expect(allowedEventsFrom(OUTBOUND_ORDER_STATUS.PARTIALLY_ALLOCATED)).toEqual([OUTBOUND_ORDER_EVENTS.CANCEL]);
+  it('allowedEventsFrom("partially_allocated") is exactly [CANCEL, START_PICKING] (2.12 part 1 adds picking)', () => {
+    expect(allowedEventsFrom(OUTBOUND_ORDER_STATUS.PARTIALLY_ALLOCATED).sort()).toEqual(
+      [OUTBOUND_ORDER_EVENTS.CANCEL, OUTBOUND_ORDER_EVENTS.START_PICKING].sort(),
+    );
   });
 
-  it('allowedEventsFrom("picking") is empty — 2.12\'s job, no edge yet', () => {
-    expect(allowedEventsFrom(OUTBOUND_ORDER_STATUS.PICKING)).toEqual([]);
+  it('allowedEventsFrom("picking") is exactly [COMPLETE_PICKING] (2.12 part 1 adds the edge)', () => {
+    expect(allowedEventsFrom(OUTBOUND_ORDER_STATUS.PICKING)).toEqual([OUTBOUND_ORDER_EVENTS.COMPLETE_PICKING]);
+  });
+
+  // Fix round 1, finding 9: explicit positive assertions for the two remaining 2.12 part 1 edges —
+  // previously only exercised incidentally via process-outbound.test.ts's own integration scenarios.
+  it('allowedEventsFrom("picked") is exactly [CHECK] (2.12 part 1 adds the edge)', () => {
+    expect(allowedEventsFrom(OUTBOUND_ORDER_STATUS.PICKED)).toEqual([OUTBOUND_ORDER_EVENTS.CHECK]);
+  });
+
+  it('allowedEventsFrom("checked") is empty — no producing edge yet (PackOrder is part 2\'s job)', () => {
+    expect(allowedEventsFrom(OUTBOUND_ORDER_STATUS.CHECKED)).toEqual([]);
   });
 });
