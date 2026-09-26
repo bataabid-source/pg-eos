@@ -34,7 +34,10 @@ Loop (BOOTSTRAP-v5 §2 — mandatory, in order):
      MASTER_BACKLOG; there is no round 3. A defect the lane finds itself before submitting is part of finishing the
      fix round, not a new round. D-117 opus escalation stays only for a finding that cannot be split (security,
      audit chain, RLS), and that escalation is itself the last round.
- 13. Next task, or stop at the phase gate / real blocker / explicit stop.
+ 13. Next task, or stop at the phase gate / real blocker / explicit stop. Inside the slice, never `AskUserQuestion` —
+     questions go to the closing report (D-191 amendment); a rebase stop on a commit already on main → `git rebase --skip`
+     after an empty `git diff`. After the push and report: handoff + `cleared, relaunch needed: /lane <id> — next <WBS>`, then
+     `clear_session("self")` (lane.md step 9).
 
 BRIEF (copy `.claude/briefs/_TEMPLATE.brief.md`; BOOTSTRAP-v5 §5):
   Task: <WBS id + name>            Lane: <A|B|C|1|2|3|M>          Lock: <module(s) claimed>

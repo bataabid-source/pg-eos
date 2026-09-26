@@ -72,7 +72,7 @@ Development and test activities are autonomous. Do not ask permission for routin
 (git housekeeping, running tests, temp files, declared dependencies).
 
 MODEL ROUTING (mechanism, not policy)
-- Agents are pinned (routing v2, D-191, GM 2026-09-26 — supersedes "no haiku"): pg-reviewer=opus · pg-backend-core=opus (slices carrying a migration, RLS, permissions or platform/identity/billing core) · pg-backend/pg-frontend/pg-tester=sonnet · pg-scribe=haiku. The brief names its builder on a `builder:` line (pg-backend, pg-backend-core or pg-frontend) before pg-tester starts; `scripts/brief-check.sh` refuses a brief without it.
+- Agents are pinned (routing v2, D-191, GM 2026-09-26 — supersedes "no haiku"): pg-reviewer=opus · pg-backend-core=opus (slices carrying a migration, RLS, permissions or platform/identity/billing core) · pg-backend/pg-frontend/pg-tester/pg-scribe=sonnet (pg-scribe back from haiku by the D-191 amendment, GM 2026-09-26). The brief names its builder on a `builder:` line (pg-backend, pg-backend-core or pg-frontend) before pg-tester starts; `scripts/brief-check.sh` refuses a brief without it.
   `inherit` is forbidden.
 - The Master runs on the session model (sonnet by default) and delegates per the routing table (§4).
 - Escalation is upward only (sonnet → opus) and only after two failures, for ADR/security, or for

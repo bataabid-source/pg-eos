@@ -4,6 +4,12 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — D-191 amendment: pg-scribe back to sonnet; no AskUserQuestion in a slice; lane self-relaunch (2026-09-26)
+
+- GM verbatim: "أعد pg-scribe إلى sonnet، وأضف قاعدتي «لا AskUserQuestion داخل الشريحة» و«إعادة الإطلاق الذاتي بعد التنظيف» إلى lane.md وslice.md، وسجّلها تعديلاً على D-191." `pg-scribe` → `model: sonnet` (evidence: on haiku it wrote unbuilt features — auto-sync, PIN storage, custom caching — into 2.16 part 1a-2's commit message and CHANGELOG; caught by lane 1, squash-merged as 67ef627 with an accurate message). CLAUDE.md MODEL ROUTING, docs/MODEL_ROUTING.md and PROJECT_STATE updated.
+- `.claude/commands/lane.md` steps 8–9 and `slice.md` step 13: no `AskUserQuestion` inside a slice (questions batched in the closing report; rebase `--skip` on already-merged content after an empty diff), and the self-relaunch line `cleared, relaunch needed: /lane <id> — next <WBS>` before `clear_session("self")`; the Master relaunches on receipt.
+- Model: claude-opus-5-5 (Master) · Delegated: none.
+
 ## X — P6b-2: RLS narrows to the active entity (SCR-PLAT-CTX-01, migration 0031) (2026-09-26)
 
 - `platform.allowed_entities()` (0031 + `01-Data-Model.sql:327` parity): the user's `identity.user_entities` intersected with `app.entity_id` when set; unset/empty → exactly the old set. `SECURITY DEFINER`, `search_path = pg_catalog, pg_temp`, self-check block. `withContext` always sets `app.entity_id` (NULL when no entity); `createUserEntitiesLookup` reads with `entityId: null` so switching entity is never blocked. Malformed GUC → 22P02 (fail-closed); the API validates `X-Entity-Id` as a uuid.
