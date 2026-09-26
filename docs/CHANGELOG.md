@@ -11,6 +11,15 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 - Review: round 1 FAIL(4: dist-dependent test under turbo `^build`, no drift guard, browser types leaking generator types, stale headers) → round 2 PASS.
 - Model: claude-opus-5-5 (Master) · Delegated: pg-tester, pg-backend (sonnet), pg-reviewer (opus).
 
+## 4.1a part 2c — approver-mechanism entity-boundary UPDATE coverage + stale comment cleanup (billing) — DONE (2026-09-26)
+
+- Closes the 2 findings deferred from `4.1a part 2`'s own slice-close round 2 (both comment/test-coverage only, no D-117 escalation). Test-only, one file: `modules/billing/tests/gl-account-change-requests/approver-mechanism.test.ts`. (1) Stale "does not exist yet"/"RED today" header comment fragments rewritten to describe the built/GREEN state (the mechanism has been live since migration `0034`). (2) Two new tests added inside the existing `§9(i)` describe block (`gl_account_change_write_insert`/`gl_account_change_write_update` entity-boundary coverage): a cross-entity UPDATE negative test (a CFO scoped to `entityId` cannot UPDATE a `gl_accounts` row belonging to a different entity) and a same-entity positive control, closing the gap where only the INSERT half of the two write policies had entity-boundary coverage.
+- Tests: 44/44 green (was 42, +2 new), run via `PG_APP_USER=pgeos_app pnpm test -- tests/gl-account-change-requests/approver-mechanism.test.ts` in `modules/billing`. Guards G1-G14/G18/G-SEED green (G15-G17 not runnable/non-blocking, per standing 0.6b deferral).
+- Review: pg-reviewer (opus) — PASS(0 findings, 1 round).
+- `billing` lock stays held — lane 2 continues in it for `4.1a part 3` (`is_active` + deactivate/reactivate lifecycle).
+- **Files:** `modules/billing/tests/gl-account-change-requests/approver-mechanism.test.ts`; `tasks/MASTER_BACKLOG.md` (`4.1a part 2c` row → DONE); `tasks/LANE_LOCKS.md` (`billing` row note updated, lock not released); `docs/PROJECT_STATE.md`.
+- Model: sonnet · Delegated: pg-tester, pg-reviewer · Review: PASS(0 findings, 1 rounds) · tokens: reported by the workers, not independently re-derived here.
+
 ## X — D-191 amendment: pg-scribe back to sonnet; no AskUserQuestion in a slice; lane self-relaunch (2026-09-26)
 
 - GM verbatim: "أعد pg-scribe إلى sonnet، وأضف قاعدتي «لا AskUserQuestion داخل الشريحة» و«إعادة الإطلاق الذاتي بعد التنظيف» إلى lane.md وslice.md، وسجّلها تعديلاً على D-191." `pg-scribe` → `model: sonnet` (evidence: on haiku it wrote unbuilt features — auto-sync, PIN storage, custom caching — into 2.16 part 1a-2's commit message and CHANGELOG; caught by lane 1, squash-merged as 67ef627 with an accurate message). CLAUDE.md MODEL ROUTING, docs/MODEL_ROUTING.md and PROJECT_STATE updated.

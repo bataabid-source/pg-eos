@@ -9,12 +9,12 @@
 //
 // Covers the brief's new §"Approver mechanism — SCR-PLAT-APPR-01" verbatim:
 //   1. platform.is_approval_chain_approver(p_request_type text, p_step int default 1) returns
-//      boolean — does not exist yet.
-//   2. Approver SELECT/UPDATE policies on gl_account_change_requests — do not exist yet.
+//      boolean — built and live (migration 0034).
+//   2. Approver SELECT/UPDATE policies on gl_account_change_requests — built and live.
 //   3. gl_accounts approver INSERT/UPDATE policy OR-ed with reference_write, PLUS the plain BEFORE
 //      trigger billing.assert_gl_account_change_approved() (NOT a true Postgres CONSTRAINT TRIGGER —
 //      round-2/round-3 review correction; those can only fire AFTER, and this must fire BEFORE) —
-//      none exist yet.
+//      all built and live.
 //   4. The bypass path (Condition 1, exact wording): keyed on current_user <> 'pgeos_app', never on
 //      the app.user_id GUC being empty.
 //
@@ -1275,5 +1275,100 @@ describe('§9(i) [fix round finding 6]: the gl_accounts approver write policies 
     // transaction, this rejection can only be RLS's own gl_accounts entity-scope check.
     expect(code).toBe('42501');
     expect(message).not.toContain('0034:');
+  });
+
+  // UPDATE-side counterpart to the INSERT test above (round-3 confirmation-pass gap): the same
+  // gl_accounts approver write policy also covers UPDATE (the brief's own "INSERT/UPDATE policy"
+  // wording), and only the INSERT half had entity-boundary coverage. Same isolation technique —
+  // the trigger is disabled for the duration of the (rolled-back) transaction so the write policy's
+  // own USING/WITH CHECK entity check is what is exercised, not the trigger's separate,
+  // entity-coupled content-matching NOT EXISTS clause.
+  it('a CFO scoped to entityId cannot UPDATE a gl_accounts row belonging to a DIFFERENT entity (cross-entity UPDATE rejected by RLS — either thrown 42501 without the trigger\'s own \'0034:\' prefix, or silently matching 0 rows via the USING clause)', async () => {
+    const client = await pool.connect();
+    let rejected = false;
+    let code: string | undefined;
+    let message = '';
+    try {
+      await client.query('begin');
+
+      const otherEntityAccount: QueryResult<{ id: string }> = await client.query(
+        `insert into billing.gl_accounts (entity_id, code, name_ar, account_type) values ($1, $2, $3, $4) returning id`,
+        [otherEntityId, freshProposedCode(), 'حساب في كيان آخر — اختبار حدود الكيان (تحديث)', VALID_ACCOUNT_TYPE],
+      );
+      const targetId = otherEntityAccount.rows[0]?.id;
+      if (!targetId) throw new Error('fixture other-entity gl_accounts insert returned no id');
+
+      // Remove the trigger from the equation for the rest of THIS transaction only — same rationale
+      // as the describe-level comment above.
+      await client.query('alter table billing.gl_accounts disable trigger trg_assert_gl_account_change_approved');
+
+      // Switch to pgeos_app AS CFO_ACTOR_UUID — scoped ONLY to entityId, never otherEntityId.
+      await client.query('set local role pgeos_app');
+      await client.query(`select set_config('app.user_id', $1, true)`, [CFO_ACTOR_UUID]);
+      await client.query(`select set_config('app.client_id', $1, true)`, [null]);
+      await client.query(`select set_config('app.is_internal', 'true', true)`);
+
+      try {
+        const result = await client.query(`update billing.gl_accounts set name_en = $2 where id = $1`, [
+          targetId,
+          'must never be written — cross-entity UPDATE',
+        ]);
+        if ((result.rowCount ?? 0) === 0) {
+          rejected = true; // silently filtered out of the actor's own visible rowset by the USING clause.
+        }
+      } catch (error) {
+        rejected = true;
+        code = (error as { code?: string }).code;
+        message = (error as { message?: string }).message ?? '';
+      }
+    } finally {
+      await client.query('rollback'); // unconditional — never committed either way; re-enables the trigger too.
+      client.release();
+    }
+
+    expect(rejected).toBe(true);
+    if (code !== undefined) {
+      expect(code).toBe('42501');
+      expect(message).not.toContain('0034:');
+    }
+  });
+
+  // Positive control for the UPDATE-side write policy (round-3 confirmation-pass gap): proves the
+  // policy actually GRANTS a same-entity approver UPDATE, not merely that it rejects everything —
+  // the negative-only coverage above and in §9(i)'s INSERT test could otherwise equally be explained
+  // by a policy that rejects ALL UPDATEs unconditionally. Trigger disabled for the same isolation
+  // reason (the write policy's own entity check is what is under test here, not the trigger's
+  // separate content-matching requirement).
+  it('a CFO scoped to entityId CAN UPDATE a gl_accounts row belonging to THAT SAME entity (same-entity UPDATE succeeds — positive control for the write policy\'s entity check)', async () => {
+    const client = await pool.connect();
+    let succeeded: boolean;
+    try {
+      await client.query('begin');
+
+      const sameEntityAccount: QueryResult<{ id: string }> = await client.query(
+        `insert into billing.gl_accounts (entity_id, code, name_ar, account_type) values ($1, $2, $3, $4) returning id`,
+        [entityId, freshProposedCode(), 'حساب في نفس الكيان — ضابط تحكم إيجابي (تحديث)', VALID_ACCOUNT_TYPE],
+      );
+      const targetId = sameEntityAccount.rows[0]?.id;
+      if (!targetId) throw new Error('fixture same-entity gl_accounts insert returned no id');
+
+      await client.query('alter table billing.gl_accounts disable trigger trg_assert_gl_account_change_approved');
+
+      await client.query('set local role pgeos_app');
+      await client.query(`select set_config('app.user_id', $1, true)`, [CFO_ACTOR_UUID]);
+      await client.query(`select set_config('app.client_id', $1, true)`, [null]);
+      await client.query(`select set_config('app.is_internal', 'true', true)`);
+
+      const result = await client.query(`update billing.gl_accounts set name_en = $2 where id = $1`, [
+        targetId,
+        'same-entity UPDATE positive control',
+      ]);
+      succeeded = (result.rowCount ?? 0) === 1;
+    } finally {
+      await client.query('rollback'); // unconditional — never committed either way; re-enables the trigger too.
+      client.release();
+    }
+
+    expect(succeeded).toBe(true);
   });
 });
