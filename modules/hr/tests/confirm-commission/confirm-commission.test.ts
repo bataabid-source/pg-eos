@@ -227,15 +227,50 @@ async function getCommissionDailyRow(id: string): Promise<
   return result.rows[0];
 }
 
-async function auditRowsForCorrelation(
-  correlationId: string,
-): Promise<Array<{ table_name: string; record_id: string | null; operation: string }>> {
+async function auditRowsForCorrelation(correlationId: string): Promise<
+  Array<{
+    table_name: string;
+    record_id: string | null;
+    operation: string;
+    old_value: unknown;
+    new_value: unknown;
+    changed_fields: readonly string[] | null;
+  }>
+> {
   const result = await pool.query(
-    `select table_name, record_id::text as record_id, operation
+    `select table_name, record_id::text as record_id, operation, old_value, new_value, changed_fields
        from platform.audit_log where correlation_id = $1 and schema_name = 'hr' order by occurred_at`,
     [correlationId],
   );
   return result.rows;
+}
+
+// WBS 3.13 part 5c, finding 2 (deferred from part 4's slice-close review round 2 — same gap part 5b
+// closed on the dispute side): the SAME real synchronization barrier
+// modules/imile/tests/pull-shipments/pull-shipments.test.ts's own race test uses — a shared arrival
+// counter and a promise that resolves only once BOTH concurrent calls have reached it (fired via
+// `deps.onBeforeUpdate`, after all validation and before the optimistic-lock UPDATE), so neither
+// call's UPDATE can start until both calls' own SELECT/validation has already completed — copied
+// into this file, not imported cross-module (same convention as every other sibling suite, including
+// dispute-commission.test.ts's own identical copy).
+const RACE_BARRIER_ARRIVALS_EXPECTED = 2;
+const RACE_BARRIER_SAFETY_TIMEOUT_MS = 5_000;
+
+function createArrivalBarrier(expectedArrivals: number, safetyTimeoutMs: number): () => Promise<void> {
+  let arrivals = 0;
+  let release: () => void = () => undefined;
+  const everyoneArrived = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const safety = setTimeout(release, safetyTimeoutMs);
+  return async (): Promise<void> => {
+    arrivals += 1;
+    if (arrivals >= expectedArrivals) {
+      clearTimeout(safety);
+      release();
+    }
+    await everyoneArrived;
+  };
 }
 
 async function getDisputeWindowHours(): Promise<number> {
@@ -435,6 +470,35 @@ describe('Scenario: A DEL_SUP actor resolves a dispute by confirming it', () => 
     expect(commissionAudit).toHaveLength(1);
     expect(commissionAudit[0]?.operation).toBe('update');
     expect(commissionAudit[0]?.record_id).toBe(commissionDailyId);
+
+    // WBS 3.13 part 5c, finding 3 (deferred from part 4's slice-close review round 2): the audit
+    // row's own old_value/new_value/changed_fields content, not just its existence — matching
+    // exactly the shape confirm-commission.ts's own writeAuditRow call builds (step 6). The fixture
+    // row was created 'disputed' via createFixtureCommissionDaily, which never sets confirmed_by/
+    // confirmed_at/payroll_period — those three columns are still null on the row read at step 1,
+    // hence old_value's own confirmedBy/confirmedAt/payrollPeriod are null (never assumed — read from
+    // confirm-commission.ts's own oldValue construction at step 6).
+    expect(commissionAudit[0]?.old_value).toEqual({
+      status: 'disputed',
+      confirmedBy: null,
+      confirmedAt: null,
+      payrollPeriod: null,
+    });
+    // clock is a module-level FixedClock at NOW, never advanced by this scenario (file header) —
+    // deps.clock.now() inside confirmCommission's own step 5 therefore reads back exactly NOW, the
+    // real occurredAt this call wrote to confirmed_at.
+    expect(commissionAudit[0]?.new_value).toEqual({
+      status: 'confirmed',
+      confirmedBy: DEL_SUP_ACTOR_UUID,
+      confirmedAt: NOW.toISOString(),
+      payrollPeriod: '2024-05-01',
+    });
+    expect(commissionAudit[0]?.changed_fields).toEqual([
+      'status',
+      'confirmed_by',
+      'confirmed_at',
+      'payroll_period',
+    ]);
   });
 });
 
@@ -783,9 +847,12 @@ describe('an already-auto-confirmed row (status=confirmed, confirmed_by IS NULL)
 
 describe('round-5 fix round, finding 6: StaleVersionError — optimistic-lock conflict on confirmCommission', () => {
   it(
-    'two concurrent confirmCommission calls against the SAME disputed row: exactly one succeeds ' +
-      '(version 1 -> 2), the other rejects with StaleVersionError, no silent overwrite — same race ' +
-      "technique as modules/imile/tests/pull-shipments/pull-shipments.test.ts's own StaleVersionError test",
+    'two concurrent confirmCommission calls against the SAME disputed row, synchronized on a REAL ' +
+      'arrival barrier (WBS 3.13 part 5c, finding 2 — deps.onBeforeUpdate fires after all validation ' +
+      'and before each call\'s own optimistic-lock UPDATE, so neither UPDATE can start until BOTH ' +
+      'calls\' own validation has completed): exactly one succeeds (version 1 -> 2), the other ' +
+      'rejects with StaleVersionError, no silent overwrite — same barrier technique as ' +
+      "modules/imile/tests/pull-shipments/pull-shipments.test.ts's own StaleVersionError test",
     async () => {
       const employeeId = await createFixtureEmployee('stale-version-race');
       await setDisputingEmployee(employeeId);
@@ -797,8 +864,11 @@ describe('round-5 fix round, finding 6: StaleVersionError — optimistic-lock co
       });
 
       const delSupCtx = { userId: DEL_SUP_ACTOR_UUID, clientId: null, isInternal: true };
-      const depsA = createConfirmCommissionDeps({ clock, ids });
-      const depsB = createConfirmCommissionDeps({ clock, ids });
+      // ONE barrier instance shared by both concurrent calls' own deps — a genuine
+      // validation/validation-then-UPDATE/UPDATE interleaving, not timing luck.
+      const barrier = createArrivalBarrier(RACE_BARRIER_ARRIVALS_EXPECTED, RACE_BARRIER_SAFETY_TIMEOUT_MS);
+      const depsA = createConfirmCommissionDeps({ clock, ids, onBeforeUpdate: barrier });
+      const depsB = createConfirmCommissionDeps({ clock, ids, onBeforeUpdate: barrier });
 
       const results = await Promise.allSettled([
         confirmCommission(delSupCtx, { commissionDailyId, correlationId: nextCorrelationId() }, depsA),
