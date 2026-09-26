@@ -80,6 +80,68 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 - Files: `modules/imile/{domain,application,infrastructure,api,tests}/assign-driver-id/**`, `packages/contracts/imile/assign-driver-id.ts`, `packages/contracts/package.json` (additive export entry).
 - Model: sonnet (Master, pg-tester, pg-backend, pg-scribe) · opus (pg-reviewer) · Delegated: pg-tester, pg-backend, pg-reviewer, pg-scribe · Review: PASS(8 findings, 2 rounds) — part 1 committed as reviewed, part 2 backlog opened (11 items after the Master's own review), no round 3 per REVIEW CAP (D-186/P7) · tokens: reported by the workers, not independently re-derived here.
 
+## X — P5: RLS isolation matrix (2026-09-26)
+
+- New `tests/isolation/tests/rls-matrix.test.ts` (pg-tester, Master task P5): a CATALOG-DRIVEN RLS
+  matrix, replacing the drift risk of a hand-maintained table list. It enumerates, live from
+  `pg_catalog` (never a hard-coded list), every base/partitioned-parent table carrying `entity_id`
+  in the fourteen business schemas — **79 tables** on this run — and for each asserts (1)
+  `relrowsecurity` is true, and (2) its entity/ownership-scoping policy is real and correctly
+  shaped, via `it.each` (one named case per table).
+- Behavioral check (3) — an admin-seeded entity-B row is invisible to a `pgeos_app` caller scoped
+  to entity A, plus a positive control (an admin-seeded entity-A row IS visible) — runs wherever a
+  fully generic fixture row can be constructed from `pg_catalog` alone (NOT NULL/no-default columns
+  resolved via single-column FK lookups against EXISTING rows, or type-keyed generic literals;
+  never fabricated business/reference data). Of the 69 tables eligible for this path: **33 got the
+  full behavioral proof, all green — no RLS entity-isolation leak found**; **36 landed in the
+  visible `SEEDING_EXCEPTIONS` list** (own `it.each`, one case per table quoting the database's own
+  rejection reason) — mostly an empty reference table this file will not fabricate rows into
+  (`sales.accounts`/`hr.employees` hold zero seed rows on a fresh `apply.sh` run), a composite or
+  missing single-column primary key (`identity.user_entities`, `platform.audit_log`), a composite
+  foreign key, an unsupported column type (e.g. `time without time zone`), or a genuine CHECK
+  constraint (SQLSTATE 23514) this file correctly does not know the business meaning of.
+- **Finding, not a new defect:** 10 of the 79 tables carry NO policy literally named `entity_scope`
+  — 8 reference/lookup tables (`billing.gl_accounts`, `catalog.services`, `hr.org_units`,
+  `hr.teams`, `platform.counters`, `platform.document_templates`, `platform.settings`,
+  `wms.warehouses`, governed by `reference_read`/`reference_write`, `platform.is_internal()`-gated),
+  plus `hr.commission_daily` (`own_commission`) and `platform.idempotency_keys`
+  (`idem_entity_scope` + `idem_own`). Verified against `database/schema/guards.sql`'s own G7
+  comment: an earlier, broader guard DID flag exactly this shape ("a table with `entity_id` but no
+  `entity_scope` policy") and was deliberately narrowed under D-133 because it reported "9
+  reference/specially-designed tables by 13B's own design". This matrix respects that prior
+  decision — `NAMED_ENTITY_SCOPE_EXCEPTIONS` asserts each of the 10 tables' real, documented
+  alternative policy exists instead of a nonexistent `entity_scope`, and excludes them from the
+  generic entity-boundary behavioral proof (their access control is not a plain entity boundary).
+  No schema change requested; no new G-01 filed.
+- `tests/isolation/tests/app-role-rls.test.ts`: `ENTITY_SCOPE_POLICY_COUNT` left at 74, unedited —
+  only a comment added pointing to the new matrix as the drift-proof, catalog-driven counterpart.
+- Independent safety net kept alongside the `it.each`: a direct catalog query mirroring G7's own
+  `relkind in ('r','p')` scan (including partitions this time, unlike the file's own per-table
+  enumeration) asserts zero `entity_id`-bearing tables lack RLS — 0 rows.
+- **Master addition, same commit — view `security_invoker` matrix, D-133 ruling:** a second
+  catalog-driven `it.each` in the same file, one named case per view (`pg_class.relkind = 'v'`) in
+  the fourteen operational schemas — **16 views**. Rule = **D-133** (migration
+  `0007_M_pgeos-app-role-entity-scope.sql:12-17`, LEAN DESIGN — views are not rewritten; pgeos_app
+  is granted no privilege at all on any view, and `guards.sql`'s own extended G7 already flags a
+  view only when pgeos_app still holds a privilege on it without `security_invoker=true`). An
+  earlier draft of this check asked for `security_invoker=true` unconditionally (or a cited
+  exception) on every view — that contradicted the already-approved D-133 design and is corrected
+  here before landing; the **G19 guard proposal this earlier ruling implied is WITHDRAWN** — G7
+  (extended, D-133) already covers the real risk, no new guard needed. Corrected rule: for each
+  view, IF `pgeos_app` holds ANY privilege on it, THEN `reloptions` must carry
+  `security_invoker=true`; a view with no `pgeos_app` privilege passes outright, its case name
+  stating "… — not granted — D-133". `VIEW_INVOKER_EXCEPTIONS` (the earlier design) is removed —
+  no longer needed. Result on this run: **16 views, 1 granted** (`wms.space_dashboard`, which
+  already carries `security_invoker=true` — migration `0012_M_space-dashboard-invoker-grant.sql`)
+  — **all 16 green**, including `wms.client_space_overview` (not granted to `pgeos_app` either,
+  despite carrying the option itself for its own separate reason —
+  13B-Schema-Reference-Consolidation.sql:4669-4670) and the 14 other, ungranted views.
+- Verified: `pnpm guards:run` (against a throwaway `pgeos_p5` database built via a fresh
+  `apply.sh`, never `pgeos`/`pgeos_lane*`) — **G1–G14, G18, G-SEED all green** (G14 = the full
+  isolation suite, all three spec files green); `bash tests/hooks/run.sh` — **111/111**. G15–G17
+  remain NOT RUNNABLE (pre-existing, unrelated to this task).
+- Model: sonnet · Delegated: pg-tester (Master task) · tokens ~180k.
+
 ## X — bookkeeping 2026-09-26: D-190 (full delegation), D-176 amended, doc 38 v4.7 (2026-09-26)
 
 - `docs/DECISION_LOG.md`: D-190 records the GM's full delegation verbatim and the decisions taken under it; the D-176 row carries its verbatim amendment.

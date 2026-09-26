@@ -92,6 +92,14 @@ const FOURTEEN_SCHEMAS = [
 // each of which added an entity_scope RLS policy.
 // Updated to 74 by migration 0026 (WBS 2.11 part 5, D-189, sales.contract_sku_limits), which
 // added an entity_scope RLS policy (condition 10's per-contract per-SKU order limit table).
+//
+// DRIFT-PROOF CHECK (Master task P5): this number is hand-maintained and breaks every time a lane
+// adds a table. tests/isolation/tests/rls-matrix.test.ts is the catalog-driven counterpart — it
+// enumerates every entity_id-bearing table in the fourteen business schemas straight from
+// pg_catalog (never a hard-coded count) and needs no edit when a new table is added. Kept here,
+// unchanged, because removing it would reduce coverage (it independently pins the exact policy
+// count AND the WITH CHECK = USING shape across all 14 schemas in one query, which the per-table
+// matrix does not by itself guarantee as a single aggregate fact).
 const ENTITY_SCOPE_POLICY_COUNT = 74;
 const IS_INTERNAL_GATED_ENTITY_SCOPE_COUNT = 7;
 

@@ -19,7 +19,7 @@
 ## Last 5 DONE (newest first)
 | task | commit |
 |---|---|
-| P6a — SCR-HR-EMP-01: three hr DB CHECKs (migration 0029) + matching domain invariants, 422 mapping (Master) — PASS(12 findings, 2 rounds incl. pre-migration) | `<this commit>` |
+| P6a — SCR-HR-EMP-01: three hr DB CHECKs (migration 0029) + matching domain invariants, 422 mapping (Master) — PASS(12 findings, 2 rounds incl. pre-migration) | `a8f65a3` |
 | 4.1a part 1 — CoA structure X-XX-XXX-XXX + class 1-9; domain + contract + two DB CHECKs, migration 0028 (lane 2), no write path (deferred to part 2) — PASS(18 findings, 2 rounds: round 1 FAIL(10) → round 2 FAIL(8, SoD/citation correction — SYSADMIN grant withdrawn) → confirmation PASS(0)) | `b31fe44` |
 | 3.13 part 1 — `CalculateDailyCommission` command, migration 0027 (lane 3), DONE-in-part — round-1 fixes applied; round 2 FAIL(7 findings incl. a real Kuwait-midnight timezone bug), no round 3 (REVIEW CAP), part 2 opened | `6c16c41` |
 | 2.12 part 1 — PickLine + CheckOrder (lane 1), DONE-in-part; part 2 open (4 items) — 2.12 DONE when part 2 lands — PASS(6 findings clean of 9, 3 deferred, 2 rounds); `wms/receive-inbound` released, 183/183 clean on `pgeos_lane1` | `3edf84b` |
