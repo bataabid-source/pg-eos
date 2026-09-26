@@ -26,7 +26,9 @@ import { InvalidOtpError } from '../../domain/otp-login/errors.js';
 import type { OtpLoginDeps } from './ports.js';
 
 /** One message for every rejection — the message must not distinguish the cases either. */
-const INVALID_OTP_MESSAGE = 'the email and code did not verify.';
+const INVALID_OTP_MESSAGE =
+  'the email and code did not verify. (Allowed: a live, unconsumed code issued to this email for ' +
+  'an active user, entered before it expires)';
 
 export interface VerifyOtpCodeInput {
   readonly email: string;
