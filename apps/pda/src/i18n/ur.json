@@ -17,5 +17,14 @@
   "locale.name.ur": "اردو",
   "locale.name.bn": "بنگالی",
   "locale.name.am": "امہاری",
-  "queue.unsynced": "غیر مطابقت شدہ: {count}"
+  "queue.unsynced": "غیر مطابقت شدہ: {count}",
+  "login.title": "لاگ ان کریں",
+  "login.email.label": "ای میل",
+  "login.email.submit": "کوڈ بھیجیں",
+  "login.code.label": "تصدیقی کوڈ",
+  "login.code.submit": "تصدیق کریں",
+  "login.requestSent": "کوڈ بھیج دیا گیا، {minutes} منٹ میں ختم ہو جائے گا",
+  "login.error.invalidCode": "غلط کوڈ۔ اپنے ای میل پر بھیجا گیا کوڈ درج کریں، یا نیا کوڈ طلب کریں۔",
+  "login.error.requestFailed": "کوڈ بھیجا نہیں جا سکا، دوبارہ کوشش کریں",
+  "login.success": "کامیابی سے لاگ ان ہو گئے"
 }

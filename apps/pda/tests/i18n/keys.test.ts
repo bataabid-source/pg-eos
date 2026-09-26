@@ -8,6 +8,11 @@
 // WBS 2.16 part 1a-2 adds ONE more key, `queue.unsynced` (the unsynced-queue badge's accessible
 // label, e.g. "Unsynced: {count}") — nineteen keys total.
 //
+// WBS 2.16 part 1a-4 adds NINE more keys for the PDA OTP login screen (brief `Deliver` list):
+// `login.title`, `login.email.label`, `login.email.submit`, `login.code.label`,
+// `login.code.submit`, `login.requestSent` (`{minutes}` param), `login.error.invalidCode`,
+// `login.error.requestFailed`, `login.success` — twenty-eight keys total.
+//
 // Fix round 2, finding 5: the "non-empty in every locale" check below now asserts directly
 // against each locale's own raw JSON module (never through `t()`, which silently falls back to
 // `ar` on a missing key and therefore cannot detect a key missing from a non-ar file), and the
@@ -53,12 +58,21 @@ const EXPECTED_KEYS = [
   'locale.name.bn',
   'locale.name.am',
   'queue.unsynced',
+  'login.title',
+  'login.email.label',
+  'login.email.submit',
+  'login.code.label',
+  'login.code.submit',
+  'login.requestSent',
+  'login.error.invalidCode',
+  'login.error.requestFailed',
+  'login.success',
 ] as const;
 
-describe('PDA i18n — key set (Master decision 3, round-1 fix + part 1a-2: nineteen keys)', () => {
+describe('PDA i18n — key set (Master decision 3, round-1 fix + part 1a-2 + part 1a-4: twenty-eight keys)', () => {
   it('the ar.json fallback file declares exactly these keys (order-independent)', () => {
     expect(Object.keys(ar).sort()).toEqual([...EXPECTED_KEYS].sort());
-    expect(Object.keys(ar)).toHaveLength(19);
+    expect(Object.keys(ar)).toHaveLength(28);
   });
 
   it.each(SUPPORTED_LOCALES.filter((locale) => locale !== 'ar'))(

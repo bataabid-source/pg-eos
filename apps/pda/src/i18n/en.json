@@ -17,5 +17,14 @@
   "locale.name.ur": "Urdu",
   "locale.name.bn": "Bengali",
   "locale.name.am": "Amharic",
-  "queue.unsynced": "Unsynced: {count}"
+  "queue.unsynced": "Unsynced: {count}",
+  "login.title": "Log in",
+  "login.email.label": "Email",
+  "login.email.submit": "Send code",
+  "login.code.label": "Verification code",
+  "login.code.submit": "Verify",
+  "login.requestSent": "Code sent, expires in {minutes} minutes",
+  "login.error.invalidCode": "Invalid code. Enter the code sent to your email, or request a new code.",
+  "login.error.requestFailed": "Could not send the code, try again",
+  "login.success": "Logged in successfully"
 }
