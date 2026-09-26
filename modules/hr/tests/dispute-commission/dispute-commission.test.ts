@@ -157,7 +157,20 @@ async function createFixtureEmployee(labelSuffix: string): Promise<string> {
  *  createFixtureCommissionDaily (this file's own sibling), fixed here to match (round-5 fix-round:
  *  this file's own single-step INSERT-as-'disputed' variant was never actually exercised by any
  *  test in this file before this round, but would have failed the live trigger the first time it
- *  was). */
+ *  was).
+ *
+ *  round-5-fix-round-2 (finding 1, pre-migration review round 1 on migration 0035): once 0035 lands,
+ *  hr.guard_commission_daily_status()'s new EXISTS check on the calculated -> disputed edge requires
+ *  platform.current_user_id() to resolve to the ROW'S OWN employee's own linked user — a bare
+ *  admin-pool UPDATE with no session actor set (app.user_id stays NULL) would then fail with
+ *  insufficient_privilege, turning this fixture helper itself red. The one caller in this file that
+ *  builds a row already 'disputed' (the IllegalTransitionError scenario) always links
+ *  DRIVER_ACTOR_UUID to `employeeId` via setDisputingEmployee first — this helper now does that
+ *  linking itself (idempotent if the caller already did it too) and runs the UPDATE inside a
+ *  dedicated `pool.connect()` client with a TRANSACTION-LOCAL `set_config('app.user_id', ..., true)`
+ *  scoped to DRIVER_ACTOR_UUID, so the write genuinely passes the coming check instead of merely
+ *  bypassing it via the admin connection's RLS-exempt superuser — same discipline as
+ *  packages/db/src/with-context.ts and this file's own WBS-3.13-part-5a test (below). */
 async function createFixtureCommissionDaily(params: {
   readonly employeeId: string;
   readonly workDate: string;
@@ -178,10 +191,23 @@ async function createFixtureCommissionDaily(params: {
   fixtureCommissionDailyIds.push(id);
 
   if (params.status === 'disputed') {
-    await pool.query(
-      `update hr.commission_daily set status = 'disputed', dispute_note = $1, disputed_at = $2 where id = $3`,
-      [params.disputeNote ?? 'اعتراض اختباري', (params.disputedAt ?? params.createdAt).toISOString(), id],
-    );
+    await setDisputingEmployee(params.employeeId);
+    const client = await pool.connect();
+    try {
+      await client.query('begin');
+      await client.query(`select set_config('app.user_id', $1, true)`, [DRIVER_ACTOR_UUID]);
+      await client.query(`select set_config('app.is_internal', 'true', true)`);
+      await client.query(
+        `update hr.commission_daily set status = 'disputed', dispute_note = $1, disputed_at = $2 where id = $3`,
+        [params.disputeNote ?? 'اعتراض اختباري', (params.disputedAt ?? params.createdAt).toISOString(), id],
+      );
+      await client.query('commit');
+    } catch (error) {
+      await client.query('rollback');
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
   return id;
@@ -522,3 +548,171 @@ describe('round-5 fix round, finding 6: IllegalTransitionError — disputing an 
     expect(row?.status).toBe('disputed');
   });
 });
+
+// --- WBS 3.13 part 5a (deferred finding from part 4's slice-close review round 2, no round 3 per
+// REVIEW CAP — MASTER_BACKLOG / MIGRATION-REQUEST-3 row 4): the calculated -> disputed edge has NO
+// db-level actor check today — migration 0033's own self-review EXISTS-check (lines 266-272 of
+// database/migrations/0033_3_commission-daily-status-lifecycle.sql) only fires on the edge REACHING
+// 'confirmed'. Only the application layer (dispute-commission.ts step 2b, isOwnRow) enforces "an
+// actor may only dispute their own commission" (doc 10 §14 l.300) today. This test bypasses the
+// application command entirely — a raw SQL UPDATE straight against the pool, as an actor who is
+// NEITHER the row's own employee NOR linked to it — and proves the missing DB-level backstop
+// (migration 0035, not yet written — this test is expected RED until it lands). Never touches or
+// duplicates the existing app-layer CannotDisputeAnotherEmployeesRowError test above (lines 438-475
+// of this file) — that one proves the application layer; this one proves the trigger itself.
+//
+// pre-migration review round 1 (FAIL, 7 findings), finding 6 fix-round-2 note: the ROLLBACK in
+// `finally` below runs unconditionally, whether or not the trigger actually fired — so the
+// after-UPDATE row-read below proves nothing about the trigger by itself (it would read back
+// unchanged even if the UPDATE had silently succeeded and only the test's own ROLLBACK undid it).
+// The one assertion that actually proves the trigger rejected the write is the SQLSTATE check
+// (`updateError.code === '42501'`); the row-read afterwards is kept only as a same-transaction
+// sanity check (the client saw its own uncommitted write, or lack of one, before rolling back), never
+// cited as independent proof. Migration 0035 does not exist yet, so no specific Arabic message
+// substring can be asserted here yet (coordinate wording once 0035 lands — pg-backend-core's own
+// migration will cite "WBS 3.13 part 5a" in its errcode='insufficient_privilege' message per the
+// build brief; a future round adds `message: expect.stringContaining('WBS 3.13 part 5a')` here). ---
+
+describe(
+  'WBS 3.13 part 5a (SECURITY, DB backstop): a raw SQL UPDATE straight against hr.commission_daily, ' +
+    "bypassing DisputeCommission entirely, setting status to 'disputed' while the acting session " +
+    "actor (platform.current_user_id()) is NOT the row's own employee's own linked user, must be " +
+    'rejected by the trigger itself (migration 0035 — not yet applied, RED until it is)',
+  () => {
+    it(
+      'READ_ALL_INTERNAL_ACTOR_UUID (DEL_SUP, holds hr.driver_commission.read_all, never linked to ' +
+        "any employee) issuing `UPDATE hr.commission_daily SET status='disputed', ... WHERE id=$1 " +
+        'AND version=$2` directly, against a fixture row owned by a DIFFERENT fixture employee, with ' +
+        "the acting session actor set via the SAME app.user_id GUC withContext uses (never through " +
+        'disputeCommission/isOwnRow), rejects at the trigger level (insufficient_privilege) — SQLSTATE ' +
+        '42501 is the only claim this test proves (see file comment above on why the post-UPDATE row ' +
+        'read is a sanity check only, not independent proof)',
+      async () => {
+        // A single fixture employee (brief step 1) — the row belongs to employeeOwner; the acting
+        // actor (READ_ALL_INTERNAL_ACTOR_UUID) is linked to neither this nor any other employee.
+        const employeeOwner = await createFixtureEmployee('db-backstop-owner');
+
+        const commissionDailyId = await createFixtureCommissionDaily({
+          employeeId: employeeOwner,
+          workDate: '2024-05-25',
+          createdAt: new Date(NOW.getTime() - 10 * HOURS_TO_MS),
+        });
+
+        const beforeRow = await getCommissionDailyRow(commissionDailyId);
+        expect(beforeRow?.status).toBe('calculated');
+        const expectedVersion = beforeRow?.version;
+
+        // Same session-GUC convention as withContext (packages/db/src/with-context.ts) and this
+        // repo's own precedent for a raw-actor test (packages/db/tests/idempotency.test.ts:347-361)
+        // — a dedicated client, BEGIN, set_config(..., true) (transaction-local), the raw UPDATE,
+        // then ROLLBACK regardless of outcome so this fixture client never leaks a session GUC back
+        // to the pool.
+        const client = await pool.connect();
+        let updateError: unknown;
+        try {
+          await client.query('begin');
+          await client.query(`select set_config('app.user_id', $1, true)`, [READ_ALL_INTERNAL_ACTOR_UUID]);
+          await client.query(`select set_config('app.is_internal', 'true', true)`);
+          try {
+            await client.query(
+              `update hr.commission_daily
+                  set status = 'disputed', dispute_note = $1, disputed_at = now(), version = version + 1
+                where id = $2 and version = $3`,
+              ['محاولة تحايل عبر UPDATE مباشر — WBS 3.13 part 5a', commissionDailyId, expectedVersion],
+            );
+          } catch (error) {
+            updateError = error;
+          }
+        } finally {
+          await client.query('rollback');
+          client.release();
+        }
+
+        expect(updateError).toBeDefined();
+        expect((updateError as { code?: string } | undefined)?.code).toBe('42501'); // insufficient_privilege
+
+        // Sanity check only (same-transaction read, before the unconditional rollback above) — NOT
+        // independent proof the trigger fired (see file comment above finding 6 fix-round-2 note).
+        const afterRow = await getCommissionDailyRow(commissionDailyId);
+        expect(afterRow?.status).toBe('calculated');
+        expect(afterRow?.version).toBe(expectedVersion);
+      },
+    );
+  },
+);
+
+// --- WBS 3.13 part 5a, pre-migration review round 1 finding 6 (SECURITY, new attack path found in
+// review): the EXISTS check must bind to `old.employee_id`, not `new.employee_id` — an actor linked
+// to employee X must not be able to UPDATE employee Y's row setting BOTH `employee_id = X` AND
+// `status = 'disputed'` in the SAME statement and have the check read X's own linkage as if it were
+// legitimate. This is a DIFFERENT attack from the test above (that one never touches employee_id at
+// all). RED now for the SAME reason as above — no DB check exists yet, so this UPDATE currently
+// succeeds outright. Once migration 0035 lands (binding to old.employee_id per finding 2), it must
+// still reject with 42501 even though the statement's own new.employee_id would equal the acting
+// actor's own linked employee. ---------------------------------------------------------------------
+
+describe(
+  'WBS 3.13 part 5a, finding 6 (SECURITY): a raw SQL UPDATE that reassigns employee_id to the ' +
+    "ACTING actor's OWN employee in the SAME statement that sets status = 'disputed' on a DIFFERENT " +
+    'employee\'s row must still be rejected (proves the check binds to old.employee_id, not ' +
+    'new.employee_id — migration 0035 finding 2)',
+  () => {
+    it(
+      'an actor linked to employee X, issuing `UPDATE hr.commission_daily SET status=\'disputed\', ' +
+        "employee_id = X, ... WHERE id=$1` against a row OWNED by employee Y, is rejected at the " +
+        'trigger level (insufficient_privilege) even though new.employee_id (X) equals the acting ' +
+        "actor's own linked employee — SQLSTATE 42501 is the only claim this test proves",
+      async () => {
+        const employeeY = await createFixtureEmployee('db-backstop-owner-reassign-y');
+        const employeeX = await createFixtureEmployee('db-backstop-actor-reassign-x');
+        await setDisputingEmployee(employeeX); // DRIVER_ACTOR_UUID is now linked to employee X, not Y.
+
+        const commissionDailyId = await createFixtureCommissionDaily({
+          employeeId: employeeY,
+          workDate: '2024-05-26',
+          createdAt: new Date(NOW.getTime() - 10 * HOURS_TO_MS),
+        });
+
+        const beforeRow = await getCommissionDailyRow(commissionDailyId);
+        expect(beforeRow?.status).toBe('calculated');
+        const expectedVersion = beforeRow?.version;
+
+        const client = await pool.connect();
+        let updateError: unknown;
+        try {
+          await client.query('begin');
+          await client.query(`select set_config('app.user_id', $1, true)`, [DRIVER_ACTOR_UUID]);
+          await client.query(`select set_config('app.is_internal', 'true', true)`);
+          try {
+            await client.query(
+              `update hr.commission_daily
+                  set status = 'disputed', employee_id = $1, dispute_note = $2, disputed_at = now(),
+                      version = version + 1
+                where id = $3 and version = $4`,
+              [
+                employeeX,
+                'محاولة تحايل عبر إعادة تعيين employee_id — WBS 3.13 part 5a finding 6',
+                commissionDailyId,
+                expectedVersion,
+              ],
+            );
+          } catch (error) {
+            updateError = error;
+          }
+        } finally {
+          await client.query('rollback');
+          client.release();
+        }
+
+        expect(updateError).toBeDefined();
+        expect((updateError as { code?: string } | undefined)?.code).toBe('42501'); // insufficient_privilege
+
+        // Sanity check only (same-transaction read, before the unconditional rollback above) — NOT
+        // independent proof the trigger fired.
+        const afterRow = await getCommissionDailyRow(commissionDailyId);
+        expect(afterRow?.status).toBe('calculated');
+        expect(afterRow?.version).toBe(expectedVersion);
+      },
+    );
+  },
+);
