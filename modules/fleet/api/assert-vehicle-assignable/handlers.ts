@@ -25,32 +25,25 @@
 
 import { ZodError } from 'zod';
 
+import {
+  extractCorrelationId,
+  HTTP_STATUS_INTERNAL_SERVER_ERROR,
+  HTTP_STATUS_OK,
+  PROBLEM_TYPE_BASE,
+  UNKNOWN_ERROR_DETAIL,
+  type ApiRequest,
+  type ApiSuccess,
+} from '@pg-eos/api-kit';
 import { PROBLEM_STATUS, type Problem } from '@pg-eos/contracts';
 import { AssertVehicleAssignableInputSchema } from '@pg-eos/contracts/fleet/assert-vehicle-assignable';
-import type { WithContextCtx } from '@pg-eos/db';
 
 import { assertVehicleAssignable, type AssertVehicleAssignableDeps } from '../../application/assert-vehicle-assignable/index.js';
 import { VehicleNotAssignableError, VehicleNotFoundError } from '../../domain/assert-vehicle-assignable/errors.js';
 import { VehicleDocumentAccessDeniedError } from '../../domain/register-vehicle/errors.js';
 
-export interface ApiHeaders {
-  readonly [headerName: string]: string | undefined;
-}
+export type { ApiHeaders, ApiRequest, ApiSuccess } from '@pg-eos/api-kit';
 
-export interface ApiRequest<TBody> {
-  readonly headers: ApiHeaders;
-  readonly body: TBody;
-  readonly ctx: WithContextCtx;
-}
-
-const HTTP_STATUS_OK = 200;
 const HTTP_STATUS_NOT_FOUND = 404;
-const HTTP_STATUS_INTERNAL_SERVER_ERROR = 500;
-
-export interface ApiSuccess<TBody> {
-  readonly status: typeof HTTP_STATUS_OK;
-  readonly body: TBody;
-}
 
 /** Review-round 2 finding 5: a condition-check failure's Problem body ALSO carries the typed
  *  error's `.i18nKey`/`.params` — packages/contracts/_shared/problem.ts's `ProblemSchema` (frozen,
@@ -67,10 +60,6 @@ export interface ApiFailure {
 }
 
 export type ApiResult<TBody> = ApiSuccess<TBody> | ApiFailure;
-
-const PROBLEM_TYPE_BASE = 'https://pg-eos.local/problems/';
-
-const UNKNOWN_ERROR_DETAIL = 'An unexpected error occurred. (Allowed: retry, or report it with the correlationId.)';
 
 function problem(
   status: number,
@@ -89,17 +78,6 @@ function problem(
       ...(i18n ? { i18nKey: i18n.i18nKey, params: i18n.params } : {}),
     },
   };
-}
-
-/** Reads `body.correlationId` without ever asserting `any` — used only to enrich the 500 log line
- *  below; the command's own input also carries `correlationId`, but a 500 can happen before the
- *  body even parses, so this reads the raw, pre-validation body defensively. */
-function extractCorrelationId(body: unknown): string | undefined {
-  if (typeof body === 'object' && body !== null && 'correlationId' in body) {
-    const value = (body as Record<string, unknown>)['correlationId'];
-    return typeof value === 'string' ? value : undefined;
-  }
-  return undefined;
 }
 
 /** Maps every typed error this use case can throw to its HTTP status. `title` is always

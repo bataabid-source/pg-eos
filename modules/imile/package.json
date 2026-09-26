@@ -18,6 +18,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@pg-eos/api-kit": "workspace:*",
     "@pg-eos/contracts": "workspace:*",
     "@pg-eos/db": "workspace:*",
     "@pg-eos/domain-kit": "workspace:*",

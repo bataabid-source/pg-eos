@@ -22,13 +22,23 @@
 //   - an UNKNOWN error maps to a 500 Problem — never rethrown, logged via deps.logger.error
 //     (CLAUDE.md · AGENT CONSTRAINTS "No console.log — pino").
 
-import { createHash } from 'node:crypto';
-
 import { ZodError } from 'zod';
 
-import { IDEMPOTENCY_KEY_HEADER_NAME, PROBLEM_STATUS, type Problem } from '@pg-eos/contracts';
+import {
+  buildIdem,
+  extractCorrelationId,
+  HTTP_STATUS_INTERNAL_SERVER_ERROR,
+  HTTP_STATUS_OK,
+  problem,
+  requireIdempotencyKey,
+  UNKNOWN_ERROR_DETAIL,
+  type ApiFailure,
+  type ApiRequest,
+  type ApiResult,
+} from '@pg-eos/api-kit';
+import { PROBLEM_STATUS } from '@pg-eos/contracts';
 import { DisputeCommissionInputSchema } from '@pg-eos/contracts/hr/dispute-commission';
-import { IdempotencyConflictError, type IdempotencyInput, type WithContextCtx } from '@pg-eos/db';
+import { IdempotencyConflictError } from '@pg-eos/db';
 
 import { disputeCommission, type DisputeCommissionDeps } from '../../application/dispute-commission/index.js';
 import {
@@ -39,100 +49,11 @@ import {
   StaleVersionError,
 } from '../../domain/dispute-commission/errors.js';
 
+export type { ApiHeaders, ApiRequest, ApiSuccess, ApiFailure, ApiResult } from '@pg-eos/api-kit';
+
 const IDEMPOTENCY_ENDPOINT_DISPUTE = 'hr.dispute-commission.dispute-commission';
 
-export interface ApiHeaders {
-  readonly [headerName: string]: string | undefined;
-}
-
-export interface ApiRequest<TBody> {
-  readonly headers: ApiHeaders;
-  readonly body: TBody;
-  readonly ctx: WithContextCtx;
-}
-
-const HTTP_STATUS_OK = 200;
 const HTTP_STATUS_FORBIDDEN = 403;
-const HTTP_STATUS_INTERNAL_SERVER_ERROR = 500;
-
-export interface ApiSuccess<TBody> {
-  readonly status: typeof HTTP_STATUS_OK;
-  readonly body: TBody;
-}
-
-export interface ApiFailure {
-  readonly status: number;
-  readonly body: Problem;
-}
-
-export type ApiResult<TBody> = ApiSuccess<TBody> | ApiFailure;
-
-const IDEMPOTENCY_KEY_HEADER_LOWER = IDEMPOTENCY_KEY_HEADER_NAME.toLowerCase();
-const PROBLEM_TYPE_BASE = 'https://pg-eos.local/problems/';
-
-function findHeader(headers: ApiHeaders, name: string): string | undefined {
-  const lowerName = name.toLowerCase();
-  for (const key of Object.keys(headers)) {
-    if (key.toLowerCase() === lowerName) return headers[key];
-  }
-  return undefined;
-}
-
-const UNKNOWN_ERROR_DETAIL = 'An unexpected error occurred. (Allowed: retry, or report it with the correlationId.)';
-
-function problem(status: number, title: string, detail: string): ApiFailure {
-  return {
-    status,
-    body: { type: `${PROBLEM_TYPE_BASE}${title.toLowerCase().replace(/\s+/g, '-')}`, title, status, detail, instance: '' },
-  };
-}
-
-/** doc 40 §A4: every write endpoint requires the Idempotency-Key header. Returns a 400 Problem
- *  when it is absent, `undefined` (meaning "continue") otherwise. */
-function requireIdempotencyKey(headers: ApiHeaders): ApiFailure | undefined {
-  const value = findHeader(headers, IDEMPOTENCY_KEY_HEADER_LOWER);
-  if (!value) {
-    return problem(
-      PROBLEM_STATUS.BAD_REQUEST,
-      'Idempotency-Key required',
-      `every write endpoint requires the ${IDEMPOTENCY_KEY_HEADER_NAME} header (doc 40 §A4).`,
-    );
-  }
-  return undefined;
-}
-
-/** Deterministic, stable-key-order JSON — object keys sorted recursively, arrays kept in order. */
-function canonicalize(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(canonicalize);
-  if (value !== null && typeof value === 'object') {
-    const sorted: Record<string, unknown> = {};
-    for (const key of Object.keys(value as Record<string, unknown>).sort()) {
-      sorted[key] = canonicalize((value as Record<string, unknown>)[key]);
-    }
-    return sorted;
-  }
-  return value;
-}
-
-function requestHashOf(body: unknown): string {
-  return createHash('sha256').update(JSON.stringify(canonicalize(body))).digest('hex');
-}
-
-function buildIdem(request: ApiRequest<unknown>, endpoint: string, parsedBody: unknown): IdempotencyInput {
-  const key = findHeader(request.headers, IDEMPOTENCY_KEY_HEADER_LOWER);
-  if (!key) {
-    throw new Error('buildIdem: Idempotency-Key header missing (requireIdempotencyKey should have caught this).');
-  }
-  return { key, endpoint, requestHash: requestHashOf(parsedBody), entityId: null, successStatus: HTTP_STATUS_OK };
-}
-
-function extractCorrelationId(body: unknown): string | undefined {
-  if (typeof body === 'object' && body !== null && 'correlationId' in body) {
-    const value = (body as Record<string, unknown>)['correlationId'];
-    return typeof value === 'string' ? value : undefined;
-  }
-  return undefined;
-}
 
 function errorToApiFailure(error: unknown): ApiFailure {
   if (error instanceof ZodError) {
