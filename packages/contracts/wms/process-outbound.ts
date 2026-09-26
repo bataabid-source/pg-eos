@@ -91,3 +91,28 @@ export const GeneratePickListInputSchema = z
   .meta({ id: 'GeneratePickListInput' });
 
 export type GeneratePickListInput = z.infer<typeof GeneratePickListInputSchema>;
+
+// --- WBS 2.12 part 1: PickLine, CheckOrder (checker != picker) -----------------------------------
+
+export const PickLineInputSchema = z
+  .object({
+    orderId: UUID_ID,
+    lineId: UUID_ID,
+    expectedVersion: EXPECTED_VERSION,
+    qtyActual: z.string().regex(/^\d+(\.\d{1,3})?$/),
+    varianceReason: z.string().optional(),
+    correlationId: UUID_ID,
+  })
+  .meta({ id: 'PickLineInput' });
+
+export type PickLineInput = z.infer<typeof PickLineInputSchema>;
+
+export const CheckOrderInputSchema = z
+  .object({
+    orderId: UUID_ID,
+    expectedVersion: EXPECTED_VERSION,
+    correlationId: UUID_ID,
+  })
+  .meta({ id: 'CheckOrderInput' });
+
+export type CheckOrderInput = z.infer<typeof CheckOrderInputSchema>;

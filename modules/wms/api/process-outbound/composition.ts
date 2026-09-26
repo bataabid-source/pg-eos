@@ -9,11 +9,14 @@
 import type { Clock, IdGenerator } from '@pg-eos/domain-kit';
 
 import type { Logger, ProcessOutboundDeps } from '../../application/process-outbound/ports.js';
+import { outboundLedgerPort } from '../../infrastructure/process-outbound/ledger.js';
 import { processOutboundPinoLogger } from '../../infrastructure/process-outbound/logger.js';
 import { outboundOrderRepository } from '../../infrastructure/process-outbound/repository.js';
 
 /** `logger` defaults to the pino adapter (../../infrastructure/process-outbound/logger.ts) — a
- *  caller (tests) may inject a fixed/spy Logger instead, same pattern as `clock`/`ids`. */
+ *  caller (tests) may inject a fixed/spy Logger instead, same pattern as `clock`/`ids`. `ledger`
+ *  defaults to the real adapter (fix round 1 finding 1) — a caller (tests) may inject a fixed/spy
+ *  LedgerPort instead, same pattern. */
 export function createProcessOutboundDeps(clockDeps: {
   readonly clock: Clock;
   readonly ids: IdGenerator;
@@ -23,6 +26,7 @@ export function createProcessOutboundDeps(clockDeps: {
     clock: clockDeps.clock,
     ids: clockDeps.ids,
     repo: outboundOrderRepository,
+    ledger: outboundLedgerPort,
     logger: clockDeps.logger ?? processOutboundPinoLogger,
   };
 }
