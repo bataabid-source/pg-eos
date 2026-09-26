@@ -4,6 +4,13 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — `scripts/scribe.mjs`: PROJECT_STATE.md is generated (ADR-0005 §6, enablement item 7b) (2026-09-26)
+
+- **Why:** the audit found PROJECT_STATE lines of > 2,000 chars, four `<this commit>` placeholders and a stale lock — all products of hand-editing a 40-line file that carried prose. The 40-line rule was met only by making lines longer.
+- **Change:** `node scripts/scribe.mjs --write` renders `docs/PROJECT_STATE.md` from short, hand-maintained sources (`docs/state/header.md` ≤ 8 lines, `blockers.md` ≤ 12, `next.md` ≤ 3; every line ≤ 160 chars, no placeholder), the lock rows of `tasks/LANE_LOCKS.md` and the last five feat/fix commits from `git log`. `--check` (pre-commit gate ⓒ when PROJECT_STATE or `docs/state/*` is staged; `pnpm state:check`) refuses a hand edit or an over-limit source. Result today: 38 lines, longest 141 chars. pg-scribe's instruction updated (edit the sources, run `--write`). 7 new hook-suite cases.
+- **DEFAULT/RECORD/PROCEED:** the previous prose state (lane journeys, review histories) is not carried into the sources — it already lives in CHANGELOG and MASTER_BACKLOG; only current facts survive. LANE_LOCKS row notes stay in that file for now (table-only cleanup is a later bookkeeping commit).
+- Model: Master session · Delegated: none · Review: n/a (bookkeeping tool + hook cases, hook suite green) · tokens: ~20k.
+
 ## X — `packages/api-kit` + `portLogger`: per-slice duplication removed (enablement item 5) (2026-09-26)
 
 - **Why:** 24 `modules/*/api/*/handlers.ts` carried the same HTTP helper block (types, `findHeader`, `problem`, `requireIdempotencyKey`, `canonicalize`/`requestHashOf`, `buildIdem`, `extractCorrelationId`) and 25 `infrastructure/*/logger.ts` the same 10-line adapter — audit 2026-09-26, maintainability finding.

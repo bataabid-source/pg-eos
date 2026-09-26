@@ -41,6 +41,9 @@ for f in "${staged[@]}"; do
       tmp="$(mktemp)"; git show ":$f" > "$tmp"
       bash scripts/brief-check.sh "$tmp" --root "$ROOT" || { rm -f "$tmp"; fail "gate ⓑ $f is over the slice budget — split it before pg-tester starts"; }
       rm -f "$tmp" ;;
+    docs/PROJECT_STATE.md|docs/state/*.md)
+      # ⓒ ADR-0005 §6: PROJECT_STATE.md is generated; a hand edit or an over-limit source is refused.
+      node scripts/scribe.mjs --check >/dev/null 2>&1 || fail "gate ⓒ docs/PROJECT_STATE.md is not the generated text or a docs/state/*.md source is over its limit (run: node scripts/scribe.mjs --write)" ;;
   esac
 done
 

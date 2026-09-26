@@ -302,6 +302,21 @@ rh3_check() { ( cd "$RH3" && node "$REPO/scripts/resolve-hashes.mjs" --check >/d
 expect "check: placeholder introduced by HEAD on the base is clean" 0 "$(rh3_check)"
 
 # ---- gov-ratio.sh (P3): 7-day feat/fix(<WBS>) ratio + average review rounds --------------------
+echo "scribe.mjs"
+SC="$TMP/scribe"; mkdir -p "$SC/docs/state" "$SC/tasks"
+( cd "$SC" && git init -q -b main && git config user.email t@t && git config user.name t
+  printf 'Plan: x\n' > docs/state/header.md; printf 'b1\n' > docs/state/blockers.md; printf 'n1\n' > docs/state/next.md
+  printf '| module | lane | task | claimed_at | worktree |\n|---|---|---|---|---|\n| wms | 1 | 2.10 | 2026-09-25 | ../pg-eos-lane-1 |\n' > tasks/LANE_LOCKS.md
+  git add -A && git commit -qm 'feat(2.10): first' && git commit -q --allow-empty -m 'chore(X): bookkeeping' )
+sc_run() { ( cd "$SC" && node "$REPO/scripts/scribe.mjs" "$1" >/dev/null 2>&1 ); echo $?; }
+expect "scribe: --check before --write refused"      1 "$(sc_run --check)"
+expect "scribe: --write generates"                   0 "$(sc_run --write)"
+expect "scribe: --check after --write OK"            0 "$(sc_run --check)"
+expect "scribe: lanes + last commit rendered"        0 "$(cd "$SC" && grep -q 'lane 1 · wms · 2.10' docs/PROJECT_STATE.md && grep -q 'feat(2.10): first' docs/PROJECT_STATE.md && ! grep -q 'chore(X)' docs/PROJECT_STATE.md; echo $?)"
+expect "scribe: hand edit refused"                   1 "$(cd "$SC" && echo 'manual' >> docs/PROJECT_STATE.md; sc_run --check)"
+expect "scribe: over-long source line refused"       1 "$(cd "$SC" && printf '%0200d\n' 0 > docs/state/next.md; sc_run --write)"
+expect "scribe: placeholder in source refused"       1 "$(cd "$SC" && printf 'n <this commit>\n' > docs/state/next.md; sc_run --write)"
+
 echo "gov-ratio.sh"
 GR="$TMP/gr"; mkdir -p "$GR/scripts/lib"
 cp "$REPO/scripts/lib/review-trailer.sh" "$GR/scripts/lib/"
