@@ -41,7 +41,8 @@ const SHIPMENT_STATUS_DELIVERED = 'delivered';
 const SHIPMENT_STATUS_FAILED = 'failed';
 const SHIPMENT_STATUS_RETURNED = 'returned';
 
-// part 2 round-2 finding 1 (timezone): doc 40 §A3 / 01-Data-Model.sql:8 — the platform's business
+// MASTER_BACKLOG 3.13 part 2 item 1 (originally part 1's own round-2 review finding 1, timezone):
+// doc 40 §A3 / 01-Data-Model.sql:8 — the platform's business
 // timezone is Asia/Kuwait. All timestamps in this table are stored UTC (`timestamptz`), so a
 // `workDate` calendar-day boundary must be pinned to Asia/Kuwait EXPLICITLY, never to whatever
 // TimeZone the connecting session happens to carry (same mechanism as

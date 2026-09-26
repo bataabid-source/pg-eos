@@ -86,8 +86,9 @@ export interface CommissionDailyRepository {
   getEmployeeEntityId(tx: NodePgDatabase, employeeId: string): Promise<string | null>;
 
   /** imile.shipments_attributed — the ONLY allowed view for attributing a shipment to a human
-   *  driver (doc 38's own acceptance criterion) — grouped by internal_status, for
-   *  `ofd_at::date = workDate`. */
+   *  driver (doc 38's own acceptance criterion) — grouped by internal_status, for the Kuwait-local
+   *  business day (repository.ts's own `(ofd_at AT TIME ZONE 'Asia/Kuwait')::date = workDate`,
+   *  MASTER_BACKLOG 3.13 part 2 item 1 — never a bare `ofd_at::date` cast). */
   getAttributedShipmentCounts(
     tx: NodePgDatabase,
     params: { readonly employeeId: string; readonly workDate: string },
