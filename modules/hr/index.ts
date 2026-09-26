@@ -38,3 +38,26 @@ export {
   MissingActorError as MaintainShiftMissingActorError,
   EntityScopeAmbiguousError as MaintainShiftEntityScopeAmbiguousError,
 } from './domain/maintain-shift/errors.js';
+
+// WBS 3.13 part 1 (round-1 review finding 6: missing from this barrel). Named re-exports (not
+// `export *`) — this use case's own MissingActorError/EntityScopeAmbiguousError names would
+// otherwise collide with register-employee's and maintain-shift's, same discipline as
+// maintain-shift's own aliasing above.
+export {
+  calculateDailyCommission,
+  type CalculateDailyCommissionInput,
+  type CalculateDailyCommissionResult,
+  type CalculateDailyCommissionDeps,
+  type ClockDeps as CalculateDailyCommissionClockDeps,
+  type CommissionDailyRepository,
+  type Logger as CalculateDailyCommissionLogger,
+} from './application/calculate-daily-commission/index.js';
+export {
+  CommissionAlreadyCalculatedError,
+  NoApplicableCommissionRuleError,
+  AmbiguousCommissionRuleError,
+  EmployeeNotInCallerEntityError,
+  NotInternalActorError,
+  MissingActorError as CalculateDailyCommissionMissingActorError,
+  EntityScopeAmbiguousError as CalculateDailyCommissionEntityScopeAmbiguousError,
+} from './domain/calculate-daily-commission/errors.js';

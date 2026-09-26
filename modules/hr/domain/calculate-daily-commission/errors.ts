@@ -23,7 +23,11 @@
 //     422/UNPROCESSABLE_ENTITY ("No other numbers"); 422 is the closest fit already in the shared
 //     envelope and keeps this error in the same class as NoApplicableCommissionRuleError/
 //     AmbiguousCommissionRuleError below — a data-completeness/precondition failure, not a raw
-//     404 this envelope does not define).
+//     404 this envelope does not define);
+//   - NotInternalActorError -> 422 (MASTER_BACKLOG 3.13 part 2, item 2 — originally part 1's
+//     round-2 finding 2 — see this class's own doc comment below for the precedent and the reason
+//     it is not 403: the same frozen PROBLEM_STATUS envelope names no 403, and the cited precedent
+//     (expire-contract's RoleRequiredError) itself maps to 422).
 
 /** every command's actor is `ctx.userId` ONLY — same discipline as this module's own
  *  register-employee/register-vehicle/assign-driver-id precedents. A null/missing userId is a
@@ -90,5 +94,28 @@ export class EmployeeNotInCallerEntityError extends Error {
   constructor(message: string) {
     super(message);
     this.name = 'EmployeeNotInCallerEntityError';
+  }
+}
+
+/** MASTER_BACKLOG 3.13 part 2, item 2 (originally part 1's round-2 finding 2 — typed-error gap):
+ *  a non-internal caller who DOES resolve a real,
+ *  unambiguous entity scope (unlike EntityScopeAmbiguousError above) is otherwise refused only by
+ *  `hr.commission_daily`'s own migration-0027 write policies' `platform.is_internal()` gate — a raw
+ *  RLS SQLSTATE 42501 surfacing as an unhandled 500. Same precedent as
+ *  modules/sales/application/manage-contract/expire-contract.ts's own `ctx.isInternal` check
+ *  (`RoleRequiredError`, "Role gate FIRST, before any transaction opens... checked via
+ *  `ctx.isInternal`, never a specific role code — read straight off `ctx`, so it needs no DB round
+ *  trip and no lock") and modules/fleet/application/assert-vehicle-assignable/
+ *  assert-vehicle-assignable.ts's own fail-closed `ctx.isInternal` gate (reusing
+ *  VehicleDocumentAccessDeniedError there) — the application layer checks `ctx.isInternal` explicitly
+ *  BEFORE attempting the write, fail-closed, rather than reimplementing `is_internal()` as a second
+ *  business rule; the RLS policy remains the sole enforcement layer, this only TRANSLATES its
+ *  rejection into a typed, actionable error. Maps to HTTP 422 (this envelope's frozen
+ *  packages/contracts/_shared/problem.ts PROBLEM_STATUS names only 400/409/422 — "No other
+ *  numbers" — same status the expire-contract/RoleRequiredError precedent itself maps to). */
+export class NotInternalActorError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'NotInternalActorError';
   }
 }
