@@ -35,3 +35,43 @@ export class EmployeeAlreadyAssignedError extends Error {
     this.name = 'EmployeeAlreadyAssignedError';
   }
 }
+
+// WBS 3.12 part 2c-i — doc 40 INV-C4-1: the same hard gate as
+// modules/hr/domain/register-employee/invariants.ts's own `assertDriverAssignable`
+// (modules/hr/domain/register-employee/errors.ts's own three classes of the identical name), copied
+// here because `AssignDriverId` lives in a DIFFERENT module (`imile`) and a direct TypeScript import
+// across `modules/*` fails lint (CLAUDE.md · ARCHITECTURE, eslint-plugin-boundaries) — this is the
+// same business rule, re-expressed in this module's own domain/ layer, not an invented rule. Maps to
+// HTTP 422 (../../api/assign-driver-id/handlers.ts).
+
+/** doc 40 INV-C4-1: the employee's own `hr.employees.status` is not `'active'` — the same rule as
+ *  hr's own WBS-3.3 gate (modules/hr/domain/register-employee/invariants.ts:79-84), copied here
+ *  because a cross-module TS import (`modules/hr` from `modules/imile`) fails lint. */
+export class EmployeeNotActiveError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'EmployeeNotActiveError';
+  }
+}
+
+/** doc 40 INV-C4-1: no `hr.employee_documents` row of the required `doc_type` (`'residency'`, for
+ *  the `'task'` purpose) exists for this employee — same rule as hr's own WBS-3.3 gate
+ *  (modules/hr/domain/register-employee/invariants.ts:86-93), copied here because a cross-module TS
+ *  import (`modules/hr` from `modules/imile`) fails lint. */
+export class DriverDocumentMissingError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'DriverDocumentMissingError';
+  }
+}
+
+/** doc 40 INV-C4-1: the LATEST `hr.employee_documents` row of the required `doc_type` has
+ *  `expiry_date < today` (Kuwait business date) — same rule as hr's own WBS-3.3 gate
+ *  (modules/hr/domain/register-employee/invariants.ts:94-100), copied here because a cross-module TS
+ *  import (`modules/hr` from `modules/imile`) fails lint. */
+export class DriverDocumentExpiredError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'DriverDocumentExpiredError';
+  }
+}

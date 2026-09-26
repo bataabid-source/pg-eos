@@ -57,7 +57,15 @@ import { AssignDriverIdInputSchema } from '@pg-eos/contracts/imile/assign-driver
 // The modules under test — do not exist yet (RED).
 import { assignDriverId } from '../../application/assign-driver-id/index.js';
 import { createAssignDriverIdDeps } from '../../api/assign-driver-id/composition.js';
-import { DriverIdNotAvailableError, EmployeeAlreadyAssignedError } from '../../domain/assign-driver-id/errors.js';
+import {
+  DriverIdNotAvailableError,
+  EmployeeAlreadyAssignedError,
+  // WBS 3.12 part 2c-i — new typed errors from the INV-C4-1 gate (imile's own copy of hr's
+  // assertDriverAssignable, doc 40 INV-C4-1). Do not exist yet (RED).
+  EmployeeNotActiveError,
+  DriverDocumentMissingError,
+  DriverDocumentExpiredError,
+} from '../../domain/assign-driver-id/errors.js';
 
 const pool = new Pool({
   host: process.env['PGHOST'] ?? 'localhost',
@@ -121,15 +129,49 @@ function nextEmployeeCode(): string {
   return `PG-5${suffix}`;
 }
 
-async function createFixtureEmployee(): Promise<string> {
+// WBS 3.12 part 2c-i — one 'residency' hr.employee_documents row, mirroring
+// modules/hr/tests/register-employee/register-employee.test.ts's own insertDocumentDirect fixture
+// helper (same table, same doc_type constant).
+const DOC_TYPE_RESIDENCY = 'residency';
+// Kuwait business "today" stays '2024-01-01' for this whole suite: the module-level clock starts
+// at 2024-01-01T00:00:00.000Z and each beginScenario() only advances it by 5s — Kuwait (UTC+3, no
+// DST) is at most a few minutes into 2024-01-01, never crossing into 2024-01-02.
+const FIXTURE_TODAY = '2024-01-01';
+const FIXTURE_YESTERDAY = '2023-12-31';
+const FIXTURE_FAR_FUTURE = '2030-01-01';
+
+async function insertResidencyDocument(employeeId: string, expiryDate: string): Promise<string> {
+  const result: QueryResult<{ id: string }> = await pool.query(
+    `insert into hr.employee_documents (employee_id, doc_type, expiry_date) values ($1, $2, $3) returning id::text as id`,
+    [employeeId, DOC_TYPE_RESIDENCY, expiryDate],
+  );
+  const id = result.rows[0]?.id;
+  if (!id) throw new Error('failed to insert fixture hr.employee_documents row');
+  return id;
+}
+
+// WBS 3.12 part 2c-i, finding 11 / INV-C4-1: once the new assertDriverAssignable gate lands, EVERY
+// successful assignment (every EXISTING scenario in this suite that expects success) requires the
+// employee to be 'active' AND to carry a current 'residency' document. `withResidency` defaults to
+// true so every pre-existing call site in this file (all of which expect a successful assignment)
+// keeps a valid fixture without editing every call site individually; the three new
+// gate-rejection scenarios below pass `withResidency: false` or insert their own
+// missing/expired/current document directly instead.
+async function createFixtureEmployee(
+  status: string = 'active',
+  options: { withResidency?: boolean } = {},
+): Promise<string> {
   const result: QueryResult<{ id: string }> = await pool.query(
     `insert into hr.employees (entity_id, code, name_ar, hire_date, status)
-       values ($1, $2, $3, current_date, 'active') returning id::text as id`,
-    [entityId, nextEmployeeCode(), 'موظف اختبار إسناد معرّف — WBS 3.12'],
+       values ($1, $2, $3, current_date, $4) returning id::text as id`,
+    [entityId, nextEmployeeCode(), 'موظف اختبار إسناد معرّف — WBS 3.12', status],
   );
   const id = result.rows[0]?.id;
   if (!id) throw new Error('failed to insert fixture hr.employees row');
   fixtureEmployeeIds.push(id);
+  if (options.withResidency ?? true) {
+    await insertResidencyDocument(id, FIXTURE_FAR_FUTURE);
+  }
   return id;
 }
 
@@ -197,6 +239,29 @@ async function auditRowsForCorrelation(
   return result.rows;
 }
 
+// WBS 3.12 part 2c-i — platform.outbox row(s) for a correlationId (finding 9: AssignDriverId must
+// write ONE row per successful call, in the same transaction as the state change, CLAUDE.md ·
+// ARCHITECTURE). RED until pg-backend wires writeOutboxEvent into assignDriverId.
+async function outboxRowsForCorrelation(correlationId: string): Promise<
+  Array<{
+    entity_id: string | null;
+    aggregate_type: string;
+    aggregate_id: string;
+    event_type: string;
+    payload: unknown;
+    correlation_id: string;
+    actor_id: string | null;
+  }>
+> {
+  const result = await pool.query(
+    `select entity_id::text as entity_id, aggregate_type, aggregate_id::text as aggregate_id,
+            event_type, payload, correlation_id::text as correlation_id, actor_id::text as actor_id
+       from platform.outbox where correlation_id = $1`,
+    [correlationId],
+  );
+  return result.rows;
+}
+
 async function createFixtureShipment(driverCode: string, ofdAt: Date): Promise<string> {
   const trackingNo = `SHP-3120-${randomUUID()}`;
   const result: QueryResult<{ id: string }> = await pool.query(
@@ -238,6 +303,19 @@ beforeAll(async () => {
     [ASSIGNER_ACTOR_UUID, `_imile_assigndriverid_${ASSIGNER_ACTOR_UUID}_${randomUUID()}@test.invalid`, 'ممثل اختبار إسناد معرّف iMile — WBS 3.12'],
   );
 
+  // Fix round (test-fixture gap): the assigner is isInternal:true and every scenario's
+  // getDriverAssignabilityCheck cross-schema read needs hr.employees/hr.employee_documents rows to
+  // be visible under entity_scope RLS (entity_id = ANY(platform.allowed_entities())) — a real
+  // identity.users row alone does not grant that, same precedent as
+  // modules/wms/tests/process-outbound/process-outbound.test.ts:755,820. OUTSIDER_ACTOR_UUID
+  // deliberately gets NO such row below (its whole test purpose is proving the internal_only RLS
+  // denial path for an actor with no entity access).
+  await pool.query(
+    `insert into identity.user_entities (user_id, entity_id) values ($1, $2)
+       on conflict (user_id, entity_id) do nothing`,
+    [ASSIGNER_ACTOR_UUID, entityId],
+  );
+
   // round-2 fix round, finding 5: a real identity.users row for the outsider actor — deliberately
   // NO identity.user_entities row is ever inserted for OUTSIDER_ACTOR_UUID (that absence, plus
   // isInternal: false, is exactly what an outsider means for the `internal_only` RLS policy on
@@ -250,6 +328,15 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  // WBS 3.12 part 2c-i — outbox rows this suite's own calls wrote (no FK from platform.outbox back
+  // to imile.driver_id_assignments, so this cleanup is independent of the assignment/driver_id
+  // deletes below; same "delete by usedCorrelationIds" convention as
+  // modules/hr/tests/register-employee/register-employee.test.ts's own afterAll).
+  if (usedCorrelationIds.size > 0) {
+    await pool.query(`delete from platform.outbox where correlation_id = any($1::uuid[])`, [
+      [...usedCorrelationIds],
+    ]);
+  }
   if (fixtureShipmentIds.length > 0) {
     await pool.query(`delete from imile.shipments where id = any($1::uuid[])`, [fixtureShipmentIds]);
   }
@@ -335,6 +422,24 @@ describe('Scenario: An available driver ID is assigned to an employee with no pr
     expect(driverIdAudit).toHaveLength(1);
     expect(driverIdAudit[0]?.operation).toBe('update');
     expect(driverIdAudit[0]?.record_id).toBe(driverIdRef);
+
+    // WBS 3.12 part 2c-i, finding 9: exactly one platform.outbox row per successful call, same
+    // transaction as the state change (CLAUDE.md · ARCHITECTURE). RED until assignDriverId calls
+    // writeOutboxEvent.
+    const outboxRows = await outboxRowsForCorrelation(correlationId);
+    expect(outboxRows).toHaveLength(1);
+    const outboxRow = outboxRows[0]!;
+    expect(outboxRow.event_type).toBe('imile.driver_id.assigned');
+    expect(outboxRow.entity_id).toBe(entityId);
+    expect(outboxRow.aggregate_type).toBe('imile.driver_id_assignments');
+    expect(outboxRow.aggregate_id).toBe(result.assignmentId);
+    expect(outboxRow.actor_id).toBe(ASSIGNER_ACTOR_UUID);
+    expect(outboxRow.payload).toMatchObject({
+      driverIdRef,
+      employeeId,
+      assignedFrom: expect.any(String),
+      assignedBy: ASSIGNER_ACTOR_UUID,
+    });
   });
 });
 
@@ -347,9 +452,22 @@ describe('Scenario: An available driver ID is assigned to an employee with no pr
 // failure mode is acceptable here — this test asserts the OUTCOME (a real error is thrown, zero
 // audit rows written), not which specific typed/untyped error the coordinated pg-backend fix round
 // settles on.
+//
+// Round-2 fix round, finding 6 (test-honesty fix, added in the fix round after pg-reviewer's
+// round-1 FAIL): WBS 3.12 part 2c-i's new INV-C4-1 gate (`getDriverAssignabilityCheck`) runs FIRST,
+// reading hr.employees under `entity_scope` RLS — an outsider actor with no
+// identity.user_entities row now fails INSIDE that cross-schema read ("hr.employees row not
+// found", surfaced as `assignabilityCheck.employeeStatus` being undefined and
+// `assertDriverAssignable` throwing on a non-'active' status, or the read itself returning no row)
+// before ever reaching imile's own internal_only-protected tables. This test's own title/comment
+// previously claimed it proves "internal_only RLS on both tables" — that claim no longer holds: the
+// rejection now happens at the entity-scope gate on hr.employees, before imile.driver_ids/
+// imile.driver_id_assignments are ever reached. Relabelled below to describe what this test
+// actually proves; a SEPARATE case is added afterwards to still prove imile's own internal_only RLS
+// specifically, with an actor who IS entity-scoped but still isInternal:false.
 
-describe('Scenario: an outsider (isInternal:false) is refused — internal_only RLS on both tables', () => {
-  it('assignDriverId under outsiderCtx throws a real error and writes zero platform.audit_log rows for that correlationId', async () => {
+describe('Scenario: an outsider with no identity.user_entities row is refused at the entity-scope gate on hr.employees (INV-C4-1), before imile\'s own tables are ever reached', () => {
+  it('assignDriverId under outsiderCtx throws a real error and writes zero platform.audit_log / platform.outbox rows for that correlationId', async () => {
     beginScenario();
     const driverIdRef = await createFixtureDriverId('available');
     const employeeId = await createFixtureEmployee();
@@ -362,6 +480,62 @@ describe('Scenario: an outsider (isInternal:false) is refused — internal_only 
 
     expect(await auditRowsForCorrelation(correlationId)).toHaveLength(0);
     expect(await countAssignmentsForDriverId(driverIdRef)).toBe(0);
+    // doc 40 §B3: the event is written or not written WITH the state, never a third case — a
+    // rejection must leave neither a state change NOR an outbox row.
+    expect(await outboxRowsForCorrelation(correlationId)).toHaveLength(0);
+  });
+});
+
+// Round-2 fix round, finding 6, part 2: a SEPARATE case proving imile's own `internal_only` RLS on
+// imile.driver_ids/imile.driver_id_assignments specifically — an actor who IS entity-scoped (a real
+// identity.user_entities row, so the INV-C4-1 gate's own hr.employees read succeeds) but is still
+// isInternal:false must be refused once the command reaches imile's own tables.
+describe('Scenario: an entity-scoped outsider (isInternal:false) is refused by imile\'s own internal_only RLS once the INV-C4-1 gate has passed', () => {
+  const ENTITY_SCOPED_OUTSIDER_ACTOR_UUID = '00000000-0000-4000-8000-0000003120a3';
+  const entityScopedOutsiderCtx = { userId: ENTITY_SCOPED_OUTSIDER_ACTOR_UUID, clientId: null, isInternal: false };
+
+  beforeAll(async () => {
+    await pool.query(
+      `insert into identity.users (id, email, full_name_ar, user_type) values ($1, $2, $3, 'agent')
+         on conflict (id) do update set email = excluded.email, full_name_ar = excluded.full_name_ar`,
+      [
+        ENTITY_SCOPED_OUTSIDER_ACTOR_UUID,
+        `_imile_assigndriverid_entityscopedoutsider_${randomUUID()}@test.invalid`,
+        'ممثل خارجي مُخصَّص للكيان اختبار إسناد معرّف iMile — WBS 3.12',
+      ],
+    );
+    await pool.query(
+      `insert into identity.user_entities (user_id, entity_id) values ($1, $2)
+         on conflict (user_id, entity_id) do nothing`,
+      [ENTITY_SCOPED_OUTSIDER_ACTOR_UUID, entityId],
+    );
+  });
+
+  afterAll(async () => {
+    await pool.query(`delete from platform.idempotency_keys where user_id = $1`, [
+      ENTITY_SCOPED_OUTSIDER_ACTOR_UUID,
+    ]);
+    await pool.query(`delete from identity.user_roles where user_id = $1`, [ENTITY_SCOPED_OUTSIDER_ACTOR_UUID]);
+    await pool.query(`delete from identity.user_entities where user_id = $1`, [
+      ENTITY_SCOPED_OUTSIDER_ACTOR_UUID,
+    ]);
+    await pool.query(`delete from identity.users where id = $1`, [ENTITY_SCOPED_OUTSIDER_ACTOR_UUID]);
+  });
+
+  it('assignDriverId under entityScopedOutsiderCtx (passes the INV-C4-1 gate, isInternal:false) still throws a real error and writes zero audit/outbox rows', async () => {
+    beginScenario();
+    const driverIdRef = await createFixtureDriverId('available');
+    const employeeId = await createFixtureEmployee();
+    const deps = createAssignDriverIdDeps({ clock, ids });
+    const correlationId = nextCorrelationId();
+
+    await expect(
+      assignDriverId(entityScopedOutsiderCtx, { driverIdRef, employeeId, correlationId }, deps),
+    ).rejects.toThrow();
+
+    expect(await auditRowsForCorrelation(correlationId)).toHaveLength(0);
+    expect(await countAssignmentsForDriverId(driverIdRef)).toBe(0);
+    expect(await outboxRowsForCorrelation(correlationId)).toHaveLength(0);
   });
 });
 
@@ -454,6 +628,92 @@ describe('Scenario: verify_attribution() finds no unattributed deliveries once a
     const dateOnly = ofdAt.toISOString().slice(0, 10);
     const rows = await verifyAttributionRows(dateOnly, dateOnly);
     expect(rows.find((r) => r.tracking_no === trackingNo)).toBeUndefined();
+  });
+});
+
+// --- WBS 3.12 part 2c-i — INV-C4-1 gate (imile's own copy of hr's assertDriverAssignable) --------
+// Covers findings 9 (outbox, above)/10 (gate reuse)/11 (terminated-employee, for free: a terminated
+// employee's status is never 'active') from MASTER_BACKLOG "3.12 part 2". These four scenarios are
+// RED until pg-backend wires the new getDriverAssignabilityCheck query + assertDriverAssignable gate
+// into assignDriverId.
+
+describe('Scenario: INV-C4-1 gate — a non-active employee is never assignable (covers finding 11, terminated-employee)', () => {
+  it('assignDriverId for a "terminated" employee rejects with EmployeeNotActiveError; no assignment row, driver_ids stays "available"', async () => {
+    beginScenario();
+    const driverIdRef = await createFixtureDriverId('available');
+    const employeeId = await createFixtureEmployee('terminated'); // withResidency default still applies — status is what must gate this, not the document.
+    const deps = createAssignDriverIdDeps({ clock, ids });
+    const correlationId = nextCorrelationId();
+
+    await expect(
+      assignDriverId(ctx, { driverIdRef, employeeId, correlationId }, deps),
+    ).rejects.toBeInstanceOf(EmployeeNotActiveError);
+
+    expect(await countAssignmentsForDriverId(driverIdRef)).toBe(0);
+    const driverIdRow = await getDriverIdRow(driverIdRef);
+    expect(driverIdRow?.status).toBe('available');
+    expect(await auditRowsForCorrelation(correlationId)).toHaveLength(0);
+    // Round-2 fix round, finding 7: doc 40 §B3 — the event is written or not written WITH the
+    // state, never a third case; a rejection must leave neither a state change NOR an outbox row.
+    expect(await outboxRowsForCorrelation(correlationId)).toHaveLength(0);
+  });
+});
+
+describe('Scenario: INV-C4-1 gate — an active employee with NO residency document is never assignable', () => {
+  it('assignDriverId for an active employee with zero hr.employee_documents rows rejects with DriverDocumentMissingError; no row written', async () => {
+    beginScenario();
+    const driverIdRef = await createFixtureDriverId('available');
+    const employeeId = await createFixtureEmployee('active', { withResidency: false });
+    const deps = createAssignDriverIdDeps({ clock, ids });
+    const correlationId = nextCorrelationId();
+
+    await expect(
+      assignDriverId(ctx, { driverIdRef, employeeId, correlationId }, deps),
+    ).rejects.toBeInstanceOf(DriverDocumentMissingError);
+
+    expect(await countAssignmentsForDriverId(driverIdRef)).toBe(0);
+    const driverIdRow = await getDriverIdRow(driverIdRef);
+    expect(driverIdRow?.status).toBe('available');
+    expect(await auditRowsForCorrelation(correlationId)).toHaveLength(0);
+    expect(await outboxRowsForCorrelation(correlationId)).toHaveLength(0);
+  });
+});
+
+describe('Scenario: INV-C4-1 gate — an active employee whose residency document has expired is never assignable', () => {
+  it('assignDriverId for an active employee with a residency document expired as of the business "today" rejects with DriverDocumentExpiredError; no row written', async () => {
+    beginScenario();
+    const driverIdRef = await createFixtureDriverId('available');
+    const employeeId = await createFixtureEmployee('active', { withResidency: false });
+    await insertResidencyDocument(employeeId, FIXTURE_YESTERDAY);
+    const deps = createAssignDriverIdDeps({ clock, ids });
+    const correlationId = nextCorrelationId();
+
+    await expect(
+      assignDriverId(ctx, { driverIdRef, employeeId, correlationId }, deps),
+    ).rejects.toBeInstanceOf(DriverDocumentExpiredError);
+
+    expect(await countAssignmentsForDriverId(driverIdRef)).toBe(0);
+    const driverIdRow = await getDriverIdRow(driverIdRef);
+    expect(driverIdRow?.status).toBe('available');
+    expect(await auditRowsForCorrelation(correlationId)).toHaveLength(0);
+    expect(await outboxRowsForCorrelation(correlationId)).toHaveLength(0);
+  });
+});
+
+describe('Scenario: INV-C4-1 gate — positive control: an active employee with a current residency document IS assignable', () => {
+  it('assignDriverId succeeds for an active employee whose residency document has not yet expired (proves the gate does not over-reject a valid employee)', async () => {
+    beginScenario();
+    const driverIdRef = await createFixtureDriverId('available');
+    const employeeId = await createFixtureEmployee('active', { withResidency: false });
+    await insertResidencyDocument(employeeId, FIXTURE_TODAY); // expiring today is still valid (>= today).
+    const deps = createAssignDriverIdDeps({ clock, ids });
+    const correlationId = nextCorrelationId();
+
+    const result = await assignDriverId(ctx, { driverIdRef, employeeId, correlationId }, deps);
+
+    expect(result.assignmentId).toEqual(expect.any(String));
+    const driverIdRow = await getDriverIdRow(driverIdRef);
+    expect(driverIdRow?.status).toBe('assigned');
   });
 });
 

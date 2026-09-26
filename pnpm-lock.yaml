@@ -384,6 +384,9 @@ importers:
       '@pg-eos/domain-kit':
         specifier: workspace:*
         version: link:../../packages/domain-kit
+      '@pg-eos/events':
+        specifier: workspace:*
+        version: link:../../packages/events
       '@pg-eos/logger':
         specifier: workspace:*
         version: link:../../packages/logger

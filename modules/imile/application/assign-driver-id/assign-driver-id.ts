@@ -16,6 +16,15 @@
 //      this call writes share that instant (CLAUDE.md · AGENT CONSTRAINTS: no Date.now()/
 //      new Date() in domain/, and here in application/ the clock port is still the only time
 //      source).
+//   1b. WBS 3.12 part 2c-i: `getDriverAssignabilityCheck` (a read-only, cross-schema query —
+//      ../../infrastructure/assign-driver-id/repository.ts, no `modules/hr` TypeScript import,
+//      same pattern as WMS's `getContractCheck`) resolves the target employee's own
+//      `hr.employees.entity_id`/`status` and `hr.employee_documents` rows, then
+//      `../../domain/assign-driver-id/invariants.js`'s `assertDriverAssignable` (this module's own
+//      copy of hr's WBS-3.3 INV-C4-1 hard gate, 'task' purpose only) throws `EmployeeNotActiveError`
+//      / `DriverDocumentMissingError` / `DriverDocumentExpiredError` before any write — this ALSO
+//      covers "a terminated employee cannot be assigned" (a terminated employee's status is never
+//      'active'), so no separate terminated-employee check exists.
 //   2. SELECT imile.driver_ids.status by driverIdRef — a fast, non-authoritative early check
 //      (../../domain/assign-driver-id/invariants.js's `isAssignableStatus`, round-2 fix round
 //      finding 4: the business rule now lives in domain/, not as an inline comparison here) that
@@ -34,12 +43,24 @@
 //      DriverIdNotAvailableError; the whole transaction (including step 3's insert) rolls back, so
 //      "no row is written" holds for this case too.
 //   5. Two platform.audit_log rows: one for the assignment insert, one for the driver_ids status
-//      update (brief, Audit row) — no outbox event this slice (brief, Event: neither table has an
-//      entity_id column).
+//      update (brief, Audit row).
+//   5b. WBS 3.12 part 2c-i: ONE platform.outbox row, `imile.driver_id.assigned` (packages/events/
+//      catalog.ts, granted by the Master), written via `@pg-eos/events`'s `writeOutboxEvent` right
+//      after step 5's assignment-insert audit row, in the SAME transaction — `entity_id` resolved
+//      from step 1b's own read (the employee's `hr.employees.entity_id`; neither
+//      `imile.driver_ids` nor `imile.driver_id_assignments` has its own entity_id column, G-01 row
+//      `l`, docs/notes/2026-09-24-imile-agent-scenario.md §4). No second audit_log row — step 5's
+//      insert row already satisfies G9's pairing requirement (writeOutboxEvent's own doc comment).
 
 import { withIdempotentContext, type IdempotencyInput, type WithContextCtx } from '@pg-eos/db';
+import { writeOutboxEvent, type CatalogedEventType } from '@pg-eos/events';
 
-import { isAssignableStatus, isValidAssignDriverIdInput } from '../../domain/assign-driver-id/invariants.js';
+import {
+  assertDriverAssignable,
+  businessDateOf,
+  isAssignableStatus,
+  isValidAssignDriverIdInput,
+} from '../../domain/assign-driver-id/invariants.js';
 import { DriverIdNotAvailableError, MissingActorError } from '../../domain/assign-driver-id/errors.js';
 import type { AssignDriverIdDeps } from './ports.js';
 
@@ -49,6 +70,8 @@ const DRIVER_IDS_TABLE_NAME = 'driver_ids';
 const DRIVER_ID_ASSIGNMENTS_TABLE_NAME = 'driver_id_assignments';
 const DRIVER_ID_STATUS_AVAILABLE = 'available';
 const DRIVER_ID_STATUS_ASSIGNED = 'assigned';
+const DRIVER_ID_ASSIGNED_EVENT_TYPE: CatalogedEventType = 'imile.driver_id.assigned';
+const DRIVER_ID_ASSIGNMENTS_AGGREGATE_TYPE = 'imile.driver_id_assignments';
 
 export interface AssignDriverIdInput {
   readonly driverIdRef: string;
@@ -84,6 +107,20 @@ export async function assignDriverId(
 
   return withIdempotentContext<AssignDriverIdResult>(ctx, input.idem, async (tx) => {
     const occurredAt = deps.clock.now();
+
+    // WBS 3.12 part 2c-i, doc 40 INV-C4-1 — the SAME query serves two purposes (brief, Scenario:
+    // "one query serves both purposes, no separate read"): the employee's own `entity_id` (the
+    // outbox row's own `entityId` below — neither imile table has its own entity_id column) AND the
+    // employee-status/document shape `assertDriverAssignable` gates on. Runs before any write —
+    // ahead of the existing early `selectDriverIdStatus` check (order between the two early checks
+    // does not matter).
+    const assignabilityCheck = await deps.repo.getDriverAssignabilityCheck(tx, input.employeeId);
+    const today = businessDateOf(occurredAt);
+    assertDriverAssignable(
+      { status: assignabilityCheck.employeeStatus },
+      assignabilityCheck.documents,
+      today,
+    );
 
     // Step 2 — the ONE transition this command guards (available -> assigned): a precondition
     // check via the domain predicate (round-2 fix round, finding 4), not a dispatched state machine
@@ -124,6 +161,27 @@ export async function assignDriverId(
         handoverDocId: null,
       },
       occurredAt,
+    });
+
+    // WBS 3.12 part 2c-i, finding 9 (CLAUDE.md · ARCHITECTURE): ONE platform.outbox row, in the
+    // SAME transaction as the state change. The existing INSERT audit row above (same
+    // correlationId) already satisfies G9's audit-log pairing obligation — writeOutboxEvent's own
+    // doc comment (packages/events/src/outbox.ts) says not to write a second one. `entityId` is the
+    // assignability check's own `entityId` (the ASSIGNED EMPLOYEE's own hr.employees.entity_id) —
+    // read once, not re-read here (brief, Scenario: "one query serves both purposes").
+    await writeOutboxEvent(tx, {
+      entityId: assignabilityCheck.entityId,
+      aggregateType: DRIVER_ID_ASSIGNMENTS_AGGREGATE_TYPE,
+      aggregateId: inserted.id,
+      eventType: DRIVER_ID_ASSIGNED_EVENT_TYPE,
+      payload: {
+        driverIdRef: input.driverIdRef,
+        employeeId: input.employeeId,
+        assignedFrom: occurredAt.toISOString(),
+        assignedBy: actorId,
+      },
+      correlationId: input.correlationId,
+      actorId,
     });
 
     // Step 4 — the guard and the write are the SAME statement

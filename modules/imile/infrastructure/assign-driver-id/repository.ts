@@ -62,11 +62,54 @@ import {
   EmployeeAlreadyAssignedError,
 } from '../../domain/assign-driver-id/errors.js';
 import type {
+  DriverAssignabilityCheckRow,
   DriverIdAssignmentsRepository,
   DriverIdStatusRow,
   InsertAssignmentColumns,
   InsertedAssignmentRow,
 } from '../../application/assign-driver-id/ports.js';
+
+const EMPLOYEE_DOCUMENTS_TABLE = 'hr.employee_documents';
+const EMPLOYEES_TABLE = 'hr.employees';
+
+/** WBS 3.12 part 2c-i, doc 40 INV-C4-1: read-only, cross-schema (`hr.employees` +
+ *  `hr.employee_documents`) — no `modules/hr` TypeScript import, same pattern as WMS's own
+ *  `getContractCheck` (modules/wms/infrastructure/process-outbound/repository.ts:258-279). A LEFT
+ *  JOIN — an employee with zero `hr.employee_documents` rows still returns `employeeStatus`/
+ *  `entityId` with an empty `documents` array, so a genuinely undocumented employee reaches the
+ *  domain gate's own `DriverDocumentMissingError` instead of vanishing from the query (an INNER JOIN
+ *  would silently drop that employee's row). Throws when the employee itself does not exist — left
+ *  to surface as an untyped error mapped to 500 at the api layer (this slice's Scenario is only ever
+ *  called for an EXISTING employeeId, same convention as `selectDriverIdStatus`'s own sibling
+ *  cases). */
+async function getDriverAssignabilityCheck(
+  tx: NodePgDatabase,
+  employeeId: string,
+): Promise<DriverAssignabilityCheckRow> {
+  const result = await tx.execute<{
+    entity_id: string;
+    status: string;
+    doc_type: string | null;
+    expiry_date: string | null;
+  }>(sql`
+    select e.entity_id as entity_id, e.status as status,
+           d.doc_type as doc_type, d.expiry_date::text as expiry_date
+      from ${sql.raw(EMPLOYEES_TABLE)} e
+      left join ${sql.raw(EMPLOYEE_DOCUMENTS_TABLE)} d on d.employee_id = e.id
+     where e.id = ${employeeId}::uuid
+  `);
+  const rows = result.rows;
+  const first = rows[0];
+  if (!first) throw new Error(`hr.employees row not found for employeeId ${employeeId}`);
+
+  const documents = rows
+    .filter((row): row is typeof row & { doc_type: string; expiry_date: string } =>
+      row.doc_type !== null && row.expiry_date !== null,
+    )
+    .map((row) => ({ docType: row.doc_type, expiryDate: row.expiry_date }));
+
+  return { entityId: first.entity_id, employeeStatus: first.status, documents };
+}
 
 async function selectDriverIdStatus(
   tx: NodePgDatabase,
@@ -211,6 +254,7 @@ export const driverIdAssignmentsRepository: DriverIdAssignmentsRepository = {
   selectDriverIdStatus,
   insertAssignment,
   markDriverIdAssigned,
+  getDriverAssignabilityCheck,
   writeAuditRow,
 };
 
