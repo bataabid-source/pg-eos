@@ -284,6 +284,7 @@ describe('verifyOtpCode — happy path and uniform rejection (Master decision 2 
 
     expect(typeof result.token).toBe('string');
     expect(typeof result.expiresAt).toBe('string');
+    expect(Object.keys(result)).toEqual(['token', 'expiresAt']);
     expect(Number.isNaN(Date.parse(result.expiresAt))).toBe(false);
 
     const sessionRow: QueryResult<{ user_id: string }> = await pool.query(
@@ -293,12 +294,13 @@ describe('verifyOtpCode — happy path and uniform rejection (Master decision 2 
     expect(sessionRow.rows).toHaveLength(1);
   });
 
-  it('a wrong code throws InvalidOtpError and issues no session', async () => {
+  it('a wrong code throws InvalidOtpError, whose message states what IS allowed, and issues no session', async () => {
     const user = await createFixtureUser();
     await generateOtp(user.email);
 
-    await expect(
-      verifyOtpCode(
+    let wrongCodeError: unknown;
+    try {
+      await verifyOtpCode(
         {
           email: user.email,
           code: '000000',
@@ -306,8 +308,13 @@ describe('verifyOtpCode — happy path and uniform rejection (Master decision 2 
           idem: freshIdem(VERIFY_OTP_CODE_ENDPOINT, { email: user.email, correlationId: 'wrong' }),
         },
         deps,
-      ),
-    ).rejects.toBeInstanceOf(InvalidOtpError);
+      );
+    } catch (error) {
+      wrongCodeError = error;
+    }
+    expect(wrongCodeError).toBeInstanceOf(InvalidOtpError);
+    // States the allowed condition (2.16 part 1a-3b finding 1) — never the specific rejection reason.
+    expect((wrongCodeError as InvalidOtpError).message).toMatch(/\(Allowed: /);
 
     const sessionRow: QueryResult<{ user_id: string }> = await pool.query(
       'select user_id from identity.sessions where user_id = $1',
@@ -316,12 +323,30 @@ describe('verifyOtpCode — happy path and uniform rejection (Master decision 2 
     expect(sessionRow.rows).toHaveLength(0);
   });
 
-  it('an unknown email throws the SAME InvalidOtpError as a wrong code — no distinguishable signal (Master decision 2)', async () => {
+  it('an unknown email throws the SAME InvalidOtpError, with the IDENTICAL message, as a wrong code — no distinguishable signal (Master decision 2)', async () => {
+    const knownUser = await createFixtureUser();
+    await generateOtp(knownUser.email);
     const unknownEmail = `pg-eos-2.16-otp-login-unknown-verify-${randomUUID()}@example.invalid`;
     fixtureEmails.push(unknownEmail);
 
-    await expect(
-      verifyOtpCode(
+    let wrongCodeError: unknown;
+    try {
+      await verifyOtpCode(
+        {
+          email: knownUser.email,
+          code: '000000',
+          correlationId: randomUUID(),
+          idem: freshIdem(VERIFY_OTP_CODE_ENDPOINT, { email: knownUser.email, correlationId: 'wrong-2' }),
+        },
+        deps,
+      );
+    } catch (error) {
+      wrongCodeError = error;
+    }
+
+    let unknownEmailError: unknown;
+    try {
+      await verifyOtpCode(
         {
           email: unknownEmail,
           code: '000000',
@@ -329,8 +354,18 @@ describe('verifyOtpCode — happy path and uniform rejection (Master decision 2 
           idem: freshIdem(VERIFY_OTP_CODE_ENDPOINT, { email: unknownEmail, correlationId: 'x' }),
         },
         deps,
-      ),
-    ).rejects.toBeInstanceOf(InvalidOtpError);
+      );
+    } catch (error) {
+      unknownEmailError = error;
+    }
+
+    expect(unknownEmailError).toBeInstanceOf(InvalidOtpError);
+    // Proves uniform rejection at the MESSAGE level, not only the error type — an unknown email and
+    // a wrong code must be indistinguishable to the caller (Master decision 2), so both messages
+    // must be identical, character for character.
+    expect((unknownEmailError as InvalidOtpError).message).toBe(
+      (wrongCodeError as InvalidOtpError).message,
+    );
   });
 });
 
