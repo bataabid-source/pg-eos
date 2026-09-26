@@ -16,5 +16,6 @@
   "locale.name.hi": "Hindi",
   "locale.name.ur": "Urdu",
   "locale.name.bn": "Bengali",
-  "locale.name.am": "Amharic"
+  "locale.name.am": "Amharic",
+  "queue.unsynced": "Unsynced: {count}"
 }

@@ -16,5 +16,6 @@
   "locale.name.hi": "হিন্দি",
   "locale.name.ur": "উর্দু",
   "locale.name.bn": "বাংলা",
-  "locale.name.am": "আমহারিক"
+  "locale.name.am": "আমহারিক",
+  "queue.unsynced": "অ-সিঙ্ক: {count}"
 }

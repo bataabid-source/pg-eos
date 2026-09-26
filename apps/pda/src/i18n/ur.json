@@ -16,5 +16,6 @@
   "locale.name.hi": "ہندی",
   "locale.name.ur": "اردو",
   "locale.name.bn": "بنگالی",
-  "locale.name.am": "امہاری"
+  "locale.name.am": "امہاری",
+  "queue.unsynced": "غیر مطابقت شدہ: {count}"
 }

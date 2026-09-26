@@ -5,25 +5,25 @@
 | field | value |
 |---|---|
 | Phase | 0 CLOSED · 1 Commercial Core (done except 1.11, BLOCKED D-178) · 2 Warehouse (9/19) · pilot-first (D-127): seed 019 + synthetic data. Doc 38 **v4.6 (154 rows, D-187/ADR-0004)**. |
-| Current task | Lane 1: **2.16 part 1a DONE-in-part @ `5e71c96`** (PDA PWA shell — routing, kiosk mode, nine-screen skeleton, i18n; 1 test-coverage item deferred) in `pda`; part 1a-2 next (offline queue + PWA manifest/service-worker + the deferred kiosk test) — 2.12 DONE (all 4 parts) @ `830bfaf`, `wms/process-outbound` released. Lane 2: **WBS 4.1a part 2 DONE-in-part @ `4585fce`** — `billing.gl_account_change_requests` maker/checker write path + new generic `platform.is_approval_chain_approver()` primitive (SCR-PLAT-APPR-01), migration `0034` applied, 198/198 green, 207/207 isolation; PASS(49 findings fixed, 2 deferred to `4.1a part 2c`, 6 rounds); `4.1a part 2b` (application/api layer) and `4.1b part 2` (line_dimensions) also open; `billing` lock held, next **4.1a part 3** (is_active lifecycle). Lane 3: **3.13 part 4 DONE-in-part @ `05fa568`** — `DisputeCommission`+`ConfirmCommission`, SCR-HR-COMM-01 approved/applied (migration `0033`), 60/60 tests green, guards green; round 1 FAIL(18, fixed) → round 2 FAIL(8: 5 fixed directly as bookkeeping/comment corrections, 3 deferred to `3.13 part 5` per REVIEW CAP — dispute-side DB backstop, race-test barrier, audit-content assertions); 3.13 parts 1-4 (`6c16c41`/`016cce9`/`fdebfc7`/`05fa568`), part 5 TODO; `hr`+`imile` locks held (3.12 part 1 DONE-in-part @ `b9c3b1d`, part 2 also open). One DB per lane (`bash scripts/lane-db.sh <id>`, P4a @ `436be60`). |
+| Current task | Lane 1: **2.16 part 1a-2 DONE-in-part @ `<this commit>`** (PDA offline queue + PWA manifest/service-worker + deferred kiosk-mode test coverage, 50/50 tests, 9 findings fixed in 2 rounds) in `pda`; part 1a-3 next (OTP login) — 2.12 DONE (all 4 parts) @ `830bfaf`, `wms/process-outbound` released. Lane 2: **WBS 4.1a part 2 DONE-in-part @ `4585fce`** — `billing.gl_account_change_requests` maker/checker write path + new generic `platform.is_approval_chain_approver()` primitive (SCR-PLAT-APPR-01), migration `0034` applied, 198/198 green, 207/207 isolation; PASS(49 findings fixed, 2 deferred to `4.1a part 2c`, 6 rounds); `4.1a part 2b` (application/api layer) and `4.1b part 2` (line_dimensions) also open; `billing` lock held, next **4.1a part 3** (is_active lifecycle). Lane 3: **3.13 part 4 DONE-in-part @ `05fa568`** — `DisputeCommission`+`ConfirmCommission`, SCR-HR-COMM-01 approved/applied (migration `0033`), 60/60 tests green, guards green; round 1 FAIL(18, fixed) → round 2 FAIL(8: 5 fixed directly as bookkeeping/comment corrections, 3 deferred to `3.13 part 5` per REVIEW CAP — dispute-side DB backstop, race-test barrier, audit-content assertions); 3.13 parts 1-4 (`6c16c41`/`016cce9`/`fdebfc7`/`05fa568`), part 5 TODO; `hr`+`imile` locks held (3.12 part 1 DONE-in-part @ `b9c3b1d`, part 2 also open). One DB per lane (`bash scripts/lane-db.sh <id>`, P4a @ `436be60`). |
 | Golden slice / tier / schema / session model | 2.9 ACCEPTED (`.golden-slice-accepted`, `scripts/new-slice.sh` active) · Pilot Tier 0 = local Docker `postgres:16` (D-129), Oracle DEFERRED-POST-PILOT · migrations 0001–0033 applied (0022 withdrawn), next free **0034** (0031 claimed by P6b-2) · session model (D-191 routing v2): lanes sonnet/medium, Master opus/medium until 4.20 then sonnet/medium, pg-reviewer + pg-backend-core opus, pg-backend/pg-frontend/pg-tester sonnet, pg-scribe haiku |
 
 ## Lanes
 
 | lane | task | module lock | worktree |
 |---|---|---|---|
-| 1 | 2.16 part 1a DONE-in-part @ `5e71c96` — PDA shell/kiosk/i18n, 1 test-coverage item deferred; part 1a-2 next — 2.12 DONE (all 4 parts) @ `830bfaf` | `pda` (`wms/process-outbound` released — 2.12 fully DONE) | `../pg-eos-lane-1` |
+| 1 | 2.16 part 1a-2 DONE-in-part @ `<this commit>` — PDA offline queue + PWA manifest + kiosk test coverage, 50/50 tests green; part 1a-3 next (OTP login) — 2.12 DONE (all 4 parts) @ `830bfaf` | `pda` | `../pg-eos-lane-1` |
 | 2 | 4.1a part 2 DONE-in-part @ `4585fce` — approver mechanism + gl_account_change_requests, migration 0034; `4.1a part 2b`/`2c`, `4.1b part 2` open; next: 4.1a part 3 | `billing` | `../pg-eos-lane-2` |
 | 3 | 3.13 parts 1-4 DONE/DONE-in-part (`6c16c41`/`016cce9`/`fdebfc7`/`05fa568`), part 5 TODO (dispute-side DB backstop, race-test barrier, audit-content assertions); 3.12 part 1 DONE-in-part @ `b9c3b1d`, part 2 also open (8 round-2 findings); `hr`+`imile` held; 3.4 now READY (2.12 DONE) | `hr`, `imile` | `../pg-eos-lane-3` |
 
 ## Last 5 DONE (newest first)
 | task | commit |
 |---|---|
+| 2.16 part 1a-2 — PDA offline queue (72-h IndexedDB) + PWA manifest/service-worker + kiosk-mode test coverage (lane 1), DONE-in-part — 50/50 tests green, typecheck green, no DB/schema touched; round 1 FAIL(9: badge visibility, IndexedDB error handling, offline-queue connection lifecycle, PWA icon dimensions, comment fabrication, per-file polyfill duplicates, weak test assertion, substring-match false-pass, cleanup timing) → fix round → round 2 PASS(0), PASS(9 findings, 2 rounds) | `<this commit>` |
 | 4.1a part 2 — `billing.gl_account_change_requests` maker/checker + `platform.is_approval_chain_approver()` primitive (SCR-PLAT-APPR-01, lane 2), DONE-in-part — migration 0034 applied, 198/198 green, 207/207 isolation; PASS(49 findings fixed, 2 deferred to `4.1a part 2c`, 6 rounds: pre-migration 40 findings/4 rounds; slice-close 11 findings/2 rounds) | `4585fce` |
 | 3.13 part 4 — `DisputeCommission`+`ConfirmCommission`, SCR-HR-COMM-01 (lane 3), DONE-in-part — migration 0033 applied, 60/60 tests green, guards green; round 1 FAIL(18, fixed), round 2 FAIL(8: 5 fixed directly as bookkeeping/comment corrections, 3 deferred to part 5 per REVIEW CAP), PASS(8 findings, 2 rounds) | `05fa568` |
 | 2.16 part 1a — PDA PWA shell: routing, kiosk mode, nine-screen skeleton, i18n (lane 1), DONE-in-part — 37/37 tests green, typecheck green; round 1 FAIL(7) → fix round → round 2 FAIL(1, test-coverage gap only) → commit GREEN subset per REVIEW CAP, PASS(7 findings, 2 rounds) | `5e71c96` |
 | 2.12 part 4 — PackOrder + LoadOrder (lane 1), DONE — **doc-38 row 2.12 fully DONE (all 4 parts)**; no migration; 271/271 tests green, guards green; round 1 FAIL(5) → fix round → round 2 PASS(0) | `830bfaf` |
-| 2.12 part 3 — `order_lines.picked_by`/`picked_at` + full self-check signal (lane 1), DONE — closes SCR-WMS-OUT-03 (D-190 option a); migration 0032 applied; 247/247 tests green, guards green; pre-migration PASS(0, 2 rounds) + slice-close PASS(0, 2 rounds) | `4eda437` |
 
 ## Blockers
 
@@ -35,6 +35,6 @@
 
 ## Next 3 tasks
 
-1. Lane 1: 2.16 part 1a DONE-in-part — next: 2.16 part 1a-2 (72-h offline queue + PWA manifest/service-worker + the deferred kiosk-mode test) → 1a-3 (OTP login) → 1b (PIN, after SCR-IDN-01)
+1. Lane 1: 2.16 part 1a-2 DONE-in-part — next: 2.16 part 1a-3 (OTP login) → 1b (PIN, after SCR-IDN-01)
 2. Lane 2: 4.1a part 2 (gl_account_change_requests) → 4.1a part 3 (is_active, deactivate/reactivate) → 4.1b part 2 (line_dimensions + values) → 4.19 → 4.20 (ADR-0004)
 3. Lane 3: 3.13 part 5 (dispute-side DB backstop migration, race-test barrier, audit-content assertions) → 3.12 part 2 (8 round-2 findings) → 3.4 (2.12 now DONE, dependency met)

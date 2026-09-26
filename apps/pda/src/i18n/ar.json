@@ -16,5 +16,6 @@
   "locale.name.hi": "الهندية",
   "locale.name.ur": "الأردية",
   "locale.name.bn": "البنغالية",
-  "locale.name.am": "الأمهرية"
+  "locale.name.am": "الأمهرية",
+  "queue.unsynced": "غير متزامن: {count}"
 }
