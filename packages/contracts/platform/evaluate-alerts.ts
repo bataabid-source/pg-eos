@@ -92,9 +92,8 @@ export type AcknowledgeAlertResult = z.infer<typeof AcknowledgeAlertResultSchema
 // Scoped, per modules/platform/api/evaluate-alerts/handlers.ts's own header comment, to
 // AcknowledgeAlert only — EvaluateAlertRules is the pg-boss job body / internal trigger, not an
 // HTTP endpoint, so it has no handler and is not registered here. AlertLogNotFoundError maps to a
-// local 404 (HTTP_STATUS_NOT_FOUND); RoleRequiredError maps to a local 403 (HTTP_STATUS_FORBIDDEN,
-// not PROBLEM_STATUS.FORBIDDEN) — per the Master brief's literal grep rule no 403 is registered
-// here (same default as hr/confirm-commission's own ROUTES comment).
+// local 404 (HTTP_STATUS_NOT_FOUND) and RoleRequiredError to a local 403 (HTTP_STATUS_FORBIDDEN),
+// so both are registered.
 export const ROUTES: readonly RouteDefinitionInput[] = [
   {
     method: 'POST',

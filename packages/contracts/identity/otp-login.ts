@@ -48,9 +48,7 @@ export type VerifyOtpCodeInput = z.infer<typeof VerifyOtpCodeInputSchema>;
 // Neither command has an exported result schema (brief, Master decision 3 — the OTP code itself
 // never reaches a response either way). modules/identity/api/otp-login/handlers.ts's own header
 // comment documents that a 409 is deliberately never mapped here (IdempotencyConflictError is
-// absorbed inside login.ts) — the Master brief's response set is still 400/409/422/500 uniformly
-// for every write route, so 409 is registered as doc 40 §A4's own standing possibility, not as a
-// claim this handler currently returns it.
+// absorbed inside login.ts), so both routes are registered with `conflict: false`.
 const WRITE_HEADERS = z.object({ 'Idempotency-Key': IdempotencyKeyHeader });
 
 export const ROUTES: readonly RouteDefinitionInput[] = [
@@ -59,13 +57,13 @@ export const ROUTES: readonly RouteDefinitionInput[] = [
     path: '/identity/otp-login/request-otp-code',
     summary: 'Request OTP code',
     request: { headers: WRITE_HEADERS, body: RequestOtpCodeInputSchema },
-    responses: { 200: OK_RESPONSE, ...writeErrorResponses() },
+    responses: { 200: OK_RESPONSE, ...writeErrorResponses({ conflict: false }) },
   },
   {
     method: 'POST',
     path: '/identity/otp-login/verify-otp-code',
     summary: 'Verify OTP code',
     request: { headers: WRITE_HEADERS, body: VerifyOtpCodeInputSchema },
-    responses: { 200: OK_RESPONSE, ...writeErrorResponses() },
+    responses: { 200: OK_RESPONSE, ...writeErrorResponses({ conflict: false }) },
   },
 ];

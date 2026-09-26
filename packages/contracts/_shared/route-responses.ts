@@ -1,11 +1,10 @@
 // packages/contracts/_shared/route-responses.ts — Master task, docs/STREAMS.md §Enablement item 6.
 //
 // Shared response-set builders every module's `ROUTES` export reuses, so the same doc 40 §A4
-// status set (400/409/422, all with a `ProblemSchema` body) is not hand-rolled 24 times. A write
-// route additionally gets 403/404 only when its own handlers.ts actually maps that status (the
-// Master brief's literal rule: 403 only on a `PROBLEM_STATUS.FORBIDDEN` grep hit — none exists
-// today, brief default recorded in the closing report; 404 only when the handler defines a local
-// `HTTP_STATUS_NOT_FOUND` constant).
+// status set (400/409/422, all with a `ProblemSchema` body) is not hand-rolled 24 times. A route
+// declares a status only when its own handlers.ts maps it: 403/404 where the handler defines a
+// local HTTP_STATUS_FORBIDDEN / HTTP_STATUS_NOT_FOUND, 409 unless the handler documents that it
+// never maps IdempotencyConflictError (`conflict: false`), and no 409 on a GET.
 
 import type { z } from 'zod';
 
@@ -30,11 +29,12 @@ function problemResponse(description: string): RouteResponseDefinition {
 }
 
 export interface ErrorResponseOptions {
-  /** Adds 403 — only when the handler's own errorToApiFailure maps a FORBIDDEN error
-   * (grep `PROBLEM_STATUS.FORBIDDEN`, per the Master brief's literal rule). */
+  /** Adds 403 — only when the handler's own errorToApiFailure maps a 403. */
   readonly forbidden?: boolean;
   /** Adds 404 — only when the handler defines its own `HTTP_STATUS_NOT_FOUND` constant. */
   readonly notFound?: boolean;
+  /** Write routes declare 409 unless the handler never maps IdempotencyConflictError. */
+  readonly conflict?: boolean;
 }
 
 /** doc 40 §A4's write-endpoint response set: 400 (missing Idempotency-Key / bad body), 409 (key
@@ -42,10 +42,10 @@ export interface ErrorResponseOptions {
 export function writeErrorResponses(options: ErrorResponseOptions = {}): RouteResponses {
   const responses: RouteResponses = {
     [PROBLEM_STATUS.BAD_REQUEST]: problemResponse('Bad Request'),
-    [PROBLEM_STATUS.CONFLICT]: problemResponse('Conflict'),
     [PROBLEM_STATUS.UNPROCESSABLE_ENTITY]: problemResponse('Unprocessable Entity'),
     [HTTP_STATUS_INTERNAL_SERVER_ERROR]: problemResponse('Internal Server Error'),
   };
+  if (options.conflict !== false) responses[PROBLEM_STATUS.CONFLICT] = problemResponse('Conflict');
   if (options.forbidden) responses[PROBLEM_STATUS.FORBIDDEN] = problemResponse('Forbidden');
   if (options.notFound) responses[HTTP_STATUS_NOT_FOUND] = problemResponse('Not Found');
   return responses;
