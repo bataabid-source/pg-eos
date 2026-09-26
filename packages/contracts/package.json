@@ -97,6 +97,10 @@
     "./imile/assign-driver-id": {
       "types": "./dist/imile/assign-driver-id.d.ts",
       "default": "./dist/imile/assign-driver-id.js"
+    },
+    "./hr/calculate-daily-commission": {
+      "types": "./dist/hr/calculate-daily-commission.d.ts",
+      "default": "./dist/hr/calculate-daily-commission.js"
     }
   },
   "scripts": {
