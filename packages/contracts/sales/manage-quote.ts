@@ -16,6 +16,10 @@
 
 import { z } from 'zod';
 
+import { IdempotencyKeyHeader } from '../_shared/headers.js';
+import type { RouteDefinitionInput } from '../_shared/registry.js';
+import { OK_RESPONSE, writeErrorResponses } from '../_shared/route-responses.js';
+
 const UUID_ID = z.string().uuid();
 // numeric(14,3): 1-11 integer digits, optional '.' + 1-3 fractional digits.
 const NON_NEGATIVE_QUANTITY = z.string().regex(/^\d{1,11}(?:\.\d{1,3})?$/);
@@ -129,3 +133,73 @@ export const ReviseQuoteInputSchema = z
   .meta({ id: 'ReviseQuoteInput' });
 
 export type ReviseQuoteInput = z.infer<typeof ReviseQuoteInputSchema>;
+
+// --- OpenAPI route registrations (Master task, docs/STREAMS.md §Enablement item 6) -------------
+// None of these nine commands has an exported result schema — every 200 carries no body.
+const WRITE_HEADERS = z.object({ 'Idempotency-Key': IdempotencyKeyHeader });
+
+export const ROUTES: readonly RouteDefinitionInput[] = [
+  {
+    method: 'POST',
+    path: '/sales/manage-quote/create-quote',
+    summary: 'Create quote',
+    request: { headers: WRITE_HEADERS, body: CreateQuoteInputSchema },
+    responses: { 200: OK_RESPONSE, ...writeErrorResponses() },
+  },
+  {
+    method: 'POST',
+    path: '/sales/manage-quote/upsert-quote-line',
+    summary: 'Upsert quote line',
+    request: { headers: WRITE_HEADERS, body: UpsertQuoteLineInputSchema },
+    responses: { 200: OK_RESPONSE, ...writeErrorResponses() },
+  },
+  {
+    method: 'POST',
+    path: '/sales/manage-quote/submit-for-review',
+    summary: 'Submit for review',
+    request: { headers: WRITE_HEADERS, body: SubmitForReviewInputSchema },
+    responses: { 200: OK_RESPONSE, ...writeErrorResponses() },
+  },
+  {
+    method: 'POST',
+    path: '/sales/manage-quote/approve-commercial',
+    summary: 'Approve commercial',
+    request: { headers: WRITE_HEADERS, body: ApproveCommercialInputSchema },
+    responses: { 200: OK_RESPONSE, ...writeErrorResponses() },
+  },
+  {
+    method: 'POST',
+    path: '/sales/manage-quote/approve-finance',
+    summary: 'Approve finance',
+    request: { headers: WRITE_HEADERS, body: ApproveFinanceInputSchema },
+    responses: { 200: OK_RESPONSE, ...writeErrorResponses() },
+  },
+  {
+    method: 'POST',
+    path: '/sales/manage-quote/return-to-draft',
+    summary: 'Return to draft',
+    request: { headers: WRITE_HEADERS, body: ReturnToDraftInputSchema },
+    responses: { 200: OK_RESPONSE, ...writeErrorResponses() },
+  },
+  {
+    method: 'POST',
+    path: '/sales/manage-quote/send-quote',
+    summary: 'Send quote',
+    request: { headers: WRITE_HEADERS, body: SendQuoteInputSchema },
+    responses: { 200: OK_RESPONSE, ...writeErrorResponses() },
+  },
+  {
+    method: 'POST',
+    path: '/sales/manage-quote/record-decision',
+    summary: 'Record decision',
+    request: { headers: WRITE_HEADERS, body: RecordDecisionInputSchema },
+    responses: { 200: OK_RESPONSE, ...writeErrorResponses() },
+  },
+  {
+    method: 'POST',
+    path: '/sales/manage-quote/revise-quote',
+    summary: 'Revise quote',
+    request: { headers: WRITE_HEADERS, body: ReviseQuoteInputSchema },
+    responses: { 200: OK_RESPONSE, ...writeErrorResponses() },
+  },
+];

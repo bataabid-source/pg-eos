@@ -11,6 +11,10 @@
 
 import { z } from 'zod';
 
+import { IdempotencyKeyHeader } from '../_shared/headers.js';
+import type { RouteDefinitionInput } from '../_shared/registry.js';
+import { OK_RESPONSE, writeErrorResponses } from '../_shared/route-responses.js';
+
 const UUID_ID = z.string().uuid();
 const ALLOC_TYPE = z.enum(['dedicated', 'shared', 'overflow']);
 const SPACE_UOM = z.enum(['pallet', 'sqm', 'cbm']);
@@ -50,3 +54,24 @@ export const ReserveSpaceInputSchema = z
   .meta({ id: 'ReserveSpaceInput' });
 
 export type ReserveSpaceInput = z.infer<typeof ReserveSpaceInputSchema>;
+
+// --- OpenAPI route registrations (Master task, docs/STREAMS.md §Enablement item 6) -------------
+// Neither command has an exported result schema — every 200 carries no body.
+const WRITE_HEADERS = z.object({ 'Idempotency-Key': IdempotencyKeyHeader });
+
+export const ROUTES: readonly RouteDefinitionInput[] = [
+  {
+    method: 'POST',
+    path: '/wms/manage-space/allocate-space',
+    summary: 'Allocate space',
+    request: { headers: WRITE_HEADERS, body: AllocateSpaceInputSchema },
+    responses: { 200: OK_RESPONSE, ...writeErrorResponses() },
+  },
+  {
+    method: 'POST',
+    path: '/wms/manage-space/reserve-space',
+    summary: 'Reserve space',
+    request: { headers: WRITE_HEADERS, body: ReserveSpaceInputSchema },
+    responses: { 200: OK_RESPONSE, ...writeErrorResponses() },
+  },
+];

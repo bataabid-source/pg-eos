@@ -14,6 +14,10 @@
 
 import { z } from 'zod';
 
+import { IdempotencyKeyHeader } from '../_shared/headers.js';
+import type { RouteDefinitionInput } from '../_shared/registry.js';
+import { OK_RESPONSE, writeErrorResponses } from '../_shared/route-responses.js';
+
 const UUID_ID = z.string().uuid();
 // migration 0015 chk_sites_kind — the five values SCR-HR-SHIFT-01 §2.4 names.
 const SITE_KINDS = ['warehouse', 'office', 'client_pickup', 'housing', 'other'] as const;
@@ -64,3 +68,24 @@ export const UpdateSiteInputSchema = z
   .meta({ id: 'UpdateSiteInput' });
 
 export type UpdateSiteInput = z.infer<typeof UpdateSiteInputSchema>;
+
+// --- OpenAPI route registrations (Master task, docs/STREAMS.md §Enablement item 6) -------------
+// Neither command has an exported result schema — every 200 carries no body.
+const WRITE_HEADERS = z.object({ 'Idempotency-Key': IdempotencyKeyHeader });
+
+export const ROUTES: readonly RouteDefinitionInput[] = [
+  {
+    method: 'POST',
+    path: '/platform/maintain-site/create-site',
+    summary: 'Create site',
+    request: { headers: WRITE_HEADERS, body: CreateSiteInputSchema },
+    responses: { 200: OK_RESPONSE, ...writeErrorResponses() },
+  },
+  {
+    method: 'POST',
+    path: '/platform/maintain-site/update-site',
+    summary: 'Update site',
+    request: { headers: WRITE_HEADERS, body: UpdateSiteInputSchema },
+    responses: { 200: OK_RESPONSE, ...writeErrorResponses() },
+  },
+];

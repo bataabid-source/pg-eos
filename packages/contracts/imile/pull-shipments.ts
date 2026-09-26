@@ -13,6 +13,10 @@
 
 import { z } from 'zod';
 
+import { IdempotencyKeyHeader } from '../_shared/headers.js';
+import type { RouteDefinitionInput } from '../_shared/registry.js';
+import { okWithBody, writeErrorResponses } from '../_shared/route-responses.js';
+
 const UUID_ID = z.string().uuid();
 const NON_NEGATIVE_INT = z.number().int().nonnegative();
 
@@ -34,3 +38,17 @@ export const PullShipmentsResultSchema = z
   .meta({ id: 'PullShipmentsResult' });
 
 export type PullShipmentsResult = z.infer<typeof PullShipmentsResultSchema>;
+
+// --- OpenAPI route registrations (Master task, docs/STREAMS.md §Enablement item 6) -------------
+export const ROUTES: readonly RouteDefinitionInput[] = [
+  {
+    method: 'POST',
+    path: '/imile/pull-shipments/pull',
+    summary: 'Pull shipments',
+    request: {
+      headers: z.object({ 'Idempotency-Key': IdempotencyKeyHeader }),
+      body: PullShipmentsInputSchema,
+    },
+    responses: { 200: okWithBody(PullShipmentsResultSchema), ...writeErrorResponses() },
+  },
+];

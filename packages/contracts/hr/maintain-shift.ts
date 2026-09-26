@@ -17,6 +17,10 @@
 
 import { z } from 'zod';
 
+import { IdempotencyKeyHeader } from '../_shared/headers.js';
+import type { RouteDefinitionInput } from '../_shared/registry.js';
+import { OK_RESPONSE, writeErrorResponses } from '../_shared/route-responses.js';
+
 const UUID_ID = z.string().uuid();
 // migration 0016 `time` columns — `HH:MM` or `HH:MM:SS`, 24h.
 const TIME_OF_DAY = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d(?::[0-5]\d)?$/);
@@ -90,3 +94,38 @@ export const EndShiftAssignmentInputSchema = z
   .meta({ id: 'EndShiftAssignmentInput' });
 
 export type EndShiftAssignmentInput = z.infer<typeof EndShiftAssignmentInputSchema>;
+
+// --- OpenAPI route registrations (Master task, docs/STREAMS.md §Enablement item 6) -------------
+// None of this use case's four commands has an exported result schema — every 200 carries no body.
+const WRITE_HEADERS = z.object({ 'Idempotency-Key': IdempotencyKeyHeader });
+
+export const ROUTES: readonly RouteDefinitionInput[] = [
+  {
+    method: 'POST',
+    path: '/hr/maintain-shift/create-shift',
+    summary: 'Create shift',
+    request: { headers: WRITE_HEADERS, body: CreateShiftInputSchema },
+    responses: { 200: OK_RESPONSE, ...writeErrorResponses() },
+  },
+  {
+    method: 'POST',
+    path: '/hr/maintain-shift/create-shift-group',
+    summary: 'Create shift group',
+    request: { headers: WRITE_HEADERS, body: CreateShiftGroupInputSchema },
+    responses: { 200: OK_RESPONSE, ...writeErrorResponses() },
+  },
+  {
+    method: 'POST',
+    path: '/hr/maintain-shift/assign-shift',
+    summary: 'Assign shift',
+    request: { headers: WRITE_HEADERS, body: AssignShiftInputSchema },
+    responses: { 200: OK_RESPONSE, ...writeErrorResponses() },
+  },
+  {
+    method: 'POST',
+    path: '/hr/maintain-shift/end-shift-assignment',
+    summary: 'End shift assignment',
+    request: { headers: WRITE_HEADERS, body: EndShiftAssignmentInputSchema },
+    responses: { 200: OK_RESPONSE, ...writeErrorResponses() },
+  },
+];

@@ -13,6 +13,10 @@
 
 import { z } from 'zod';
 
+import { IdempotencyKeyHeader } from '../_shared/headers.js';
+import type { RouteDefinitionInput } from '../_shared/registry.js';
+import { OK_RESPONSE, readErrorResponses, writeErrorResponses } from '../_shared/route-responses.js';
+
 const UUID_ID = z.string().uuid();
 const MIN_VERSION = 1;
 const EXPECTED_VERSION = z.number().int().min(MIN_VERSION);
@@ -138,3 +142,82 @@ export const LoadOrderInputSchema = z
   .meta({ id: 'LoadOrderInput' });
 
 export type LoadOrderInput = z.infer<typeof LoadOrderInputSchema>;
+
+// --- OpenAPI route registrations (Master task, docs/STREAMS.md §Enablement item 6) -------------
+// GeneratePickList is read-only (brief Master decision 5, no Idempotency-Key) — registered as GET,
+// its flat, all-primitive input schema as `request.query`. None of these nine commands has an
+// exported result schema — every 200 carries no body.
+const WRITE_HEADERS = z.object({ 'Idempotency-Key': IdempotencyKeyHeader });
+
+export const ROUTES: readonly RouteDefinitionInput[] = [
+  {
+    method: 'POST',
+    path: '/wms/process-outbound/create-outbound',
+    summary: 'Create outbound',
+    request: { headers: WRITE_HEADERS, body: CreateOutboundInputSchema },
+    responses: { 200: OK_RESPONSE, ...writeErrorResponses() },
+  },
+  {
+    method: 'POST',
+    path: '/wms/process-outbound/run-outbound-checks',
+    summary: 'Run outbound checks',
+    request: { headers: WRITE_HEADERS, body: RunOutboundChecksInputSchema },
+    responses: { 200: OK_RESPONSE, ...writeErrorResponses() },
+  },
+  {
+    method: 'POST',
+    path: '/wms/process-outbound/approve-outbound',
+    summary: 'Approve outbound',
+    request: { headers: WRITE_HEADERS, body: ApproveOutboundInputSchema },
+    responses: { 200: OK_RESPONSE, ...writeErrorResponses() },
+  },
+  {
+    method: 'POST',
+    path: '/wms/process-outbound/cancel-outbound',
+    summary: 'Cancel outbound',
+    request: { headers: WRITE_HEADERS, body: CancelOutboundInputSchema },
+    responses: { 200: OK_RESPONSE, ...writeErrorResponses() },
+  },
+  {
+    method: 'POST',
+    path: '/wms/process-outbound/allocate',
+    summary: 'Allocate',
+    request: { headers: WRITE_HEADERS, body: AllocateInputSchema },
+    responses: { 200: OK_RESPONSE, ...writeErrorResponses() },
+  },
+  {
+    method: 'GET',
+    path: '/wms/process-outbound/generate-pick-list',
+    summary: 'Generate pick list',
+    request: { query: GeneratePickListInputSchema },
+    responses: { 200: OK_RESPONSE, ...readErrorResponses() },
+  },
+  {
+    method: 'POST',
+    path: '/wms/process-outbound/pick-line',
+    summary: 'Pick line',
+    request: { headers: WRITE_HEADERS, body: PickLineInputSchema },
+    responses: { 200: OK_RESPONSE, ...writeErrorResponses() },
+  },
+  {
+    method: 'POST',
+    path: '/wms/process-outbound/check-order',
+    summary: 'Check order',
+    request: { headers: WRITE_HEADERS, body: CheckOrderInputSchema },
+    responses: { 200: OK_RESPONSE, ...writeErrorResponses() },
+  },
+  {
+    method: 'POST',
+    path: '/wms/process-outbound/pack-order',
+    summary: 'Pack order',
+    request: { headers: WRITE_HEADERS, body: PackOrderInputSchema },
+    responses: { 200: OK_RESPONSE, ...writeErrorResponses() },
+  },
+  {
+    method: 'POST',
+    path: '/wms/process-outbound/load-order',
+    summary: 'Load order',
+    request: { headers: WRITE_HEADERS, body: LoadOrderInputSchema },
+    responses: { 200: OK_RESPONSE, ...writeErrorResponses() },
+  },
+];

@@ -13,6 +13,10 @@
 
 import { z } from 'zod';
 
+import { IdempotencyKeyHeader } from '../_shared/headers.js';
+import type { RouteDefinitionInput } from '../_shared/registry.js';
+import { okWithBody, writeErrorResponses } from '../_shared/route-responses.js';
+
 const UUID_ID = z.string().uuid();
 // tms.vehicles.year int — no fractional part.
 const YEAR = z.number().int().nullable();
@@ -74,3 +78,17 @@ export const RegisterVehicleResultSchema = z
   .meta({ id: 'RegisterVehicleResult' });
 
 export type RegisterVehicleResult = z.infer<typeof RegisterVehicleResultSchema>;
+
+// --- OpenAPI route registrations (Master task, docs/STREAMS.md §Enablement item 6) -------------
+export const ROUTES: readonly RouteDefinitionInput[] = [
+  {
+    method: 'POST',
+    path: '/fleet/register-vehicle/register-vehicle',
+    summary: 'Register vehicle',
+    request: {
+      headers: z.object({ 'Idempotency-Key': IdempotencyKeyHeader }),
+      body: RegisterVehicleInputSchema,
+    },
+    responses: { 200: okWithBody(RegisterVehicleResultSchema), ...writeErrorResponses() },
+  },
+];

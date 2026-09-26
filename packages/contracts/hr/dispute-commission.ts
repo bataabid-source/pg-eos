@@ -5,6 +5,10 @@
 
 import { z } from 'zod';
 
+import { IdempotencyKeyHeader } from '../_shared/headers.js';
+import type { RouteDefinitionInput } from '../_shared/registry.js';
+import { okWithBody, writeErrorResponses } from '../_shared/route-responses.js';
+
 const UUID_ID = z.string().uuid();
 
 export const DisputeCommissionInputSchema = z
@@ -25,3 +29,20 @@ export const DisputeCommissionResultSchema = z
   .meta({ id: 'DisputeCommissionResult' });
 
 export type DisputeCommissionResult = z.infer<typeof DisputeCommissionResultSchema>;
+
+// --- OpenAPI route registrations (Master task, docs/STREAMS.md §Enablement item 6) -------------
+// modules/hr/api/dispute-commission/handlers.ts maps CannotDisputeAnotherEmployeesRowError to a
+// LOCAL 403 constant, not PROBLEM_STATUS.FORBIDDEN — same default as confirm-commission's own
+// ROUTES comment.
+export const ROUTES: readonly RouteDefinitionInput[] = [
+  {
+    method: 'POST',
+    path: '/hr/dispute-commission/dispute-commission',
+    summary: 'Dispute commission',
+    request: {
+      headers: z.object({ 'Idempotency-Key': IdempotencyKeyHeader }),
+      body: DisputeCommissionInputSchema,
+    },
+    responses: { 200: okWithBody(DisputeCommissionResultSchema), ...writeErrorResponses({ forbidden: true }) },
+  },
+];
