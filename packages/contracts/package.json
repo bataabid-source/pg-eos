@@ -109,6 +109,14 @@
     "./billing/dimensions": {
       "types": "./dist/billing/dimensions.d.ts",
       "default": "./dist/billing/dimensions.js"
+    },
+    "./hr/dispute-commission": {
+      "types": "./dist/hr/dispute-commission.d.ts",
+      "default": "./dist/hr/dispute-commission.js"
+    },
+    "./hr/confirm-commission": {
+      "types": "./dist/hr/confirm-commission.d.ts",
+      "default": "./dist/hr/confirm-commission.js"
     }
   },
   "scripts": {

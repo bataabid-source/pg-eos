@@ -61,3 +61,47 @@ export {
   MissingActorError as CalculateDailyCommissionMissingActorError,
   EntityScopeAmbiguousError as CalculateDailyCommissionEntityScopeAmbiguousError,
 } from './domain/calculate-daily-commission/errors.js';
+
+// WBS 3.13 part 4 (commission dispute/confirm status lifecycle). Named re-exports (not
+// `export *`) — this pair's own MissingActorError/StaleVersionError names would otherwise collide
+// with the precedents above, same aliasing discipline as maintain-shift's own barrel entries.
+export {
+  disputeCommission,
+  type DisputeCommissionInput,
+  type DisputeCommissionResult,
+  type DisputeCommissionDeps,
+  type CommissionDailyRepository as DisputeCommissionRepository,
+  type Logger as DisputeCommissionLogger,
+} from './application/dispute-commission/index.js';
+export {
+  CannotDisputeAnotherEmployeesRowError,
+  DisputeWindowExpiredError,
+  IllegalTransitionError as DisputeCommissionIllegalTransitionError,
+  MissingActorError as DisputeCommissionMissingActorError,
+  StaleVersionError as DisputeCommissionStaleVersionError,
+} from './domain/dispute-commission/errors.js';
+export {
+  COMMISSION_DAILY_STATUS,
+  COMMISSION_DAILY_EVENTS,
+  COMMISSION_DAILY_TAGS,
+  canTransition as canTransitionCommissionDaily,
+  allowedEventsFrom as allowedEventsFromCommissionDaily,
+  stateHasTag as stateHasTagCommissionDaily,
+} from './domain/dispute-commission/machine.js';
+
+export {
+  confirmCommission,
+  type ConfirmCommissionInput,
+  type ConfirmCommissionResult,
+  type ConfirmCommissionDeps,
+  type CommissionDailyRepository as ConfirmCommissionRepository,
+  type Logger as ConfirmCommissionLogger,
+} from './application/confirm-commission/index.js';
+export {
+  SelfReviewNotAllowedError,
+  ConfirmPermissionRequiredError,
+  DisputeWindowStillOpenError,
+  IllegalTransitionError as ConfirmCommissionIllegalTransitionError,
+  MissingActorError as ConfirmCommissionMissingActorError,
+  StaleVersionError as ConfirmCommissionStaleVersionError,
+} from './domain/confirm-commission/errors.js';
