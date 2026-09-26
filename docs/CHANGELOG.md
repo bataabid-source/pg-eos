@@ -4,6 +4,15 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — `packages/api-kit` + `portLogger`: per-slice duplication removed (enablement item 5) (2026-09-26)
+
+- **Why:** 24 `modules/*/api/*/handlers.ts` carried the same HTTP helper block (types, `findHeader`, `problem`, `requireIdempotencyKey`, `canonicalize`/`requestHashOf`, `buildIdem`, `extractCorrelationId`) and 25 `infrastructure/*/logger.ts` the same 10-line adapter — audit 2026-09-26, maintainability finding.
+- **Change:** new node-only package `@pg-eos/api-kit` (index + 6 pure tests) with the golden-slice semantics unchanged (400 title/detail, canonical-JSON sha256, `successStatus: 200`, `entityId: null`, `PROBLEM_TYPE_BASE`); `@pg-eos/logger` gains `PortLogger` + `portLogger(bindings)` (+1 test). 24 handlers import from api-kit and still export the five `Api*` types; 24/25 loggers are one line. Kept local on purpose: `process-outbound`/`assert-vehicle-assignable` wider `ProblemBody` (i18nKey/params), `otp-login`'s ctx-less `ApiRequest`, extra 403/404 constants in hr/platform, `evaluate-alerts` logger (`warn`). 9 module package.json + lockfile add the dependency (billing included after review).
+- **Verified:** lint + boundaries green, typecheck 28/28, wms 875/875 · hr 276/276 · sales 400/400 · imile 128/128 · billing 419/419 · platform 120/120 · catalog 82/82 · fleet 41/41 · identity 46/46 (project run) · api-kit 6/6 · logger 4/4; guards G1–G14/G18 green.
+- **Review (pg-reviewer, opus):** round 1 FAIL(4: blocking — billing lacked the dependency so a replicated billing slice would not compile; nits — one unused export, missing `portLogger` test, trailer check) → fixed → round 2 PASS. Behaviour preservation verified literal-by-literal across all 24 handlers.
+- **Found, not fixed (MASTER_BACKLOG `X part 3`):** `modules/identity/tests/otp-login/otp-login.test.ts` is red under `turbo run test` because seven identity test files insert/delete the same `platform.thresholds` row (`identity.otp.expiry_minutes`) on the shared database — a pre-existing test race, green when the project runs alone.
+- Model: Master session · Delegated: pg-builder-core (opus), pg-reviewer (opus) · Review: PASS(4 findings, 2 rounds) · tokens: builder ~95k, reviewer ~60k, Master ~20k.
+
 ## X — CLAUDE.md v2 + agent consolidation (ADR-0005 §5–§6, enablement item 7) (2026-09-26)
 
 - **CLAUDE.md v2:** 48 lines (was 144), rules only, each with the hook/lint/gate that enforces it; the previous text is frozen verbatim in `docs/GOVERNANCE-HISTORY.md`. Verified: no script or hook parses CLAUDE.md's content (all 16 references are messages).

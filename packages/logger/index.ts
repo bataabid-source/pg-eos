@@ -18,3 +18,23 @@ export const rootLogger = pino({ name: LOGGER_NAME });
 export function childLogger(bindings: Record<string, unknown>): pino.Logger {
   return rootLogger.child(bindings);
 }
+
+/** The structural shape of every use-case application `Logger` port (error + info). */
+export interface PortLogger {
+  error(obj: object, msg: string): void;
+  info(obj: object, msg: string): void;
+}
+
+/** A `PortLogger` over a bound child logger — each module's infrastructure/ logger adapter is
+ *  `portLogger({ module, useCase })`. */
+export function portLogger(bindings: Record<string, unknown>): PortLogger {
+  const child = childLogger(bindings);
+  return {
+    error(obj, msg) {
+      child.error(obj, msg);
+    },
+    info(obj, msg) {
+      child.info(obj, msg);
+    },
+  };
+}
