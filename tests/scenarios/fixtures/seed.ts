@@ -245,9 +245,9 @@ export async function deleteDocumentTemplateIfOwned(pool: Pool, templateId: stri
 /** ReceiveLine generates a `platform.documents` row (the GRN) against the template for every
  *  receipt, `source_id` = the order id — scoped to THIS run's own order ids (precedent
  *  modules/wms/tests/receive-inbound/receive-inbound.test.ts:597), never to the (possibly
- *  not-owned) template id. Must run before `deleteOrderAndLines` deletes the order row itself is
- *  NOT required (no FK from documents.source_id to the order table), but before
- *  `deleteDocumentTemplateIfOwned` (`documents_template_id_fkey`, RESTRICT). */
+ *  not-owned) template id. Running it before `deleteOrderAndLines` is NOT required (no FK from
+ *  documents.source_id to the order table); running it before `deleteDocumentTemplateIfOwned` IS
+ *  (`documents_template_id_fkey`, RESTRICT). */
 export async function deleteDocumentsForOrders(pool: Pool, orderIds: readonly string[]): Promise<void> {
   if (orderIds.length === 0) return;
   await pool.query(`delete from platform.documents where source_id = any($1::uuid[])`, [orderIds]);
