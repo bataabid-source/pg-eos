@@ -1,0 +1,29 @@
+{
+  "name": "@pg-eos/api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/main.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.test.json",
+    "lint": "eslint .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@pg-eos/api-kit": "workspace:*",
+    "@pg-eos/contracts": "workspace:*",
+    "@pg-eos/db": "workspace:*",
+    "@pg-eos/domain-kit": "workspace:*",
+    "@pg-eos/identity-mechanisms": "workspace:*",
+    "@pg-eos/logger": "workspace:*",
+    "fastify": "^5.12.5",
+    "tsx": "^4.23.15"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.6",
+    "@types/pg": "^8.13.0",
+    "pg": "^8.13.0",
+    "typescript": ">=5.7.0 <6.1.0",
+    "vitest": "^4.1.11"
+  }
+}
