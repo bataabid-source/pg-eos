@@ -304,12 +304,32 @@ it('gate ⑦ builds for linux/arm64, runs the stack once on amd64 and pushes not
 
   // And it runs docker compose config -q, starts postgres, applies the schema with
   // docker compose run --rm -e PGUSER=postgres api bash database/schema/apply.sh, starts api
-  // and worker with up -d --wait, asserts GET http://127.0.0.1:3000/health is 200 and the
-  // worker log (retried, bounded) contains "relay loop starting", then compose down -v
+  // with up -d --wait and then the worker without --wait, asserts GET
+  // http://127.0.0.1:3000/health is 200 and the worker log (retried, bounded) contains
+  // "relay loop starting", then compose down -v
   expect(sevenJobText).toMatch(/docker compose[^\n]*config -q/);
   expect(sevenJobText).toMatch(/docker compose[^\n]*up -d postgres/);
   expect(sevenJobText).toMatch(/docker compose run --rm -e PGUSER=postgres api bash database\/schema\/apply\.sh/);
-  expect(sevenJobText).toMatch(/docker compose[^\n]*up -d --wait[^\n]*(api|worker)/);
+
+  // api starts with --wait --wait-timeout "$COMPOSE_WAIT_TIMEOUT_SECONDS" and names api, never
+  // worker (the worker's healthcheck is disabled, so `--wait` on it would refuse forever).
+  const sevenLines = sevenJobText.split('\n');
+  const apiWaitLines = sevenLines.filter((line) => /docker compose[^\n]*up -d --wait\b/.test(line));
+  expect(apiWaitLines.length, 'a "docker compose up -d --wait" line must exist').toBeGreaterThanOrEqual(1);
+  expect(
+    apiWaitLines.some((line) => /--wait-timeout/.test(line) && /\bapi\b/.test(line) && !/\bworker\b/.test(line)),
+    'the --wait invocation must name api and not worker',
+  ).toBe(true);
+
+  // worker starts separately, without --wait, --no-build (the image was already built by the
+  // api build step).
+  const workerLines = sevenLines.filter((line) => /docker compose[^\n]*up -d[^\n]*\bworker\b/.test(line));
+  expect(workerLines.length, 'a "docker compose up -d … worker" line must exist').toBeGreaterThanOrEqual(1);
+  expect(
+    workerLines.some((line) => /--no-build/.test(line) && !/--wait\b/.test(line) && !/\bapi\b/.test(line)),
+    'the worker invocation must be --no-build, without --wait and without api',
+  ).toBe(true);
+
   expect(sevenJobText).toMatch(/--wait-timeout/);
   expect(sevenJobText).toMatch(/COMPOSE_WAIT_TIMEOUT_SECONDS/);
   expect(sevenJobText).toMatch(new RegExp(`http://127\\.0\\.0\\.1:${API_PORT}/health`));
