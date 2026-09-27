@@ -1,24 +1,47 @@
-// PG-EOS · scribe.mjs — generates docs/PROJECT_STATE.md (ADR-0005 §5–§6, CLAUDE.md · DOCUMENTS).
+#!/usr/bin/env node
+// PG-EOS · scribe.mjs — the bookkeeping script of CLAUDE.md v2 (ADR-0005 §5–§6, CLAUDE.md · DOCUMENTS
+// and · AGENTS AND SESSIONS): it writes docs/PROJECT_STATE.md, the lock table of tasks/LANE_LOCKS.md
+// and the CHANGELOG entry template. It replaced the pg-scribe agent on 2026-09-27 (approved item 11.3).
 //
-// Sources (hand-maintained, short): docs/state/header.md, docs/state/blockers.md, docs/state/next.md,
-// the lock table in tasks/LANE_LOCKS.md, and `git log` for the last five feat/fix(<WBS>) commits.
-//   --write   regenerate docs/PROJECT_STATE.md
-//   --check   exit 1 if PROJECT_STATE.md differs from the generated text, exceeds the limits, or a
-//             source line is over LINE_MAX / carries the `<this commit>` placeholder
+//   --write                              regenerate docs/PROJECT_STATE.md from docs/state/{header,blockers,next}.md,
+//                                        the lock table and `git log` (last five feat/fix(<WBS>) commits)
+//   --check                              exit 1 if PROJECT_STATE.md differs from the generated text, exceeds the
+//                                        limits, or a source line is over LINE_MAX / carries `<this commit>`
+//   --claim <module> <lane> <task>       add a lock row (claimed_at = today, worktree = ../pg-eos-lane-<lane>) and
+//                                        regenerate PROJECT_STATE.md; refused if scripts/check-locks.sh rejects the
+//                                        resulting table (the file is left unchanged)
+//   --release <module> [<lane>]          remove that lock row (of that lane, when given) and regenerate
+//   --changelog-template <WBS> "<title>" print the ≤ 12-line CHANGELOG entry skeleton (CLAUDE.md · DOCUMENTS);
+//                                        with --insert, also insert it at the top of docs/CHANGELOG.md
 import { execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const ROOT = execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim();
 const OUT = 'docs/PROJECT_STATE.md';
+const LOCKS = 'tasks/LANE_LOCKS.md';
+const CHANGELOG = 'docs/CHANGELOG.md';
 const LINE_MAX = 160;
 const LINES_MAX = 40;
 const DONE_COUNT = 5;
 const PLACEHOLDER = '<this commit>';
 const SOURCE_LIMITS = { 'docs/state/header.md': 8, 'docs/state/blockers.md': 12, 'docs/state/next.md': 3 };
+const LANE_RE = /^(1|2|3|A|B|C|M)$/;
+const LOCK_RE = /^[a-z][a-z0-9-]*(\/[a-z][a-z0-9-]*)?$/;
+const EXIT_OK = 0;
+const EXIT_FAIL = 1;
+const EXIT_USAGE = 2;
 
 function read(rel) {
   return readFileSync(join(ROOT, rel), 'utf8');
+}
+
+function write(rel, text) {
+  writeFileSync(join(ROOT, rel), text);
+}
+
+function today() {
+  return new Date().toISOString().slice(0, 10);
 }
 
 function sourceLines(rel) {
@@ -32,13 +55,45 @@ function sourceLines(rel) {
   return lines;
 }
 
-function laneRows() {
+const ROW_RE = /^\|\s*([^|]+?)\s*\|\s*([^|]+?)\s*\|\s*([^|]+?)\s*\|\s*([^|]+?)\s*\|\s*([^|]*?)\s*\|\s*$/;
+
+/** The lock table as { header: string[], rows: {module, lane, task, claimedAt, worktree, raw}[], rest: string[] } */
+function lockTable() {
+  const lines = read(LOCKS).split('\n');
+  const header = [];
   const rows = [];
-  for (const line of read('tasks/LANE_LOCKS.md').split('\n')) {
-    const m = /^\|\s*([^|]+?)\s*\|\s*([^|]+?)\s*\|\s*([^|]+?)\s*\|\s*([^|]+?)\s*\|/.exec(line);
-    if (!m || m[1] === 'module' || /^-+$/.test(m[1])) continue;
-    rows.push(`- lane ${m[2]} · ${m[1]} · ${m[3]} · since ${m[4]}`);
+  const rest = [];
+  let state = 'before';
+  for (const line of lines) {
+    const m = ROW_RE.exec(line);
+    if (state === 'before') {
+      header.push(line);
+      if (m && m[1] === 'module') state = 'separator';
+      continue;
+    }
+    if (state === 'separator') {
+      header.push(line);
+      state = 'rows';
+      continue;
+    }
+    if (state === 'rows' && m) {
+      rows.push({ module: m[1], lane: m[2], task: m[3], claimedAt: m[4], worktree: m[5], raw: line });
+      continue;
+    }
+    state = 'after';
+    rest.push(line);
   }
+  if (state === 'before') throw new Error(`${LOCKS}: no lock table header found`);
+  return { header, rows, rest };
+}
+
+function renderLocks({ header, rows, rest }) {
+  const body = rows.map((r) => `| ${r.module} | ${r.lane} | ${r.task} | ${r.claimedAt} | ${r.worktree} |`);
+  return [...header, ...body, ...rest].join('\n');
+}
+
+function laneRows() {
+  const rows = lockTable().rows.map((r) => `- lane ${r.lane} · ${r.module} · ${r.task} · since ${r.claimedAt}`);
   return rows.length > 0 ? rows : ['- (no lock held)'];
 }
 
@@ -76,26 +131,117 @@ function render() {
   return `${out.join('\n')}\n`;
 }
 
-const mode = process.argv[2];
-if (mode !== '--write' && mode !== '--check') {
-  process.stderr.write('usage: node scripts/scribe.mjs --write | --check\n');
-  process.exit(2);
+function writeState() {
+  const text = render();
+  write(OUT, text);
+  process.stdout.write(`scribe: wrote ${OUT} (${text.split('\n').length - 1} lines)\n`);
 }
 
-let text;
+function checkLocksOrRestore(previous) {
+  try {
+    execFileSync('bash', ['scripts/check-locks.sh', LOCKS], { cwd: ROOT, stdio: ['ignore', 'ignore', 'pipe'] });
+  } catch (error) {
+    write(LOCKS, previous);
+    const stderr = error && typeof error === 'object' && 'stderr' in error ? String(error.stderr).trim() : '';
+    throw new Error(`check-locks refused the new table — ${LOCKS} left unchanged${stderr ? `\n${stderr}` : ''}`, {
+      cause: error,
+    });
+  }
+}
+
+function claim(module, lane, task) {
+  if (!LOCK_RE.test(module)) throw new Error(`lock '${module}' is not <module> or <module>/<use-case>`);
+  if (!LANE_RE.test(lane)) throw new Error(`lane '${lane}' is not one of 1 2 3 A B C M`);
+  if (!task) throw new Error('task (a doc-38 row id or X) is required');
+  const previous = read(LOCKS);
+  const table = lockTable();
+  if (table.rows.some((r) => r.module === module)) throw new Error(`lock '${module}' is already claimed`);
+  const worktree = lane === 'M' ? '.' : `../pg-eos-lane-${lane}`;
+  table.rows.push({ module, lane, task, claimedAt: today(), worktree, raw: '' });
+  write(LOCKS, renderLocks(table));
+  checkLocksOrRestore(previous);
+  process.stdout.write(`scribe: claimed ${module} for lane ${lane} (${task})\n`);
+  writeState();
+}
+
+function release(module, lane) {
+  const previous = read(LOCKS);
+  const table = lockTable();
+  const keep = table.rows.filter((r) => !(r.module === module && (lane === undefined || r.lane === lane)));
+  if (keep.length === table.rows.length) throw new Error(`no lock row for '${module}'${lane ? ` (lane ${lane})` : ''}`);
+  table.rows = keep;
+  write(LOCKS, renderLocks(table));
+  checkLocksOrRestore(previous);
+  process.stdout.write(`scribe: released ${module}${lane ? ` (lane ${lane})` : ''}\n`);
+  writeState();
+}
+
+/** CLAUDE.md · DOCUMENTS: CHANGELOG entry ≤ 12 lines (what · why · files · review · tokens). */
+function changelogTemplate(wbs, title) {
+  return [
+    `## ${wbs} — ${title} (${today()})`,
+    '',
+    '- **Why:** <the rule, decision or scenario this serves — one line>',
+    '- **Change:** <what was built or changed, with the files — one line>',
+    '- **Defaults recorded:** <every DEFAULT taken instead of a question, or "none">',
+    '- **Review (pg-reviewer):** round 1 <PASS|FAIL(n)> → fix round → round 2 <PASS|FAIL(n)>; open findings → backlog rows',
+    '- Model: <session> · Delegated: <agents> · Review: PASS(<n> findings, <r> rounds) · tokens: <per worker>',
+    '',
+  ].join('\n');
+}
+
+function insertChangelog(entry) {
+  const text = read(CHANGELOG);
+  const marker = '\n---\n\n';
+  const at = text.indexOf(marker);
+  if (at < 0) throw new Error(`${CHANGELOG}: no '---' separator after the preamble`);
+  write(CHANGELOG, `${text.slice(0, at + marker.length)}${entry}${text.slice(at + marker.length)}`);
+}
+
+const [mode, ...args] = process.argv.slice(2);
+const usage =
+  'usage: node scripts/scribe.mjs --write | --check | --claim <module> <lane> <task> | --release <module> [<lane>] | --changelog-template <WBS> "<title>" [--insert]\n';
+
 try {
-  text = render();
+  switch (mode) {
+    case '--write':
+      writeState();
+      break;
+    case '--check': {
+      const text = render();
+      if (read(OUT) !== text) {
+        process.stderr.write(`scribe: ${OUT} is not the generated text — run: node scripts/scribe.mjs --write\n`);
+        process.exit(EXIT_FAIL);
+      }
+      process.stdout.write(`scribe: ${OUT} OK\n`);
+      break;
+    }
+    case '--claim':
+      if (args.length !== 3) throw new Error(usage.trim());
+      claim(args[0], args[1], args[2]);
+      break;
+    case '--release':
+      if (args.length < 1 || args.length > 2) throw new Error(usage.trim());
+      release(args[0], args[1]);
+      break;
+    case '--changelog-template': {
+      const insert = args.includes('--insert');
+      const rest = args.filter((a) => a !== '--insert');
+      if (rest.length !== 2) throw new Error(usage.trim());
+      const entry = changelogTemplate(rest[0], rest[1]);
+      process.stdout.write(entry);
+      if (insert) {
+        insertChangelog(entry);
+        process.stdout.write(`scribe: inserted the template at the top of ${CHANGELOG}\n`);
+      }
+      break;
+    }
+    default:
+      process.stderr.write(usage);
+      process.exit(EXIT_USAGE);
+  }
 } catch (error) {
   process.stderr.write(`scribe: ${error instanceof Error ? error.message : String(error)}\n`);
-  process.exit(1);
+  process.exit(EXIT_FAIL);
 }
-
-if (mode === '--write') {
-  writeFileSync(join(ROOT, OUT), text);
-  process.stdout.write(`scribe: wrote ${OUT} (${text.split('\n').length - 1} lines)\n`);
-} else if (read(OUT) !== text) {
-  process.stderr.write(`scribe: ${OUT} is not the generated text — run: node scripts/scribe.mjs --write\n`);
-  process.exit(1);
-} else {
-  process.stdout.write(`scribe: ${OUT} OK\n`);
-}
+process.exit(EXIT_OK);

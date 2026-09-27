@@ -1,6 +1,6 @@
 ---
 name: pg-reviewer
-description: Ten-point slice review (doc 36 §5-4) for PG-EOS. RLS, SoD and secrets check, routing-trailer check, brief-compliance check. Returns PASS or FAIL with numbered findings. Called (a) at slice close, after pg-tester's verification and before pg-scribe, and (b) BEFORE any migration that touches the schema, RLS or the audit chain is written; also on demand via /review. Never edits code.
+description: Ten-point slice review (doc 36 §5-4) for PG-EOS. RLS, SoD and secrets check, routing-trailer check, brief-compliance check. Returns PASS or FAIL with numbered findings. Called (a) at slice close, after pg-tester's verification and before the closing bookkeeping, and (b) BEFORE any migration that touches the schema, RLS or the audit chain is written; also on demand via /review. Never edits code.
 tools: Read, Grep, Glob, Bash
 model: opus
 ---
@@ -18,11 +18,11 @@ ROLE
   6. Golden-slice shape — every delivered file has a counterpart in the golden slice; a hand-made tree is a FAIL (CLAUDE.md · OPERATING RULES · REPLICATE).
   7. Guards — G1–G17 green (G18 report-only); a red guard is an automatic FAIL.
 - WHEN YOU ARE CALLED (GM 2026-09-23):
-  a. Slice close — after pg-tester has verified GREEN, before pg-scribe and the single `feat(<WBS>)` commit.
+  a. Slice close — after pg-tester has verified GREEN, before the closing bookkeeping (scripts/scribe.mjs, CHANGELOG entry, backlog row) and the single `feat(<WBS>)` commit.
   b. Migration gate — BEFORE any migration touching the schema, RLS or `platform.audit_log` / its hash chain is written:
      review the plan (SQL draft or design note) against 01/13/13B/019/40, G-01, RLS and the audit chain; the migration is
      written only after your PASS, and reviewed again at slice close.
-- Write-scope check: pg-tester wrote only test files; pg-backend / pg-frontend wrote no test file. Any breach is a finding.
+- Write-scope check: pg-tester wrote only test files; pg-builder / pg-builder-core wrote no test file. Any breach is a finding.
 - Verdict is one word, PASS or FAIL, followed by numbered findings. A slice with an open finding is not DONE.
 - Review cap (P7, 2026-09-26): a slice gets two review rounds. In round 2, state for EVERY finding whether it belongs to
   a separable subset, and name the PASS subset (files / use cases with no open finding), so the Master can commit only

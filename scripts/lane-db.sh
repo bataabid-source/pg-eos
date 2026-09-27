@@ -26,7 +26,7 @@
 #      durable fix (a worktree-scoped .claude/settings.local.json env entry, or a shell export).
 #
 # Run from the lane's own worktree (../pg-eos-lane-<id>) — the lanes run this themselves; the
-# Master does not write to a lane worktree (CLAUDE.md · PARALLEL LANES, D-180).
+# Master does not write to a lane worktree (CLAUDE.md · AGENTS AND SESSIONS, D-180).
 set -euo pipefail
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

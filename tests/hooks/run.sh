@@ -355,6 +355,33 @@ expect "strict: red line names 20/20 and the missing ids"                 0 "$(s
 expect "unreadable report → red, exit 1"                                  1 "$(sv_code "$SV/absent.json" --manifest "$SV/none.json")"
 expect "manifest without a green array → red, exit 1"                     1 "$(sv_code "$SV/s1.json" --manifest "$SV/bad.json")"
 expect "no report argument → usage exit 2"                                2 "$(sv_code --manifest "$SV/none.json")"
+# ---- scribe.mjs v2 (CLAUDE.md · AGENTS AND SESSIONS): --claim / --release write the lock table through
+# check-locks.sh; --changelog-template prints (and with --insert inserts) the ≤ 12-line entry skeleton ---
+echo "scribe.mjs"
+SC="$TMP/scribe"; mkdir -p "$SC/scripts" "$SC/tasks" "$SC/docs/state"
+cp "$REPO/scripts/scribe.mjs" "$REPO/scripts/check-locks.sh" "$SC/scripts/"
+printf '# LANE_LOCKS\n\n| module | lane | task | claimed_at | worktree |\n|---|---|---|---|---|\n\n## Rules\n\n1. one lock per module.\n' > "$SC/tasks/LANE_LOCKS.md"
+printf 'Plan: fixture.\n' > "$SC/docs/state/header.md"; printf 'none.\n' > "$SC/docs/state/blockers.md"; printf 'next.\n' > "$SC/docs/state/next.md"
+printf '# CHANGELOG\n\nOne entry per task.\n\n---\n\n## X — older entry (2026-01-01)\n\n- older.\n' > "$SC/docs/CHANGELOG.md"
+( cd "$SC" && git init -q -b main . && git add -A && git -c user.email=t@t -c user.name=t commit -q -m 'feat(2.9): fixture' ) >/dev/null 2>&1
+sc() { ( cd "$SC" && CHECK_LOCKS_WBS="$REPO/docs/package/38-WBS.md" node scripts/scribe.mjs "$@" >/dev/null 2>&1 ); echo $?; }
+sc_out() { ( cd "$SC" && CHECK_LOCKS_WBS="$REPO/docs/package/38-WBS.md" node scripts/scribe.mjs "$@" 2>/dev/null || true ); }
+expect "scribe: --write renders PROJECT_STATE"                    0 "$(sc --write)"
+expect "scribe: --check green after --write"                      0 "$(sc --check)"
+expect "scribe: --claim wms 1 2.9 exits 0"                        0 "$(sc --claim wms 1 2.9)"
+expect "scribe: claim row written with today's date and worktree" 0 "$(grep -qE '^\| wms \| 1 \| 2\.9 \| [0-9]{4}-[0-9]{2}-[0-9]{2} \| \.\./pg-eos-lane-1 \|$' "$SC/tasks/LANE_LOCKS.md"; echo $?)"
+expect "scribe: PROJECT_STATE lists the lane after a claim"       0 "$(grep -q 'lane 1 · wms · 2.9' "$SC/docs/PROJECT_STATE.md"; echo $?)"
+expect "scribe: second claim of the same lock refused"            1 "$(sc --claim wms 2 2.9)"
+expect "scribe: claim with a task that is not a doc-38 row refused (check-locks), table unchanged" 1 "$(sc --claim hr 2 NOPE-ROW)"
+expect "scribe: table unchanged after the refused claim"          1 "$(grep -q '^| hr ' "$SC/tasks/LANE_LOCKS.md"; echo $?)"
+expect "scribe: claim with a bad lane refused"                    1 "$(sc --claim hr 9 2.9)"
+expect "scribe: --release wms exits 0"                            0 "$(sc --release wms)"
+expect "scribe: row gone after release"                           1 "$(grep -q '^| wms ' "$SC/tasks/LANE_LOCKS.md"; echo $?)"
+expect "scribe: release of a missing lock refused"                1 "$(sc --release wms)"
+expect "scribe: --changelog-template prints the heading"          0 "$(sc_out --changelog-template 2.9 'Receive inbound' | head -1 | grep -qE '^## 2\.9 — Receive inbound \([0-9-]{10}\)$'; echo $?)"
+expect "scribe: template is at most 12 lines"                     0 "$(n=$(sc_out --changelog-template 2.9 t | wc -l); [ "$n" -le 12 ]; echo $?)"
+expect "scribe: --insert puts the entry above the older one"      0 "$(sc --changelog-template 2.9 'Receive inbound' --insert >/dev/null; awk '/^## /{print; exit}' "$SC/docs/CHANGELOG.md" | grep -q '^## 2.9 — Receive inbound'; echo $?)"
+expect "scribe: unknown mode exits 2"                             2 "$(sc --nope)"
 GR_OUT="$(cd "$GR" && GOV_BUDGET_REF=main bash "$REPO/scripts/gov-ratio.sh" 2>/dev/null)"
 expect "gov-ratio: total commits = 5"              0 "$(printf '%s' "$GR_OUT" | grep -qE 'total commits +: 5'; echo $?)"
 expect "gov-ratio: feat/fix(<WBS>) commits = 3"    0 "$(printf '%s' "$GR_OUT" | grep -qE 'feat/fix\(<WBS>\) commits +: 3'; echo $?)"

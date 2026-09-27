@@ -14,4 +14,4 @@ file (P3; CLAUDE.md · OPERATING RULES · START):
    and print its output verbatim.
 5. One closing line: current phase · current task · lanes in use · blockers · the next three runnable tasks, taken from PROJECT_STATE — not from reasoning.
 
-Change nothing. Open no package document. If PROJECT_STATE.md exceeds 40 lines, say so — that is a defect for pg-scribe, not something to fix here.
+Change nothing. Open no package document. If PROJECT_STATE.md exceeds 40 lines, say so — that is a defect in docs/state/*.md or scripts/scribe.mjs, not something to fix here.
