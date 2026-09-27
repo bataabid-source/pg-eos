@@ -4,6 +4,13 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — Master handover: «الماستر M2 — طابور الدمج والموجة 1» appointed, «تقييم المشروع والمسار القادم» stands down after PR #153 (D-195, 2026-09-27)
+
+- **Why:** the GM asked for a replacement Master and delegated the naming and the timing to the consultant ("قم بالتسمية و نفذ القرار في الوقت الصحيح وبشكل سليم"); one Master at a time, handed over at a clean point (no PR mid-queue).
+- **Change:** D-195 in `docs/DECISION_LOG.md`; `docs/state/header.md` gains the Master line (session, next migration number 0040); the opening brief of the new session is the ten-step queue of the final audit — no new rule, no code.
+- **Sequence:** the old Master merges its last queued PR (#153, the carry of #151), merges this record, reports, opens no new task; the GM opens the new cloud session with the brief and archives the old one; the consultant verifies the first report.
+- Model: fable (consultant session) · Delegated: none · Review: n/a (governance record) · tokens: ~8k.
+
 ## X — doc 31 §3-3 v4.2: audit hash over the full row content (hash_version, v1 kept for old rows, external anchor) — D-194 (2026-09-27)
 
 - **Why:** SCR-AUDIT-CHAIN-01 delta 2 (deep review M2) needed the GM's amendment of the package rule before any migration; the GM delivered the v4.2 text and it is applied verbatim.
