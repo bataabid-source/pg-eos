@@ -183,6 +183,8 @@ if [ "$g16_present" = "1" ]; then
     if [ "${#g16_scores[@]}" -ne "${#g16_cfgs[@]}" ]; then
       g16_res="red:${#g16_scores[@]} of ${#g16_cfgs[@]} modules printed a 'Final mutation score' line — stryker did not run to completion everywhere"
       # CI never shows the temp log; print the tail so a crash (not a low score) is diagnosable from the job output.
+      echo "guards-run: G16 per-module lines (mutation-all / Final mutation score / initial-run errors):" >&2
+      grep -E "^mutation-all:|Final mutation score|Initial test run|ERROR " "$OUT.G16" | sed 's/^/  G16> /' >&2
       echo "guards-run: G16 log tail (${OUT}.G16, last 60 lines):" >&2
       grep -vE '^\s+at |Mutation testing [0-9]+%' "$OUT.G16" | tail -n 60 | sed 's/^/  G16> /' >&2
     else
