@@ -13,11 +13,11 @@ Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewe
 - lane 2 · billing · 4.1a · since 2026-09-25
 
 ## Last 5 feat/fix commits (git log)
-- `397c7d0` feat(2.16): PDA OTP login screen, part 1a-4
-- `223f044` feat(2.16): OTP login fix-up — allowed-message wording + response-shape tests (part 1a-3b)
-- `2ab2f54` fix(X): G16 builds packages/* before Stryker so workspace imports resolve in CI
-- `14e06a9` fix(X): contracts tests import the package relatively, not through its own dist
-- `fa1bf5b` fix(X): resolve stale placeholders; pin Node 22 so Stryker 10 runs in CI; print the G16 log tail when red
+- `51a5789` feat(2.16): PDA OTP login screen, part 1a-4
+- `8917275` feat(2.16): OTP login fix-up — allowed-message wording + response-shape tests (part 1a-3b)
+- `8e18c06` fix(X): G16 builds packages/* before Stryker so workspace imports resolve in CI
+- `8fda359` fix(X): contracts tests import the package relatively, not through its own dist
+- `6bb6b25` fix(X): resolve stale placeholders; pin Node 22 so Stryker 10 runs in CI; print the G16 log tail when red
 
 ## Blockers
 - G16 runnable (Stryker per module, all ≥ 75, packages built first); G15 runnable per STREAMS §G15 (green.json); G17 NOT RUNNABLE; deploy.sh waits on 0.6b.
@@ -27,10 +27,11 @@ Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewe
 - Open G-01: G8 anchor storage (D-115); imile entity_id/CHECKs/outbox; 2.15 space_reservations.qty CHECK; 3.1 shift_groups.vehicle_id.
 - INV-C4-1 DB-level enforcement on tms.delivery_tasks / tms.routes.vehicle_id required before 3.4 (stream B).
 - Lane backlog: 2.16 1a-3c/1a-4b (process) · 3.12 2b/2c-ii · 4.1a 2b · 4.1a p3 p2 · 4.1b p2 · 3.12/3.13 polish · 2.9 part 2 (fix) — see MASTER_BACKLOG.
-- WBS 1.11 BLOCKED (D-178). Stray branches: 2.16 1a-3b/1a-4 merged here; close/0.6a-d166, lane/3-3.13, lane/3-enablement superseded — GM deletes them.
+- WBS 1.11 BLOCKED (D-178). close/0.6a-d166 (2 ahead/151 behind) and lane/3-3.13 (2 ahead) superseded, content on main — GM deletes them (D-193 D5).
+- Deep review (D-193): no HTTP host/worker/Dockerfile (ADR-0006, X part 5); G-16a OTP limits missing (2.16 part 1a-5); SCR-AUDIT-CHAIN-01/IDENTITY-RLS-01 open.
 - Master batch (frozen paths): entityId on WithContextCtx; domain-kit browser break; eslint cwd bug; new-slice.sh stale citations.
 
 ## Next
-1. Master: merge the cleanup PR, then launch wave 1 (pda/1 2.16→2.18 · billing/2 4.1b p2→4.19→4.20, migration 0038) with fresh briefs.
+1. Master: X part 5 first (ADR-0006: apps/api host, outbox worker, Dockerfile), then wave 1 (pda/1 2.16→2.18 · billing/2 4.1b p2→4.19→4.20, migration 0038).
 2. Integration lane: S18 spec on lane/3-s18 (assigned 06:02Z); S1/S2 RED on unbuilt rows — add ids to tests/scenarios/green.json at DONE.
 3. Stream A first slice after 2.16 part 1a-4: `2.9 part 2 (fix)` (ledger expiry_date) then 2.16 part 1b (PWA, offline queue).

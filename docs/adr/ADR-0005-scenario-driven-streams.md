@@ -40,6 +40,7 @@
 - Negative / risks: one Master day to re-cut doc 38 into streams and adjust `check-locks.sh`; local developers must export `PG_APP_USER` (documented in RUNBOOK); rows outside the streams are decided by the GM after seeing the streams run.
 - Unchanged: ARCHITECTURE rules, the twelve-step slice, RED first, the golden slice, guards G1–G18, conventional commits, the migration register.
 - Open for the GM: which of the non-stream rows (3.8–3.11, 4.12–4.13, 4.21–4.23, 5.7–5.10, 5.12–5.14, 6.2, 6.5) join the pilot; `close/0.6a-d166` (101 commits ahead of main) and `lane/3-3.13` (2 ahead) are not merged and were not named for deletion.
+- Correction (2026-09-27, deep review, D-193): `close/0.6a-d166` is 2 commits ahead / 151 behind `main`, not 101 ahead (GitHub compare API); its content (D-165/D-166, `SCR-SALES-SPACE-01`, `5.3b`) and `lane/3-3.13`'s (migration 0027, `calculate-daily-commission`) are already on `main`; both branches are superseded and their deletion is proposed to the GM.
 
 ## Status (الحالة)
 Accepted — 2026-09-26 (GM "نعم اعتمد نفذ"). Applied in stages: §7 and `docs/STREAMS.md` in the same commit set; §5–§6 in the enablement week (`docs/STREAMS.md` §Enablement).

@@ -15,7 +15,7 @@ section it does not already carry.
   3. Verify the acceptance criterion is runnable (command exists, data seeded).
   4. Claim the module in LANE_LOCKS (§8). 5. Write the SLICE BRIEF (§5).
   6. Delegate to **pg-tester** first → RED tests (pg-tester writes test files only).
-  7. Delegate build to pg-backend / pg-frontend (never edits a test; a test defect goes back to pg-tester).
+  7. Delegate build to pg-builder / pg-builder-core (never edits a test; a test defect goes back to pg-tester).
   8. Receive REPORT (§5).           9. **pg-tester** verifies: suite GREEN, no test weakened or edited by the builder.
  10. Review by **pg-reviewer** (opus) — also called BEFORE writing any migration that touches the schema, RLS or the audit chain.
  11. PASS → pg-scribe updates state/backlog/CHANGELOG → **one `feat(<WBS>)` commit** with trailers → release the lock.

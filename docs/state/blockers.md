@@ -5,5 +5,6 @@ Identity threshold test race under turbo (X part 3); superuser-role catalog test
 Open G-01: G8 anchor storage (D-115); imile entity_id/CHECKs/outbox; 2.15 space_reservations.qty CHECK; 3.1 shift_groups.vehicle_id.
 INV-C4-1 DB-level enforcement on tms.delivery_tasks / tms.routes.vehicle_id required before 3.4 (stream B).
 Lane backlog: 2.16 1a-3c/1a-4b (process) · 3.12 2b/2c-ii · 4.1a 2b · 4.1a p3 p2 · 4.1b p2 · 3.12/3.13 polish · 2.9 part 2 (fix) — see MASTER_BACKLOG.
-WBS 1.11 BLOCKED (D-178). Stray branches: 2.16 1a-3b/1a-4 merged here; close/0.6a-d166, lane/3-3.13, lane/3-enablement superseded — GM deletes them.
+WBS 1.11 BLOCKED (D-178). close/0.6a-d166 (2 ahead/151 behind) and lane/3-3.13 (2 ahead) superseded, content on main — GM deletes them (D-193 D5).
+Deep review (D-193): no HTTP host/worker/Dockerfile (ADR-0006, X part 5); G-16a OTP limits missing (2.16 part 1a-5); SCR-AUDIT-CHAIN-01/IDENTITY-RLS-01 open.
 Master batch (frozen paths): entityId on WithContextCtx; domain-kit browser break; eslint cwd bug; new-slice.sh stale citations.
