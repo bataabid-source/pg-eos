@@ -9,6 +9,17 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PER_MODULE_TIMEOUT="${MUTATION_TIMEOUT:-1800}"
 status=0
 
+# Every module test that imports a workspace package (@pg-eos/domain-kit, /contracts, ...) resolves
+# it through the package's `exports` map to dist/. Stryker's vitest runner drops a test file whose
+# import fails without failing the dry run, so on a checkout with no dist/ (CI gate ⑤, nightly) the
+# mutants those files cover are reported "no coverage" and every module scores under 75 (2026-09-27:
+# wms dry run 414 tests in CI vs 1,000 locally). Build the packages first; turbo caches the no-op.
+echo "mutation-all: building packages/* (workspace imports resolve to dist/)"
+if ! (cd "$ROOT" && pnpm -s exec turbo run build --filter='./packages/*' >/dev/null); then
+  echo "mutation-all: packages build failed — no module can be scored" >&2
+  exit 1
+fi
+
 for dir in "$ROOT"/modules/*/; do
   [ -f "$dir/stryker.config.json" ] || continue
   name="$(basename "$dir")"
