@@ -6,7 +6,9 @@
 //     modules/**/api/**/handlers.ts (68, one POST route each) plus the four read-only GET routes
 //     this Master task registers (fleet/assert-vehicle-assignable, hr/register-employee's
 //     check-driver-assignable, wms/process-outbound's generate-pick-list, wms/receive-inbound's
-//     suggest-location);
+//     suggest-location) plus the 10 contract-first POST routes of billing/accounting-periods (5),
+//     billing/dimensions part 2 (2) and billing/post-journal (3) — registered ahead of their own
+//     handlers.ts (ADR-0005 §3), for a fixture total of 78 POST + 4 GET = 82;
 //   - every POST route declares the Idempotency-Key header (doc 40 §A4 — also covered structurally
 //     by registry-invariants.test.ts's own checkInvariants() property test; this file additionally
 //     proves it for the REAL production routes, not just fixtures);
@@ -21,11 +23,20 @@ import { ALL_ROUTES } from '../routes.js';
 // written out explicitly (not scanned) — the POST count is that file's own
 // `IDEMPOTENCY_ENDPOINT_*` identifier count, the GET count is its read-only (no Idempotency-Key)
 // handler count.
+//
+// billing/accounting-periods, billing/dimensions (part 2) and billing/post-journal are
+// contract-first (ADR-0005 §3, Master task) — their ROUTES are registered ahead of any
+// modules/billing/api/**/handlers.ts. Their handlers, and the `IDEMPOTENCY_ENDPOINT_*`
+// identifiers this fixture's comment otherwise describes, arrive with WBS 4.1b part 2, 4.19 and
+// 4.20 respectively.
 const ROUTE_COUNTS_BY_USE_CASE: ReadonlyArray<{
   readonly usecase: string;
   readonly post: number;
   readonly get: number;
 }> = [
+  { usecase: 'billing/accounting-periods', post: 5, get: 0 },
+  { usecase: 'billing/dimensions', post: 2, get: 0 },
+  { usecase: 'billing/post-journal', post: 3, get: 0 },
   { usecase: 'catalog/maintain-price-list', post: 6, get: 0 },
   { usecase: 'fleet/assert-vehicle-assignable', post: 0, get: 1 },
   { usecase: 'fleet/register-vehicle', post: 1, get: 0 },
@@ -57,8 +68,8 @@ const EXPECTED_GET_COUNT = ROUTE_COUNTS_BY_USE_CASE.reduce((sum, row) => sum + r
 const EXPECTED_TOTAL_COUNT = EXPECTED_POST_COUNT + EXPECTED_GET_COUNT;
 
 describe('Scenario: every module use case with a handlers.ts registers its own routes', () => {
-  it('registers exactly 68 POST routes (one per IDEMPOTENCY_ENDPOINT_* identifier) and 4 GET routes', () => {
-    expect(EXPECTED_POST_COUNT).toBe(68);
+  it('registers exactly 78 POST routes (68 IDEMPOTENCY_ENDPOINT_* identifiers + 10 contract-first billing routes) and 4 GET routes', () => {
+    expect(EXPECTED_POST_COUNT).toBe(78);
     expect(EXPECTED_GET_COUNT).toBe(4);
     expect(ALL_ROUTES.filter((route) => route.method === 'POST').length).toBe(EXPECTED_POST_COUNT);
     expect(ALL_ROUTES.filter((route) => route.method === 'GET').length).toBe(EXPECTED_GET_COUNT);

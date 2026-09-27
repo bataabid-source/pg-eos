@@ -125,6 +125,14 @@
     "./identity/otp-login": {
       "types": "./dist/identity/otp-login.d.ts",
       "default": "./dist/identity/otp-login.js"
+    },
+    "./billing/accounting-periods": {
+      "types": "./dist/billing/accounting-periods.d.ts",
+      "default": "./dist/billing/accounting-periods.js"
+    },
+    "./billing/post-journal": {
+      "types": "./dist/billing/post-journal.d.ts",
+      "default": "./dist/billing/post-journal.js"
     }
   },
   "scripts": {

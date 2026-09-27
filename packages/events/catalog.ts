@@ -110,5 +110,29 @@ export const EVENT_CATALOG = [
   'billing.gl_account_change.requested',
   'billing.gl_account_change.approved',
   'billing.gl_account_change.rejected',
+  // WBS 4.1b part 2 (lane 2, SCR-ACC-01 #9 / D-190): list-kind dimension values — created, and
+  // deactivated (is_active true → false), each in the same transaction as the write. Aggregate
+  // `billing.dimension_values`. Added by the Master ahead of the publisher (contract-first wave,
+  // ADR-0005 §3; packages/* is frozen).
+  'billing.dimension_value.created',
+  'billing.dimension_value.deactivated',
+  // WBS 4.19 (lane 2, SCR-ACC-01 #3): fiscal year created, in the same transaction as the insert.
+  // Aggregate `billing.fiscal_years`. Added by the Master (contract-first wave, ADR-0005 §3).
+  'billing.fiscal_year.created',
+  // WBS 4.19 (lane 2, SCR-ACC-01 #3, ADR-0004 D1 5 / OD-12): accounting period opened (created in
+  // `open`), closed, locked, and reopened (only after the Decision Inbox approval), each in the same
+  // transaction as the state change. Aggregate `billing.accounting_periods`. Added by the Master
+  // ahead of the publisher (contract-first wave, ADR-0005 §3).
+  'billing.accounting_period.opened',
+  'billing.accounting_period.closed',
+  'billing.accounting_period.locked',
+  'billing.accounting_period.reopened',
+  // WBS 4.20 (lane 2, SCR-ACC-01 #5-#8, ADR-0004 D1 2-4): journal entry posted by the one posting
+  // service, reversed (reversing entry posted, `reversed_by` set on the original), adjusted
+  // (adjustment entry posted), each in the same transaction as the ledger write. Aggregate
+  // `billing.journal_entries`. Added by the Master ahead of the publisher (contract-first wave).
+  'billing.journal_entry.posted',
+  'billing.journal_entry.reversed',
+  'billing.journal_entry.adjusted',
 ] as const;
 export type CatalogedEventType = (typeof EVENT_CATALOG)[number];
