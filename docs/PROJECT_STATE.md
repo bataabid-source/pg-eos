@@ -15,11 +15,11 @@ Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewe
 - lane 3 · hr · 3.13 · since 2026-09-26
 
 ## Last 5 feat/fix commits (git log)
+- `2ab2f54` fix(X): G16 builds packages/* before Stryker so workspace imports resolve in CI
+- `14e06a9` fix(X): contracts tests import the package relatively, not through its own dist
+- `fa1bf5b` fix(X): resolve stale placeholders; pin Node 22 so Stryker 10 runs in CI; print the G16 log tail when red
 - `7cebb62` feat(X): wave-1 contracts first — accounting periods, post-journal, dimension values, 10 catalog events
 - `1c77ae9` fix(X): apply the OpenAPI review — honest 409 set, corrected comments
-- `b10c963` feat(X): OpenAPI registry populated — 72 operations from the existing contracts
-- `d1b3a3f` fix(X): apply round-2 review to the PG_APP_USER change
-- `82bbab7` fix(X): require PG_APP_USER — withContext never runs as a superuser
 
 ## Blockers
 - G16 runnable (Stryker per module, all ≥ 75 on 2026-09-26); G15/G17 NOT RUNNABLE until Playwright / trace screen; deploy.sh waits on 0.6b (D-129).
@@ -33,6 +33,6 @@ Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewe
 - Master batch (frozen paths): entityId on WithContextCtx; domain-kit browser break; eslint cwd bug; new-slice.sh stale citations.
 
 ## Next
-1. Master: decide G15 semantics (blocks while S3–S20 missing → merge queue + CI ④⑤ red on merge) · `fix` row: ledger drops expiry_date · wave-1 contracts.
-2. Integration lane: Playwright live (`test:scenarios`, gate ④ real); S1/S2 RED on unbuilt rows (QRT 2.16 · 4.3 events · 3.4 task · VAS · Lost Revenue); next S18.
-3. Wave 1: lane 1 stream A (2.16 → 2.18) · lane 2 stream B (4.1b p2 → 4.19 → 4.20, migration 0038).
+1. Master: launch wave 1 after PR #147 merges (pda/1 2.16→2.18 · billing/2 4.1b p2→4.19→4.20, migration 0038); `fix` row filed: ledger drops expiry_date.
+2. Integration lane: S18 next; S1/S2 RED on unbuilt rows (QRT 2.16 · 4.3 events · 3.4 task · VAS · Lost Revenue); add ids to green.json at DONE.
+3. G15 decided (STREAMS §G15): green.json regressions block merge; 20/20 only at deploy (PG_GUARDS_STRICT=1).

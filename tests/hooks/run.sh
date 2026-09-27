@@ -328,6 +328,33 @@ cp "$REPO/scripts/lib/review-trailer.sh" "$GR/scripts/lib/"
   git -c user.email=t@t -c user.name=t commit -q --allow-empty -m 'chore(X): bookkeeping'
   git -c user.email=t@t -c user.name=t commit -q --allow-empty -m "$(printf 'docs(X): a note\n\nDecision: D-1')"
 ) >/dev/null 2>&1
+# ---- scenarios-verdict.mjs (G15, docs/STREAMS.md §G15): merge gate = green.json regressions only;
+# --strict (deploy) = 20/20 present and passed ---------------------------------------------------
+echo "scenarios-verdict.mjs"
+SV="$TMP/sv"; mkdir -p "$SV"
+sv_report() { # sv_report <file> <S1 ok> <S2 ok>  (two present scenarios)
+  printf '{"suites":[{"title":"S1.spec.ts","file":"S1.spec.ts","suites":[{"title":"S1 client","specs":[{"title":"inbound","ok":%s,"tests":[{"results":[{"status":"%s"}]}]}]}]},{"title":"S2.spec.ts","file":"S2.spec.ts","specs":[{"title":"S2 storage","ok":%s,"tests":[{"results":[{"status":"%s"}]}]}]}]}' \
+    "$2" "$([ "$2" = true ] && echo passed || echo failed)" "$3" "$([ "$3" = true ] && echo passed || echo failed)" > "$1"
+}
+sv_report "$SV/red.json" false false
+sv_report "$SV/s1.json" true false
+printf '{"green":[]}' > "$SV/none.json"; printf '{"green":["S1"]}' > "$SV/g1.json"; printf '{"green":["S1","S2"]}' > "$SV/g12.json"; printf '{"green":["S3"]}' > "$SV/g3.json"; printf '{"nope":1}' > "$SV/bad.json"
+sv() { node "$REPO/scripts/scenarios-verdict.mjs" "$@" 2>/dev/null || true; }  # output checks under pipefail: exit via sv_code
+sv_code() { node "$REPO/scripts/scenarios-verdict.mjs" "$@" >/dev/null 2>&1; echo $?; }
+expect "merge gate: nothing listed, S1/S2 RED → green (reported only)"  0 "$(sv_code "$SV/red.json" --manifest "$SV/none.json")"
+expect "merge gate: first line is 'green'"                                0 "$(sv "$SV/red.json" --manifest "$SV/none.json" | head -1 | grep -qx green; echo $?)"
+expect "merge gate: summary counts 2/20 present, 0/20 passed"             0 "$(sv "$SV/red.json" --manifest "$SV/none.json" | grep -q '2/20 present, 0/20 passed'; echo $?)"
+expect "merge gate: listed S1 passing, S2 RED unlisted → green"           0 "$(sv_code "$SV/s1.json" --manifest "$SV/g1.json")"
+expect "merge gate: listed S1 failing → red regression"                   1 "$(sv_code "$SV/red.json" --manifest "$SV/g1.json")"
+expect "merge gate: names the failing listed scenario"                    0 "$(sv "$SV/red.json" --manifest "$SV/g1.json" | head -1 | grep -q 'failing (S1)'; echo $?)"
+expect "merge gate: listed S2 failing while S1 passes → red"              1 "$(sv_code "$SV/s1.json" --manifest "$SV/g12.json")"
+expect "merge gate: listed S3 missing → red regression"                   1 "$(sv_code "$SV/s1.json" --manifest "$SV/g3.json")"
+expect "merge gate: names the missing listed scenario"                    0 "$(sv "$SV/s1.json" --manifest "$SV/g3.json" | head -1 | grep -q 'missing (S3)'; echo $?)"
+expect "strict: 2/20 present → red"                                       1 "$(sv_code "$SV/s1.json" --strict --manifest "$SV/none.json")"
+expect "strict: red line names 20/20 and the missing ids"                 0 "$(sv "$SV/s1.json" --strict --manifest "$SV/none.json" | head -1 | grep -q '20/20.*missing S3'; echo $?)"
+expect "unreadable report → red, exit 1"                                  1 "$(sv_code "$SV/absent.json" --manifest "$SV/none.json")"
+expect "manifest without a green array → red, exit 1"                     1 "$(sv_code "$SV/s1.json" --manifest "$SV/bad.json")"
+expect "no report argument → usage exit 2"                                2 "$(sv_code --manifest "$SV/none.json")"
 GR_OUT="$(cd "$GR" && GOV_BUDGET_REF=main bash "$REPO/scripts/gov-ratio.sh" 2>/dev/null)"
 expect "gov-ratio: total commits = 5"              0 "$(printf '%s' "$GR_OUT" | grep -qE 'total commits +: 5'; echo $?)"
 expect "gov-ratio: feat/fix(<WBS>) commits = 3"    0 "$(printf '%s' "$GR_OUT" | grep -qE 'feat/fix\(<WBS>\) commits +: 3'; echo $?)"
