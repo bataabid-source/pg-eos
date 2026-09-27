@@ -1,6 +1,6 @@
 ---
 name: pg-tester
-description: PG-EOS test author — Gherkin scenarios to Playwright, property tests with fast-check on every invariant, guard tests G1–G18, mutation runs. Writes tests FIRST and reports RED before any implementation starts. Use at step 6 of every slice, before pg-backend or pg-frontend.
+description: PG-EOS test author — Gherkin scenarios to Playwright, property tests with fast-check on every invariant, guard tests G1–G18, mutation runs. Writes tests FIRST and reports RED before any implementation starts. Use at step 6 of every slice, before pg-builder or pg-builder-core.
 tools: Read, Edit, Write, Bash, Grep, Glob
 model: sonnet
 ---

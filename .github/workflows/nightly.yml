@@ -66,10 +66,10 @@ jobs:
           if node -e "process.exit(require('./package.json').scripts['test:scenarios'] ? 0 : 1)"; then
             pnpm exec turbo run build --filter=@pg-eos/scenarios... --output-logs=errors-only
             pnpm -s test:scenarios --reporter=list || true
-            pnpm -s test:scenarios --reporter=json > scenarios-report.json 2>/dev/null || true
+            pnpm -s test:scenarios --reporter=json > "$RUNNER_TEMP/scenarios-report.json" 2>/dev/null || true
             # merge-gate semantics (green.json regressions fail); the strict 20/20 line is printed for the record
-            node scripts/scenarios-verdict.mjs scenarios-report.json --strict || true
-            node scripts/scenarios-verdict.mjs scenarios-report.json
+            node scripts/scenarios-verdict.mjs "$RUNNER_TEMP/scenarios-report.json" --strict || true
+            node scripts/scenarios-verdict.mjs "$RUNNER_TEMP/scenarios-report.json"
           else
             echo "test:scenarios not present yet — G15 stays NOT RUNNABLE (docs/STREAMS.md §Enablement 3)"
           fi

@@ -173,8 +173,8 @@ jobs:
       - name: Doc 40 Part E scenarios (S1-S20)
         run: |
           pnpm -s test:scenarios --reporter=list || true
-          pnpm -s test:scenarios --reporter=json > scenarios-report.json 2>/dev/null || true
-          node scripts/scenarios-verdict.mjs scenarios-report.json
+          pnpm -s test:scenarios --reporter=json > "$RUNNER_TEMP/scenarios-report.json" 2>/dev/null || true
+          node scripts/scenarios-verdict.mjs "$RUNNER_TEMP/scenarios-report.json"
 
   guards:
     name: "⑤ guards (G1-G18)"

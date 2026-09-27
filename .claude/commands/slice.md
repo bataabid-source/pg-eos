@@ -20,10 +20,12 @@ Loop (BOOTSTRAP-v5 §2 — mandatory, in order):
   7. Delegate build to the agent the brief's `builder:` line names — pg-builder (sonnet) or pg-builder-core (opus, ADR-0005 §5) — (never edits a test; a test defect goes back to pg-tester).
   8. Receive REPORT (§5).           9. **pg-tester** verifies: suite GREEN, no test weakened or edited by the builder.
  10. Review by **pg-reviewer** (opus) — also called BEFORE writing any migration that touches the schema, RLS or the audit chain.
- 11. PASS → pg-scribe updates state/backlog/CHANGELOG — including every worker's token estimate from its closing
-     REPORT line (pg-tester, pg-builder / pg-builder-core, pg-reviewer; a missing estimate is asked for, never guessed); the Master names the brief and SCR notes pg-scribe `git rm`s (NOTES).
-     In the slice's own commit, pg-scribe `git rm`s the slice brief and every SCR note the slice applied in full
-     (CLAUDE.md · OPERATING RULES · NOTES); an SCR with an open G-01 item stays.
+ 11. PASS → the session does the bookkeeping itself (no agent): `node scripts/scribe.mjs --changelog-template <WBS> "<title>" --insert`
+     and fill the entry (≤ 12 lines: what · why · files · review · tokens — every worker's token estimate from its closing
+     REPORT line: pg-tester, pg-builder / pg-builder-core, pg-reviewer; a missing estimate is asked for, never guessed); update the
+     backlog row; edit docs/state/{blockers,next}.md when they change; `node scripts/scribe.mjs --write` regenerates PROJECT_STATE.
+     In the slice's own commit, `git rm` the slice brief and every SCR note the slice applied in full
+     (CLAUDE.md · DOCUMENTS); an SCR with an open G-01 item stays.
      After `git rebase origin/main` and before staging, run `node scripts/resolve-hashes.mjs --write`
      (resolves any `<this commit>` placeholder the previous task's commit left behind — CLAUDE.md ·
      GIT: "the previous task's commit hash is recorded in PROJECT_STATE inside the NEXT task's

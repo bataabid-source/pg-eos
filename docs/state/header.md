@@ -4,4 +4,4 @@ Done so far: phase 0 closed · phase 1 done except 1.11 (BLOCKED D-178) · phase
 Pilot: Tier 0 = local Docker postgres:16 (D-129), seed 019 + synthetic data (D-127); doc 38 v4.7 (154 rows).
 Schema: migrations 0001–0037 applied (0022 withdrawn); next free number 0038 (issued to lane 2 for 4.1b part 2).
 Sessions: remote containers boot Postgres from .claude/hooks/session-start.sh; PG_APP_USER is required (ADR-0005 §7).
-Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewer (opus) · pg-scribe (until scripts/scribe.mjs v2).
+Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewer (opus); bookkeeping by scripts/scribe.mjs (state, locks, CHANGELOG template).

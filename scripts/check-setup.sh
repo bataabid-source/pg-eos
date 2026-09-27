@@ -64,7 +64,7 @@ echo "== 3. Kit at repo root"
 need_file CLAUDE.md
 need_file .gitignore
 need_file .claude/settings.json
-n=$(ls .claude/agents/pg-*.md 2>/dev/null | wc -l); [ "$n" -eq 5 ] && ok ".claude/agents = 5" || miss ".claude/agents = $n (expected 5)"
+n=$(ls .claude/agents/pg-*.md 2>/dev/null | wc -l); [ "$n" -eq 4 ] && ok ".claude/agents = 4" || miss ".claude/agents = $n (expected 4 — pg-tester, pg-builder, pg-builder-core, pg-reviewer; bookkeeping is scripts/scribe.mjs)"
 n=$(ls .claude/commands/*.md 2>/dev/null | wc -l); [ "$n" -eq 6 ] && ok ".claude/commands = 6" || miss ".claude/commands = $n (expected 6)"
 n=$(ls .claude/briefs/*.brief.md 2>/dev/null | grep -vc _TEMPLATE); [ "$n" -eq 15 ] && ok ".claude/briefs = 15 module briefs" || miss ".claude/briefs = $n (expected 15)"
 for b in .claude/briefs/*.brief.md; do l=$(wc -l < "$b"); [ "$l" -le 120 ] || miss "$b has $l lines (> 120)"; done

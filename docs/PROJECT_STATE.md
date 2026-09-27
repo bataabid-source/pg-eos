@@ -6,20 +6,18 @@ Done so far: phase 0 closed · phase 1 done except 1.11 (BLOCKED D-178) · phase
 Pilot: Tier 0 = local Docker postgres:16 (D-129), seed 019 + synthetic data (D-127); doc 38 v4.7 (154 rows).
 Schema: migrations 0001–0037 applied (0022 withdrawn); next free number 0038 (issued to lane 2 for 4.1b part 2).
 Sessions: remote containers boot Postgres from .claude/hooks/session-start.sh; PG_APP_USER is required (ADR-0005 §7).
-Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewer (opus) · pg-scribe (until scripts/scribe.mjs v2).
+Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewer (opus); bookkeeping by scripts/scribe.mjs (state, locks, CHANGELOG template).
 
 ## Lanes (tasks/LANE_LOCKS.md)
 - lane 1 · pda · 2.16 · since 2026-09-26
 - lane 2 · billing · 4.1a · since 2026-09-25
-- lane 3 · imile · 3.12 · since 2026-09-26
-- lane 3 · hr · 3.13 · since 2026-09-26
 
 ## Last 5 feat/fix commits (git log)
+- `397c7d0` feat(2.16): PDA OTP login screen, part 1a-4
+- `223f044` feat(2.16): OTP login fix-up — allowed-message wording + response-shape tests (part 1a-3b)
 - `2ab2f54` fix(X): G16 builds packages/* before Stryker so workspace imports resolve in CI
 - `14e06a9` fix(X): contracts tests import the package relatively, not through its own dist
 - `fa1bf5b` fix(X): resolve stale placeholders; pin Node 22 so Stryker 10 runs in CI; print the G16 log tail when red
-- `7cebb62` feat(X): wave-1 contracts first — accounting periods, post-journal, dimension values, 10 catalog events
-- `1c77ae9` fix(X): apply the OpenAPI review — honest 409 set, corrected comments
 
 ## Blockers
 - G16 runnable (Stryker per module, all ≥ 75, packages built first); G15 runnable per STREAMS §G15 (green.json); G17 NOT RUNNABLE; deploy.sh waits on 0.6b.
@@ -28,11 +26,11 @@ Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewe
 - Identity threshold test race under turbo (X part 3); superuser-role catalog test deferred (X part 2) — MASTER_BACKLOG.
 - Open G-01: G8 anchor storage (D-115); imile entity_id/CHECKs/outbox; 2.15 space_reservations.qty CHECK; 3.1 shift_groups.vehicle_id.
 - INV-C4-1 DB-level enforcement on tms.delivery_tasks / tms.routes.vehicle_id required before 3.4 (stream B).
-- Lane backlog: 2.16 1a-3b · 3.12 2b/2c-ii · 4.1a 2b · 4.1a p3 p2 · 4.1b p2 · 3.12/3.13 polish — see MASTER_BACKLOG.
-- WBS 1.11 BLOCKED (D-178). Unmerged branches close/0.6a-d166 (101 ahead) and lane/3-3.13 (2 ahead) await a GM decision.
+- Lane backlog: 2.16 1a-3c/1a-4b (process) · 3.12 2b/2c-ii · 4.1a 2b · 4.1a p3 p2 · 4.1b p2 · 3.12/3.13 polish · 2.9 part 2 (fix) — see MASTER_BACKLOG.
+- WBS 1.11 BLOCKED (D-178). Stray branches: 2.16 1a-3b/1a-4 merged here; close/0.6a-d166, lane/3-3.13, lane/3-enablement superseded — GM deletes them.
 - Master batch (frozen paths): entityId on WithContextCtx; domain-kit browser break; eslint cwd bug; new-slice.sh stale citations.
 
 ## Next
-1. Master: launch wave 1 after PR #147 merges (pda/1 2.16→2.18 · billing/2 4.1b p2→4.19→4.20, migration 0038); `fix` row filed: ledger drops expiry_date.
-2. Integration lane: S18 next; S1/S2 RED on unbuilt rows (QRT 2.16 · 4.3 events · 3.4 task · VAS · Lost Revenue); add ids to green.json at DONE.
-3. G15 decided (STREAMS §G15): green.json regressions block merge; 20/20 only at deploy (PG_GUARDS_STRICT=1).
+1. Master: merge the cleanup PR, then launch wave 1 (pda/1 2.16→2.18 · billing/2 4.1b p2→4.19→4.20, migration 0038) with fresh briefs.
+2. Integration lane: S18 spec on lane/3-s18 (assigned 06:02Z); S1/S2 RED on unbuilt rows — add ids to tests/scenarios/green.json at DONE.
+3. Stream A first slice after 2.16 part 1a-4: `2.9 part 2 (fix)` (ledger expiry_date) then 2.16 part 1b (PWA, offline queue).
