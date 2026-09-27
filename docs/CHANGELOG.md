@@ -4,6 +4,13 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — doc 31 §3-3 v4.2: audit hash over the full row content (hash_version, v1 kept for old rows, external anchor) — D-194 (2026-09-27)
+
+- **Why:** SCR-AUDIT-CHAIN-01 delta 2 (deep review M2) needed the GM's amendment of the package rule before any migration; the GM delivered the v4.2 text and it is applied verbatim.
+- **Change:** `docs/package/31-Audit-and-Traceability.md` header 4.1 → 4.2; the v4.2 blockquote + table inserted in §3-3 after the v4.1 note; the old formula row marked v1 (rows with `hash_version = 1`); the trigger heading says the v2 text lands with the migration in 13B-2 · `docs/notes/SCR-AUDIT-CHAIN-01.md` rows 2–3 cite v4.2 (migration after the pre-migration review; anchor deferrable) · `docs/DECISION_LOG.md` D-194 · `docs/state/blockers.md` G8 anchor line.
+- **Verified:** the v2 key list equals the 13B-2 `platform.audit_log` columns minus `id`/`ip_address`/`device_id`/`user_agent`/`row_hash` plus `hash_version`.
+- Model: fable (consultant session) · Delegated: none · Review: n/a (package-document amendment, GM text) · tokens: ~15k.
+
 ## X part 5c — one image, `api` + `worker` compose services, gate ⑦ image build + compose smoke in CI (ADR-0006 §1) (2026-09-27)
 
 - **Why:** ADR-0006 §1 / backlog row X part 5: "a Dockerfile and api + worker services in compose; a gate ⑦ image build exists in CI" (doc 36 §4-3 ⑦: images built for linux/arm64). Third of four parts; 5d (S1/S2 over HTTP) follows.
