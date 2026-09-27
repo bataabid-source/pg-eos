@@ -307,8 +307,12 @@ jobs:
         run: docker compose up -d postgres
       - name: Apply the schema inside the image (doc 42 §8.1 shape, never --recreate)
         run: docker compose run --rm -e PGUSER=postgres api bash database/schema/apply.sh
-      - name: Start api and worker (waits on the api HEALTHCHECK)
-        run: docker compose up -d --wait --wait-timeout "$COMPOSE_WAIT_TIMEOUT_SECONDS" --no-build api worker
+      - name: Start api (waits on the api HEALTHCHECK)
+        run: docker compose up -d --wait --wait-timeout "$COMPOSE_WAIT_TIMEOUT_SECONDS" --no-build api
+      # Compose refuses --wait on a service without a healthcheck (worker: disable: true); the worker's
+      # liveness is proven by the log grep and the `docker inspect … true 0` step below.
+      - name: Start worker
+        run: docker compose up -d --no-build worker
       - name: GET /health answers 200
         run: curl -fsS http://127.0.0.1:3000/health
       - name: The worker's relay loop started (bounded retry)
