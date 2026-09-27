@@ -6,12 +6,18 @@
 // given registry. index.ts calls `registerRoutes(registry)` once, at import time, on the shared
 // `registry` singleton.
 //
+// billing/{dimensions,accounting-periods,post-journal} register ahead of their handlers: the
+// contract-first wave (ADR-0005 §3) freezes them before lane 2 builds WBS 4.1b part 2, 4.19, 4.20.
+//
 // Modules with no `ROUTES` export today (never invented here — brief default, closing report):
-//   - billing/*            — no modules/billing/api/ layer exists yet (domain/infrastructure only).
+//   - billing/chart-of-accounts, billing/gl-account-change-requests — no api layer yet.
 //   - sales/customer-profile, sales/resolve-price — no handlers.ts exists yet (composition.ts's
 //     own header comment: "No API endpoint exists yet").
 
 import type { ContractRegistry } from './_shared/registry.js';
+import { ROUTES as BILLING_ACCOUNTING_PERIODS_ROUTES } from './billing/accounting-periods.js';
+import { ROUTES as BILLING_DIMENSIONS_ROUTES } from './billing/dimensions.js';
+import { ROUTES as BILLING_POST_JOURNAL_ROUTES } from './billing/post-journal.js';
 import { ROUTES as CATALOG_MAINTAIN_PRICE_LIST_ROUTES } from './catalog/maintain-price-list.js';
 import { ROUTES as FLEET_ASSERT_VEHICLE_ASSIGNABLE_ROUTES } from './fleet/assert-vehicle-assignable.js';
 import { ROUTES as FLEET_REGISTER_VEHICLE_ROUTES } from './fleet/register-vehicle.js';
@@ -41,6 +47,9 @@ import { ROUTES as WMS_TAKE_OCCUPANCY_SNAPSHOT_ROUTES } from './wms/take-occupan
  * directories). Exported so tests can assert the exact fixture count without re-scanning modules/
  * at test time. */
 export const ALL_ROUTES = [
+  ...BILLING_ACCOUNTING_PERIODS_ROUTES,
+  ...BILLING_DIMENSIONS_ROUTES,
+  ...BILLING_POST_JOURNAL_ROUTES,
   ...CATALOG_MAINTAIN_PRICE_LIST_ROUTES,
   ...FLEET_ASSERT_VEHICLE_ASSIGNABLE_ROUTES,
   ...FLEET_REGISTER_VEHICLE_ROUTES,
