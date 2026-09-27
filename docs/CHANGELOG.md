@@ -11,8 +11,9 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 - **Tests:** `tests/ops/x-part-6.feature` + `tests/ops/tests/x-part-6.test.ts` (pg-tester) — scope on temp repos (docs-only, tests/, renames out of domain/, unresolvable base), `g16_decide` incl. strict, `mutation-all.sh nosuch`.
 - **Also:** locks `pda` (lane 1) and `billing` (lane 2) released (no session; build lanes frozen) · `docs/notes/GM-2026-09-27-m2-directive.md` (GM-approved corrections to the M2 brief).
 - **Verified locally:** `G16_MODULES= pnpm guards:run` 21 s, all blocking green, G16 "not run"; `G16_MODULES=fleet` 74 s, fleet 89.09; ⑤ on this PR, the ⑦ image and its size, and nightly's nine lines are recorded in the next commit's line.
-- **Default recorded:** `packages/*` changes are out of the per-PR scope (②/③ catch a broken import; nightly scores every module).
-- Model: Master session · Delegated: pg-tester (sonnet), pg-reviewer (opus) · Review: PASS(7 findings, 2 rounds) · tokens: ~110k.
+- **Defaults recorded:** scope widened past the GM's "domain/ فقط" to `tests/`, `vitest.config.ts`, `stryker.config.json`: the score is a function of them (CLAUDE.md · TESTING, a G16 failure blocks merge); a docs-only PR is unaffected (⑤ 1.5 min on PR #156) · `packages/*` out of the per-PR scope (②/③ catch a broken import; nightly scores every module).
+- **Review (pg-reviewer, opus):** round 1 FAIL(7: 3 blocking: rename fail-open, tests/ out of scope, no test) → all applied · round 2 FAIL(3: 1 blocking, the Review trailer count, fixed; nit, this defaults line, fixed; nit, `git diff` failing on a base with no merge base → `X part 6 part 2`); PASS subset = every file. Merged by squash with the reviewed message (force-push denied in the Master container), so main still gets one commit.
+- Model: Master session · Delegated: pg-tester (sonnet), pg-reviewer (opus) · Review: PASS(10 findings, 2 rounds) · tokens: ~150k.
 
 ## X — Master handover: «الماستر M2 — طابور الدمج والموجة 1» appointed, «تقييم المشروع والمسار القادم» stands down after PR #153 (D-195, 2026-09-27)
 
