@@ -21,12 +21,18 @@ jobs:
       contents: read
       pull-requests: write
       id-token: write
+    # Without the secret the job still starts (a job-level `if` cannot read secrets), so every step
+    # is gated on it: no secret = two skipped steps and a green job, never a red check on each PR.
+    env:
+      HAS_REVIEW_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN != '' }}
     steps:
       - uses: actions/checkout@v4
+        if: ${{ env.HAS_REVIEW_TOKEN == 'true' }}
         with:
           fetch-depth: 1
 
       - uses: anthropics/claude-code-action@v1
+        if: ${{ env.HAS_REVIEW_TOKEN == 'true' }}
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: |
