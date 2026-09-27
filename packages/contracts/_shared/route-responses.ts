@@ -61,11 +61,10 @@ export function writeErrorResponses(options: ErrorResponseOptions = {}): RouteRe
 
 /** A read-only (GET, no Idempotency-Key) route's response set: no 409 — that status is doc 40
  * §A4's write-conflict status, and a GET here never runs the idempotency machinery that could
- * raise it; no 400 either (X part 12 (a)+(b), brief decision 3 — 400 is the host's own
- * missing-Idempotency-Key / bad-body status, and Fastify treats GET as bodyless), so the host's
- * own `withHostResponses` is the sole source of a GET route's 400. */
+ * raise it. */
 export function readErrorResponses(options: ErrorResponseOptions = {}): RouteResponses {
   const responses: RouteResponses = {
+    [PROBLEM_STATUS.BAD_REQUEST]: problemResponse('Bad Request'),
     [PROBLEM_STATUS.UNPROCESSABLE_ENTITY]: problemResponse('Unprocessable Entity'),
     [HTTP_STATUS_INTERNAL_SERVER_ERROR]: problemResponse('Internal Server Error'),
   };

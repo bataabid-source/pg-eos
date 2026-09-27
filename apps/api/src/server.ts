@@ -1,10 +1,11 @@
 // apps/api/src/server.ts — X part 5a (ADR-0006 §1, §3). The Fastify host.
 //
 // Pipeline for every mounted route (brief, pinned order): authenticate (session → subject, 401 on
-// anything but an active internal user) → 501 for the UNIMPLEMENTED_ROUTES /
-// NOT_MOUNTED_UNTIL_2_16_PART_1A_5 entries → entity scope (X-Entity-Id, 403/422) → the handler with
-// `{ headers (no authorization), body (GET: query), ctx }`. The ctx is derived only from the session
-// and the resolved entity — never from the body or a header — and lives only in the request.
+// anything but an active internal user) → 501 for a contract-first route without a handlers file
+// (registry mark, X part 12) and the NOT_MOUNTED_UNTIL_2_16_PART_1A_5 entries → entity scope
+// (X-Entity-Id, 403/422) → the handler with `{ headers (no authorization), body (GET: query),
+// ctx }`. The ctx is derived only from the session and the resolved entity — never from the body
+// or a header — and lives only in the request.
 // Idempotency-Key and Zod validation stay inside the handlers.
 
 import Fastify, {

@@ -165,6 +165,15 @@ describe('Scenario: every ALL_ROUTES entry carries the host statuses', () => {
       for (const status of BODY_CARRYING_ONLY_HOST_STATUSES) {
         if (isBodyCarrying) {
           expect(isProblemBody(hosted.responses[status])).toBe(true);
+        } else if (status === PROBLEM_STATUS.BAD_REQUEST) {
+          // GET: the HOST never adds 400 (brief decision 3 fixes 413/415 as the only statuses a
+          // GET is exempt from; 400 is simply not in the host's add-list for GET). Some real GET
+          // routes already declare their OWN 400 through readErrorResponses (their handlers map a
+          // Zod contract failure to 400 themselves — e.g.
+          // modules/fleet/api/assert-vehicle-assignable/handlers.ts) — withHostResponses must
+          // leave that untouched, never add one where the route had none, never remove one the
+          // route already had.
+          expect(hosted.responses[status]).toBe(route.responses[status]);
         } else {
           expect(hosted.responses[status]).toBeUndefined();
         }
