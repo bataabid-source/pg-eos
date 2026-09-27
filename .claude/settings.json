@@ -66,6 +66,18 @@
         ]
       }
     ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/post-edit-check.sh",
+            "timeout": 180
+          }
+        ]
+      }
+    ],
     "Stop": [
       {
         "hooks": [

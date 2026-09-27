@@ -1,0 +1,53 @@
+# PG-EOS · automated PR review (GM directive 2026-09-27 "نفذ الكل بنفسك").
+# anthropics/claude-code-action reviews every pull request against CLAUDE.md and the doc 36 §5-4
+# checklist and posts its findings as PR comments. It is advisory: merge still needs CI gates ①–⑥
+# green and the human review required by branch protection on main.
+# Inert until the repository secret ANTHROPIC_API_KEY exists (Settings → Secrets → Actions).
+name: Claude PR review
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+concurrency:
+  group: claude-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    if: ${{ !github.event.pull_request.draft }}
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      pull-requests: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ github.event.pull_request.number }}
+
+            You are pg-reviewer for this pull request. Read CLAUDE.md first; every rule there is
+            binding and is quoted, never softened. Review the diff against:
+            - ARCHITECTURE: hexagonal module boundaries, withContext() for every db.* call, RLS,
+              outbox in the same transaction, Idempotency-Key on every write endpoint.
+            - AGENT CONSTRAINTS: no `any`, `@ts-ignore`, `eslint-disable`; XState for state
+              transitions; i18n keys not embedded strings; no magic numbers; pino not console.log;
+              injected clock/generator in domain/.
+            - TESTING: RED-first evidence, no weakened test, property tests on invariants.
+            - GIT: first line `type(WBS): description`, Review trailer on feat/fix, no secrets.
+            - Doc 36 §5-4 ten-point review checklist; "minor" findings are still findings.
+
+            The PR branch is already checked out in the current working directory.
+            Use `gh pr comment` for one top-level verdict: PASS(<n> findings) or FAIL(<n> findings),
+            each finding numbered with file:line and the rule it breaks.
+            Use `mcp__github_inline_comment__create_inline_comment` (with `confirmed: true`) for
+            each file-specific finding. Only post GitHub comments — no other output.
+          claude_args: |
+            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*)"

@@ -314,6 +314,57 @@ expect "gov-ratio: 1 old-form trailer excluded"     0 "$(printf '%s' "$GR_OUT" |
 expect "gov-ratio: chore(X)/docs(X) = 2 today"      0 "$(printf '%s' "$GR_OUT" | grep -q ': 2$'; echo $?)"
 expect "gov-ratio: unknown ref exits 2"             2 "$(cd "$GR" && GOV_BUDGET_REF=no-such-ref bash "$REPO/scripts/gov-ratio.sh" >/dev/null 2>&1; echo $?)"
 
+# ---- post-edit-check.sh (GM 2026-09-27 "نفذ الكل بنفسك"): lint + typecheck of the touched package after
+# every Edit/Write; exit 2 = findings fed back, exit 0 = nothing to report. Test seams PEC_LINT_CMD /
+# PEC_TYPECHECK_CMD replace eslint / `pnpm run typecheck`; each stub records that it ran.
+echo "post-edit-check.sh"
+PEC="$TMP/pec"; mkdir -p "$PEC/modules/wms/domain" "$PEC/bin"
+printf '{ "name": "@pg-eos/wms" }\n' > "$PEC/modules/wms/package.json"
+printf 'export const x = 1;\n' > "$PEC/modules/wms/domain/x.ts"
+printf 'export const r = 1;\n' > "$PEC/root-level.ts"
+printf '# doc\n' > "$PEC/README.md"
+printf '#!/usr/bin/env bash\necho "$1" >> "%s/lint.ran"; exit "${PEC_LINT_RC:-0}"\n' "$PEC" > "$PEC/bin/lint"
+printf '#!/usr/bin/env bash\necho "$1" >> "%s/tc.ran"; exit "${PEC_TC_RC:-0}"\n' "$PEC" > "$PEC/bin/tc"
+pec() { # pec <path> <lint-rc> <tc-rc> → exit code; stub run markers in $PEC/{lint,tc}.ran
+  rm -f "$PEC/lint.ran" "$PEC/tc.ran"
+  printf '{"tool_name":"Edit","tool_input":{"file_path":"%s"}}' "$1" \
+    | CLAUDE_PROJECT_DIR="$PEC" PEC_LINT_CMD="bash $PEC/bin/lint" PEC_TYPECHECK_CMD="bash $PEC/bin/tc" PEC_LINT_RC="$2" PEC_TC_RC="$3" \
+      bash "$REPO/.claude/hooks/post-edit-check.sh" 2>/dev/null; echo $?
+}
+expect "ts file, lint + typecheck green → 0"      0 "$(pec modules/wms/domain/x.ts 0 0)"
+expect "  … lint stub ran on the file"            0 "$(grep -qx 'modules/wms/domain/x.ts' "$PEC/lint.ran"; echo $?)"
+expect "  … typecheck stub ran on the package"    0 "$(grep -qx 'modules/wms' "$PEC/tc.ran"; echo $?)"
+expect "ts file, lint red → 2"                    2 "$(pec modules/wms/domain/x.ts 1 0)"
+expect "ts file, typecheck red → 2"               2 "$(pec modules/wms/domain/x.ts 0 1)"
+expect "absolute path normalised"                 0 "$(pec "$PEC/modules/wms/domain/x.ts" 0 0)"
+expect "markdown file → 0 without running"        0 "$(pec README.md 1 1)"
+expect "  … no stub ran for markdown"             1 "$([ -f "$PEC/lint.ran" ] || [ -f "$PEC/tc.ran" ]; echo $?)"
+expect "missing ts file → 0"                      0 "$(pec modules/wms/domain/absent.ts 1 1)"
+expect "root-level ts: lint only, no package"     0 "$(pec root-level.ts 0 1)"
+expect "  … typecheck stub not run at root"       1 "$([ -f "$PEC/tc.ran" ]; echo $?)"
+expect "empty payload → 0"                        0 "$(printf '{}' | CLAUDE_PROJECT_DIR="$PEC" bash "$REPO/.claude/hooks/post-edit-check.sh" 2>/dev/null; echo $?)"
+
+# ---- pre-commit gate ⓒ (GM 2026-09-27): gitleaks on the staged content, before the docs-only exit;
+# blocking only when gitleaks is installed (CI gate ⑥ always blocks). A docs-only fixture keeps
+# gates ①–③ (pnpm) out of the test.
+echo "pre-commit — gate ⓒ gitleaks (staged)"
+GLR="$TMP/glr"; mkdir -p "$GLR/bin"
+( cd "$GLR" && git init -q -b main . && printf 'note\n' > note.md && git add note.md ) >/dev/null 2>&1
+printf '#!/usr/bin/env bash\nexit "${GL_RC:-0}"\n' > "$GLR/bin/gitleaks"; chmod +x "$GLR/bin/gitleaks"
+# PATH without any directory that ships a gitleaks binary (keeps git, bash, coreutils reachable).
+NO_GL_PATH="$(printf '%s' "$PATH" | tr ':' '\n' | while IFS= read -r d; do
+  [ -n "$d" ] || continue
+  if [ -x "$d/gitleaks" ] || [ -x "$d/gitleaks.exe" ]; then continue; fi
+  printf '%s:' "$d"
+done)"
+pcg() { # pcg <gitleaks rc | "none"> → pre-commit exit code
+  if [ "$1" = none ]; then ( cd "$GLR" && PATH="${NO_GL_PATH%:}" bash "$REPO/.githooks/pre-commit" >/dev/null 2>&1 ); echo $?
+  else ( cd "$GLR" && PATH="$GLR/bin:$PATH" GL_RC="$1" bash "$REPO/.githooks/pre-commit" >/dev/null 2>&1 ); echo $?; fi
+}
+expect "gitleaks clean → docs-only commit accepted"   0 "$(pcg 0)"
+expect "gitleaks finds a secret → refused"            1 "$(pcg 1)"
+expect "gitleaks not installed → warn, not refused"   0 "$(pcg none)"
+
 echo
 echo "hooks tests: $pass passed, $failn failed"
 [ "$failn" -eq 0 ]
