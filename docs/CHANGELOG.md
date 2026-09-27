@@ -4,6 +4,13 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — Master handover: «الماستر M2 — طابور الدمج والموجة 1» appointed, «تقييم المشروع والمسار القادم» stands down after PR #153 (D-195, 2026-09-27)
+
+- **Why:** the GM asked for a replacement Master and delegated the naming and the timing to the consultant ("قم بالتسمية و نفذ القرار في الوقت الصحيح وبشكل سليم"); one Master at a time, handed over at a clean point (no PR mid-queue).
+- **Change:** D-195 in `docs/DECISION_LOG.md`; `docs/state/header.md` gains the Master line (session, next migration number 0040); the opening brief of the new session is the ten-step queue of the final audit — no new rule, no code.
+- **Sequence:** the old Master merges its last queued PR (#153, the carry of #151), merges this record, reports, opens no new task; the GM opens the new cloud session with the brief and archives the old one; the consultant verifies the first report.
+- Model: fable (consultant session) · Delegated: none · Review: n/a (governance record) · tokens: ~8k.
+
 ## X part 5c — one image, `api` + `worker` compose services, gate ⑦ image build + compose smoke in CI (ADR-0006 §1) (2026-09-27)
 
 - **Why:** ADR-0006 §1 / backlog row X part 5: "a Dockerfile and api + worker services in compose; a gate ⑦ image build exists in CI" (doc 36 §4-3 ⑦: images built for linux/arm64). Third of four parts; 5d (S1/S2 over HTTP) follows.

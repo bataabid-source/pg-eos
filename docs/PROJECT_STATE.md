@@ -6,6 +6,7 @@ Done so far: phase 0 closed · phase 1 done except 1.11 (BLOCKED D-178) · phase
 Pilot: Tier 0 = local Docker postgres:16 (D-129), seed 019 + synthetic data (D-127); doc 38 v4.7 (154 rows).
 Schema: migrations 0001–0037 + 0039 applied (0022 withdrawn); 0038 issued to lane 2 for 4.1b part 2; next free number 0040.
 Sessions: remote containers boot Postgres from .claude/hooks/session-start.sh; PG_APP_USER is required (ADR-0005 §7).
+Master: «الماستر M2 — طابور الدمج والموجة 1» (cloud, D-195); «تقييم المشروع والمسار القادم» stood down after PR #153. Next migration 0040.
 Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewer (opus); bookkeeping by scripts/scribe.mjs (state, locks, CHANGELOG template).
 
 ## Lanes (tasks/LANE_LOCKS.md)
@@ -13,11 +14,11 @@ Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewe
 - lane 2 · billing · 4.1a · since 2026-09-25
 
 ## Last 5 feat/fix commits (git log)
-- `3383174` feat(X): apps/worker — the outbox relay as the non-superuser service role pgeos_worker, migration 0039 (X part 5b, ADR-0006 §1)
+- `70409de` fix(X): gate ⑦ waits on the api healthcheck only — Compose refuses --wait on the worker (no healthcheck), proven by the first ⑦ run on PR #152 (X pa
+- `6aeaf44` feat(X): one image, api + worker compose services, gate ⑦ arm64 build + compose smoke in CI, role passwords from the host (X part 5c, ADR-0006 §1)
+- `e3ff04c` feat(X): apps/worker — the outbox relay as the non-superuser service role pgeos_worker, migration 0039 (X part 5b, ADR-0006 §1)
 - `f5935ee` feat(X): apps/api — the Fastify host: every registered operation mounted, session → ctx guard, X-Entity-Id scope, 501 for unbuilt rows (X part 5a, A
 - `3146b60` feat(X): identity verifySessionSubject, ALL_ROUTES exported by name, api-kit comment — Master pre-task for X part 5a
-- `51a5789` feat(2.16): PDA OTP login screen, part 1a-4
-- `8917275` feat(2.16): OTP login fix-up — allowed-message wording + response-shape tests (part 1a-3b)
 
 ## Blockers
 - G16 runnable (Stryker per module, all ≥ 75, packages built first); G15 runnable per STREAMS §G15 (green.json); G17 NOT RUNNABLE; deploy.sh waits on 0.6b.
