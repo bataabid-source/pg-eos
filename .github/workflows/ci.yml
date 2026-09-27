@@ -95,6 +95,12 @@ jobs:
         run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
       - name: Apply schema (creates pgeos_app via migration 0007)
         run: bash database/schema/apply.sh --recreate
+      # The service container prints its whole server log when the job ends; with the default
+      # log_min_messages every negative test's ERROR + STATEMENT lands there (~5,000 lines on
+      # 2026-09-27), pushing the test runner's own output out of the reachable log tail. vitest
+      # already prints every failing assertion, so the server log carries nothing CI needs.
+      - name: Quiet the service container's error log (vitest reports the failures)
+        run: psql -v ON_ERROR_STOP=1 -c "alter system set log_min_messages = 'fatal'" -c "alter system set log_min_error_statement = 'panic'" -c "select pg_reload_conf()"
       # Default taken: gates ② (unit) and ③ (integration) share this one job because the
       # workspace's `pnpm test` (turbo run test) does not separate unit from integration test
       # tasks — a red in either blocks merge, same as running them as two jobs would. turbo's
@@ -163,6 +169,12 @@ jobs:
         run: psql --version | grep -q ' 16\.'
       - run: bash database/schema/apply.sh --recreate
       # G14 (test:isolation) connects as pgeos_app, per PG_APP_USER above.
+      # The service container prints its whole server log when the job ends; with the default
+      # log_min_messages every negative test's ERROR + STATEMENT lands there (~5,000 lines on
+      # 2026-09-27), pushing the test runner's own output out of the reachable log tail. vitest
+      # already prints every failing assertion, so the server log carries nothing CI needs.
+      - name: Quiet the service container's error log (vitest reports the failures)
+        run: psql -v ON_ERROR_STOP=1 -c "alter system set log_min_messages = 'fatal'" -c "alter system set log_min_error_statement = 'panic'" -c "select pg_reload_conf()"
       - run: pnpm guards:run
 
   security:
