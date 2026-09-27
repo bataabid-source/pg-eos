@@ -4,6 +4,14 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X part 5a part 2 + X part 5b part 3 — host HEAD-route assertion restored, worker test constants, server.test seeds its own session threshold (2026-09-27)
+
+- **Why:** the two open review nits of X part 5a / 5b (test-only rows), plus a test-order dependency found while running them: `apps/api/tests/server.test.ts` read `identity.session.lifetime_minutes` without seeding it and passed in CI only when another package's suite had left the row behind.
+- **Change (pg-tester):** `apps/api/tests/route-table.unit.test.ts` — `await app.ready()`, control `hasRoute(GET …/suggest-location)` true, `hasRoute(HEAD …)` false (proven RED with `exposeHeadRoutes: true`, source restored byte-identical) · `apps/api/features/x-part-5a.feature` step restored · `apps/worker/tests/relay-loop.test.ts` `DEFAULT_PG_PORT` / `POOL_MAX_TEST` · `apps/api/tests/server.test.ts` seed-only fixture row (value 43, as `packages/identity/tests/session.test.ts`), never deleted.
+- **Verified:** api 17/17 twice · worker 8/8 · tsc + eslint (repo root) clean; `git diff apps/api/src` empty.
+- **Recorded:** a package-local `eslint .` in apps/* fails with `scandir 'modules'` (root config assumes repo-root cwd) — the known Master-batch "eslint cwd bug".
+- Model: Master session · Delegated: pg-tester (sonnet) · Review: n/a (test-only; closes review nits) · tokens: ~120k tester.
+
 ## X — lock claimed: `billing` → lane 2 (WBS 4.1b, build lane B, wave 1) (Master M2, 2026-09-27)
 
 - **Why:** the GM opened lane B (billing 4.1b part 2 → 4.19 → 4.20) and the integration lane (S3–S20 RED, tests only, no lock) on condition A (PR #156) — "موافق، تم فتح المسارين — سجّل القفل وتابع".

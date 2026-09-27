@@ -412,18 +412,16 @@ let entityB = '';
 // platform.thresholds.identity.session.lifetime_minutes with no embedded default (CLAUDE.md: no
 // magic numbers; packages/identity/src/session.ts). platform.thresholds has no production seed row
 // for it (known schema gap — packages/identity/tests/session.test.ts's own header) — this suite
-// seeds its own fixture row the same way that file does: an idempotent
-// `insert ... on conflict (key) do nothing`, keyed on the same production key, with a deliberately
-// non-round fixture value so no plausible hardcoded default could accidentally satisfy any lifetime
-// assertion. Unlike session.test.ts, this file never shares that key with a sibling suite running in
-// the same process (a different package's test run), so it is safe to delete the row in afterAll —
-// but only when THIS insert is the one that actually created it (`returning key`), so a row another
-// suite already owns is never touched.
+// seeds its own fixture row exactly the way that file does: an idempotent
+// `insert ... on conflict (key) do nothing` on the same production key with the same fixture value,
+// SEED-ONLY, NEVER DELETE — a concurrent run of packages/identity's suites (e.g. a local turbo run
+// without --concurrency=1) may find this row already there via the same on-conflict no-op and rely
+// on it surviving for their own whole run, so deleting it here could break them out from under them
+// (packages/identity/tests/session.test.ts's own header documents the identical reasoning).
 const SESSION_LIFETIME_MINUTES_KEY = 'identity.session.lifetime_minutes';
 const SESSION_LIFETIME_FIXTURE_VALUE = '43';
 const SESSION_LIFETIME_FIXTURE_UNIT = 'minutes';
 const SESSION_LIFETIME_FIXTURE_DESCRIPTION_AR = 'عمر الجلسة بالدقائق — صف اختباري (X part 5a server.test.ts)';
-let sessionLifetimeThresholdInsertedByThisFile = false;
 
 interface FixtureUser {
   readonly id: string;
@@ -475,11 +473,10 @@ beforeAll(async () => {
   entityA = first.id;
   entityB = second.id;
 
-  const thresholdInsert: QueryResult<{ key: string }> = await pool.query(
+  await pool.query(
     `insert into platform.thresholds (key, value, unit, description_ar, changed_by)
      values ($1, $2, $3, $4, $5)
-     on conflict (key) do nothing
-     returning key`,
+     on conflict (key) do nothing`,
     [
       SESSION_LIFETIME_MINUTES_KEY,
       SESSION_LIFETIME_FIXTURE_VALUE,
@@ -488,7 +485,6 @@ beforeAll(async () => {
       randomUUID(),
     ],
   );
-  sessionLifetimeThresholdInsertedByThisFile = thresholdInsert.rows.length > 0;
 });
 
 afterAll(async () => {
@@ -498,9 +494,8 @@ afterAll(async () => {
     // identity.sessions.user_id is `on delete cascade` — session rows go with the users.
     await pool.query('delete from identity.users where id = any($1::uuid[])', [fixtureUserIds]);
   }
-  if (sessionLifetimeThresholdInsertedByThisFile) {
-    await pool.query('delete from platform.thresholds where key = $1', [SESSION_LIFETIME_MINUTES_KEY]);
-  }
+  // SEED-ONLY, NEVER DELETE (see the fixture comment above) — platform.thresholds row is never
+  // removed here.
   await pool.end();
 });
 
