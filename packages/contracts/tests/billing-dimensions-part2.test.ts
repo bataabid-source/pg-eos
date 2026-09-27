@@ -17,8 +17,8 @@ import {
   DimensionValueInputSchema,
   LineDimensionInputSchema,
   ROUTES as BILLING_DIMENSIONS_ROUTES,
-} from '@pg-eos/contracts/billing/dimensions';
-import { registry } from '@pg-eos/contracts';
+} from '../billing/dimensions.js';
+import { registry } from '../index.js';
 
 const VALID_ENTITY_ID = '00000000-0000-4000-8000-00000004b1a1';
 const VALID_DIMENSION_TYPE_ID = '00000000-0000-4000-8000-00000004b1a2';
