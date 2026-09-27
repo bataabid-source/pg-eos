@@ -23,7 +23,8 @@
     "state:check": "node scripts/scribe.mjs --check",
     "test:hooks": "bash tests/hooks/run.sh",
     "test:isolation": "turbo run test:isolation --filter=@pg-eos/isolation-tests",
-    "test:ops": "turbo run test:ops --filter=@pg-eos/ops-tests"
+    "test:ops": "turbo run test:ops --filter=@pg-eos/ops-tests",
+    "test:scenarios": "pnpm -s --filter @pg-eos/scenarios test:scenarios"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

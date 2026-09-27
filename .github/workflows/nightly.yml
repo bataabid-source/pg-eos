@@ -64,6 +64,7 @@ jobs:
       - name: G15 — doc 40 Part E scenarios S1–S20 (when the runner exists)
         run: |
           if node -e "process.exit(require('./package.json').scripts['test:scenarios'] ? 0 : 1)"; then
+            pnpm exec turbo run build --filter=@pg-eos/scenarios... --output-logs=errors-only
             pnpm -s test:scenarios
           else
             echo "test:scenarios not present yet — G15 stays NOT RUNNABLE (docs/STREAMS.md §Enablement 3)"
