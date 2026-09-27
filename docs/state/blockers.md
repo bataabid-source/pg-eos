@@ -1,5 +1,5 @@
-G16 runnable (Stryker per module, all ≥ 75 on 2026-09-26); G15/G17 NOT RUNNABLE until Playwright / trace screen; deploy.sh waits on 0.6b (D-129).
-S1–S20 0/20 — no Playwright yet; integration lane bootstraps it (STREAMS §Enablement 3).
+G16 runnable (Stryker per module, all ≥ 75, packages built first); G15 runnable per STREAMS §G15 (green.json); G17 NOT RUNNABLE; deploy.sh waits on 0.6b.
+S1–S20 2/20 present, 0/20 passed (S1/S2 RED on unbuilt rows: 2.16/2.18, 4.3, 3.4, VAS, Lost Revenue); S18 next (integration lane).
 The "known red" set (platform evaluate-alerts/schema-invariants/audit-chain, wms T9) ran green 2026-09-26 under coverage gates; CI is the arbiter.
 Identity threshold test race under turbo (X part 3); superuser-role catalog test deferred (X part 2) — MASTER_BACKLOG.
 Open G-01: G8 anchor storage (D-115); imile entity_id/CHECKs/outbox; 2.15 space_reservations.qty CHECK; 3.1 shift_groups.vehicle_id.
