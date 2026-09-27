@@ -93,6 +93,8 @@ result as `<branch>-r1` (then `-r2`, … on repeat) with a fresh PR that superse
 **Exercised:** PRs #10–#24, 2026-09-24, including three `-rN` rebase chains (lane/1, twice; lane/2
 once; lane/3 once).
 
+**After every rebase merge (D-173):** the merge rewrote the hashes of the merged commits, so the `docs/PROJECT_STATE.md` generated on the branch is stale on `main` the moment it lands. The next commit on any branch based on the new `main` runs `node scripts/scribe.mjs --write` and commits the result (pre-commit gate ⓒ refuses a stale file). Root cause and permanent fix: backlog X part 9 (`lastDone()` reads `origin/main`, not `HEAD`). Recorded 2026-09-27 (D-193).
+
 ## 4. Backup
 
 ```bash
