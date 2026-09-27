@@ -20,8 +20,8 @@ import {
   ReopenPeriodInputSchema,
   CreateFiscalYearInputSchema,
   ROUTES as BILLING_ACCOUNTING_PERIODS_ROUTES,
-} from '@pg-eos/contracts/billing/accounting-periods';
-import { registry } from '@pg-eos/contracts';
+} from '../billing/accounting-periods.js';
+import { registry } from '../index.js';
 
 const VALID_ENTITY_ID = '00000000-0000-4000-8000-0000000419a1';
 const VALID_FISCAL_YEAR_ID = '00000000-0000-4000-8000-0000000419a2';

@@ -21,8 +21,8 @@ import {
   PostJournalInputSchema,
   ReverseJournalInputSchema,
   ROUTES as BILLING_POST_JOURNAL_ROUTES,
-} from '@pg-eos/contracts/billing/post-journal';
-import { registry } from '@pg-eos/contracts';
+} from '../billing/post-journal.js';
+import { registry } from '../index.js';
 
 const VALID_ACCOUNT_ID_1 = '00000000-0000-4000-8000-00000004201a';
 const VALID_ACCOUNT_ID_2 = '00000000-0000-4000-8000-00000004201b';
