@@ -10,7 +10,7 @@ Master: «الماستر M2 — طابور الدمج والموجة 1» (cloud,
 Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewer (opus); bookkeeping by scripts/scribe.mjs (state, locks, CHANGELOG template).
 
 ## Lanes (tasks/LANE_LOCKS.md)
-- (no lock held)
+- lane 2 · billing · 4.1b · since 2026-09-27
 
 ## Last 5 feat/fix commits (git log)
 - `70409de` fix(X): gate ⑦ waits on the api healthcheck only — Compose refuses --wait on the worker (no healthcheck), proven by the first ⑦ run on PR #152 (X pa

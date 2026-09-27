@@ -4,6 +4,12 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — lock claimed: `billing` → lane 2 (WBS 4.1b, build lane B, wave 1) (Master M2, 2026-09-27)
+
+- **Why:** the GM opened lane B (billing 4.1b part 2 → 4.19 → 4.20) and the integration lane (S3–S20 RED, tests only, no lock) on condition A (PR #156) — "موافق، تم فتح المسارين — سجّل القفل وتابع".
+- **Change:** `node scripts/scribe.mjs --claim billing 2 4.1b` (doc-38 row 4.1b; the task moves to 4.19 / 4.20 by `--release` + `--claim` at each slice merge) · `docs/PROJECT_STATE.md` regenerated.
+- Model: Master session · Delegated: none · Review: n/a (lock row) · tokens: ~2k.
+
 ## X — wave-1 lane B prep: 4.1b part 2 brief, builder lines on 4.19/4.20, migrations 0040/0041 issued (Master M2, 2026-09-27)
 
 - **Why:** GM directive 2026-09-27 (condition A): the lane-opening request carries a ready brief, `pg-builder-core`, migration issued.
