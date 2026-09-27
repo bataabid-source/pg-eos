@@ -14,3 +14,8 @@ service role `pgeos_worker` (migration `0039_M_worker-role-outbox-relay.sql`).
 - Single instance only: `relayOnce` takes no row lock (backlog "X part 5b part 2").
 - Stop: SIGTERM/SIGINT finishes the in-flight tick, closes the pool and exits 0.
 - Logs: pino (`@pg-eos/logger`), one line per tick.
+
+Container (X part 5c): compose service `worker` runs the api's image (`pg-eos/app:local`, `apps/api/Dockerfile`)
+with `node --import tsx src/main.ts` from `/app/apps/worker`, one replica, `init: true`, stop on SIGTERM.
+Schema first: `docker compose -f infra/docker/docker-compose.yml run --rm -e PGUSER=postgres api bash database/schema/apply.sh`;
+then `docker compose -f infra/docker/docker-compose.yml up -d api worker`. Password: `scripts/set-role-passwords.sh`.

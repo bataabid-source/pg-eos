@@ -13,11 +13,11 @@ Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewe
 - lane 2 · billing · 4.1a · since 2026-09-25
 
 ## Last 5 feat/fix commits (git log)
+- `3383174` feat(X): apps/worker — the outbox relay as the non-superuser service role pgeos_worker, migration 0039 (X part 5b, ADR-0006 §1)
 - `f5935ee` feat(X): apps/api — the Fastify host: every registered operation mounted, session → ctx guard, X-Entity-Id scope, 501 for unbuilt rows (X part 5a, A
 - `3146b60` feat(X): identity verifySessionSubject, ALL_ROUTES exported by name, api-kit comment — Master pre-task for X part 5a
 - `51a5789` feat(2.16): PDA OTP login screen, part 1a-4
 - `8917275` feat(2.16): OTP login fix-up — allowed-message wording + response-shape tests (part 1a-3b)
-- `8e18c06` fix(X): G16 builds packages/* before Stryker so workspace imports resolve in CI
 
 ## Blockers
 - G16 runnable (Stryker per module, all ≥ 75, packages built first); G15 runnable per STREAMS §G15 (green.json); G17 NOT RUNNABLE; deploy.sh waits on 0.6b.
@@ -32,6 +32,6 @@ Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewe
 - Master batch (frozen paths): entityId on WithContextCtx; domain-kit browser break; eslint cwd bug; new-slice.sh stale citations.
 
 ## Next
-1. Master: X part 5c (Dockerfile, `api` + `worker` compose services, gate ⑦ image build) → wave 1 (A: 2.16→2.18 · B: 4.1b p2→4.20).
+1. Master: merge lane/3-s18 (S18) → 2.16 part 1a-5 + SCR-IDENTITY-RLS-01 → SCR-AUDIT-CHAIN-01 deltas 1/4 → X part 6–10 → wave 1 (A: 2.16→2.18 · B: 4.1b p2→4.20).
 2. Integration lane (new session after 5a merges): S18 spec + X part 5d (S1/S2 over HTTP, X-Entity-Id per actor; first id into tests/scenarios/green.json).
 3. Stream A first slice after 2.16 part 1a-4: `2.9 part 2 (fix)` (ledger expiry_date) then 2.16 part 1a-5 (G-16a limits) before /login mounts.

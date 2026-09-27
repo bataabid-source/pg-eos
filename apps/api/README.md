@@ -18,3 +18,8 @@ Recorded gaps:
 - The unimplemented mark belongs in `packages/contracts`; 401/404/413/415/501 are not in the OpenAPI document.
 - Body limit `BODY_LIMIT_BYTES` = Fastify's default 1 MiB (nginx allows 25m); JSON bodies only; no HEAD routes. `/ready` deferred.
 - No `build` script: the host runs from source under `tsx` (5c's image runs the same command).
+
+Container (X part 5c): `apps/api/Dockerfile` is the one image for `api` and `worker` (`infra/docker/docker-compose.yml`).
+Schema: `docker compose -f infra/docker/docker-compose.yml run --rm -e PGUSER=postgres api bash database/schema/apply.sh`;
+start: `docker compose -f infra/docker/docker-compose.yml up -d api worker` (api on `127.0.0.1:3000`).
+Role passwords (Tier 0): `scripts/set-role-passwords.sh` from the host env; locally empty (trust).

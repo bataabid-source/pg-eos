@@ -1,4 +1,4 @@
-# PG-EOS · local development database — Tier 0 shape, nothing else.
+# PG-EOS · local development stack — Tier 0 shape, nothing else.
 #
 #   docker compose -f infra/docker/docker-compose.yml up -d postgres
 #   PGHOST=localhost PGPORT=5432 PGUSER=postgres PGDATABASE=pgeos database/schema/apply.sh --recreate
@@ -7,8 +7,19 @@
 # G7 = 0 · G-SEED = 0 · G6 non-blocking until WBS 0.16. If this is not green, stop — nothing else
 # should start.
 #
-# This file holds the database only. Application services, the queue worker and the reverse proxy
-# are added by their own WBS tasks; a service that is not in doc 42 does not belong here.
+# Application (X part 5c): `api` (doc 42 §4.2) and `worker` (the outbox relay, ADR-0006 §1) run the
+# ONE image built from apps/api/Dockerfile; the worker overrides the command. The reverse proxy is a
+# Tier 0 host file (doc 42 §5). A service that is not in doc 42 or ADR-0006 does not belong here.
+#
+#   docker compose -f infra/docker/docker-compose.yml build api
+#   docker compose -f infra/docker/docker-compose.yml up -d postgres
+#   docker compose -f infra/docker/docker-compose.yml run --rm -e PGUSER=postgres api bash database/schema/apply.sh
+#   docker compose -f infra/docker/docker-compose.yml up -d api worker
+#
+# Schema: plain apply.sh as postgres (doc 42 §8.1 shape), never --recreate here. Role passwords:
+# scripts/set-role-passwords.sh from the host environment; locally both stay empty (trust auth).
+# No `networks:` block — every service shares compose's default project network, so PGHOST=postgres
+# resolves (doc 42 §4.2's `internal` network is a recorded deviation).
 
 name: pg-eos
 
@@ -67,6 +78,60 @@ services:
       - "127.0.0.1:5050:80"
     volumes:
       - pgadmin-data:/var/lib/pgadmin
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    build:
+      context: ../..
+      dockerfile: apps/api/Dockerfile
+    image: pg-eos/app:local
+    init: true
+    restart: unless-stopped
+    environment:
+      PGHOST: postgres
+      PGPORT: "5432"
+      PGDATABASE: pgeos
+      PG_APP_USER: pgeos_app
+      # Empty = trust (local only). Tier 0 sets it on the host (scripts/set-role-passwords.sh).
+      PGPASSWORD: ${PG_APP_PASSWORD:-}
+      # Required for session verification (packages/identity HMAC key); set from the host secret.
+      OTP_HMAC_SECRET: ${OTP_HMAC_SECRET:-}
+      PORT: "3000"
+      NODE_ENV: production
+      TZ: Asia/Kuwait
+    ports:
+      # loopback only — Tier 0 fronts the api with nginx on the host (doc 42 §5)
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # The outbox relay (X part 5b): the api's image, no build of its own, single instance only.
+  worker:
+    image: pg-eos/app:local
+    pull_policy: never
+    container_name: pg-eos-worker
+    init: true
+    restart: unless-stopped
+    working_dir: /app/apps/worker
+    command: ["node", "--import", "tsx", "src/main.ts"]
+    # The image's HEALTHCHECK probes the api's HTTP port; the worker serves none.
+    healthcheck:
+      disable: true
+    environment:
+      PGHOST: postgres
+      PGPORT: "5432"
+      PGDATABASE: pgeos
+      PG_APP_USER: pgeos_worker
+      PGPASSWORD: ${PG_WORKER_PASSWORD:-}
+      NODE_ENV: production
+      TZ: Asia/Kuwait
+    deploy:
+      replicas: 1
+    # SIGTERM finishes the in-flight tick and exits 0; compose's default stop_grace_period applies.
+    stop_signal: SIGTERM
     depends_on:
       postgres:
         condition: service_healthy
