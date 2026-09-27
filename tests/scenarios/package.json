@@ -1,0 +1,24 @@
+{
+  "name": "@pg-eos/scenarios",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test:scenarios": "playwright test",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@pg-eos/api-kit": "workspace:*",
+    "@pg-eos/contracts": "workspace:*",
+    "@pg-eos/domain-kit": "workspace:*",
+    "@pg-eos/wms": "workspace:*",
+    "pg": "^8.13.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.56.1",
+    "@types/node": "^24.13.6",
+    "@types/pg": "^8.13.0",
+    "typescript": ">=5.7.0 <6.1.0"
+  }
+}
