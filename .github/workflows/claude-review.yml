@@ -2,7 +2,7 @@
 # anthropics/claude-code-action reviews every pull request against CLAUDE.md and the doc 36 §5-4
 # checklist and posts its findings as PR comments. It is advisory: merge still needs CI gates ①–⑥
 # green and the human review required by branch protection on main.
-# Inert until the repository secret ANTHROPIC_API_KEY exists (Settings → Secrets → Actions).
+# Inert until the repository secret CLAUDE_CODE_OAUTH_TOKEN exists (Settings → Secrets → Actions; Pro/Max token from `claude setup-token`, GM option 2 of D-193).
 name: Claude PR review
 
 on:
@@ -28,7 +28,7 @@ jobs:
 
       - uses: anthropics/claude-code-action@v1
         with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: |
             REPO: ${{ github.repository }}
             PR NUMBER: ${{ github.event.pull_request.number }}
