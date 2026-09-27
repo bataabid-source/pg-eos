@@ -1,10 +1,15 @@
-# SLICE BRIEF — X part 12 (a)+(b) · contract-first mark in the registry (auto-mount when built) · host statuses in OpenAPI — revision 2
+# SLICE BRIEF — X part 12 (a)+(b) · contract-first mark in the registry (auto-mount when built) · host statuses in OpenAPI — revision 3 (REVIEW CAP: round 2 PASS subset only)
 
 Task: X part 12 (MASTER_BACKLOG, Master cross-cutting, ADR-0006 §4) — parts (a) and (b) only      Lane: M      Lock: none (Master; `packages/contracts/*` and `apps/api` are Master paths)
 builder: pg-builder
 Model routing (ADR-0005 §5): pg-tester sonnet (RED) → pg-reviewer opus (brief rev 2 + RED) → pg-builder sonnet → pg-tester verify → pg-reviewer opus close. Budget: ≤ 8 files / 1,000 lines read, ≤ 150k tokens; REVIEW CAP 2 rounds.
 Split (pre-build review round 1, finding 8): part (c) `/ready` + `packages/db` `ping()` (withContext preflight, ADR-0005 §7) is **X part 12 part 2**, `builder: pg-builder-core`, a separate slice.
 Lane coordination (finding 11): lane 2 (billing lock) never edits `packages/contracts` or `apps/api`; this slice changes only the `contractFirst` mark in its three frozen contract files. Lane 2 keeps building and rebases after this merges; the "Routes:" lines of the `_slice-4.1b-p2` / `_slice-4.19` / `_slice-4.20` briefs are updated in this commit (no Master edit on lane branches any more).
+
+**Revision 3 — scope after pre-build round 2 (FAIL 3 blocking + 4 nits; REVIEW CAP, no round 3):** this slice builds ONLY the round-2 PASS subset —
+`withHostResponses` (+ nit 7: the collision rule is asserted — a route's own 422/500 entry and otp-login's 501 are kept, never duplicated) · `routes.ts` · `openapi.json` (generated) · `packages/contracts/tests/host-responses.test.ts` · `apps/api/src/route-table.ts` (mark rule, `BuildRouteTableOptions.logger`, `UNIMPLEMENTED_ROUTES` deleted) · `apps/api/tests/route-table.unit.test.ts` (derived) · `x-part-12.feature` scenarios 3–7.
+Finding 1 is applied BY THE MASTER before delegation (contract data, CLAUDE.md "Master owns each wave's contracts"): `contractFirst?: true` on `RouteDefinitionInput` only (nit 4 — `RouteContract` unchanged), the 10 billing marks, otp-login's 501, `apps/api/README.md`. Workers do not edit those files.
+Deferred to backlog row **X part 12 part 3** (findings 2, 3, 5, 6): a `BuildServerOptions.contractRoutes` seam in `server.ts`; scenarios 1, 2, 8 (HTTP-level 501 on a fixture route, "served", emitted ⊆ declared via `inject`); moving `server.test.ts` / `x-part-5a.feature` off the real post-journal route; the lane-brief "Routes:" edits and the lane-2 pause rule. `apps/api/src/server.ts`, `apps/api/tests/server.test.ts`, `apps/api/features/x-part-5a.feature` and the lane briefs are NOT written in this slice.
 
 ## Acceptance (backlog row X part 12, parts a–b)
 "`openapi.json` lists the host statuses; `ALL_ROUTES` carries the unimplemented mark" — (c) "`/ready` 200 only with a live database" moves to X part 12 part 2.

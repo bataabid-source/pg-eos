@@ -21,6 +21,7 @@ import { z } from 'zod';
 
 import { IdempotencyKeyHeader } from '../_shared/headers.js';
 import type { RouteDefinitionInput } from '../_shared/registry.js';
+import { ProblemSchema } from '../_shared/problem.js';
 import { OK_RESPONSE, writeErrorResponses } from '../_shared/route-responses.js';
 
 const UUID_ID = z.string().uuid();
@@ -51,19 +52,32 @@ export type VerifyOtpCodeInput = z.infer<typeof VerifyOtpCodeInputSchema>;
 // absorbed inside login.ts), so both routes are registered with `conflict: false`.
 const WRITE_HEADERS = z.object({ 'Idempotency-Key': IdempotencyKeyHeader });
 
+// X part 12 (b): both routes are held by the host until 2.16 part 1a-5 (G-16a limits) is DONE
+// (apps/api NOT_MOUNTED_UNTIL_2_16_PART_1A_5) and answer 501 — declared here until the hold lifts.
+const HTTP_STATUS_NOT_IMPLEMENTED = 501;
+const HELD_UNTIL_2_16_PART_1A_5 = { description: 'Not Implemented', body: ProblemSchema };
+
 export const ROUTES: readonly RouteDefinitionInput[] = [
   {
     method: 'POST',
     path: '/identity/otp-login/request-otp-code',
     summary: 'Request OTP code',
     request: { headers: WRITE_HEADERS, body: RequestOtpCodeInputSchema },
-    responses: { 200: OK_RESPONSE, ...writeErrorResponses({ conflict: false }) },
+    responses: {
+      200: OK_RESPONSE,
+      ...writeErrorResponses({ conflict: false }),
+      [HTTP_STATUS_NOT_IMPLEMENTED]: HELD_UNTIL_2_16_PART_1A_5,
+    },
   },
   {
     method: 'POST',
     path: '/identity/otp-login/verify-otp-code',
     summary: 'Verify OTP code',
     request: { headers: WRITE_HEADERS, body: VerifyOtpCodeInputSchema },
-    responses: { 200: OK_RESPONSE, ...writeErrorResponses({ conflict: false }) },
+    responses: {
+      200: OK_RESPONSE,
+      ...writeErrorResponses({ conflict: false }),
+      [HTTP_STATUS_NOT_IMPLEMENTED]: HELD_UNTIL_2_16_PART_1A_5,
+    },
   },
 ];

@@ -2192,6 +2192,16 @@
                 }
               }
             }
+          },
+          "501": {
+            "description": "Not Implemented",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
           }
         }
       }
@@ -2245,6 +2255,16 @@
           },
           "500": {
             "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Not Implemented",
             "content": {
               "application/json": {
                 "schema": {

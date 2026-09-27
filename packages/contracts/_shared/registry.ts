@@ -52,6 +52,10 @@ export interface RouteDefinitionInput {
   summary: string;
   request?: RouteRequestSchemas;
   responses: RouteResponses;
+  /** ADR-0006 §4 (X part 12): registered ahead of its handler (contract-first wave). The host
+   *  answers 501 while `modules/<module>/api/<use-case>/handlers` does not exist and mounts the
+   *  route normally once it does; an unmarked route without a handlers file fails startup. */
+  contractFirst?: true;
 }
 
 /** The frozen route contract handed back by `registerRoute` — the harness and the OpenAPI
