@@ -5,7 +5,7 @@
   "description": "Premium Group — Enterprise Operating System. Modular monolith, hexagonal per module.",
   "packageManager": "pnpm@9.15.9",
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "type": "module",
   "scripts": {

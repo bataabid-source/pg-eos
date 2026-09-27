@@ -15,11 +15,11 @@ Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewe
 - lane 3 · hr · 3.13 · since 2026-09-26
 
 ## Last 5 feat/fix commits (git log)
+- `7cebb62` feat(X): wave-1 contracts first — accounting periods, post-journal, dimension values, 10 catalog events
 - `1c77ae9` fix(X): apply the OpenAPI review — honest 409 set, corrected comments
 - `b10c963` feat(X): OpenAPI registry populated — 72 operations from the existing contracts
 - `d1b3a3f` fix(X): apply round-2 review to the PG_APP_USER change
 - `82bbab7` fix(X): require PG_APP_USER — withContext never runs as a superuser
-- `33a5446` feat(3.12): outbox publish + INV-C4-1 driver-document gate (part 2c-i)
 
 ## Blockers
 - G16 runnable (Stryker per module, all ≥ 75 on 2026-09-26); G15/G17 NOT RUNNABLE until Playwright / trace screen; deploy.sh waits on 0.6b (D-129).

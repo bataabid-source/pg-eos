@@ -182,6 +182,9 @@ if [ "$g16_present" = "1" ]; then
     mapfile -t g16_scores < <(grep -Eo 'Final mutation score[^0-9]*[0-9]+(\.[0-9]+)?' "$OUT.G16" | grep -Eo '[0-9]+(\.[0-9]+)?$')
     if [ "${#g16_scores[@]}" -ne "${#g16_cfgs[@]}" ]; then
       g16_res="red:${#g16_scores[@]} of ${#g16_cfgs[@]} modules printed a 'Final mutation score' line — stryker did not run to completion everywhere"
+      # CI never shows the temp log; print the tail so a crash (not a low score) is diagnosable from the job output.
+      echo "guards-run: G16 log tail (${OUT}.G16, last 60 lines):" >&2
+      grep -vE '^\s+at |Mutation testing [0-9]+%' "$OUT.G16" | tail -n 60 | sed 's/^/  G16> /' >&2
     else
       g16_res=green
       for s in "${g16_scores[@]}"; do awk -v s="$s" 'BEGIN{exit !(s+0 >= 75)}' || { g16_res="red:a module's mutation score $s % < 75 %"; break; }; done
