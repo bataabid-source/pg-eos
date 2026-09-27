@@ -4,6 +4,12 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — LANE_LOCKS.md is a table only; migration register moves to database/migrations/README.md (2026-09-27)
+
+- **Why:** ADR-0005 §6 / CLAUDE.md v2 · AGENTS AND SESSIONS: the lock file is one row per lock; 2026-09-26's audit found 40 lines of release history and multi-thousand-character row notes around a four-row table.
+- **Change:** `tasks/LANE_LOCKS.md` → 20 lines: the four live rows (pda/1/2.16 · billing/2/4.1a · imile/3/3.12 · hr/3/3.13, worktree cells trimmed to `../pg-eos-lane-<n>`) + the five rules; release history is in this CHANGELOG and `git log`. The 37 "Migrations issued" register lines moved verbatim to `database/migrations/README.md` §Register (next free number = first bullet, still `0038`); `docs/RUNBOOK.md` step 2 points there. `check-locks.sh` OK, hooks 124/124, `scribe.mjs` renders the same lane rows.
+- Model: Master session · Delegated: none · Review: n/a (bookkeeping, tool-verified) · tokens: ~8k.
+
 ## X — Real quality gates: coverage ≥ 90% enforced, Stryker per module, nightly workflow, domain purity (enablement items 3–4) (2026-09-26)
 
 - **Why:** doc 36 §5-5's coverage ≥ 90% and mutation ≥ 75% had no tooling (audit 2026-09-26, HIGH); four `*.property.test.ts` files opened a `pg.Pool`, so pre-commit gate ② could not pass offline for billing/imile.

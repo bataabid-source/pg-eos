@@ -63,7 +63,7 @@ A lane never issues its own migration number. Sequence:
    lane start (the Master issues the numbers in one batch), and each row names the RED test paths
    pg-tester wrote (`modules/<m>/tests/<uc>/*.feature|*.test.ts`) — `.claude/hooks/lane-guard.sh`
    refuses the migration file until those files exist.
-2. Master issues the next free `NNNN` (`tasks/LANE_LOCKS.md` "Migrations issued" — next free
+2. Master issues the next free `NNNN` (`database/migrations/README.md` register — next free
    number recorded there and in `docs/PROJECT_STATE.md` Schema row), lane writes
    `database/migrations/NNNN_<lane>_<slug>.sql`.
 3. Migration lands in the lane's own `feat(<WBS>)` commit; `apply.sh` picks it up automatically
