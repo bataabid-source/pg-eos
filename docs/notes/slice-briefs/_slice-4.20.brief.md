@@ -1,8 +1,9 @@
 # SLICE BRIEF — WBS 4.20 · Posting engine: entry types, reversal/adjustment, balance at commit, posted immutable
 
 Task: 4.20 "Posting engine: entry types, reversal/adjustment, balance at commit, posted immutable"      Lane: 2      Lock: `billing` (whole module — lane 2's lock under ADR-0004 D2 (e); the Master records the task change in `tasks/LANE_LOCKS.md`)
+builder: pg-builder-core
 Owner: CFO      Deps: 4.19, 4.1b (doc 38 v4.6)      Worktree: `../pg-eos-lane-2`
-Model routing: pg-tester sonnet → pg-backend sonnet → pg-tester verify → pg-reviewer opus (mandatory BEFORE the migration: it touches the ledger's grants and the audit chain) → pg-scribe sonnet. Budget: brief ≤ 8 files / 1,000 lines, two review rounds (D-186).
+Model routing (ADR-0005 §5): pg-tester sonnet (RED) → pg-reviewer opus (brief + RED, and BEFORE the migration) → pg-builder-core opus → pg-tester verify → pg-reviewer opus close. Budget: ≤ 8 files / 1,000 lines read, ≤ 150k tokens; REVIEW CAP 2 rounds.
 Use case: `post-journal` — `scripts/new-slice.sh billing post-journal` (golden-slice replication; hand-made tree = review FAIL).
 
 ## Acceptance (doc 38 v4.6 row 4.20, verbatim)
@@ -35,10 +36,10 @@ Entry types named by A0 §1 row 4 (verbatim): "manual/recurring/reversing/adjust
 - `database/migrations/0015_2_platform-sites.sql` lines 96-134
 - `modules/wms/domain/receive-inbound/machine.ts`
 
-Write ONLY: `modules/billing/{domain,application,infrastructure,api,tests}/post-journal/**` · `packages/contracts/billing/post-journal.ts` · `packages/i18n/<lang>/billing.json` (post-journal keys only) · `database/migrations/NNNN_2_post-journal.sql` (number issued by the Master) · `tests/**`. pg-tester writes only test files; builders never touch a test. Not `database/schema/*` (01:1204 is corrected by the forward migration, never by editing 01).
+Write ONLY: `modules/billing/{domain,application,infrastructure,api,tests}/post-journal/**` · `packages/i18n/<lang>/billing.json` (post-journal keys only) · `database/migrations/0041_2_post-journal.sql` (number issued by the Master) · `tests/**`. pg-tester writes only test files; builders never touch a test. Not `database/schema/*` (01:1204 is corrected by the forward migration, never by editing 01).
 
 ## Golden-slice counterparts (produced by `new-slice.sh`, edited in place — not reference reads)
-`modules/wms/domain/receive-inbound/{machine.ts,errors.ts,invariants.ts}` → `modules/billing/domain/post-journal/*` · `modules/wms/application/receive-inbound/*` → `modules/billing/application/post-journal/*` · `modules/wms/infrastructure/receive-inbound/{repository.ts,ledger.ts,logger.ts}` → `modules/billing/infrastructure/post-journal/*` (`ledger.ts` is the append-only book counterpart) · `modules/wms/api/receive-inbound/*` → `modules/billing/api/post-journal/*` · `modules/wms/tests/receive-inbound/*` → `modules/billing/tests/post-journal/*` · `packages/contracts/wms/receive-inbound.ts` → `packages/contracts/billing/post-journal.ts`.
+`modules/wms/domain/receive-inbound/{machine.ts,errors.ts,invariants.ts}` → `modules/billing/domain/post-journal/*` · `modules/wms/application/receive-inbound/*` → `modules/billing/application/post-journal/*` · `modules/wms/infrastructure/receive-inbound/{repository.ts,ledger.ts,logger.ts}` → `modules/billing/infrastructure/post-journal/*` (`ledger.ts` is the append-only book counterpart) · `modules/wms/api/receive-inbound/*` → `modules/billing/api/post-journal/*` · `modules/wms/tests/receive-inbound/*` → `modules/billing/tests/post-journal/*` (the contract already exists and is frozen — new-slice.sh must not overwrite it).
 
 ## RED tests (SCR-ACC-01 §3 — must exist before the migration file)
 `modules/billing/tests/post-journal/post-journal.feature` · `modules/billing/tests/post-journal/post-journal.test.ts` · `modules/billing/tests/post-journal/journal-machine.unit.test.ts` · `modules/billing/tests/post-journal/invariants.property.test.ts`
@@ -62,10 +63,11 @@ Feature: Posting engine (WBS 4.20)
 ```
 Property test: for any generated set of lines, commit succeeds ⇔ sum(debit) = sum(credit) per entry, and G2 stays empty.
 
-Contract: `packages/contracts/billing/post-journal.ts` — derive from 01:1188-1213 and SCR-ACC-01 #5–#8; no field that is not a column of the migration.
+Contract: `packages/contracts/billing/post-journal.ts` is FROZEN (wave-1 contract, committed by the Master). A field it lacks → STOP and report; never edit it.
+Routes: `apps/api/src/route-table.ts` lists the three routes (`post-journal`, `reverse-journal`, `adjust-journal`) in `UNIMPLEMENTED_ROUTES`; the host refuses a listed route that has a handlers file. Do NOT edit `apps/api` — when your handlers exist, report it; the Master removes the paths (and the test's expected list) on your branch before merge. Until then the only acceptable CI red is `apps/api/tests/route-table.unit.test.ts` naming those routes.
 Screen/Board spec: none this slice (API + DB only; automatic posting from billing events is 4.11).
-Deliver: the file list printed by `scripts/new-slice.sh billing post-journal` (paste it here when run) + `database/migrations/NNNN_2_post-journal.sql`, which: drops and re-adds the `journal_lines.entry_id` FK without `on delete cascade` · `revoke update, delete on billing.journal_entries, billing.journal_lines from pgeos_app` (0007:114-116 pattern) · adds the #5 entry-type and approval columns with classification rows · adds the #6 deferred constraint trigger (balance checked at commit) · adds the #8 trigger (account in the entry's entity and `is_postable`).
-Migration number: requested — lane 2 lists it in `tasks/backlog/MIGRATION-REQUEST-2.md` with the RED paths above (D-179 batch); not issued.
+Deliver: the file list printed by `scripts/new-slice.sh billing post-journal` (paste it here when run) + `database/migrations/0041_2_post-journal.sql`, which: drops and re-adds the `journal_lines.entry_id` FK without `on delete cascade` · `revoke update, delete on billing.journal_entries, billing.journal_lines from pgeos_app` (0007:114-116 pattern) · adds the #5 entry-type and approval columns with classification rows · adds the #6 deferred constraint trigger (balance checked at commit) · adds the #8 trigger (account in the entry's entity and `is_postable`).
+Migration number: **0041 — issued to lane 2** (Master M2, 2026-09-27; file `database/migrations/0041_2_post-journal.sql`, RED tests above first; register in `database/migrations/README.md` in the slice commit).
 
 ## Defaults taken (recorded in CHANGELOG with the slice)
 - Journal lifecycle states are not named in A0 or ADR-0004 and 01 has no status column. Default: the XState machine uses what the columns already express — posted (`posted_at`) and reversed (`reversed_by`) — plus the approval of #5 where OD-15 requires it; the edge list goes into the migration request and is fixed at the pre-migration review. No status column is invented.

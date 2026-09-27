@@ -1,8 +1,9 @@
 # SLICE BRIEF — WBS 4.19 · Fiscal years + periods (open/closed/locked)
 
 Task: 4.19 "Fiscal years + periods (open/closed/locked)"      Lane: 2      Lock: `billing` (whole module — lane 2's lock under ADR-0004 D2 (e); the Master records the task change in `tasks/LANE_LOCKS.md`)
+builder: pg-builder-core
 Owner: CFO      Deps: 4.1a (doc 38 v4.6)      Worktree: `../pg-eos-lane-2`
-Model routing: pg-tester sonnet → pg-backend sonnet → pg-tester verify → pg-reviewer opus (also BEFORE the migration) → pg-scribe sonnet. Budget: brief ≤ 8 files / 1,000 lines, two review rounds (D-186).
+Model routing (ADR-0005 §5): pg-tester sonnet (RED) → pg-reviewer opus (brief + RED, and BEFORE the migration) → pg-builder-core opus → pg-tester verify → pg-reviewer opus close. Budget: ≤ 8 files / 1,000 lines read, ≤ 150k tokens; REVIEW CAP 2 rounds.
 Use case: `accounting-periods` — `scripts/new-slice.sh billing accounting-periods` (golden-slice replication; hand-made tree = review FAIL).
 
 ## Acceptance (doc 38 v4.6 row 4.19, verbatim)
@@ -26,10 +27,10 @@ Use case: `accounting-periods` — `scripts/new-slice.sh billing accounting-peri
 - `database/migrations/0015_2_platform-sites.sql` lines 50-134
 - `modules/wms/domain/receive-inbound/machine.ts`
 
-Write ONLY: `modules/billing/{domain,application,infrastructure,api,tests}/accounting-periods/**` · `packages/contracts/billing/accounting-periods.ts` · `packages/i18n/<lang>/billing.json` (accounting-periods keys only) · `database/migrations/NNNN_2_accounting-periods.sql` (number issued by the Master) · `tests/**`. pg-tester writes only test files; builders never touch a test.
+Write ONLY: `modules/billing/{domain,application,infrastructure,api,tests}/accounting-periods/**` · `packages/i18n/<lang>/billing.json` (accounting-periods keys only) · `database/migrations/0040_2_accounting-periods.sql` (number issued by the Master) · `tests/**`. pg-tester writes only test files; builders never touch a test.
 
 ## Golden-slice counterparts (produced by `new-slice.sh`, edited in place — not reference reads)
-`modules/wms/domain/receive-inbound/{machine.ts,errors.ts,invariants.ts}` → `modules/billing/domain/accounting-periods/*` (the XState period machine replaces the inbound machine) · `modules/wms/application/receive-inbound/*` → `modules/billing/application/accounting-periods/*` · `modules/wms/infrastructure/receive-inbound/*` → `modules/billing/infrastructure/accounting-periods/*` · `modules/wms/api/receive-inbound/*` → `modules/billing/api/accounting-periods/*` · `modules/wms/tests/receive-inbound/*` → `modules/billing/tests/accounting-periods/*` · `packages/contracts/wms/receive-inbound.ts` → `packages/contracts/billing/accounting-periods.ts`.
+`modules/wms/domain/receive-inbound/{machine.ts,errors.ts,invariants.ts}` → `modules/billing/domain/accounting-periods/*` (the XState period machine replaces the inbound machine) · `modules/wms/application/receive-inbound/*` → `modules/billing/application/accounting-periods/*` · `modules/wms/infrastructure/receive-inbound/*` → `modules/billing/infrastructure/accounting-periods/*` · `modules/wms/api/receive-inbound/*` → `modules/billing/api/accounting-periods/*` · `modules/wms/tests/receive-inbound/*` → `modules/billing/tests/accounting-periods/*` (the contract already exists and is frozen — new-slice.sh must not overwrite it).
 
 ## RED tests (SCR-ACC-01 §3 — must exist before the migration file)
 `modules/billing/tests/accounting-periods/accounting-periods.feature` · `modules/billing/tests/accounting-periods/accounting-periods.test.ts` · `modules/billing/tests/accounting-periods/period-machine.unit.test.ts` · `modules/billing/tests/accounting-periods/invariants.property.test.ts`
@@ -49,10 +50,11 @@ Feature: Fiscal years and accounting periods (WBS 4.19)
 Machine (XState, no if/switch): states `open · closed · locked` (D1 5 words); edges only those OD-12 names — close (CFO), lock, reopen via Decision Inbox. Any other edge: STOP and report.
 Property test: for any generated set of periods and entry dates, the DB accepts a posting ⇔ the covering period of the same entity is `open`.
 
-Contract: `packages/contracts/billing/accounting-periods.ts` — derive from SCR-ACC-01 #3–#4; no field that is not a column of the migration.
+Contract: `packages/contracts/billing/accounting-periods.ts` is FROZEN (wave-1 contract, committed by the Master). A field it lacks → STOP and report; never edit it.
+Routes: `apps/api/src/route-table.ts` lists the five routes (`create-fiscal-year`, `open-period`, `close-period`, `lock-period`, `reopen-period`) in `UNIMPLEMENTED_ROUTES`; the host refuses a listed route that has a handlers file. Do NOT edit `apps/api` — when your handlers exist, report it; the Master removes the paths (and the test's expected list) on your branch before merge. Until then the only acceptable CI red is `apps/api/tests/route-table.unit.test.ts` naming those routes.
 Screen/Board spec: none this slice (API + DB only).
-Deliver: the file list printed by `scripts/new-slice.sh billing accounting-periods` (paste it here when run) + `database/migrations/NNNN_2_accounting-periods.sql` (the two tables of #3 with RLS, `version` column, column classification rows; the #4 period link on `billing.journal_entries`; the DB-side refusal of a posting into a closed or locked period).
-Migration number: requested — lane 2 lists it in `tasks/backlog/MIGRATION-REQUEST-2.md` with the RED paths above (D-179 batch); not issued.
+Deliver: the file list printed by `scripts/new-slice.sh billing accounting-periods` (paste it here when run) + `database/migrations/0040_2_accounting-periods.sql` (the two tables of #3 with RLS, `version` column, column classification rows; the #4 period link on `billing.journal_entries`; the DB-side refusal of a posting into a closed or locked period).
+Migration number: **0040 — issued to lane 2** (Master M2, 2026-09-27; file `database/migrations/0040_2_accounting-periods.sql`, RED tests above first; register in `database/migrations/README.md` in the slice commit).
 
 ## Defaults taken (recorded in CHANGELOG with the slice)
 - OD-12 "Ask": no fiscal-year end is seeded for any entity (`platform.entities.fiscal_year_end`, 01:62, stays as it is); pilot periods are synthetic fixtures (D-127). Batched question: each entity's fiscal-year end.

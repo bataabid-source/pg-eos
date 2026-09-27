@@ -4,6 +4,13 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — wave-1 lane B prep: 4.1b part 2 brief, builder lines on 4.19/4.20, migrations 0040/0041 issued (Master M2, 2026-09-27)
+
+- **Why:** GM directive 2026-09-27 (condition A): the lane-opening request carries a ready brief, `pg-builder-core`, migration issued.
+- **Change:** `docs/notes/slice-briefs/_slice-4.1b-p2.brief.md` (new; SCR-ACC-01 row 9, D-190; migration 0038 already issued) · `_slice-4.19` / `_slice-4.20`: `builder: pg-builder-core`, ADR-0005 routing line, contracts FROZEN (wave-1 contracts already on main; `new-slice.sh` must not overwrite them), migration numbers 0040 / 0041 issued · `database/migrations/README.md` next free 0042 · `docs/state/header.md`. brief-check: 7/633, 7/487, 8/472.
+- **Default recorded:** `apps/api/src/route-table.ts` refuses a route listed in `UNIMPLEMENTED_ROUTES` that has a handlers file, and the lane cannot edit `apps/api`; the Master removes a slice's paths (and the test's expected list) on the lane branch before merge (X part 12 (a) would move the mark into the registry).
+- Model: Master session · Delegated: none · Review: n/a (briefs; pg-reviewer reviews each brief + RED before build) · tokens: ~20k.
+
 ## X — S18 scenario RED against doc 40 Part E: partner storage (row 4.15 unbuilt), SCR-PARTNERS-01 (integration lane, wave 1) (2026-09-27)
 
 - **What:** `tests/scenarios/S18.spec.ts` + `fixtures/partners.ts` — doc 40 lines 573-579 verbatim as steps. Backed and passing (hard 200): the Given allocates 200 pallets on a partner warehouse PW1 through the real `handleAllocateSpace` (SALES_MGR), the When runs the real daily `handleTakeOccupancySnapshot` on PW1 (WH_MGR). NOT BUILT, RED by name (`expect.soft`): priced ST-01 billable event 200×2.600 (4.3 + pricing), linked `partners.payable_events` 200×1.800 (4.15), `partners.resale_margin` 30.77 % (view exists; no rows until both events exist), partner-invoice matching (4.15 — the invoice INPUT is seeded at `received`/8,400, the outcome never written), frozen state + Decision item.
