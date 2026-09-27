@@ -164,6 +164,10 @@ un-exercised procedure is not a procedure (WBS 0.20's own "tested once" bar).
   package's own `engines` field against `.github/workflows/*.yml`'s `node-version`; pin to the
   newest major that satisfies it. **Exercised:** `jsdom` 30.1.1 → 27.0.0, PR #21, 2026-09-24
   (jsdom 30 needs Node ≥22.22; CI pins 20).
+  **Superseded 2026-09-27 (PR #147):** Stryker 10 (`engines.node >=22`) crashed G16 in ~1 s per
+  module under the Node 20 runner with no score line, so every workflow now pins `node-version: 22`
+  and root `engines.node` is `>=22` — the same major every developer already runs (`node --version`).
+  A red G16 prints the last 60 lines of its log in the job output (`scripts/guards-run.sh`).
 - **`PG_APP_USER` is REQUIRED (ADR-0005 §7, 2026-09-26):** `withContext` refuses on first use when
   `PG_APP_USER` is unset or names `postgres`, and on first connect when the role is SUPERUSER or
   BYPASSRLS (`pg_roles`) — the pool never falls back to the superuser any more. Remote
