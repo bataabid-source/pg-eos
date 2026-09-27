@@ -1,7 +1,7 @@
 // packages/api-kit/index.ts — the framework-free api/ helper set every use-case handlers.ts shares
 // (docs/STREAMS.md §Enablement item 5). Extracted verbatim from the golden slice
 // modules/wms/api/receive-inbound/handlers.ts; semantics unchanged. Node-only (node:crypto):
-// imported by modules/*/api/**, never by apps/.
+// imported by modules/*/api/** and the node-only apps/api host, never by browser apps.
 
 import { createHash } from 'node:crypto';
 

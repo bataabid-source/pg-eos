@@ -38,12 +38,20 @@ export {
   verifyOtp,
 } from './src/otp.js';
 
-export type { IssuedSession, SessionClockOptions, SessionVerification } from './src/session.js';
+export type {
+  IssuedSession,
+  SessionClockOptions,
+  SessionSubjectVerification,
+  SessionUserType,
+  SessionVerification,
+} from './src/session.js';
 export {
   issueSession,
   revokeSession,
   SESSION_LIFETIME_MINUTES_KEY,
+  SESSION_USER_TYPES,
   verifySession,
+  verifySessionSubject,
 } from './src/session.js';
 
 export {

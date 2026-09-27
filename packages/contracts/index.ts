@@ -14,6 +14,10 @@
 import { ContractRegistry } from './_shared/registry.js';
 import { registerRoutes } from './routes.js';
 
+/** X part 5a (ADR-0006 §1): the host mounts every entry of this list; exported here so apps/ import it
+ *  by package name, never by a dist path. */
+export { ALL_ROUTES } from './routes.js';
+
 export * from './_shared/index.js';
 export * from './_harness/index.js';
 

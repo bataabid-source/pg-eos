@@ -185,6 +185,75 @@ export async function verifySession(
   });
 }
 
+/** identity.users.user_type values (01-Data-Model.sql:228 — `internal · client · agent`). */
+export const SESSION_USER_TYPES = ['internal', 'client', 'agent'] as const;
+
+export type SessionUserType = (typeof SESSION_USER_TYPES)[number];
+
+export type SessionSubjectVerification =
+  | {
+      readonly valid: true;
+      readonly userId: string;
+      readonly sessionId: string;
+      readonly userType: SessionUserType;
+      readonly clientId: string | null;
+      readonly isActive: boolean;
+    }
+  | { readonly valid: false };
+
+function isSessionUserType(value: string): value is SessionUserType {
+  return SESSION_USER_TYPES.some((userType) => userType === value);
+}
+
+/**
+ * verifySession's predicate joined to identity.users (X part 5a, "Session subject"): the same
+ * token-hash / not-revoked / not-expired condition in one SQL statement, plus the subject's
+ * `user_type`, `client_id` and `is_active` (01-Data-Model.sql:228-230).
+ *
+ * It reports facts only — a deactivated user with an intact session is `valid: true,
+ * isActive: false`; the caller (apps/api) decides which subjects it accepts. A `user_type` outside
+ * SESSION_USER_TYPES is reported as `valid: false` (fail-closed), never widened.
+ */
+export async function verifySessionSubject(
+  token: string,
+  opts: SessionClockOptions = {},
+): Promise<SessionSubjectVerification> {
+  const now = opts.now ?? defaultClock;
+  const at = now();
+
+  return withContext(INTERNAL_NO_ACTOR_CTX, async (tx) => {
+    // Same known schema gap as verifySession: no index on identity.sessions.token_hash.
+    const result = await tx.execute<{
+      id: string;
+      user_id: string;
+      user_type: string;
+      client_id: string | null;
+      is_active: boolean;
+    }>(sql`
+      select s.id, s.user_id, u.user_type, u.client_id, u.is_active
+        from identity.sessions s
+        join identity.users u on u.id = s.user_id
+       where s.token_hash = ${keyedHash(token)}
+         and s.revoked_at is null
+         and s.expires_at >= ${at.toISOString()}::timestamptz
+       limit 1
+    `);
+
+    const row = result.rows[0];
+    if (!row || !isSessionUserType(row.user_type)) {
+      return { valid: false };
+    }
+    return {
+      valid: true,
+      userId: row.user_id,
+      sessionId: row.id,
+      userType: row.user_type,
+      clientId: row.client_id,
+      isActive: row.is_active,
+    };
+  });
+}
+
 /**
  * Ends a session by setting identity.sessions.revoked_at to the injected instant.
  *
