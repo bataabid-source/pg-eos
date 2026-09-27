@@ -13,15 +13,15 @@ Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewe
 - lane 2 · billing · 4.1a · since 2026-09-25
 
 ## Last 5 feat/fix commits (git log)
+- `42d3584` feat(X): identity verifySessionSubject, ALL_ROUTES exported by name, api-kit comment — Master pre-task for X part 5a
 - `51a5789` feat(2.16): PDA OTP login screen, part 1a-4
 - `8917275` feat(2.16): OTP login fix-up — allowed-message wording + response-shape tests (part 1a-3b)
 - `8e18c06` fix(X): G16 builds packages/* before Stryker so workspace imports resolve in CI
 - `8fda359` fix(X): contracts tests import the package relatively, not through its own dist
-- `6bb6b25` fix(X): resolve stale placeholders; pin Node 22 so Stryker 10 runs in CI; print the G16 log tail when red
 
 ## Blockers
 - G16 runnable (Stryker per module, all ≥ 75, packages built first); G15 runnable per STREAMS §G15 (green.json); G17 NOT RUNNABLE; deploy.sh waits on 0.6b.
-- S1–S20 2/20 present, 0/20 passed (S1/S2 RED on unbuilt rows: 2.16/2.18, 4.3, 3.4, VAS, Lost Revenue); S18 next (integration lane).
+- S1–S20 2/20 present, 0/20 passed (S1/S2 RED on unbuilt rows); previous integration lane silent since 06:32Z — replaced after 5a merges (S18 + 5d).
 - The "known red" set (platform evaluate-alerts/schema-invariants/audit-chain, wms T9) ran green 2026-09-26 under coverage gates; CI is the arbiter.
 - Identity threshold test race under turbo (X part 3); superuser-role catalog test deferred (X part 2) — MASTER_BACKLOG.
 - Open G-01: G8 anchor storage (D-115); imile entity_id/CHECKs/outbox; 2.15 space_reservations.qty CHECK; 3.1 shift_groups.vehicle_id.
@@ -32,6 +32,6 @@ Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewe
 - Master batch (frozen paths): entityId on WithContextCtx; domain-kit browser break; eslint cwd bug; new-slice.sh stale citations.
 
 ## Next
-1. Master: X part 5 first (ADR-0006: apps/api host, outbox worker, Dockerfile), then wave 1 (pda/1 2.16→2.18 · billing/2 4.1b p2→4.19→4.20, migration 0038).
-2. Integration lane: S18 spec on lane/3-s18 (assigned 06:02Z); S1/S2 RED on unbuilt rows — add ids to tests/scenarios/green.json at DONE.
-3. Stream A first slice after 2.16 part 1a-4: `2.9 part 2 (fix)` (ledger expiry_date) then 2.16 part 1b (PWA, offline queue).
+1. Master: X part 5b (outbox worker + pgeos_worker role, migration 0039) → 5c (Dockerfile, compose, gate ⑦) → wave 1 (A: 2.16→2.18 · B: 4.1b p2→4.20).
+2. Integration lane (new session after 5a merges): S18 spec + X part 5d (S1/S2 over HTTP, X-Entity-Id per actor; first id into tests/scenarios/green.json).
+3. Stream A first slice after 2.16 part 1a-4: `2.9 part 2 (fix)` (ledger expiry_date) then 2.16 part 1a-5 (G-16a limits) before /login mounts.
