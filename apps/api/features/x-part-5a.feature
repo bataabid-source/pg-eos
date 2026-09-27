@@ -8,7 +8,7 @@ Feature: X part 5a — one host serves every registered operation
     And the 501 entries are exactly the 10 UNIMPLEMENTED_ROUTES plus the 2 NOT_MOUNTED_UNTIL_2_16_PART_1A_5 routes
     And a route whose handler cannot be resolved makes startup fail with the route in the error
     And a listed unimplemented route that has a handlers.js makes startup fail
-    # (HEAD step deferred to X part 5a part 2 — the assertion must await app.ready())
+    And a GET route's HEAD counterpart is never auto-exposed
 
   Scenario: a request without a session is refused
     When POST /wms/receive-inbound/approve-inbound is called without an Authorization header
