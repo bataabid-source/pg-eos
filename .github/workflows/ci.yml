@@ -208,7 +208,11 @@ jobs:
       PGDATABASE: pgeos
       PG_APP_USER: pgeos_app
     steps:
+      # fetch-depth: 0 — the G16 scope step below diffs this commit against the PR base / the push's
+      # previous head.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -217,6 +221,23 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Assert psql 16
         run: psql --version | grep -q ' 16\.'
+      # X part 6 (D-193 D6): Stryker on every module took 50–95 min of this gate per PR. Gate ⑤ now
+      # scores only the modules whose domain/, tests/, vitest.config.ts or stryker.config.json changed
+      # (scripts/lib/g16-scope.sh → G16_MODULES, read by scripts/guards-run.sh; empty = G16 not run
+      # here); .github/workflows/nightly.yml scores every module every night, and deploy
+      # (PG_GUARDS_STRICT=1) never runs scoped. An unresolvable base widens to every module, never none.
+      - name: G16 scope — modules whose mutation score this change can move
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          . scripts/lib/g16-scope.sh
+          mods="$(g16_changed_modules "$BASE_SHA")"
+          if [ "$mods" = "ALL" ]; then
+            echo "G16 scope: every module (base '$BASE_SHA' not resolvable)"
+          else
+            echo "G16_MODULES=$mods" >> "$GITHUB_ENV"
+            echo "G16 scope: ${mods:-none} (diff against $BASE_SHA)"
+          fi
       - run: bash database/schema/apply.sh --recreate
       # G15 needs @pg-eos/scenarios (and modules/wms, its dependency) built, or it reads as
       # "no playwright JSON report (did it run?)" instead of the real S1-S20 count.
@@ -301,6 +322,9 @@ jobs:
           tags: pg-eos/app:local
           cache-from: type=gha,scope=amd64
           cache-to: type=gha,scope=amd64,mode=max
+      # X part 6: the multi-stage image's size, printed so a later PR can compare (no earlier figure exists).
+      - name: Image size (recorded)
+        run: docker image inspect pg-eos/app:local --format '{{.Size}}' | numfmt --to=iec --suffix=B
       - name: Compose file is valid
         run: docker compose config -q
       - name: Start postgres
