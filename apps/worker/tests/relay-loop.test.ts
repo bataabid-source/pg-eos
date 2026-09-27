@@ -31,6 +31,8 @@ const EXIT_FAILURE = 1;
 const REQUIRED_ROLE = 'pgeos_worker';
 const APP_ROLE = 'pgeos_app';
 const NULL_ROW_AGGREGATE_TYPE = 'platform.x-part-5b';
+const DEFAULT_PG_PORT = '5432';
+const POOL_MAX_TEST = 5;
 // A port nothing listens on — used to prove a startup refusal happens BEFORE any connection
 // attempt: if main.ts mistakenly tried to connect first, it would fail with a connection error
 // instead of the expected role/interval fatal line.
@@ -78,18 +80,18 @@ async function spawnMain(
 
 const postgresPool = new Pool({
   host: process.env['PGHOST'] ?? 'localhost',
-  port: Number(process.env['PGPORT'] ?? '5432'),
+  port: Number(process.env['PGPORT'] ?? DEFAULT_PG_PORT),
   user: process.env['PGUSER'] ?? 'postgres',
   database: process.env['PGDATABASE'] ?? 'pgeos',
-  max: 5,
+  max: POOL_MAX_TEST,
 });
 
 const workerPool = new Pool({
   host: process.env['PGHOST'] ?? 'localhost',
-  port: Number(process.env['PGPORT'] ?? '5432'),
+  port: Number(process.env['PGPORT'] ?? DEFAULT_PG_PORT),
   user: REQUIRED_ROLE,
   database: process.env['PGDATABASE'] ?? 'pgeos',
-  max: 5,
+  max: POOL_MAX_TEST,
 });
 
 let existingEntityId = '';

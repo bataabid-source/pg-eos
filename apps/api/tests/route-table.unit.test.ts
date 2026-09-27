@@ -24,6 +24,9 @@ import {
   segmentsOf,
   UNIMPLEMENTED_ROUTES,
 } from '../src/route-table.js';
+// buildServer is the real Fastify host (server.ts) — needed only for the HEAD-route assertion
+// below, which exercises the actual `exposeHeadRoutes: false` option, not the pure route table.
+import { buildServer } from '../src/server.js';
 
 // apps/api/src -> ../../../modules/ resolves to the repo-root modules/ tree (brief, "Run mode").
 // apps/api/tests is the same depth under apps/api/, so the identical relative literal reaches the
@@ -53,6 +56,10 @@ const EXPECTED_NOT_MOUNTED_ROUTES = [
 const EXPECTED_TOTAL_ROUTE_COUNT = 82;
 const EXPECTED_UNIMPLEMENTED_COUNT = 12;
 const EXPECTED_MOUNTED_COUNT = 70;
+
+// The GET route the HEAD-route assertion below probes (apps/api/features/x-part-5a.feature,
+// "the route table is complete and one-to-one"; ADR-0006 one-to-one).
+const SUGGEST_LOCATION_PATH = '/wms/receive-inbound/suggest-location';
 
 const tempDirsToClean: string[] = [];
 
@@ -123,8 +130,18 @@ describe('Feature: X part 5a — one host serves every registered operation', ()
       buildRouteTable([listedUnimplementedRoute], { modulesRoot: fixtureModulesRoot }),
     ).rejects.toThrow(/\/billing\/accounting-periods\/create-fiscal-year/);
 
-    // HEAD-route assertion (exposeHeadRoutes: false) deferred to backlog row `X part 5a part 2`:
-    // as written in round 2 it ran before app.ready(), so it could not fail (close review, nit 1).
+    // "a GET route's HEAD counterpart is never auto-exposed" (exposeHeadRoutes: false, server.ts —
+    // ADR-0006 one-to-one). Built through the real buildServer host (not buildRouteTable directly)
+    // because exposeHeadRoutes is a Fastify constructor option, not something the pure route table
+    // can express. app.ready() is required first: the route table mounts inside an async
+    // `app.register(...)` plugin (server.ts), so hasRoute() reports every route — including the
+    // control GET below — as absent until the plugin has actually run. The GET control assertion
+    // runs first so a regression that reintroduces the "runs before app.ready()" bug fails loudly
+    // here (both assertions false) instead of the HEAD assertion trivially passing on its own.
+    const headProbeApp = buildServer({ modulesRoot: DEFAULT_MODULES_ROOT });
+    await headProbeApp.ready();
+    expect(headProbeApp.hasRoute({ method: 'GET', url: SUGGEST_LOCATION_PATH })).toBe(true);
+    expect(headProbeApp.hasRoute({ method: 'HEAD', url: SUGGEST_LOCATION_PATH })).toBe(false);
   });
 });
 
