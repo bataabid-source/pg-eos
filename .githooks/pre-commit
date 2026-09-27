@@ -47,6 +47,18 @@ for f in "${staged[@]}"; do
   esac
 done
 
+# ⓒ (GM directive 2026-09-27 "نفذ الكل بنفسك") — leaked secrets in the STAGED content, before the
+#   docs-only exit (a key pasted into a note is still a leak). Same scanner as CI gate ⑥, which
+#   stays blocking on the whole history; locally it runs only when gitleaks is installed
+#   (winget install Gitleaks.Gitleaks) and honours .gitleaksignore like CI does.
+if command -v gitleaks >/dev/null 2>&1; then
+  gitleaks git --staged --redact --no-banner --exit-code 1 >/dev/null 2>&1
+  status=$?
+  [ "$status" -eq 1 ] && fail "gate ⓒ gitleaks found a secret in the staged changes (run: gitleaks git --staged --redact)"
+else
+  echo "pre-commit: gitleaks not installed — gate ⓒ (secrets) runs in CI only; install: winget install Gitleaks.Gitleaks" >&2
+fi
+
 code=()
 db_changed=0
 declare -A touched=()
