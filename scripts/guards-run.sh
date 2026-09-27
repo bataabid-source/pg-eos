@@ -165,10 +165,23 @@ verdict_nonsql G15 "doc 40 Part E scenarios S1–S20 — ${g15_sum:-runner}" "$g
 # G16 — stryker on every module's domain/ (modules/*/stryker.config.json, thresholds.break = 75,
 # ADR-0005 §6): the root `pnpm mutation` runs the modules one at a time (shared database); every
 # config must print its own "Final mutation score" line and every score must be >= 75.
+# Scope (X part 6, D-193 D6): scripts/lib/g16-scope.sh decides — G16_MODULES unset = every module
+# (nightly, deploy, local merge queue); set = the listed modules (CI gate ⑤ computes them from the
+# diff: domain/, tests/, vitest.config.ts or stryker.config.json changed); set but empty = none in
+# scope, G16 is not run here and the nightly run governs. PG_GUARDS_STRICT=1 (deploy) is never scoped.
+. "$ROOT/scripts/lib/g16-scope.sh"
 g16_cfgs=(modules/*/stryker.config.json)
+g16_mods=(); g16_scoped=0
+g16_decision="$(g16_decide)"
+if [ "$g16_decision" != "all" ]; then
+  g16_scoped=1; read -r -a g16_mods <<<"${g16_decision#scoped:}"
+fi
+g16_expected="${#g16_cfgs[@]}"; [ "$g16_scoped" = "1" ] && g16_expected="${#g16_mods[@]}"
 g16_present=0; [ -f "${g16_cfgs[0]}" ] && has_script mutation && g16_present=1
 g16_res=missing
-if [ "$g16_present" = "1" ]; then
+if [ "$g16_present" = "1" ] && [ "$g16_scoped" = "1" ] && [ "$g16_expected" -eq 0 ]; then
+  g16_res=skipped
+elif [ "$g16_present" = "1" ]; then
   g16_res="$(node -e '
     const fs=require("fs"); const bad=[];
     for (const f of process.argv.slice(1)) { let c; try { c=JSON.parse(fs.readFileSync(f,"utf8")); } catch { bad.push(f+": not JSON"); continue; }
@@ -176,12 +189,12 @@ if [ "$g16_present" = "1" ]; then
       if (!Array.isArray(c.mutate) || !c.mutate.some(m=>/^domain\//.test(m))) bad.push(f+": mutate does not target domain/"); }
     console.log(bad.length ? "red:"+bad.join("; ") : "green");' "${g16_cfgs[@]}")"
   if [ "$g16_res" = "green" ]; then
-    pnpm -s mutation >"$OUT.G16" 2>&1 || true
+    pnpm -s mutation "${g16_mods[@]}" >"$OUT.G16" 2>&1 || true
     # The temp log is removed on exit; keep a copy so a red G16 can be diagnosed (reports/ is git-ignored).
     mkdir -p reports/mutation && cp "$OUT.G16" reports/mutation/guards-G16.log
     mapfile -t g16_scores < <(grep -Eo 'Final mutation score[^0-9]*[0-9]+(\.[0-9]+)?' "$OUT.G16" | grep -Eo '[0-9]+(\.[0-9]+)?$')
-    if [ "${#g16_scores[@]}" -ne "${#g16_cfgs[@]}" ]; then
-      g16_res="red:${#g16_scores[@]} of ${#g16_cfgs[@]} modules printed a 'Final mutation score' line — stryker did not run to completion everywhere"
+    if [ "${#g16_scores[@]}" -ne "$g16_expected" ]; then
+      g16_res="red:${#g16_scores[@]} of ${g16_expected} modules printed a 'Final mutation score' line — stryker did not run to completion everywhere"
       # CI never shows the temp log; print the tail so a crash (not a low score) is diagnosable from the job output.
       echo "guards-run: G16 per-module lines (mutation-all / Final mutation score / initial-run errors):" >&2
       grep -E "^mutation-all:|Final mutation score|Initial test run|ERROR " "$OUT.G16" | sed 's/^/  G16> /' >&2
@@ -193,7 +206,12 @@ if [ "$g16_present" = "1" ]; then
     fi
   fi
 fi
-verdict_nonsql G16 "stryker mutation on domain/ >= 75 %" "$g16_present" "$g16_res"
+if [ "$g16_res" = "skipped" ]; then
+  report_line G16 "-" "not run — G16_MODULES is empty (no module in scope for this change); the nightly run scores every module"
+else
+  g16_label="stryker mutation on domain/ >= 75 %"; [ "$g16_scoped" = "1" ] && g16_label="$g16_label — ${g16_mods[*]}"
+  verdict_nonsql G16 "$g16_label" "$g16_present" "$g16_res"
+fi
 # G17 — one number in, full timeline out, <= 2 s: the runner must print 'trace_ms=<n>'; turbo must not cache it.
 g17_present=0; has_script test:trace && g17_present=1
 g17_res=missing

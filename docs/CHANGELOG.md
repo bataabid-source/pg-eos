@@ -4,6 +4,16 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X part 6 — G16 (Stryker) out of the per-PR gate ⑤, scoped to the modules a change can move; gate ⑦ multi-stage layer cache (D-193 D6, 2026-09-27)
+
+- **Why:** the repository is private and Actions minutes are billed; the GM's figures (directive 2026-09-27, item 0): one run ≈ 75 min, ⑤ alone 50–95 min, 26 runs in one day, the 2,000-minute monthly quota gone "within two days".
+- **Change:** `scripts/lib/g16-scope.sh` (new) — `g16_changed_modules <base>` (`git diff --no-renames`; a module is in scope when its `domain/`, `tests/`, `vitest.config.ts` or `stryker.config.json` changed; unresolvable base = ALL) and `g16_decide` (G16_MODULES unset = all, set = scoped, set-empty = none; `PG_GUARDS_STRICT=1` always all). `scripts/guards-run.sh` sources it; `scripts/mutation-all.sh` takes module names (unknown fails before the build). `ci.yml` ⑤ — `fetch-depth: 0` + scope step; ⑦ prints the image size. `apps/api/Dockerfile` — base/build/final stages, lockfile-only `pnpm fetch` layer, build as `node`, no `chown -R`, store and build-only ENV out of the runtime image. `nightly.yml` unchanged (already every module).
+- **Tests:** `tests/ops/x-part-6.feature` + `tests/ops/tests/x-part-6.test.ts` (pg-tester) — scope on temp repos (docs-only, tests/, renames out of domain/, unresolvable base), `g16_decide` incl. strict, `mutation-all.sh nosuch`.
+- **Also:** locks `pda` (lane 1) and `billing` (lane 2) released (no session; build lanes frozen) · `docs/notes/GM-2026-09-27-m2-directive.md` (GM-approved corrections to the M2 brief).
+- **Verified locally:** `G16_MODULES= pnpm guards:run` 21 s, all blocking green, G16 "not run"; `G16_MODULES=fleet` 74 s, fleet 89.09; ⑤ on this PR, the ⑦ image and its size, and nightly's nine lines are recorded in the next commit's line.
+- **Default recorded:** `packages/*` changes are out of the per-PR scope (②/③ catch a broken import; nightly scores every module).
+- Model: Master session · Delegated: pg-tester (sonnet), pg-reviewer (opus) · Review: PASS(7 findings, 2 rounds) · tokens: ~110k.
+
 ## X — Master handover: «الماستر M2 — طابور الدمج والموجة 1» appointed, «تقييم المشروع والمسار القادم» stands down after PR #153 (D-195, 2026-09-27)
 
 - **Why:** the GM asked for a replacement Master and delegated the naming and the timing to the consultant ("قم بالتسمية و نفذ القرار في الوقت الصحيح وبشكل سليم"); one Master at a time, handed over at a clean point (no PR mid-queue).

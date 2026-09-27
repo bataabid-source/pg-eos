@@ -10,8 +10,7 @@ Master: «الماستر M2 — طابور الدمج والموجة 1» (cloud,
 Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewer (opus); bookkeeping by scripts/scribe.mjs (state, locks, CHANGELOG template).
 
 ## Lanes (tasks/LANE_LOCKS.md)
-- lane 1 · pda · 2.16 · since 2026-09-26
-- lane 2 · billing · 4.1a · since 2026-09-25
+- (no lock held)
 
 ## Last 5 feat/fix commits (git log)
 - `70409de` fix(X): gate ⑦ waits on the api healthcheck only — Compose refuses --wait on the worker (no healthcheck), proven by the first ⑦ run on PR #152 (X pa
@@ -21,7 +20,7 @@ Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewe
 - `3146b60` feat(X): identity verifySessionSubject, ALL_ROUTES exported by name, api-kit comment — Master pre-task for X part 5a
 
 ## Blockers
-- G16 runnable (Stryker per module, all ≥ 75, packages built first); G15 runnable per STREAMS §G15 (green.json); G17 NOT RUNNABLE; deploy.sh waits on 0.6b.
+- G16: changed domain/ per PR, every module nightly (X part 6); G15 per STREAMS §G15 (green.json); G17 NOT RUNNABLE; deploy.sh waits on 0.6b.
 - S1–S20 2/20 present, 0/20 passed (S1/S2 RED on unbuilt rows); previous integration lane silent since 06:32Z — replaced after 5a merges (S18 + 5d).
 - The "known red" set (platform evaluate-alerts/schema-invariants/audit-chain, wms T9) ran green 2026-09-26 under coverage gates; CI is the arbiter.
 - Identity threshold test race under turbo (X part 3); superuser-role catalog test deferred (X part 2) — MASTER_BACKLOG.
@@ -33,6 +32,6 @@ Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewe
 - Master batch (frozen paths): entityId on WithContextCtx; domain-kit browser break; eslint cwd bug; new-slice.sh stale citations.
 
 ## Next
-1. Master: merge lane/3-s18 (S18) → 2.16 part 1a-5 + SCR-IDENTITY-RLS-01 → SCR-AUDIT-CHAIN-01 deltas 1/4 → X part 6–10 → wave 1 (A: 2.16→2.18 · B: 4.1b p2→4.20).
-2. Integration lane (new session after 5a merges): S18 spec + X part 5d (S1/S2 over HTTP, X-Entity-Id per actor; first id into tests/scenarios/green.json).
+1. Master (M2): X part 6 (D6) → rebase + merge lane/3-s18 (S18) and docs/gov → condition A: request lanes B (billing, 0040) + integration.
+2. Master after A: X part 5d (S1/S2 over HTTP) / 5a part 2 / 12 → 2.16 part 1a-5 + SCR-IDENTITY-RLS-01 → SCR-AUDIT-CHAIN-01 1/4 → X part 7–10.
 3. Stream A first slice after 2.16 part 1a-4: `2.9 part 2 (fix)` (ledger expiry_date) then 2.16 part 1a-5 (G-16a limits) before /login mounts.

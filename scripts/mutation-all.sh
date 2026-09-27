@@ -3,11 +3,25 @@
 # time in its own process. A single `pnpm -r run mutation` stalled after two modules on 2026-09-26
 # (child runner never exited), so each module gets its own timeout and the loop continues past a
 # failure so every score is reported; the exit code is red if any module was red or missing.
+#
+#   scripts/mutation-all.sh              # every module with a stryker.config.json (nightly, deploy)
+#   scripts/mutation-all.sh wms billing  # only the named modules (CI gate ⑤ on a PR, X part 6 / D6)
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PER_MODULE_TIMEOUT="${MUTATION_TIMEOUT:-1800}"
 status=0
+
+# Named modules must each carry a stryker.config.json — an unknown name fails closed, never skips.
+if [ "$#" -gt 0 ]; then
+  dirs=()
+  for name in "$@"; do
+    [ -f "$ROOT/modules/$name/stryker.config.json" ] || { echo "mutation-all: modules/$name has no stryker.config.json" >&2; exit 1; }
+    dirs+=("$ROOT/modules/$name/")
+  done
+else
+  dirs=("$ROOT"/modules/*/)
+fi
 
 # Every module test that imports a workspace package (@pg-eos/domain-kit, /contracts, ...) resolves
 # it through the package's `exports` map to dist/. Stryker's vitest runner drops a test file whose
@@ -20,7 +34,7 @@ if ! (cd "$ROOT" && pnpm -s exec turbo run build --filter='./packages/*' >/dev/n
   exit 1
 fi
 
-for dir in "$ROOT"/modules/*/; do
+for dir in "${dirs[@]}"; do
   [ -f "$dir/stryker.config.json" ] || continue
   name="$(basename "$dir")"
   echo "mutation-all: ${name}"
