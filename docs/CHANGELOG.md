@@ -4,6 +4,16 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — S18 scenario RED against doc 40 Part E: partner storage (row 4.15 unbuilt), SCR-PARTNERS-01 (integration lane, wave 1) (2026-09-27)
+
+- **What:** `tests/scenarios/S18.spec.ts` + `fixtures/partners.ts` — doc 40 lines 573-579 verbatim as steps. Backed and passing (hard 200): the Given allocates 200 pallets on a partner warehouse PW1 through the real `handleAllocateSpace` (SALES_MGR), the When runs the real daily `handleTakeOccupancySnapshot` on PW1 (WH_MGR). NOT BUILT, RED by name (`expect.soft`): priced ST-01 billable event 200×2.600 (4.3 + pricing), linked `partners.payable_events` 200×1.800 (4.15), `partners.resale_margin` 30.77 % (view exists; no rows until both events exist), partner-invoice matching (4.15 — the invoice INPUT is seeded at `received`/8,400, the outcome never written), frozen state + Decision item.
+- **SCR-PARTNERS-01 (open):** `partners.partner_invoices.status` CHECK has no `variance_review` (received · matched · frozen · approved · paid · rejected); the spec asserts the schema-legal `frozen` + Decision item (doc 40 §C6 l.324) and never the illegal literal. Also noted: "matched 7,900" cannot follow from one 360.000 payable event (S18 reuses S20's totals).
+- **DEFAULTs recorded:** "monthly snapshot" = the only snapshot command that exists (daily 2.14; bills occupied pallets, none here) · `partner_type 'warehouse'`, `relation_type 'storage'` (no CHECK, empty column comments) · doc series `PCT`/`PINV` · decision `source_table` = the invoice · `margin_pct` asserted at the view's 2-dp value 30.77 · fixture codes never the literal `GULF`/`PW1` (in `name_en`/`partner_ref`) · `green.json` untouched (Master's).
+- **G15 (§G15 semantics):** `scenarios-verdict.mjs` → `green` / `S1..S20: 3/20 present, 0/20 passed; expected green: 0/0`. Two runs identical, zero residue, outbox delta 0.
+- **Assignment path:** the Master's channel trigger (06:02Z) never delivered; the lane restarted from `docs/state/next.md` at 10:56Z (GM wake-up), status fired to the Master at 10:58Z.
+- **Review (pg-reviewer, opus):** pre-build FAIL(4: 1 blocking — two NOT NULL fixture columns; 3 nits) folded · close round 1 FAIL(3 nits: unnamed soft assertion, inline table literal, over-list reads) → fix round → round 2 PASS. Over-list reads disclosed by pg-tester (S1.spec.ts, four api handler/composition files, take-occupancy-snapshot.ts 1-180, manage-space.test.ts 1-260, billing.billable_events columns) — recorded, budget ≈ 95k tester.
+- Model: Integration lane session · Delegated: pg-tester (sonnet), pg-reviewer (opus) · Review: PASS(3 findings, 2 rounds) · tokens: tester ~110k · reviews ~140k · lane ~50k.
+
 ## X — fast-feedback tooling: PostToolUse lint/typecheck hook, local gitleaks gate ⓒ, automated PR review workflow (2026-09-27)
 
 - **GM directive (verbatim):** "نفذ الكل بنفسك" — the five gaps named in the Master's tooling assessment of 2026-09-27; the three that live in the repository are delivered here, the two that live in GitHub settings (branch protection on `main`, the `ANTHROPIC_API_KEY` secret) need the GM's account and are listed as batched questions in the closing report.
