@@ -4,6 +4,7 @@ History of claims and releases: `docs/CHANGELOG.md` · migration register and ne
 
 | module | lane | task | claimed_at | worktree |
 |---|---|---|---|---|
+| billing | 2 | 4.1b | 2026-09-27 | ../pg-eos-lane-2 |
 
 ## Rules (CLAUDE.md · AGENTS AND SESSIONS)
 
