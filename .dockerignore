@@ -1,0 +1,25 @@
+# X part 5c — the image build context (repository root) never carries secrets, data or build output.
+# Docker's patterns are root-anchored: `**/` is what reaches infra/docker/.env and every package.
+.git
+**/.env
+**/.env.*
+**/data/
+**/node_modules/
+**/dist/
+**/coverage/
+**/.turbo/
+**/reports/
+**/*.pem
+**/*.key
+**/*.dump
+**/*.bak
+**/*.tgz
+**/id_*
+!**/id_*.ts
+!**/id_*.tsx
+**/*.sql.gz
+.claude/settings.local.json
+**/build/
+**/.stryker-tmp/
+**/playwright-report/
+**/test-results/
