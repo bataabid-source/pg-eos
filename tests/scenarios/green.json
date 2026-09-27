@@ -1,0 +1,4 @@
+{
+  "_comment": "G15 merge gate (docs/STREAMS.md §G15): scenario ids (S1..S20) whose doc-38 rows are DONE and whose Playwright spec is green on main. The Master adds an id in the commit that closes the row; scripts/scenarios-verdict.mjs turns a listed scenario that fails or goes missing into a RED (regression). Unlisted scenarios are reported only; deploy (PG_GUARDS_STRICT=1) needs 20/20.",
+  "green": []
+}

@@ -4,6 +4,13 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — G15 semantics: green.json regressions block merge, 20/20 only at deploy; integration lane merged (enablement 3a) (2026-09-27)
+
+- **Why:** the integration lane's report (`lane/3-enablement` 2467ec5): with the Playwright runner present, `guards-run.sh` G15 and CI ④ were RED and blocking while any of S1–S20 is missing or failing — every lane blocked until 20/20, although a scenario RED on unbuilt rows is the build plan (ADR-0005 "DONE = scenario green"). Decision (DEFAULT, recorded here, docs/STREAMS.md §G15): merge gate = only scenarios listed in `tests/scenarios/green.json` must be present and passing (a regression is RED); everything else is reported; deploy (`PG_GUARDS_STRICT=1`) keeps doc 40 Part E verbatim, 20/20.
+- **Change:** NEW `scripts/scenarios-verdict.mjs` (one reader of the Playwright JSON report for G15, CI ④ and nightly; `--strict`, `--manifest`; 14 hook-suite cases) · NEW `tests/scenarios/green.json` (`green: []` today) · `guards-run.sh` G15 block calls it and shows the counts in the row label · `ci.yml` ④ runs the list reporter for humans, the JSON reporter for the verdict, and fails only on the verdict; ④ pinned to Node 22 with the quiet service log like ②③/⑤ · `nightly.yml` prints the strict line for the record and fails on the merge-gate verdict. Local run: `S1..S20: 2/20 present, 0/20 passed; expected green: 0/0` → green.
+- **Lane merge:** `lane/3-enablement` (2 commits, test(X) part 1 + part 2) rebased onto the session branch (CHANGELOG ×2 conflicts, entries kept in order); the lane's `fix` finding — the ledger never writes `stock_balance.expiry_date` (`post-movement.ts`, `receive-line.ts`; FEFO and outbound condition 5 ineffective) — filed as a backlog row for stream A; its "not a finding" (garbled comment `seed.ts:248-250`) left as is.
+- Model: Master session · Delegated: none (lane work reviewed by pg-reviewer in the lane, PASS(12, 2 rounds) + PASS(1, 2 rounds)) · Review: n/a (Master merge; hooks suite, gates ①–③, guards) · tokens: ~25k.
+
 ## X — PR #147 CI: stale placeholders resolved; G16 crash root-caused to the Node 20 runner (Stryker 10 needs Node ≥ 22) (2026-09-27)
 
 - **Why:** PR #147 (session branch → main) was red on gate ① (`resolve-hashes --check`: four `<this commit>` placeholders in `tasks/MASTER_BACKLOG.md` left by `33a5446` on main) and on gate ⑤ (G16 "0 of 9 modules printed a 'Final mutation score' line" after ~9 s — a crash, not a score; the job output never showed the temp log).

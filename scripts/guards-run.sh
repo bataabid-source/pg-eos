@@ -148,20 +148,20 @@ verdict_nonsql() {   # $1 guard  $2 label  $3 present(0/1)  $4 result: green|red
     report_line "$g" "-" "NOT RUNNABLE — $label runner not present yet (report only; deploy sets PG_GUARDS_STRICT=1)"
   fi
 }
-# G15 — every one of S1..S20 must be present AND passed (playwright JSON reporter), not a file count.
+# G15 — doc 40 Part E scenarios S1..S20 (playwright JSON reporter), judged by
+# scripts/scenarios-verdict.mjs: under PG_GUARDS_STRICT=1 (deploy) every scenario must be present
+# AND passed; otherwise (merge gate) only the scenarios listed in tests/scenarios/green.json must be
+# — a listed scenario failing or missing is a regression and RED, the rest is reported
+# (docs/STREAMS.md §G15: a scenario RED because its rows are not built yet is the plan, not a defect).
 g15_present=0; [ -n "$(ls -A tests/scenarios 2>/dev/null)" ] && has_script test:scenarios && g15_present=1
-g15_res=missing
+g15_res=missing; g15_sum=""
 if [ "$g15_present" = "1" ]; then
   if pnpm -s test:scenarios --reporter=json >"$OUT.G15" 2>/dev/null; then :; fi
-  g15_res="$(node -e '
-    const fs=require("fs"); let j; try{ j=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); }catch(e){ console.log("red:no playwright JSON report (did it run?)"); process.exit(0); }
-    const seen=new Map(); const walk=(s)=>{ (s.suites||[]).forEach(walk); (s.specs||[]).forEach(sp=>{ const m=/\bS(\d{1,2})\b/.exec(sp.title+" "+(sp.file||"")); if(!m) return; const n=+m[1]; if(n<1||n>20) return; const ok=sp.ok===true || (sp.tests||[]).every(t=>(t.results||[]).some(r=>r.status==="passed")); seen.set(n,(seen.get(n)??true)&&ok); }); };
-    (j.suites||[]).forEach(walk);
-    const missing=[],failed=[]; for(let n=1;n<=20;n++){ if(!seen.has(n)) missing.push("S"+n); else if(!seen.get(n)) failed.push("S"+n); }
-    if(!missing.length&&!failed.length) console.log("green"); else console.log("red:"+(seen.size)+"/20 present, passed "+([...seen.values()].filter(Boolean).length)+"/20"+(missing.length?"; missing "+missing.join(","):"")+(failed.length?"; failed "+failed.join(","):""));
-  ' "$OUT.G15")"
+  g15_strict=(); [ "${PG_GUARDS_STRICT:-0}" = "1" ] && g15_strict=(--strict)
+  g15_out="$(node scripts/scenarios-verdict.mjs "$OUT.G15" "${g15_strict[@]}" || true)"
+  g15_res="${g15_out%%$'\n'*}"; g15_sum="${g15_out#*$'\n'}"
 fi
-verdict_nonsql G15 "doc 40 Part E scenarios S1–S20 20/20" "$g15_present" "$g15_res"
+verdict_nonsql G15 "doc 40 Part E scenarios S1–S20 — ${g15_sum:-runner}" "$g15_present" "$g15_res"
 # G16 — stryker on every module's domain/ (modules/*/stryker.config.json, thresholds.break = 75,
 # ADR-0005 §6): the root `pnpm mutation` runs the modules one at a time (shared database); every
 # config must print its own "Final mutation score" line and every score must be >= 75.
