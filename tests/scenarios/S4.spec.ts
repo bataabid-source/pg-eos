@@ -360,16 +360,18 @@ test.describe('S4 Station client (iMile)', () => {
     );
 
     await test.step('When shipments delivered on 14/03 10:00 and 15/03 09:00 are attributed', async () => {
-      attributedTrackingNos = [`_s4_${randomUUID()}_1`, `_s4_${randomUUID()}_2`];
+      const shipment1TrackingNo = `_s4_${randomUUID()}_1`;
+      const shipment2TrackingNo = `_s4_${randomUUID()}_2`;
+      attributedTrackingNos = [shipment1TrackingNo, shipment2TrackingNo];
       shipment1Id = await insertShipment(pool, {
-        trackingNo: attributedTrackingNos[0] ?? '',
+        trackingNo: shipment1TrackingNo,
         driverCode: S4_DRIVER_CODE,
         zoneCode: S4_ZONE_SABAH,
         internalStatus: SHIPMENT_INTERNAL_STATUS_DELIVERED,
         ofdAt: SHIPMENT_1_OFD_AT_ISO,
       });
       shipment2Id = await insertShipment(pool, {
-        trackingNo: attributedTrackingNos[1] ?? '',
+        trackingNo: shipment2TrackingNo,
         driverCode: S4_DRIVER_CODE,
         zoneCode: S4_ZONE_SABAH,
         internalStatus: SHIPMENT_INTERNAL_STATUS_DELIVERED,
