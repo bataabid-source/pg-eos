@@ -36,6 +36,7 @@ import {
   type MovementType,
 } from './domain.js';
 import {
+  ConflictingExpiryError,
   LocationBlockedError,
   LocationLimitExceededError,
   MovementNotFoundError,
@@ -74,6 +75,10 @@ export interface PostMovementInput {
   readonly refId?: string | null;
   readonly reasonCode?: string | null;
   readonly deviceId?: string | null;
+  // decision 3: optional top-level sibling of `entry` (no existing field carried it) — the batch
+  // expiry offered for THIS posting, applied to wms.stock_balance by applyLockedBalanceDelta
+  // (decision 2). Absent/null means "this posting doesn't know an expiry", never "clear it".
+  readonly expiryDate?: string | null;
 }
 
 export interface LedgerDeps {
@@ -107,6 +112,9 @@ type StoredMovementRow = {
   readonly reason_code: string | null;
   readonly performed_by: string;
   readonly device_id: string | null;
+  // decision 5: the batch expiry this row was written with (single entries: PostMovementInput's
+  // own expiryDate; transfers: the source balance row's expiry — see postTransferInTx).
+  readonly expiry_date: string | null;
 };
 
 /**
@@ -143,22 +151,25 @@ async function insertMovementRow(
     readonly refId: string | null;
     readonly reasonCode: string | null;
     readonly deviceId: string | null;
+    // decision 5: input.expiryDate ?? null for a single entry; the resolved source-balance value
+    // for both legs of a transfer (postTransferInTx).
+    readonly expiryDate: string | null;
   },
 ): Promise<StoredMovementRow> {
   const result = await tx.execute<StoredMovementRow>(sql`
     insert into wms.stock_movements
       (entity_id, occurred_at, movement_type, client_id, sku_id, from_location_id, to_location_id,
-       qty, uom, batch_no, ref_table, ref_id, reason_code, performed_by, device_id)
+       qty, uom, batch_no, ref_table, ref_id, reason_code, performed_by, device_id, expiry_date)
     values
       (${params.entityId}::uuid, ${params.occurredAt.toISOString()}::timestamptz,
        ${params.entry.movementType}, ${params.entry.clientId}::uuid, ${params.entry.skuId}::uuid,
        ${params.entry.fromLocationId}::uuid, ${params.entry.toLocationId}::uuid,
        ${params.entry.qty.toString()}::numeric, ${params.entry.uom}, ${params.entry.batchNo},
        ${params.refTable}, ${params.refId}::uuid, ${params.reasonCode}, ${params.performedBy}::uuid,
-       ${params.deviceId})
+       ${params.deviceId}, ${params.expiryDate}::date)
     returning id, entity_id, occurred_at, movement_type, client_id, sku_id, from_location_id,
               to_location_id, qty::text as qty, uom, batch_no, ref_table, ref_id, reason_code,
-              performed_by, device_id
+              performed_by, device_id, expiry_date::text as expiry_date
   `);
 
   const row = result.rows[0];
@@ -464,24 +475,54 @@ async function applyLockedBalanceDelta(
   tx: NodePgDatabase,
   entry: LedgerEntry,
   occurredAt: Date,
+  // decision 2: the expiry offered for this delta — null means "none offered", never "clear it".
+  expiryDate: string | null,
 ): Promise<void> {
   const locationId = balanceLocationId(entry);
   const signedDelta = entry.toLocationId !== null ? entry.qty : entry.qty.negate();
 
   try {
-    const updateResult = await tx.execute(sql`
+    // decision 2: UPDATE-first, `expiry_date = coalesce(expiry_date, $e)` — an existing recorded
+    // expiry always wins over a newly offered one; `offered_expiry` round-trips $e through the same
+    // ::date::text cast as the returned column so the two are compared in the same text format.
+    const updateResult = await tx.execute<{
+      readonly expiry_date: string | null;
+      readonly offered_expiry: string | null;
+    }>(sql`
       update wms.stock_balance
          set qty_on_hand = qty_on_hand + ${signedDelta.toString()}::numeric,
-             last_movement_at = ${occurredAt.toISOString()}::timestamptz
+             last_movement_at = ${occurredAt.toISOString()}::timestamptz,
+             expiry_date = coalesce(expiry_date, ${expiryDate}::date)
        where client_id = ${entry.clientId}::uuid and sku_id = ${entry.skuId}::uuid
          and location_id = ${locationId}::uuid and batch_no = ${entry.batchNo}
+       returning expiry_date::text as expiry_date, ${expiryDate}::date::text as offered_expiry
     `);
 
-    if ((updateResult.rowCount ?? 0) === 0) {
+    const updatedRow = updateResult.rows[0];
+    if (updatedRow !== undefined) {
+      // decision 2: a returned (post-coalesce) non-null expiry differs from a non-null offered
+      // expiry only when a DIFFERENT expiry was already recorded — the coalesce kept it, and this
+      // posting's own expiry was refused. Nothing about this row has been left half-written: the
+      // qty_on_hand/last_movement_at SET ran in the SAME statement, but the caller's transaction
+      // rolls the whole thing back once this throws (postMovementInTx/postTransferInTx never
+      // catch it).
+      if (
+        updatedRow.expiry_date !== null &&
+        updatedRow.offered_expiry !== null &&
+        updatedRow.expiry_date !== updatedRow.offered_expiry
+      ) {
+        throw new ConflictingExpiryError(
+          `client ${entry.clientId}, sku ${entry.skuId}, location ${locationId}, batch ${entry.batchNo}`,
+          updatedRow.expiry_date,
+          updatedRow.offered_expiry,
+        );
+      }
+    } else {
+      // decision 2: INSERT branch writes $e directly — no prior row, nothing to conflict with.
       await tx.execute(sql`
-        insert into wms.stock_balance (client_id, sku_id, location_id, batch_no, qty_on_hand, last_movement_at)
+        insert into wms.stock_balance (client_id, sku_id, location_id, batch_no, qty_on_hand, last_movement_at, expiry_date)
         values (${entry.clientId}::uuid, ${entry.skuId}::uuid, ${locationId}::uuid, ${entry.batchNo},
-                ${signedDelta.toString()}::numeric, ${occurredAt.toISOString()}::timestamptz)
+                ${signedDelta.toString()}::numeric, ${occurredAt.toISOString()}::timestamptz, ${expiryDate}::date)
       `);
     }
   } catch (error) {
@@ -503,10 +544,11 @@ async function lockAndApplyBalanceDelta(
   tx: NodePgDatabase,
   entry: LedgerEntry,
   occurredAt: Date,
+  expiryDate: string | null,
 ): Promise<void> {
   const locationId = balanceLocationId(entry);
   await lockBalanceRow(tx, balanceKey(entry.clientId, entry.skuId, locationId, entry.batchNo));
-  await applyLockedBalanceDelta(tx, entry, occurredAt);
+  await applyLockedBalanceDelta(tx, entry, occurredAt, expiryDate);
 }
 
 /** decision 7 / G9: one outbox row for a posted movement, same correlationId as its audit row. */
@@ -605,6 +647,7 @@ export async function postMovementInTx(
   await checkLocationLimitsForEntries(tx, [input.entry]);
 
   const occurredAt = deps.clock.now();
+  const expiryDate = input.expiryDate ?? null;
   const row = await insertMovementRow(tx, {
     entityId: input.entityId,
     entry: input.entry,
@@ -614,9 +657,10 @@ export async function postMovementInTx(
     refId: input.refId ?? null,
     reasonCode: input.reasonCode ?? null,
     deviceId: input.deviceId ?? null,
+    expiryDate,
   });
 
-  await lockAndApplyBalanceDelta(tx, input.entry, occurredAt);
+  await lockAndApplyBalanceDelta(tx, input.entry, occurredAt, expiryDate);
   await writeMovementEventAndAudit(tx, {
     entityId: input.entityId,
     movementRow: row,
@@ -644,7 +688,9 @@ export async function postMovement(
  * `fromLocationId` and an in-row at `toLocationId`, same client/sku/qty/batch/uom, both
  * movementType 'transfer', sharing ref_table/ref_id (whatever `input` carries) and correlationId.
  */
-export type PostTransferInput = Omit<PostMovementInput, 'entry'> & {
+// decision 3: 'expiryDate' is omitted too — a transfer never takes an expiry from its caller; it
+// reads its own (decision 4, postTransferInTx) from the source balance row.
+export type PostTransferInput = Omit<PostMovementInput, 'entry' | 'expiryDate'> & {
   readonly base: Parameters<typeof planTransfer>[0];
   readonly fromLocationId: string;
   readonly toLocationId: string;
@@ -690,6 +736,17 @@ export async function postTransferInTx(
     await lockBalanceRow(tx, key);
   }
 
+  // decision 4: read the SOURCE balance row's expiry only AFTER both balance locks are held (so it
+  // can't be changed underneath this transfer by a concurrent posting on the same key), then carry
+  // it onto both movement rows and both balance legs below (decision 2 via applyLockedBalanceDelta).
+  const sourceBalanceResult = await tx.execute<{ readonly expiry_date: string | null }>(sql`
+    select expiry_date::text as expiry_date
+      from wms.stock_balance
+     where client_id = ${outEntry.clientId}::uuid and sku_id = ${outEntry.skuId}::uuid
+       and location_id = ${input.fromLocationId}::uuid and batch_no = ${outEntry.batchNo}
+  `);
+  const transferExpiryDate = sourceBalanceResult.rows[0]?.expiry_date ?? null;
+
   // ADR-0002 / doc 40 §B2: the audit row must be the LAST statement before commit. Writing the
   // out-entry's ledger+balance+outbox+audit, THEN the in-entry's balance update, would take the
   // global audit-chain advisory lock (the out-entry's audit insert) and only afterwards try to
@@ -710,9 +767,10 @@ export async function postTransferInTx(
       refId: input.refId ?? null,
       reasonCode: input.reasonCode ?? null,
       deviceId: input.deviceId ?? null,
+      expiryDate: transferExpiryDate,
     });
 
-    await applyLockedBalanceDelta(tx, entry, occurredAt);
+    await applyLockedBalanceDelta(tx, entry, occurredAt, transferExpiryDate);
     rows.push(row);
   }
 
@@ -818,6 +876,9 @@ export async function reverseMovement(
     await checkLocationLimitsForEntries(tx, [reversalEntry]);
 
     const occurredAt = deps.clock.now();
+    // Out of this brief's scope (decisions 2-8 name only postMovementInTx/postTransferInTx/
+    // rebuild-balance): a reversal offers no expiry of its own. null leaves an existing recorded
+    // expiry untouched (decision 2's coalesce) rather than fabricating one.
     const row = await insertMovementRow(tx, {
       entityId: original.entity_id,
       entry: reversalEntry,
@@ -827,9 +888,10 @@ export async function reverseMovement(
       refId: original.id,
       reasonCode: REVERSAL_REASON_CODE,
       deviceId: null,
+      expiryDate: null,
     });
 
-    await lockAndApplyBalanceDelta(tx, reversalEntry, occurredAt);
+    await lockAndApplyBalanceDelta(tx, reversalEntry, occurredAt, null);
     await writeMovementEventAndAudit(tx, {
       entityId: original.entity_id,
       movementRow: row,

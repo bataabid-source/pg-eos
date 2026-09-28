@@ -4,6 +4,16 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## 2.9 part 2 (fix) — the ledger writes wms.stock_balance.expiry_date — FEFO effective (lane 1, R4, 2026-09-28)
+
+- **Why:** backlog row 2.9 part 2 (fix), found by S1's FEFO step: receipts, put-away transfers and rebuild never carried the batch expiry onto `wms.stock_balance`, so FEFO allocation ordered by location.
+- **Change:** `src/stock-ledger/{post-movement,rebuild-balance,errors,index}.ts` (optional `PostMovementInput.expiryDate`; movement row + RETURNING + stock.moved payload carry `expiry_date`; balance UPDATE-first `coalesce`, `ConflictingExpiryError` on a different non-null expiry; transfer takes the source row's expiry; rebuild derives it per key, refuses two) · receive-inbound `ports/receive-line/ledger` thread the expiry · `api/receive-inbound/handlers.ts` 422 · tests `expiry-balance.{feature,test.ts}`, `integration/expiry-balance.property.test.ts`, scenario 6 in `receive-inbound.test.ts` · `tests/scenarios/S1.spec.ts` `expiry_date::text` cast (JS Date vs string; assertion unchanged) + truthful messages.
+- **Defaults recorded:** brief D1–D8 (Master brief, amended after pre-build round 1) · conflict detection per balance row only (another location's different expiry not detected) · `reverseMovement` passes `expiryDate = null` (coalesce keeps the recorded one) · rebuild's error names `min`/`max` of the key's ledger expiries · `ConflictingExpiryError(batchKey, recorded, offered)` builds its own message.
+- **Process:** out-of-list reads declared — pg-tester (`01-Data-Model.sql` 222-300, receive-inbound repository grep), pg-builder (`stock-ledger/index.ts`, `handlers.ts` 80-150, `post-movement.ts` 1-59/760-844, `tests/scenarios` config + S1). Lead session could not reach the Master by SendMessage (cloud sessions not listed); report left in this session. **Budget breach (recorded):** worker estimates ≈ 513k tokens (> 2× the 150k budget); no split taken (the fix is one indivisible ledger path).
+- **Verified on `pgeos_lane1` (lane-db.sh 1):** wms 1049/1049, coverage 99.02/93.67/100/98.95 · `G16_MODULES=wms pnpm guards:run` all blocking green (G1 = 0, G16 wms ≥ 75) · S1 FEFO steps green; S1 still RED on billing OF-xx (4.3), `tms.delivery_tasks` (3.4), quarantine (2.16/2.18).
+- **Review (pg-reviewer):** pre-build round 1 FAIL(13: 8 blocking) → brief amended + tester fix → build → close round 2 FAIL(8: 2 blocking — refusal-path tests; verification on the shared `pgeos`, cleared above) → PASS subset = whole diff; open findings 1–7 → `2.9 part 3`.
+- Model: lane session R4 (opus) · Delegated: pg-tester (sonnet ×3), pg-builder (sonnet), pg-reviewer (opus ×2) · Review: PASS(21 findings, 2 rounds) · tokens: tester ~95k+95k+55k · builder ~95k · reviewer ~78k+95k.
+
 ## X — merge main (ba875ad, PR #165) into the Master's launch PR #166; repository made public (Master M3, 2026-09-28)
 
 - **Why:** #165 (4.1b part 2) merged first and left #166 dirty (conflict on `docs/state/header.md`, `docs/CHANGELOG.md`, `database/migrations/README.md`, `docs/PROJECT_STATE.md`). Separately, GitHub Actions had stopped assigning runners on main (billing block — payments failed / spending limit); the GM made the repository public so standard runners run free, and CI recovered (verified: run 36389392268 attempt 3, jobs assigned and green).
