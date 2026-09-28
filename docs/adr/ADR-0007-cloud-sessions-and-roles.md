@@ -3,7 +3,7 @@
 **Status:** Accepted — Phase 1 (D-196, 2026-09-28) · Phase 2 Proposed, evaluation scheduled 2026-09-30
 **Date:** 2026-09-28
 **Approved by:** GM — D-196: "موافق على المرحلة 1، ابدأ التنفيذ مع جدوله المرجله الثانيه مع وضع محدادت للجلسات بما فيها جلسه الماستر احلال وتجديد مع الحفاظ علي السياق باحترافيه" (drafted on the directive "نعم جهّز مسودة تقسيم الأدوار").
-**Reviewed & accepted: opus** — pg-reviewer round 1 FAIL (6 blocking, 11 nits), one fix round, round 2 in the commit trailer.
+**Reviewed & accepted: opus** — pg-reviewer round 1 FAIL (6 blocking, 11 nits) → one fix round → round 2 FAIL (3 blocking, 3 nits, all separable; no regression against origin/main). REVIEW CAP: the whole content is the PASS subset; the six open findings are `X part 13` (hook, settings, tests, pg-reviewer.md) and `X part 14` (wording).
 **References:** CLAUDE.md · AGENTS AND SESSIONS · `docs/RUNBOOK.md:74` (§2, memory rule) · `docs/GOVERNANCE-HISTORY.md:145` · D-171, D-174, D-179, D-180, D-192, D-195 (`docs/DECISION_LOG.md`) · `docs/STREAMS.md` · `tasks/MASTER_BACKLOG.md` rows 2.12, 3.1, 3.4, 3.14, 2.16 part 1a-5, 2.9 part 2 (fix), 6.4 · `docs/package/38-WBS.md` (Lane column) · `.claude/hooks/lane-guard.sh` · `.claude/settings.json` (deny `git push --force*`) · `scripts/check-locks.sh` · `scripts/scribe.mjs` · `tests/hooks/run.sh` · `.claude/hooks/session-start.sh` · the `create_session` tool schema (no environment-variable parameter) · `list_sessions` metadata read 2026-09-28 ≈ 00:25Z.
 
 ## Context (السياق)
