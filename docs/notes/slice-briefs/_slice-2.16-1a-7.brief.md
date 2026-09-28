@@ -1,6 +1,6 @@
 # SLICE BRIEF — WBS 2.16 part 1a-7 · SCR-IDENTITY-RLS-01 part 1 — `platform.has_perm` search_path (delta 4)
 
-Task: 2.16 part 1a-7 (proposed row id — Master confirms) = SCR-IDENTITY-RLS-01 delta 4      Lane: M (M-core, ADR-0007)      Lock: `packages/identity | M` + `identity | M`
+Task: 2.16 part 1a-7 (row id confirmed by Master M5, 2026-09-28) = SCR-IDENTITY-RLS-01 delta 4      Lane: M (M-core, ADR-0007)      Lock: `packages/identity | M` + `identity | M`
 builder: pg-builder-core
 Session: M-core R6 (successor of R3), branch `core/scr-identity-rls-01`. Routing (ADR-0005 §5): pg-tester sonnet (RED) → pg-reviewer opus (brief + RED, BEFORE the migration) → pg-builder-core opus → pg-tester verify → pg-reviewer opus close. Budget ≤ 8 files / 1,000 lines read, ≤ 150k tokens; REVIEW CAP 2 rounds.
 
@@ -12,7 +12,7 @@ Session: M-core R6 (successor of R3), branch `core/scr-identity-rls-01`. Routing
 
 ## Decisions (defaults — one CHANGELOG line each)
 1. `create or replace function platform.has_perm(p_code text)` with the body byte-identical, adding `set search_path = pg_catalog, pg_temp` — the pin of 0009 / 0010 / 0031 / 0038 (`next_doc_no`, `idempotency_*`, `allowed_entities`, the line-dimension guards; the 13B definers pin `pg_catalog, public`), not the SCR's `pg_catalog, platform`: the body is fully schema-qualified, and naming `pg_temp` last stops the implicit temp-schema-first lookup. Owner, grants, `stable`, `security definer` unchanged — `stable` and `security definer` are restated (CREATE OR REPLACE resets omitted attributes to volatile / invoker); no DROP (policies depend on the oid); no REVOKE from PUBLIC (has_perm runs inside RLS policies and definer triggers as pgeos_app / pgeos_worker). Shape: `begin; create or replace …; do $$ … $$; commit;` — the `do` block raises `'0043: platform.has_perm must be SECURITY DEFINER, STABLE, search_path=pg_catalog, pg_temp, owned by a superuser/BYPASSRLS role'` unless prosecdef, provolatile = 's', proconfig = array['search_path=pg_catalog, pg_temp'] and the owner is rolsuper or rolbypassrls (0031:42 / 0010:86-94 precedent).
-2. The schema-file parity edit of `01-Data-Model.sql:313-314` (0031 precedent) is a Master step (database/schema/* is refused to every session by lane-guard) and lands in the same feat(2.16) commit: `language sql stable security definer set search_path = pg_catalog, pg_temp as $$` with a parity comment in the 01:327-328 style ("migration 0043, SCR-IDENTITY-RLS-01 delta 4; kept identical to 0043"). Closing bookkeeping also sets `docs/notes/SCR-IDENTITY-RLS-01.md` row 4 to "applied by 0043 — value `pg_catalog, pg_temp` (brief 1a-7 Decision 1)"; the SCR stays open for deltas 1–3.
+2. The schema-file parity edit of `01-Data-Model.sql:313-314` (0031 precedent) is a Master step (database/schema/* is refused to every session by lane-guard) and lands right after this migration merges, by the Master (M5 ruling 2026-09-28, overriding pre-build nit 5's "same commit"): `language sql stable security definer set search_path = pg_catalog, pg_temp as $$` with a parity comment in the 01:327-328 style ("migration 0043, SCR-IDENTITY-RLS-01 delta 4; kept identical to 0043"). Closing bookkeeping also sets `docs/notes/SCR-IDENTITY-RLS-01.md` row 4 to "applied by 0043 — value `pg_catalog, pg_temp` (brief 1a-7 Decision 1)"; the SCR stays open for deltas 1–3.
 3. A catalog invariant — zero SECURITY DEFINER functions without `search_path=` in `proconfig`, in every non-system schema — becomes a permanent test so a future definer cannot regress.
 
 ## Read ONLY (workers)
@@ -24,7 +24,7 @@ Session: M-core R6 (successor of R3), branch `core/scr-identity-rls-01`. Routing
 - `tests/isolation/tests/hr-commission-confirm-sod.test.ts` lines 1-80
 - `modules/identity/tests/integration/column-classification.test.ts` lines 1-50 (connection idiom — added after pre-build review nit 2)
 
-Write ONLY: `database/migrations/<issued>_M_has-perm-search-path.sql` + its `database/migrations/README.md` line · `tests/isolation/tests/**` and `modules/identity/tests/**` (pg-tester only) · `tasks/backlog/MIGRATION-REQUEST-M.md`. Never CLAUDE.md, never `database/schema/*`, never `packages/*` outside `packages/identity`.
+Write ONLY: `database/migrations/0043_M_has-perm-search-path.sql` + its `database/migrations/README.md` line · `tests/isolation/tests/**` and `modules/identity/tests/**` (pg-tester only) · `tasks/backlog/MIGRATION-REQUEST-M.md`. Never CLAUDE.md, never `database/schema/*`, never `packages/*` outside `packages/identity`.
 Contract: none (no endpoint). Screen/Board spec: none.
 
 ## RED tests (before the migration file — lane-guard)
@@ -39,7 +39,7 @@ Feature: platform.has_perm runs with a pinned search_path (SCR-IDENTITY-RLS-01 d
 ```
 
 Deliver: migration + README line · the two RED files green · isolation project + `G16_MODULES=identity pnpm guards:run` green.
-Migration number: **requested — 0043 is the next free number** (Master issues).
+Migration number: **0043 — issued to lane M** (Master M5, 2026-09-28): `database/migrations/0043_M_has-perm-search-path.sql`.
 
 ## Follow-up rows (proposed, BLOCKED until the GM rules)
 - **2.16 part 1a-8** — delta 2 (sessions, otp_codes): per-command policies + identity definer functions for the pre-auth writes. Needs no new code; after 1a-7.
