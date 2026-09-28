@@ -25,9 +25,9 @@ done
 guard() { # guard <root> <lane|""> <path>  → exit code
   local root="$1" lane="$2" path="$3"
   if [ -n "$lane" ]; then
-    printf '{"tool_name":"Write","tool_input":{"file_path":"%s"}}' "$path" | CLAUDE_PROJECT_DIR="$root" PG_LANE="$lane" bash "$root/lane-guard.sh" 2>/dev/null; echo $?
+    printf '{"tool_name":"Write","tool_input":{"file_path":"%s"}}' "$path" | CLAUDE_PROJECT_DIR="$root" PG_LANE="$lane" env -u CLAUDE_CODE_REMOTE bash "$root/lane-guard.sh" 2>/dev/null; echo $?
   else
-    printf '{"tool_name":"Write","tool_input":{"file_path":"%s"}}' "$path" | CLAUDE_PROJECT_DIR="$root" env -u PG_LANE bash "$root/lane-guard.sh" 2>/dev/null; echo $?
+    printf '{"tool_name":"Write","tool_input":{"file_path":"%s"}}' "$path" | CLAUDE_PROJECT_DIR="$root" env -u PG_LANE -u CLAUDE_CODE_REMOTE bash "$root/lane-guard.sh" 2>/dev/null; echo $?
   fi
 }
 locks() { printf '| module | lane | task | claimed_at | worktree |\n|---|---|---|---|---|\n%s\n' "$1" > "$LANE1/tasks/LANE_LOCKS.md"; }
@@ -38,6 +38,55 @@ expect "master: database/schema blocked"        2 "$(guard "$SHARED" "" "databas
 locks '| wms | 1 | 2.10 | 2026-09-25 | ../pg-eos-lane-1 |'
 cp "$LANE1/tasks/LANE_LOCKS.md" "$SHARED/tasks/LANE_LOCKS.md"
 expect "lane in shared checkout blocked (D-179)" 2 "$(guard "$SHARED" 1 "modules/wms/index.ts")"
+# ADR-0007 Decision 3: a cloud session (CLAUDE_CODE_REMOTE=true) is its own clone `pg-eos`; the branch
+# replaces the worktree directory and, with PG_LANE unset, names the role (lane/<id>-* · core/* · else Master).
+CLOUD="$TMP/pg-eos"; mkdir -p "$CLOUD/tasks" && cp "$REPO/.claude/hooks/lane-guard.sh" "$CLOUD/lane-guard.sh"
+export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1   # no host git config leaks into the cases
+git -C "$CLOUD" init -q -b main 2>/dev/null || { git -C "$CLOUD" init -q && git -C "$CLOUD" checkout -q -b main; }
+printf '| module | lane | task | claimed_at | worktree |\n|---|---|---|---|---|\n| wms | 1 | 2.10 | d | cloud:session_01A |\n| identity | M | 2.16 | d | . |\n| packages/identity | M | 2.16 | d | . |\n' > "$CLOUD/tasks/LANE_LOCKS.md"
+gc() { # gc <PG_LANE|""> <path> → exit code, as a cloud session in $CLOUD on its current branch
+  if [ -n "$1" ]; then
+    printf '{"tool_name":"Write","tool_input":{"file_path":"%s"}}' "$2" | CLAUDE_PROJECT_DIR="$CLOUD" PG_LANE="$1" CLAUDE_CODE_REMOTE=true bash "$CLOUD/lane-guard.sh" 2>/dev/null; echo $?
+  else
+    printf '{"tool_name":"Write","tool_input":{"file_path":"%s"}}' "$2" | CLAUDE_PROJECT_DIR="$CLOUD" CLAUDE_CODE_REMOTE=true env -u PG_LANE bash "$CLOUD/lane-guard.sh" 2>/dev/null; echo $?
+  fi
+}
+on() { git -C "$CLOUD" checkout -q -B "$1"; }
+expect "cloud, main, no PG_LANE: Master mode"       0 "$(gc "" "modules/hr/index.ts")"
+expect "cloud, main, PG_LANE=1: blocked"            2 "$(gc 1 "modules/wms/index.ts")"
+on lane/2-4.19
+expect "cloud, PG_LANE=1 on lane/2 branch: blocked" 2 "$(gc 1 "modules/wms/index.ts")"
+on lane/1-
+expect "cloud, branch lane/1- (no wbs): blocked"    2 "$(gc 1 "modules/wms/index.ts")"
+on lane/1
+expect "cloud, branch lane/1 (no wbs): blocked"     2 "$(gc 1 "modules/wms/index.ts")"
+on lane/1-2.16
+expect "cloud, PG_LANE=1 on its branch: lock allows" 0 "$(gc 1 "modules/wms/domain/put-away/x.ts")"
+expect "cloud, PG_LANE=2 wins over branch lane/1: blocked" 2 "$(gc 2 "modules/wms/index.ts")"
+expect "cloud, lane from branch: lock allows"       0 "$(gc "" "modules/wms/domain/put-away/x.ts")"
+expect "cloud, lane from branch: other module blocked" 2 "$(gc "" "modules/hr/index.ts")"
+expect "cloud, lane from branch: packages/* frozen" 2 "$(gc "" "packages/db/index.ts")"
+expect "cloud, lane from branch: .claude/* frozen"  2 "$(gc "" ".claude/hooks/x.sh")"
+git -C "$CLOUD" config --local pgeos.role master
+expect "cloud, pgeos.role=master on a lane branch: Master mode" 0 "$(gc "" "modules/hr/index.ts")"
+git -C "$CLOUD" config --local --unset pgeos.role
+expect "local session ignores the branch (D-179 unchanged)" 0 "$(guard "$CLOUD" "" "modules/hr/index.ts")"
+expect "local lane outside its worktree still blocked" 2 "$(guard "$CLOUD" 1 "modules/wms/domain/put-away/x.ts")"
+git -C "$CLOUD" -c user.email=t@t -c user.name=t commit -q --allow-empty -m x && git -C "$CLOUD" checkout -q --detach
+expect "cloud, detached HEAD, PG_LANE=1: blocked"   2 "$(gc 1 "modules/wms/index.ts")"
+on core/2.16-1a-5
+expect "M-core: its packages/<name> row allows"     0 "$(gc "" "packages/identity/src/otp.ts")"
+expect "M-core: its module row allows"              0 "$(gc "" "modules/identity/application/x.ts")"
+expect "M-core: an unlocked package blocked"        2 "$(gc "" "packages/db/index.ts")"
+expect "M-core: CLAUDE.md is Master-only"           2 "$(gc "" "CLAUDE.md")"
+expect "M-core: .claude/* blocked without tooling"  2 "$(gc "" ".claude/hooks/x.sh")"
+printf '| tooling | M | X | d | . |\n' >> "$CLOUD/tasks/LANE_LOCKS.md"
+expect "M-core: tooling row opens .claude/*"        0 "$(gc "" ".claude/hooks/x.sh")"
+expect "M-core: tooling row opens scripts/*"        0 "$(gc "" "scripts/check-locks.sh")"
+expect "M-core: database/schema still blocked"      2 "$(gc "" "database/schema/01-Data-Model.sql")"
+on lane/1-2.16
+expect "lane 1 with M rows present: packages still frozen" 2 "$(gc "" "packages/identity/src/otp.ts")"
+unset GIT_CONFIG_GLOBAL GIT_CONFIG_NOSYSTEM
 expect "lane: whole-module lock allows module"  0 "$(guard "$LANE1" 1 "modules/wms/domain/put-away/x.ts")"
 expect "lane: other module blocked"             2 "$(guard "$LANE1" 1 "modules/hr/index.ts")"
 expect "lane: packages/* frozen"                2 "$(guard "$LANE1" 1 "packages/db/index.ts")"
@@ -117,6 +166,10 @@ cl() { printf '| module | lane | task | claimed_at | worktree |\n|---|---|---|--
 expect "valid table OK"                         0 "$(cl '| wms/put-away | 1 | 2.10 | d | ../pg-eos-lane-1 |\n| wms/manage-space | 2 | 2.15 | d | ../pg-eos-lane-2 (building) |\n| imile | 3 | 3.14 | d | ../pg-eos-lane-3 |')"
 expect "shared claude-kit worktree refused"     1 "$(cl '| imile | 3 | 3.14 | d | shared `claude-kit` |')"
 expect "wrong lane worktree refused"            1 "$(cl '| imile | 3 | 3.14 | d | ../pg-eos-lane-2 |')"
+expect "cloud session worktree accepted (ADR-0007)" 0 "$(cl '| imile | 3 | 3.14 | d | cloud:session_01AbC |')"
+expect "bare cloud: worktree refused"           1 "$(cl '| imile | 3 | 3.14 | d | cloud: |')"
+expect "cloud worktree with trailing junk refused" 1 "$(cl '| imile | 3 | 3.14 | d | cloud:session_1 ../x |')"
+expect "cloud worktree with a dash refused"     1 "$(cl '| imile | 3 | 3.14 | d | cloud:session_a-b |')"
 expect "Master row exempt from worktree rule"   0 "$(cl '| packages/db | M | 0.6a | d | claude-kit |')"
 expect "duplicate lock refused"                 1 "$(cl '| wms | 1 | 2.11 | d | ../pg-eos-lane-1 |\n| wms | 2 | 2.13 | d | ../pg-eos-lane-2 |')"
 expect "whole + use-case clash refused"         1 "$(cl '| wms | 2 | 2.13 | d | ../pg-eos-lane-2 |\n| wms/put-away | 1 | 2.10 | d | ../pg-eos-lane-1 |')"
@@ -372,6 +425,8 @@ expect "scribe: --claim wms 1 2.9 exits 0"                        0 "$(sc --clai
 expect "scribe: claim row written with today's date and worktree" 0 "$(grep -qE '^\| wms \| 1 \| 2\.9 \| [0-9]{4}-[0-9]{2}-[0-9]{2} \| \.\./pg-eos-lane-1 \|$' "$SC/tasks/LANE_LOCKS.md"; echo $?)"
 expect "scribe: PROJECT_STATE lists the lane after a claim"       0 "$(grep -q 'lane 1 · wms · 2.9' "$SC/docs/PROJECT_STATE.md"; echo $?)"
 expect "scribe: second claim of the same lock refused"            1 "$(sc --claim wms 2 2.9)"
+expect "scribe: cloud claim writes cloud:session_<id> (ADR-0007)" 0 "$(sc --claim fleet 2 2.9 cloud:session_01XyZ >/dev/null; grep -qE '^\| fleet \| 2 \| 2\.9 \| [0-9-]+ \| cloud:session_01XyZ \|$' "$SC/tasks/LANE_LOCKS.md"; echo $?)"
+expect "scribe: malformed cloud worktree refused"                 1 "$(sc --claim tms 2 2.9 somewhere)"
 expect "scribe: claim with a task that is not a doc-38 row refused (check-locks), table unchanged" 1 "$(sc --claim hr 2 NOPE-ROW)"
 expect "scribe: table unchanged after the refused claim"          1 "$(grep -q '^| hr ' "$SC/tasks/LANE_LOCKS.md"; echo $?)"
 expect "scribe: claim with a bad lane refused"                    1 "$(sc --claim hr 9 2.9)"
