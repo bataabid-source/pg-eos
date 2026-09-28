@@ -25,7 +25,7 @@ the real `handleSetCreditLimit`, CFO; overdue approved PST invoice 15500.000). N
 receive chain, real checks reach `checks_pending` (all nine non-credit conditions pass) — the missing
 "credit hold" rejection is a named consequence of 4.9 only. PDL task NOT BUILT (3.4); PCC queue NOT BUILT (5.1).
 
-## 3. Dependencies needing Master adoption (tests/scenarios/package.json + pnpm-lock.yaml)
+## 3. Dependencies (tests/scenarios/package.json + pnpm-lock.yaml) — APPROVED by M4 2026-09-28
 
 | Dependency | Branch | Why |
 |---|---|---|
@@ -49,7 +49,7 @@ lockfile delta is a Master item (doc 36 §5-4 #8 — no new library without a wr
    post-streams decision: S5 → rows 5.1 + 5.2; S6 → rows 4.9 (after 4.7), 3.4, 5.1 (its hold must block
    outbound, delivery tasks and CC queues, doc 40 line 48).
 
-## 5. CHANGELOG lines still to add (the lane writes tests only — Master's entry)
+## 5. CHANGELOG lines — ADDED in docs/CHANGELOG.md on this branch (five entries, newest first)
 
 One line each, from the commit bodies: X part 5d (dependency + defaults: injected FixedClock routes,
 seed 91012 folded, OTP_HMAC_SECRET test value in `fixtures/actors.ts`, session lifetime threshold SEED-ONLY

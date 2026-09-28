@@ -4,6 +4,41 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — S6 scenario RED: group credit hold across entities (integration lane 3, `lane/3-s6` @ 5241c3a) (2026-09-28)
+
+- **What:** `tests/scenarios/S6.spec.ts` + `fixtures/credit.ts`, doc 40 lines 487-493 verbatim. BACKED: contracts in PST/PDL/PCC, credit_limit 15000 via the real `handleSetCreditLimit` (row 1.8 DONE), overdue approved PST invoice; PST outbound on real stock (receive chain, G1 = 0) passes all nine non-credit checks → `checks_pending`. NOT BUILT: nightly automatic hold (row 4.9, depends on 4.7), PDL delivery task (3.4), PCC queue (5.1).
+- **Defaults:** invoice total 15500.000 = limit + 500 (doc gives no figure) · doc type INV (platform.counters) · local `PCC_ENTITY_CODE` · actor WH_MGR + WH_SUP + CFO (no sod_rules conflict).
+- **Reads outside the brief:** sales credit contract + application grep, eight fixture files, S1 1-220 and 360-453, receive-inbound handlers (granted in the fix round).
+- Model: integration lane 3 (R2) · Delegated: pg-tester (sonnet), pg-reviewer (opus) · Review: PASS(4 findings, 2 rounds) · tokens: pg-tester ≈270k (over 150k, under 2×).
+
+## X — S5 scenario RED: external call-center queue isolation (integration lane 3, `lane/3-s5` @ 0a56bdb) (2026-09-28)
+
+- **What:** `tests/scenarios/S5.spec.ts` + `fixtures/cc.ts`, doc 40 lines 481-484. BACKED: external client owning queues CLINIC and SHOP, one ticket each, agent A1 (CC_AGENT) assigned to CLINIC only. The cc API is NOT BUILT (row 5.1); isolation proven at the DB layer through `withContext` as A1 (`PG_APP_USER`, RLS live): CLINIC control sees its ticket, SHOP returns zero rows (`agent_queue_scope` RESTRICTIVE).
+- **Dependency (approved by M4):** `"@pg-eos/db": "workspace:*"` in `tests/scenarios/package.json` + lockfile — `withContext` is the only built path.
+- **Defaults:** `isInternal: true` (internal CC_AGENT; cc.tickets policies never read is_internal) · SQL string with a validated `randomUUID` literal (no parameterized `sql` export) · S5 needs rows 5.1 and 5.2 (5.2 acceptance "Scenario S5 green").
+- Model: integration lane 3 (R2) · Delegated: pg-tester (sonnet), pg-reviewer (opus) · Review: PASS(6 findings, 2 rounds) · tokens: pg-tester ≈150k.
+
+## X — S4 scenario RED: station client iMile (integration lane 3, `lane/3-s4` @ e95b7e2) (2026-09-28)
+
+- **What:** `tests/scenarios/S4.spec.ts` + `fixtures/imile.ts`, doc 40 lines 469-477. Scan-to-cage: sorting-plan Given BACKED, scan + 1000 ms NOT BUILT (row 3.15). Attribution: first `handleAssignDriverId` real (200); ID release at 14/03 11:20 NOT BUILT (row 3.12), so the second assign returns 409; attribution read from `imile.shipments_attributed` (13:315-329) — shipment 2 misattributed as a named consequence; `verify_attribution()` zero rows (genuine).
+- **Defaults:** year = scenario clock year · Asia/Kuwait · employees on PDL · doc codes PG-0231/PG-0245/D-0451 · shipments' `driver_code`/`ofd_at` are fixture stand-ins.
+- Model: integration lane 3 (R2) · Delegated: pg-tester (sonnet), pg-reviewer (opus) · Review: PASS(10 findings, 2 rounds) · tokens: pg-tester ≈185k (over 150k, under 2×).
+
+## X part 5d — S1/S2 call the host over HTTP (integration lane 3, `lane/3-x5d` @ 00feb4e) (2026-09-28)
+
+- **What:** S1 calls `apps/api` `buildServer` via `app.inject` — real `issueSession` Bearer, `X-Entity-Id`, Idempotency-Key on writes, GET as query; `fixtures/host.ts` builds the route table with S1's FixedClock. S2 untouched (no handler call). Per-step result byte-identical to the in-process baseline; 13 HTTP calls all 200 (ADR-0006 §2).
+- **Dependency (approved by M4):** `"@pg-eos/identity-mechanisms": "workspace:*"` + lockfile — `issueSession`, and CI ④'s build closure for `apps/api` at runtime.
+- **Defaults:** injected routes (fixed clock) · seed 91012 folded into one host generator · `OTP_HMAC_SECRET` test value in `fixtures/actors.ts` when unset · session lifetime threshold SEED-ONLY 43. Follow-ups: export `tableEntries`; secret into playwright.config; reword ci.yml:169-170.
+- Model: integration lane 3 (R2) · Delegated: pg-tester (sonnet), pg-reviewer (opus) · Review: PASS(8 findings, 2 rounds).
+
+## X — S3 scenario RED: B2C delivery with SLA (integration lane 3, `lane/3-s3` @ 140efca) (2026-09-27)
+
+- **What:** `tests/scenarios/S3.spec.ts` + `fixtures/delivery.ts`, doc 40 lines 455-466. BACKED: contract with `bills_failed_attempt`, task with two logged contact attempts. NOT BUILT: record failure (3.4 + 3.5), DL-11 billable event (4.3), counts_against_driver (3.5), create task + 422 (3.4).
+- **Defaults:** driver code PG-0301 (PG-0xxx range, Master to confirm) · task status at schema default · contact channel 'call' (13B:1247).
+- **Review:** round 2 FAIL — blocking only unscoped G16 (modules/platform, outside the slice); 5 text nits open → row X-S3 part 2. pg-tester read S1/S2/fixtures outside the list.
+- Model: integration lane 3 (R2) · Delegated: pg-tester (sonnet), pg-reviewer (opus) · Review: FAIL(6 findings, 2 rounds) — blocking-clean files committed.
+
+
 ## 2.16 — part 1a-5 — G-16a authentication limits on the OTP login, migration 0042 (M-core R3) (2026-09-28)
 
 - **Why:** backlog row 2.16 part 1a-5 / G-16a (EXECUTION-MASTER-v4 §1.8), deep review C2 — nothing capped OTP attempts and every fresh Idempotency-Key minted another live code; DONE condition before `/login` mounts (D-193).
