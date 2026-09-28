@@ -4,6 +4,15 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## 2.16 — part 1a-7 — SCR-IDENTITY-RLS-01 delta 4: `platform.has_perm` pinned search_path, migration 0043 (M-core R6) (2026-09-28)
+
+- **Why:** SCR-IDENTITY-RLS-01 (D-193 D4 أ) — `platform.has_perm`, trusted by every permission-gated RLS policy and definer trigger, was the only SECURITY DEFINER function without a pinned `search_path` (an operator in a caller-controlled schema ahead of pg_catalog flipped its answer).
+- **Change:** `0043_M_has-perm-search-path.sql` (`create or replace`, body byte-identical, `stable security definer` restated, `set search_path = pg_catalog, pg_temp`, `do` self-check; no DROP, no REVOKE) · README register · RED `modules/identity/tests/{has-perm-search-path.feature,integration/has-perm-search-path.test.ts}` (incl. a catalog-wide invariant: zero unpinned definers) · SCR row 4 applied · backlog rows 1a-7/1a-8/1a-9.
+- **Split before build:** deltas 1–3 need `identity.structure.manage` / `hr.employee.pii.read` / `hr.employee.manage`, absent from 01/13/13B/019/40 → G-01 relayed to the GM (Master M5); delta 3 needs the `hr` lock; delta 2 (sessions/otp) → 1a-8.
+- **Defaults recorded:** `pg_catalog, pg_temp` (0009/0010/0031/0038 pin) instead of the SCR's `pg_catalog, platform` · 01 parity edit by the Master after merge (M5, over pre-build nit 5) · no REVOKE from PUBLIC (policies run has_perm as pgeos_app/pgeos_worker).
+- **Verified:** has-perm-search-path 4/4 · isolation 233/233 · `G16_MODULES=identity` guards green (G17 not runnable) · 0043 applied twice, oid unchanged.
+- Model: M-core session R6 (opus) · Delegated: pg-tester (sonnet), pg-builder-core (opus), pg-reviewer (opus) · Review: REVIEW_PLACEHOLDER · tokens: tester ≈55k · builder-core ≈37k · reviewer ≈145k · session ≈90k.
+
 ## X — D-197: ADR-0007 Phase 2 rebase auto-merge accepted, gate ⑦ moves to nightly (Master M4, 2026-09-28)
 
 - **Why:** GM directive "موافق علي القرارت" (production-practices follow-up, 17:33Z) — native GitHub merge queue is unavailable on this repo (owner is a User account, not an organization); the GM configured auto-merge + a main ruleset instead, ahead of the Phase 2 2026-09-30 evaluation.
