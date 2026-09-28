@@ -966,6 +966,9 @@ importers:
       '@pg-eos/domain-kit':
         specifier: workspace:*
         version: link:../../packages/domain-kit
+      '@pg-eos/identity-mechanisms':
+        specifier: workspace:*
+        version: link:../../packages/identity
       '@pg-eos/wms':
         specifier: workspace:*
         version: link:../../modules/wms
