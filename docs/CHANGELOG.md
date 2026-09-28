@@ -4,6 +4,17 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## 2.16 — part 1a-7 — SCR-IDENTITY-RLS-01 delta 4: `platform.has_perm` pinned search_path, migration 0043 (M-core R6) (2026-09-28)
+
+- **Why:** SCR-IDENTITY-RLS-01 (D-193 D4 أ) — `platform.has_perm`, trusted by every permission-gated RLS policy and definer trigger, was the only SECURITY DEFINER function without a pinned `search_path` (an operator in a caller-controlled schema ahead of pg_catalog flipped its answer).
+- **Change:** `0043_M_has-perm-search-path.sql` (`create or replace`, body byte-identical, `stable security definer` restated, `set search_path = pg_catalog, pg_temp`, `do` self-check; no DROP, no REVOKE) · README register · RED `modules/identity/tests/{has-perm-search-path.feature,integration/has-perm-search-path.test.ts}` (incl. a catalog-wide invariant: zero unpinned definers) · SCR row 4 applied · backlog rows 1a-7/1a-8/1a-9.
+- **Split before build:** deltas 1–3 need `identity.structure.manage` / `hr.employee.pii.read` / `hr.employee.manage`, absent from 01/13/13B/019/40 → G-01 relayed to the GM (Master M5); delta 3 needs the `hr` lock; delta 2 (sessions/otp) → 1a-8.
+- **Defaults recorded:** `pg_catalog, pg_temp` (0009/0010/0031/0038 pin) instead of the SCR's `pg_catalog, platform` · 01 parity edit by the Master after merge (M5, over pre-build nit 5) · no REVOKE from PUBLIC (policies run has_perm as pgeos_app/pgeos_worker).
+- **Process:** pg-builder-core grepped the root `package.json` for the isolation/guards commands (outside Read ONLY) — next briefs name the commands in Deliver. Branch `core/scr-identity-rls-01` (named by the Master's launch message) instead of `core/2.16-1a-7` — the Master deletes it in this merge (M6), superseded by `core/2.16-1a-7`.
+- **Budget overrun (recorded):** ≈ 290k tokens vs the 150k slice budget (≈ 2×) — two opus reviews plus the split analysis of the whole SCR; not splittable (one function).
+- **Verified:** has-perm-search-path 4/4 · isolation 233/233 · `G16_MODULES=identity` guards green (G17 not runnable) · 0043 applied twice, oid unchanged.
+- Model: M-core session R6 (opus) · Delegated: pg-tester (sonnet), pg-builder-core (opus), pg-reviewer (opus) · Review: PASS(13 findings, 2 reviews: pre-build PASS(6 nits), close PASS(7 nits), 1 round each) · tokens (harness usage): tester ≈48k · builder-core ≈37k (its REPORT said ≈25k) · reviewer ≈73k + ≈53k · session ≈90k (estimate).
+
 ## X — S4 scenario RED: station client iMile (integration lane 3, R2-successor) (2026-09-28)
 
 - **What:** `tests/scenarios/S4.spec.ts` + `fixtures/imile.ts`, doc 40 Part E lines 469-477. Scan-to-cage: sorting-plan Given BACKED, scan + 1000 ms NOT BUILT (row 3.15). Attribution: first `handleAssignDriverId` real (200); ID release at 14/03 11:20 NOT BUILT (row 3.12), so the second assign returns 409; attribution read from `imile.shipments_attributed` — shipment 2 misattributed as a named consequence; `verify_attribution()` zero rows, scoped to this run's tracking numbers.
