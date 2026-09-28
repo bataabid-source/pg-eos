@@ -191,7 +191,9 @@ Feature: Fiscal years and accounting periods (WBS 4.19)
       constraint trigger, not merely by grant
     And when the admin pool attempts to INSERT an accounting period with a status OTHER than "open"
     Then the insert is refused (SQLSTATE 23514)
-    And, over the full 3x3 table of (from, to) status pairs reachable only through legal edges,
-      every edge outside open->closed, closed->locked, closed->open (with a valid decision), and
-      every same-status update, is refused (SQLSTATE 23514) at the database itself, independent of
-      role
+    And, over the full 3x3 table of (from, to) status pairs, every edge outside open->closed,
+      closed->locked, and closed->open (with a valid decision) is refused (SQLSTATE 23514) at the
+      database itself, independent of role
+    But a same-status update (open->open, closed->closed, locked->locked) is accepted as long as
+      version does not decrease (guard (a): only a status change must bump version by exactly 1; a
+      version decrease is always refused)

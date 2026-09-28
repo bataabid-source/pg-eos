@@ -18,7 +18,11 @@
 //
 // The reopen decision's title_ar (platform.decisions.title_ar is NOT NULL, 13B:444) is the Arabic
 // text of the i18n key REOPEN_DECISION_TITLE_KEY in packages/i18n/ar/billing.json (CLAUDE.md "No
-// embedded UI strings — i18n"), read once from the workspace at first use.
+// embedded UI strings — i18n"). It is loaded EAGERLY by loadReopenDecisionTitleAr() when the
+// composition root builds the deps (../../api/accounting-periods/composition.ts — once at apps/api
+// host startup), and passed to createAccountingPeriodRepository(title): a missing file or key fails
+// the boot with ReopenDecisionTitleMissingError, never a request with a 500 (PR #170 review
+// finding 2). No module-level cache.
 
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -67,7 +71,51 @@ const DECISION_STATUS_OPEN = 'open';
 const REOPEN_DECISION_TITLE_KEY = 'billing.accountingPeriods.reopenDecision.title';
 const I18N_ARABIC_BILLING_FILE = join('packages', 'i18n', 'ar', 'billing.json');
 
-let reopenDecisionTitleAr: string | undefined;
+const TITLE_MISSING_ALLOWED =
+  '(Allowed: packages/i18n/ar/billing.json with a non-empty billing.accountingPeriods.reopenDecision.title)';
+
+/** The Arabic reopen-decision title cannot be loaded: the file is not found above the start
+ *  directory, its JSON is invalid, or the key is missing or empty. Thrown at deps construction. */
+export class ReopenDecisionTitleMissingError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ReopenDecisionTitleMissingError';
+  }
+}
+
+/** Walks up from `startDir` (default: this module's directory — works from source and from dist/)
+ *  to the directory holding packages/i18n/ar/billing.json and returns the non-empty title. */
+export function loadReopenDecisionTitleAr(startDir: string = dirname(fileURLToPath(import.meta.url))): string {
+  let dir = startDir;
+  while (!existsSync(join(dir, I18N_ARABIC_BILLING_FILE))) {
+    const parent = dirname(dir);
+    if (parent === dir) {
+      throw new ReopenDecisionTitleMissingError(
+        `${I18N_ARABIC_BILLING_FILE} not found in ${startDir} or any parent directory ${TITLE_MISSING_ALLOWED}`,
+      );
+    }
+    dir = parent;
+  }
+  const file = join(dir, I18N_ARABIC_BILLING_FILE);
+  let messages: unknown;
+  try {
+    messages = JSON.parse(readFileSync(file, 'utf8'));
+  } catch (error) {
+    throw new ReopenDecisionTitleMissingError(
+      `${file} is not valid JSON (${error instanceof Error ? error.message : String(error)}) ${TITLE_MISSING_ALLOWED}`,
+    );
+  }
+  const title =
+    typeof messages === 'object' && messages !== null && !Array.isArray(messages)
+      ? (messages as Record<string, unknown>)[REOPEN_DECISION_TITLE_KEY]
+      : undefined;
+  if (typeof title !== 'string' || title.length === 0) {
+    throw new ReopenDecisionTitleMissingError(
+      `i18n key ${REOPEN_DECISION_TITLE_KEY} is missing or empty in ${file} ${TITLE_MISSING_ALLOWED}`,
+    );
+  }
+  return title;
+}
 
 // Close review round 1 #3: the database refusals an insert can meet, mapped by SQLSTATE and
 // constraint name (migration 0040) to typed 422 errors — never an unmapped 500.
@@ -129,28 +177,6 @@ function entityNotInScope(entityId: string): DbRefusal {
         `entity ${entityId} is not one of the caller's entities (Allowed: an entity the caller belongs to)`,
       ),
   };
-}
-
-/** Walks up from this file to the workspace directory holding packages/i18n (works from source and
- *  from dist/), then reads the Arabic title once. Throws if the key is missing or empty. */
-function getReopenDecisionTitleAr(): string {
-  if (reopenDecisionTitleAr !== undefined) return reopenDecisionTitleAr;
-  let dir = dirname(fileURLToPath(import.meta.url));
-  while (!existsSync(join(dir, I18N_ARABIC_BILLING_FILE))) {
-    const parent = dirname(dir);
-    if (parent === dir) throw new Error(`${I18N_ARABIC_BILLING_FILE} not found above ${fileURLToPath(import.meta.url)}`);
-    dir = parent;
-  }
-  const messages: unknown = JSON.parse(readFileSync(join(dir, I18N_ARABIC_BILLING_FILE), 'utf8'));
-  const title =
-    typeof messages === 'object' && messages !== null
-      ? (messages as Record<string, unknown>)[REOPEN_DECISION_TITLE_KEY]
-      : undefined;
-  if (typeof title !== 'string' || title.length === 0) {
-    throw new Error(`i18n key ${REOPEN_DECISION_TITLE_KEY} missing from ${I18N_ARABIC_BILLING_FILE}`);
-  }
-  reopenDecisionTitleAr = title;
-  return title;
 }
 
 async function insertFiscalYear(
@@ -291,13 +317,14 @@ async function isReopenApprover(tx: NodePgDatabase): Promise<boolean> {
 }
 
 async function insertReopenDecision(
+  reopenDecisionTitleAr: string,
   tx: NodePgDatabase,
   params: { readonly entityId: string; readonly context: ReopenDecisionContext },
 ): Promise<{ readonly id: string }> {
   const result = await tx.execute<{ id: string }>(sql`
     insert into platform.decisions
       (entity_id, kind, title_ar, context, source_table, source_id, assigned_role, status)
-    select ${params.entityId}::uuid, ${REOPEN_DECISION_KIND}, ${getReopenDecisionTitleAr()},
+    select ${params.entityId}::uuid, ${REOPEN_DECISION_KIND}, ${reopenDecisionTitleAr},
            ${JSON.stringify(params.context)}::jsonb, ${PERIOD_TABLE}, ${params.context.periodId}::uuid,
            ac.approver_role, ${DECISION_STATUS_OPEN}
       from platform.approval_chains ac
@@ -368,15 +395,18 @@ async function writeAuditRow(
   `);
 }
 
-export const accountingPeriodRepository: AccountingPeriodRepository = {
-  insertFiscalYear,
-  getFiscalYear,
-  insertPeriod,
-  getPeriodForUpdate,
-  updatePeriodStatus,
-  hasRole,
-  isReopenApprover,
-  insertReopenDecision,
-  getReopenDecision,
-  writeAuditRow,
-};
+/** The repository, with the reopen-decision title already loaded (loadReopenDecisionTitleAr()). */
+export function createAccountingPeriodRepository(reopenDecisionTitleAr: string): AccountingPeriodRepository {
+  return {
+    insertFiscalYear,
+    getFiscalYear,
+    insertPeriod,
+    getPeriodForUpdate,
+    updatePeriodStatus,
+    hasRole,
+    isReopenApprover,
+    insertReopenDecision: (tx, params) => insertReopenDecision(reopenDecisionTitleAr, tx, params),
+    getReopenDecision,
+    writeAuditRow,
+  };
+}

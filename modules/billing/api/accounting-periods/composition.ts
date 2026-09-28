@@ -9,17 +9,23 @@ import type { Clock } from '@pg-eos/domain-kit';
 
 import type { AccountingPeriodsDeps, Logger } from '../../application/accounting-periods/ports.js';
 import { accountingPeriodsPinoLogger } from '../../infrastructure/accounting-periods/logger.js';
-import { accountingPeriodRepository } from '../../infrastructure/accounting-periods/repository.js';
+import {
+  createAccountingPeriodRepository,
+  loadReopenDecisionTitleAr,
+} from '../../infrastructure/accounting-periods/repository.js';
 
 /** `logger` defaults to the pino adapter (../../infrastructure/accounting-periods/logger.ts) — a
- *  caller (tests) may inject a fixed/spy Logger instead, same pattern as `clock`. */
+ *  caller (tests) may inject a fixed/spy Logger instead, same pattern as `clock`. The Arabic
+ *  reopen-decision title is loaded HERE, eagerly: the apps/api host builds these deps once at boot,
+ *  so a missing packages/i18n/ar/billing.json key fails startup (ReopenDecisionTitleMissingError),
+ *  never a request. */
 export function createAccountingPeriodsDeps(clockDeps: {
   readonly clock: Clock;
   readonly logger?: Logger;
 }): AccountingPeriodsDeps {
   return {
     clock: clockDeps.clock,
-    repo: accountingPeriodRepository,
+    repo: createAccountingPeriodRepository(loadReopenDecisionTitleAr()),
     logger: clockDeps.logger ?? accountingPeriodsPinoLogger,
   };
 }
