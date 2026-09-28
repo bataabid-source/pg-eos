@@ -91,3 +91,31 @@ export class RebuildScopeError extends Error {
     this.name = 'RebuildScopeError';
   }
 }
+
+/** WBS 2.9 part 2 decision 8: two different non-null expiries recorded for the same
+ *  wms.stock_balance key (client, sku, location, batch) — either applyLockedBalanceDelta's
+ *  UPDATE-first path (WBS 2.9 part 2 decision 2: a returned, already-recorded expiry differs from a
+ *  newly offered non-null expiry; source 'posting') or rebuildBalance's fold (WBS 2.9 part 2
+ *  decision 6: more than one distinct m.expiry_date for a (location, batch) key; source 'ledger').
+ *  Thrown AFTER the movement insert and the balance UPDATE of that posting have run (the conflict
+ *  is only visible from the UPDATE's returned row), and BEFORE the delete for a rebuild. In both
+ *  cases the enclosing transaction rolls back, so no balance row is ever overwritten silently and no
+ *  ledger, outbox or audit row survives the attempt. */
+export class ConflictingExpiryError extends Error {
+  constructor(
+    batchKey: string,
+    firstExpiry: string,
+    secondExpiry: string,
+    source: 'posting' | 'ledger' = 'posting',
+  ) {
+    super(
+      source === 'posting'
+        ? `conflicting expiry for batch ${batchKey}: recorded expiry is ${firstExpiry}, offered ` +
+            `expiry is ${secondExpiry}. Allowed: the batch's recorded expiry ${firstExpiry}, or no expiry.`
+        : `conflicting expiry for batch ${batchKey}: wms.stock_movements holds both ${firstExpiry} ` +
+            `and ${secondExpiry}. Allowed: one expiry per batch in wms.stock_movements — correct the ` +
+            `movement rows, then rebuild.`,
+    );
+    this.name = 'ConflictingExpiryError';
+  }
+}

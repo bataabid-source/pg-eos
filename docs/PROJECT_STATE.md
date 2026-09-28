@@ -16,11 +16,11 @@ Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewe
 - lane 2 · billing · 4.19 · since 2026-09-28
 
 ## Last 5 feat/fix commits (git log)
+- `439d172` feat(2.16): G-16a OTP limits — attempts cap, one live code, resend 60 s, 5/email/hour, migration 0042 (part 1a-5)
 - `ba875ad` feat(4.1b): line dimensions + dimension values, list and reference kind, migration 0038 (part 2)
 - `e2826ff` feat(X): host statuses in ALL_ROUTES / OpenAPI, contractFirst mark on the 10 billing routes (X part 12 b + registry mark)
 - `70409de` fix(X): gate ⑦ waits on the api healthcheck only — Compose refuses --wait on the worker (no healthcheck), proven by the first ⑦ run on PR #152 (X pa
 - `6aeaf44` feat(X): one image, api + worker compose services, gate ⑦ arm64 build + compose smoke in CI, role passwords from the host (X part 5c, ADR-0006 §1)
-- `e3ff04c` feat(X): apps/worker — the outbox relay as the non-superuser service role pgeos_worker, migration 0039 (X part 5b, ADR-0006 §1)
 
 ## Blockers
 - G16: changed domain/ per PR, every module nightly (X part 6); G15 per STREAMS §G15 (green.json); G17 NOT RUNNABLE; deploy.sh waits on 0.6b.
@@ -29,12 +29,12 @@ Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewe
 - Identity threshold test race under turbo (X part 3); superuser-role catalog test deferred (X part 2) — MASTER_BACKLOG.
 - Open G-01: G8 anchor (approved doc 31 v4.2/D-194, deferrable); imile entity_id/CHECKs/outbox; 2.15 space_reservations.qty CHECK; 3.1 shift_groups.vehicle_id.
 - INV-C4-1 DB-level enforcement on tms.delivery_tasks / tms.routes.vehicle_id required before 3.4 (stream B).
-- Lane backlog: 2.16 1a-3c/1a-4b (process) · 3.12 2b/2c-ii · 4.1a 2b · 4.1a p3 p2 · 4.1b p3 · 3.12/3.13 polish · 2.9 part 2 (fix) — see MASTER_BACKLOG.
+- Lane backlog: 2.16 1a-3c/1a-4b (process) · 3.12 2b/2c-ii · 4.1a 2b · 4.1a p3 p2 · 4.1b p3 · 3.12/3.13 polish — see MASTER_BACKLOG.
 - WBS 1.11 BLOCKED (D-178). close/0.6a-d166 (2 ahead/151 behind) and lane/3-3.13 (2 ahead) superseded, content on main — GM deletes them (D-193 D5).
 - Deep review (D-193): no HTTP host/worker (X part 5); G-16a lockout/IP → 2.16 1a-6 (SCR-IDENTITY-AUTH-01); SCR-AUDIT-CHAIN-01/IDENTITY-RLS-01 open.
 - Master batch (frozen paths): entityId on WithContextCtx; domain-kit browser break; eslint cwd bug; new-slice.sh stale citations.
 
 ## Next
-1. ADR-0007 P1 (D-196) merged: R2 integration (X part 5d) · R3 M-core (2.16 1a-5) · R4 lane 1 (2.9 p2) · R5 lane 2 (4.19) → Master rotation.
+1. ADR-0007 P1 (D-196) merged: R2 integration (X part 5d) · R3 M-core (2.16 1a-5) · R4 lane 1 (2.9 p2 → merge) · R5 lane 2 (4.19) → Master rotation.
 2. Lane 2 (billing): 4.1b part 2 merged → 4.19 (0040) → 4.20 (0041) · Master: 4.1b part 3 (guards.sql orphan query) · X part 12 part 4 before 4.19 handlers.
 3. M-core: 2.16 1a-5 done in part (SCR → GM) → SCR-IDENTITY-RLS-01 → SCR-AUDIT-CHAIN-01 1/4 → Master batch. Integration: X part 5d (S1/S2 over HTTP).
