@@ -1,4 +1,4 @@
-# ADR-0007 — Cloud sessions and roles: five concurrent sessions, M-core for frozen paths, session limits and rotation
+# ADR-0007 — Cloud sessions and roles: six concurrent sessions (D-198), M-core for frozen paths, session limits and rotation
 
 **Status:** Accepted — Phase 1 (D-196, 2026-09-28) · Phase 2 rebase auto-merge item Accepted (D-197, 2026-09-28) · Phase 2 session-cap/auto-archive/local-guards items Accepted (D-198, 2026-09-28) · rest of Phase 2 Proposed, evaluation scheduled 2026-09-30
 **Date:** 2026-09-28
@@ -32,11 +32,10 @@
 
 ## Decision (القرار)
 1. **Ceiling.**
-   - Five concurrent cloud sessions: the Master, M-core, lane 1, lane 2 and integration.
+   - Phase 1 baseline was five concurrent cloud sessions: the Master, M-core, lane 1, lane 2 and integration.
    - One advisory session for the GM's questions (tag `pg-eos:advisory`) is not counted: it builds nothing and commits only on a GM directive.
    - A local host keeps max three concurrent sessions and the RUNBOOK §2 memory rule.
-   - A sixth cloud session needs Phase 2.
-   - **(D-198, 2026-09-28) Raised to six**: a third build lane (`pg-eos:lane-3`, Stream C) added alongside the Master, M-core, lanes 1–2 and integration. Rising to seven after the 2026-09-30 Phase-2 evaluation, conditional on the merge SLA holding.
+   - **(D-198, 2026-09-28) Now six**: a third build lane (`pg-eos:lane-3`, Stream C) added alongside the Master, M-core, lanes 1–2 and integration. Rising to seven after the 2026-09-30 Phase-2 evaluation, conditional on the merge SLA holding.
 2. **Roles, Phase 1.**
    - Tags: `pg-eos:master` · `pg-eos:core` · `pg-eos:lane-<id>` · `pg-eos:integration` · `pg-eos:advisory`.
    - A lane reports to the live session tagged `pg-eos:master`, found with `list_sessions`, never by a stored id.
@@ -47,7 +46,7 @@
    | **M-core** | Branch `core/<wbs>`, lane-`M` lock rows; merged first | `packages/<name>` rows → `packages/<name>/**`; the `tooling` row → `.claude/**` `scripts/**` `.github/**`; module rows as any lane. Never CLAUDE.md. | 2.16 part 1a-5 → SCR-IDENTITY-RLS-01 → SCR-AUDIT-CHAIN-01 1/4 → the Master batch | sonnet; pg-builder-core opus inside |
    | **Lane 1** (stream A) | S1, S2, S18 | `wms/receive-inbound`, then `pda` | 2.9 part 2 (fix) → 2.16 part 1a-4c → PDA screens on the real client after 1a-5 merges → 2.18 | sonnet; pg-builder |
    | **Lane 2** (stream B) | Finance | `billing` | 4.19 → 4.20 (0040 · 0041 issued) | sonnet; pg-builder-core |
-   | **Lane 3** (stream C, D-198) | TBD at launch — Master brief names the module/use-case row | per its lock row | TBD at launch | sonnet; pg-builder or pg-builder-core per the brief's `builder:` line |
+   | **Lane 3** (stream C, D-198) | Not started — the cap raise alone does not launch it. The Master must first claim a `tasks/LANE_LOCKS.md` row for it (a real module or module/use-case, no row invented) and issue its brief before any session opens on this tag. | per its lock row, once claimed | none — no lock row, no doc-38 WBS row assigned yet | sonnet; pg-builder or pg-builder-core per the brief's `builder:` line |
    | **Integration** | Playwright and scenarios, no module lock | `tests/**`, its packet under `docs/notes/` | X part 5d → S1/S2 with lane 1 → S18 → S8/S11 RED | sonnet |
 
 3. **Mechanisms, `lane-guard.sh`.** These prevent accidents. A session that switches its own branch or role config leaves them, so pg-reviewer checks the branch and the files of every slice.
