@@ -11,8 +11,8 @@ Session: M-core R6 (successor of R3), branch `core/scr-identity-rls-01`. Routing
 - Delta 4 needs nothing new: `platform.has_perm` (01-Data-Model.sql:313-325) is today the ONLY `prosecdef` function in the database without a pinned `search_path` (catalog query, 2026-09-28).
 
 ## Decisions (defaults — one CHANGELOG line each)
-1. `create or replace function platform.has_perm(p_code text)` with the body byte-identical, adding `set search_path = pg_catalog, pg_temp` — the pin every other definer in this repo uses (0031 `allowed_entities`), not the SCR's `pg_catalog, platform`: the body is fully schema-qualified, and naming `pg_temp` last stops the implicit temp-schema-first lookup. Owner, grants, `stable`, `security definer` unchanged.
-2. The schema-file parity edit of `01-Data-Model.sql:313-314` (0031 precedent) is a Master step (database/schema/* is refused to every session by lane-guard).
+1. `create or replace function platform.has_perm(p_code text)` with the body byte-identical, adding `set search_path = pg_catalog, pg_temp` — the pin of 0009 / 0010 / 0031 / 0038 (`next_doc_no`, `idempotency_*`, `allowed_entities`, the line-dimension guards; the 13B definers pin `pg_catalog, public`), not the SCR's `pg_catalog, platform`: the body is fully schema-qualified, and naming `pg_temp` last stops the implicit temp-schema-first lookup. Owner, grants, `stable`, `security definer` unchanged — `stable` and `security definer` are restated (CREATE OR REPLACE resets omitted attributes to volatile / invoker); no DROP (policies depend on the oid); no REVOKE from PUBLIC (has_perm runs inside RLS policies and definer triggers as pgeos_app / pgeos_worker). Shape: `begin; create or replace …; do $$ … $$; commit;` — the `do` block raises `'0043: platform.has_perm must be SECURITY DEFINER, STABLE, search_path=pg_catalog, pg_temp, owned by a superuser/BYPASSRLS role'` unless prosecdef, provolatile = 's', proconfig = array['search_path=pg_catalog, pg_temp'] and the owner is rolsuper or rolbypassrls (0031:42 / 0010:86-94 precedent).
+2. The schema-file parity edit of `01-Data-Model.sql:313-314` (0031 precedent) is a Master step (database/schema/* is refused to every session by lane-guard) and lands in the same feat(2.16) commit: `language sql stable security definer set search_path = pg_catalog, pg_temp as $$` with a parity comment in the 01:327-328 style ("migration 0043, SCR-IDENTITY-RLS-01 delta 4; kept identical to 0043"). Closing bookkeeping also sets `docs/notes/SCR-IDENTITY-RLS-01.md` row 4 to "applied by 0043 — value `pg_catalog, pg_temp` (brief 1a-7 Decision 1)"; the SCR stays open for deltas 1–3.
 3. A catalog invariant — zero SECURITY DEFINER functions without `search_path=` in `proconfig`, in every non-system schema — becomes a permanent test so a future definer cannot regress.
 
 ## Read ONLY (workers)
@@ -22,6 +22,7 @@ Session: M-core R6 (successor of R3), branch `core/scr-identity-rls-01`. Routing
 - `database/migrations/0031_M_active-entity-rls.sql`
 - `modules/platform/tests/integration/schema-invariants.test.ts` lines 240-303
 - `tests/isolation/tests/hr-commission-confirm-sod.test.ts` lines 1-80
+- `modules/identity/tests/integration/column-classification.test.ts` lines 1-50 (connection idiom — added after pre-build review nit 2)
 
 Write ONLY: `database/migrations/<issued>_M_has-perm-search-path.sql` + its `database/migrations/README.md` line · `tests/isolation/tests/**` and `modules/identity/tests/**` (pg-tester only) · `tasks/backlog/MIGRATION-REQUEST-M.md`. Never CLAUDE.md, never `database/schema/*`, never `packages/*` outside `packages/identity`.
 Contract: none (no endpoint). Screen/Board spec: none.
@@ -34,7 +35,7 @@ Feature: platform.has_perm runs with a pinned search_path (SCR-IDENTITY-RLS-01 d
   Scenario: has_perm carries search_path=pg_catalog, pg_temp in proconfig
   Scenario: No SECURITY DEFINER function in the database lacks a pinned search_path
   Scenario: has_perm still returns true for a held permission and false otherwise, under pgeos_app via withContext
-  Scenario: A temp-schema object named like has_perm's dependencies cannot change its answer
+  Scenario: An operator in a caller-controlled schema ahead of pg_catalog cannot change has_perm's answer
 ```
 
 Deliver: migration + README line · the two RED files green · isolation project + `G16_MODULES=identity pnpm guards:run` green.
