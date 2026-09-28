@@ -1,6 +1,6 @@
 # ADR-0007 — Cloud sessions and roles: five concurrent sessions, M-core for frozen paths, session limits and rotation
 
-**Status:** Accepted — Phase 1 (D-196, 2026-09-28) · Phase 2 Proposed, evaluation scheduled 2026-09-30
+**Status:** Accepted — Phase 1 (D-196, 2026-09-28) · Phase 2 rebase auto-merge item Accepted (D-197, 2026-09-28) · rest of Phase 2 Proposed, evaluation scheduled 2026-09-30
 **Date:** 2026-09-28
 **Approved by:** GM — D-196: "موافق على المرحلة 1، ابدأ التنفيذ مع جدوله المرجله الثانيه مع وضع محدادت للجلسات بما فيها جلسه الماستر احلال وتجديد مع الحفاظ علي السياق باحترافيه" (drafted on the directive "نعم جهّز مسودة تقسيم الأدوار").
 **Reviewed & accepted: opus** — pg-reviewer round 1 FAIL (6 blocking, 11 nits) → one fix round → round 2 FAIL (3 blocking, 3 nits, all separable; no regression against origin/main). REVIEW CAP: the whole content is the PASS subset; the six open findings are `X part 13` (hook, settings, tests, pg-reviewer.md) and `X part 14` (wording).
@@ -112,11 +112,10 @@
   - one M-core merge happened without a lane conflict;
   - cost and context per session are compared with the baseline above.
   It reports to the GM and changes nothing. If 48 h have not passed, it re-arms itself for 24 h later.
-- **Proposed for Phase 2, needs GM approval:**
+- **Accepted (D-197, 2026-09-28): GitHub rebase auto-merge**, for PRs without a migration, frozen-path or lock change. Native merge queue is unavailable (the repo owner is a GitHub User account, not an organization); the GM instead configured: allow auto-merge; a main ruleset requiring checks ①–⑥ + up-to-date branches, linear history, no force push. Gate ⑦ (arm64 image build + compose smoke) moves from per-PR CI to `nightly.yml` (+ `workflow_dispatch`) — a frozen-path change queued as M-core's (R3) first `tooling` slice, with its own pre-build/close review, so per-PR CI keeps only ①–⑥. Rule: the Master enables rebase auto-merge on a PR once `review` posts PASS and the PR touches no migration/frozen-path/lock file; the Master keeps manual, one-at-a-time merges for migration PRs (in number order, D-179), M-core PRs and lock PRs, and keeps behind-main PRs updated (rebase) before enabling auto-merge.
+- **Still Proposed for Phase 2, needs GM approval:**
   - Lane 1b (3.4 with the INV-C4-1 guard, migration 0042) as a sixth session, or in the first free slot.
   - A CI ① check that every `feat`/`fix` commit of a PR carries `Review: PASS(…)`.
-  - GitHub rebase auto-merge for PRs without a migration, frozen path or lock change, once the GM sets four repository settings: required checks ①–⑦, up-to-date branches, allow auto-merge, delete head branches.
-  - The Master keeps migration PRs (in number order, D-179), M-core PRs and lock PRs.
 - **Stop condition:** if quota use at five sessions blocks a day's planned merges, return to three sessions and record the measurement.
 
 ## Alternatives rejected (البدائل المرفوضة)
@@ -141,4 +140,4 @@
 - **Unchanged:** the twelve-step loop, REVIEW CAP, migration numbering, forward-only migrations, one commit per task, the human-approval list, and every local-session rule.
 
 ## Status (الحالة)
-Proposed — 2026-09-28 · Phase 1 Accepted — 2026-09-28 (D-196) · Phase 2 Proposed (evaluation 2026-09-30).
+Proposed — 2026-09-28 · Phase 1 Accepted — 2026-09-28 (D-196) · Phase 2 rebase-auto-merge item Accepted — 2026-09-28 (D-197) · rest of Phase 2 Proposed (evaluation 2026-09-30).

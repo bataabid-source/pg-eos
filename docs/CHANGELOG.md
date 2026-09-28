@@ -4,6 +4,12 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — D-197: ADR-0007 Phase 2 rebase auto-merge accepted, gate ⑦ moves to nightly (Master M4, 2026-09-28)
+
+- **Why:** GM directive "موافق علي القرارت" (production-practices follow-up, 17:33Z) — native GitHub merge queue is unavailable on this repo (owner is a User account, not an organization); the GM configured auto-merge + a main ruleset instead, ahead of the Phase 2 2026-09-30 evaluation.
+- **Change:** `docs/adr/ADR-0007-cloud-sessions-and-roles.md` (rebase-auto-merge Phase 2 item moved from "Proposed" to "Accepted", status line updated) · `docs/DECISION_LOG.md` D-197 · CLAUDE.md merge-queue line (auto-merge for PRs with no migration/frozen-path/lock change once `review` PASS; migration/M-core/lock PRs stay manual, one at a time; per-PR CI keeps ①–⑥, gate ⑦ moves to `nightly.yml` + `workflow_dispatch`). The `.github/workflows/*` edit itself is a frozen-path change, queued as M-core's (R3) first `tooling` slice with its own review — not built here.
+- Model: Master session (M4) · Delegated: none · Review: n/a (governance record, no code) · tokens: ~5k.
+
 ## 2.16 — part 1a-5 — G-16a authentication limits on the OTP login, migration 0042 (M-core R3) (2026-09-28)
 
 - **Why:** backlog row 2.16 part 1a-5 / G-16a (EXECUTION-MASTER-v4 §1.8), deep review C2 — nothing capped OTP attempts and every fresh Idempotency-Key minted another live code; DONE condition before `/login` mounts (D-193).
