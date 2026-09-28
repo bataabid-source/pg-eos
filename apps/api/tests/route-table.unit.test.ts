@@ -1,18 +1,14 @@
-// apps/api/tests/route-table.unit.test.ts — X part 12 (a)+(b), revision 3
+// apps/api/tests/route-table.unit.test.ts — X part 12 (a)+(b), revision 3, GREEN state
 // (docs/notes/slice-briefs/_slice-X-part-12.brief.md, decision 5 "tests derive, never pin").
 //
-// RED, and why it is the right RED (three, and only three, reasons — brief revision 3):
-//   1. `BuildRouteTableOptions` does not yet accept a `logger` option — the mounted-with-warning
-//      fixture case below either fails typechecking (tsc, run separately) or, at runtime, never
-//      calls the logger (its `calls` array stays empty) because `buildRouteTable` does not read it.
-//   2. A `contractFirst` route with no handlers file is not yet resolved to a 501 by mark: today
-//      `buildRouteTable` only special-cases the hardcoded `UNIMPLEMENTED_ROUTES` list, so a fixture
-//      route that is `contractFirst` but NOT in that list throws "no handlers file" instead of
-//      producing a 501 `unimplemented` entry.
-//   3. `UNIMPLEMENTED_ROUTES` still exists and still drives the real ALL_ROUTES 501 set today (it
-//      happens to coincide with the derived contractFirst-based set for the current billing
-//      routes) — this file no longer imports it; once the builder deletes it, only the mark +
-//      filesystem rule remains, and every assertion below stays true unchanged.
+// `UNIMPLEMENTED_ROUTES` is gone from `apps/api/src/route-table.ts` (brief decision 1) — this file
+// never imports it. Two rules drive the route table now, both exercised by fixture below because
+// no real route today happens to combine them:
+//   1. A `contractFirst` route with no handlers file on disk is a 501 `unimplemented` entry, named.
+//   2. A `contractFirst` route WITH a handlers file is mounted like any other route, AND produces
+//      exactly one pino `warn` (via `BuildRouteTableOptions.logger`) naming it — "the mark can be
+//      removed" (decision 2) — while an unmarked, already-built route next to it warns for nothing.
+// An unmarked route with no handlers file is still a startup error (ADR-0006 §4, unchanged).
 //
 // Every expectation below is DERIVED from `ALL_ROUTES` (the real, frozen registry) and the real
 // `modules/` file system — never a literal 10 / 12 / 70 / 82 (brief decision 5).
@@ -47,9 +43,12 @@ const HANDLER_FILE_EXTENSIONS = ['ts', 'js'] as const;
 // "the route table is complete and one-to-one"; ADR-0006 one-to-one).
 const SUGGEST_LOCATION_PATH = '/wms/receive-inbound/suggest-location';
 
-// The fixture path used by every temp-modules-root case below — outside the real modules/ tree,
-// so it can never collide with a real, contract-fixed path.
+// The fixture paths used by the temp-modules-root cases below — outside the real modules/ tree, so
+// they can never collide with a real, contract-fixed path.
 const FIXTURE_ROUTE_PATH = '/fixture/unbuilt/do-thing';
+// The "next to it" unmarked, already-built route of fixture (b) — proves the one warn names ONLY
+// the still-marked route, not every mounted route in the same build.
+const FIXTURE_UNMARKED_BUILT_PATH = '/fixture/built/already-done';
 
 const tempDirsToClean: string[] = [];
 
@@ -106,30 +105,52 @@ function emptyFixtureModulesRoot(): URL {
   return pathToFileURL(`${dir}/`);
 }
 
-/** A temp `modules/` root with `fixture/api/unbuilt/{handlers,composition}.ts` present, exporting
- * exactly what `FIXTURE_ROUTE_PATH` resolves to via `handlerNamesFor`/`createDeps`'s own naming
- * rule (`handle<Operation>`, `create<UseCase>Deps`). */
-function fixtureModulesRootWithHandlers(): URL {
-  const dir = mkdtempSync(join(tmpdir(), 'pg-eos-route-table-x-part-12-built-'));
-  tempDirsToClean.push(dir);
-  const useCaseDir = join(dir, 'fixture', 'api', 'unbuilt');
+/** Writes a `<module>/api/<use-case>/{handlers,composition}.ts` pair under `dir`, naming its
+ * exports the way `handlerNamesFor`/`createDeps` resolve them (`handle<Operation>`,
+ * `create<UseCase>Deps`) for the given three-segment `path`. */
+function writeHandlersFixture(dir: string, path: string): void {
+  const { module, useCase, operation } = segmentsOf(path);
+  const useCaseDir = join(dir, module, 'api', useCase);
   mkdirSync(useCaseDir, { recursive: true });
+  const handlerName = `handle${pascalCaseFixture(operation)}`;
   writeFileSync(
     join(useCaseDir, 'handlers.ts'),
-    ['export async function handleDoThing() {', '  return { status: 200, body: {} };', '}', ''].join('\n'),
+    [`export async function ${handlerName}() {`, '  return { status: 200, body: {} };', '}', ''].join('\n'),
     'utf8',
   );
   writeFileSync(
     join(useCaseDir, 'composition.ts'),
-    ['export function createUnbuiltDeps() {', '  return {};', '}', ''].join('\n'),
+    [`export function create${pascalCaseFixture(useCase)}Deps() {`, '  return {};', '}', ''].join('\n'),
     'utf8',
   );
+}
+
+/** Kebab-case to PascalCase, same convention `route-table.ts`'s own (unexported) `pascalCase`
+ * uses — reimplemented here only to name fixture files, never imported from the module under
+ * test. */
+function pascalCaseFixture(kebab: string): string {
+  return kebab
+    .split('-')
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join('');
+}
+
+/** A temp `modules/` root with `FIXTURE_ROUTE_PATH`'s own handlers/composition files present, plus
+ * `FIXTURE_UNMARKED_BUILT_PATH`'s own handlers/composition files — an unmarked, already-built
+ * route sitting right next to the still-marked one, so the "one warn" assertion can fail if a
+ * future regression warns for every mounted route instead of only the still-marked ones. */
+function fixtureModulesRootWithHandlersAndAnUnmarkedBuiltRoute(): URL {
+  const dir = mkdtempSync(join(tmpdir(), 'pg-eos-route-table-x-part-12-built-plus-'));
+  tempDirsToClean.push(dir);
+  writeHandlersFixture(dir, FIXTURE_ROUTE_PATH);
+  writeHandlersFixture(dir, FIXTURE_UNMARKED_BUILT_PATH);
   return pathToFileURL(`${dir}/`);
 }
 
 describe('Feature: X part 12 (a)+(b) — the 501 set and the mounted count are derived, never pinned', () => {
   it('the real ALL_ROUTES builds with no startup error, and every 501 route is contractFirst-without-handler or held until 2.16 part 1a-5', async () => {
-    const table = await buildRouteTable(ALL_ROUTES, { modulesRoot: DEFAULT_MODULES_ROOT });
+    const logger = createCapturingLogger();
+    const table = await buildRouteTable(ALL_ROUTES, { modulesRoot: DEFAULT_MODULES_ROOT, logger });
 
     // "every entry of ALL_ROUTES is mounted exactly once on its method and path"
     expect(table.mounted.length + table.unimplemented.length).toBe(ALL_ROUTES.length);
@@ -151,6 +172,17 @@ describe('Feature: X part 12 (a)+(b) — the 501 set and the mounted count are d
       expect(entry.handlerName).toMatch(/^handle[A-Z]/);
       expect(typeof entry.handler).toBe('function');
     }
+
+    // "exactly one warn per such route" (brief decision 2, "the mark can be removed") — derived:
+    // one warn per contractFirst route that DOES have a handlers file (mounted, still marked), not
+    // per route in general and not per contractFirst route that has none (that one is a 501, not a
+    // warn). Nothing in ALL_ROUTES matches this today, so the derived count is 0 — this assertion
+    // is what makes a future contractFirst route that ships its own handlers file, but keeps its
+    // stale mark, fail loudly instead of warning silently or not at all.
+    const mountedContractFirstCount = ALL_ROUTES.filter(
+      (route) => route.contractFirst === true && hasHandlersFile(route.path, DEFAULT_MODULES_ROOT),
+    ).length;
+    expect(logger.calls.length).toBe(mountedContractFirstCount);
 
     // "the 501 set ... is derived from the registry and the file system, never pinned"
     const unimplementedPaths = table.unimplemented.map((entry) => entry.path).sort();

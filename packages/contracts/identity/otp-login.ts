@@ -21,8 +21,12 @@ import { z } from 'zod';
 
 import { IdempotencyKeyHeader } from '../_shared/headers.js';
 import type { RouteDefinitionInput } from '../_shared/registry.js';
-import { ProblemSchema } from '../_shared/problem.js';
-import { OK_RESPONSE, writeErrorResponses } from '../_shared/route-responses.js';
+import {
+  HTTP_STATUS_NOT_IMPLEMENTED,
+  NOT_IMPLEMENTED_RESPONSE,
+  OK_RESPONSE,
+  writeErrorResponses,
+} from '../_shared/route-responses.js';
 
 const UUID_ID = z.string().uuid();
 
@@ -53,9 +57,9 @@ export type VerifyOtpCodeInput = z.infer<typeof VerifyOtpCodeInputSchema>;
 const WRITE_HEADERS = z.object({ 'Idempotency-Key': IdempotencyKeyHeader });
 
 // X part 12 (b): both routes are held by the host until 2.16 part 1a-5 (G-16a limits) is DONE
-// (apps/api NOT_MOUNTED_UNTIL_2_16_PART_1A_5) and answer 501 — declared here until the hold lifts.
-const HTTP_STATUS_NOT_IMPLEMENTED = 501;
-const HELD_UNTIL_2_16_PART_1A_5 = { description: 'Not Implemented', body: ProblemSchema };
+// (apps/api NOT_MOUNTED_UNTIL_2_16_PART_1A_5) and answer 501 — declared here until the hold lifts,
+// using route-responses.ts's one shared 501 entry (nit 7 — one source for the number and the
+// body) rather than a local copy.
 
 export const ROUTES: readonly RouteDefinitionInput[] = [
   {
@@ -66,7 +70,7 @@ export const ROUTES: readonly RouteDefinitionInput[] = [
     responses: {
       200: OK_RESPONSE,
       ...writeErrorResponses({ conflict: false }),
-      [HTTP_STATUS_NOT_IMPLEMENTED]: HELD_UNTIL_2_16_PART_1A_5,
+      [HTTP_STATUS_NOT_IMPLEMENTED]: NOT_IMPLEMENTED_RESPONSE,
     },
   },
   {
@@ -77,7 +81,7 @@ export const ROUTES: readonly RouteDefinitionInput[] = [
     responses: {
       200: OK_RESPONSE,
       ...writeErrorResponses({ conflict: false }),
-      [HTTP_STATUS_NOT_IMPLEMENTED]: HELD_UNTIL_2_16_PART_1A_5,
+      [HTTP_STATUS_NOT_IMPLEMENTED]: NOT_IMPLEMENTED_RESPONSE,
     },
   },
 ];

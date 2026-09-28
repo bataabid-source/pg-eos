@@ -52,4 +52,4 @@ Feature: Contract-first routes and host statuses (X part 12 a-b)
   Scenario: Exactly the contract-first and held otp-login operations declare 501 in openapi.json
     Given the generated packages/contracts/openapi/openapi.json
     When the set of operations declaring 501 is read from it
-    Then that set equals exactly the 10 contractFirst operations of ALL_ROUTES plus the 2 identity/otp-login operations, derived from ALL_ROUTES, never hardcoded as 12
+    Then that set equals exactly every contractFirst operation of ALL_ROUTES plus every identity/otp-login operation, derived from ALL_ROUTES, never hardcoded as 12
