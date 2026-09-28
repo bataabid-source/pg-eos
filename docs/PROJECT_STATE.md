@@ -31,10 +31,10 @@ Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewe
 - INV-C4-1 DB-level enforcement on tms.delivery_tasks / tms.routes.vehicle_id required before 3.4 (stream B).
 - Lane backlog: 2.16 1a-3c/1a-4b (process) · 3.12 2b/2c-ii · 4.1a 2b · 4.1a p3 p2 · 4.1b p3 · 3.12/3.13 polish · 2.9 part 2 (fix) — see MASTER_BACKLOG.
 - WBS 1.11 BLOCKED (D-178). close/0.6a-d166 (2 ahead/151 behind) and lane/3-3.13 (2 ahead) superseded, content on main — GM deletes them (D-193 D5).
-- Deep review (D-193): no HTTP host/worker/Dockerfile (ADR-0006, X part 5); G-16a OTP limits missing (2.16 part 1a-5); SCR-AUDIT-CHAIN-01/IDENTITY-RLS-01 open.
+- Deep review (D-193): no HTTP host/worker (X part 5); G-16a lockout/IP → 2.16 1a-6 (SCR-IDENTITY-AUTH-01); SCR-AUDIT-CHAIN-01/IDENTITY-RLS-01 open.
 - Master batch (frozen paths): entityId on WithContextCtx; domain-kit browser break; eslint cwd bug; new-slice.sh stale citations.
 
 ## Next
 1. ADR-0007 P1 (D-196) merged: R2 integration (X part 5d) · R3 M-core (2.16 1a-5) · R4 lane 1 (2.9 p2) · R5 lane 2 (4.19) → Master rotation.
 2. Lane 2 (billing): 4.1b part 2 merged → 4.19 (0040) → 4.20 (0041) · Master: 4.1b part 3 (guards.sql orphan query) · X part 12 part 4 before 4.19 handlers.
-3. M-core: 2.16 part 1a-5 → SCR-IDENTITY-RLS-01 → SCR-AUDIT-CHAIN-01 1/4 → Master batch. Integration: X part 5d (S1/S2 over HTTP).
+3. M-core: 2.16 1a-5 done in part (SCR → GM) → SCR-IDENTITY-RLS-01 → SCR-AUDIT-CHAIN-01 1/4 → Master batch. Integration: X part 5d (S1/S2 over HTTP).

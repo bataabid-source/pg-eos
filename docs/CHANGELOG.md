@@ -4,6 +4,15 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## 2.16 — part 1a-5 — G-16a authentication limits on the OTP login, migration 0042 (M-core R3) (2026-09-28)
+
+- **Why:** backlog row 2.16 part 1a-5 / G-16a (EXECUTION-MASTER-v4 §1.8), deep review C2 — nothing capped OTP attempts and every fresh Idempotency-Key minted another live code; DONE condition before `/login` mounts (D-193).
+- **Change:** `0042_M_identity-auth-thresholds.sql` (12 `platform.thresholds` rows, data only) · `packages/identity/src/otp.ts` (5 attempts/code, a new request invalidates earlier codes, resend 60 s, 5 requests/email/hour under a per-email advisory lock; `OtpRateLimitedError`) · `login.ts` (absorbed → anti-enumeration 200) · `handlers.ts`/`thresholds.ts`/`index.ts` · 4 RED files + `otp.test.ts` regressions rewritten to D3 · `docs/notes/SCR-IDENTITY-AUTH-01.md` (G-01, 6 proposals).
+- **Defaults recorded:** D4 issue instant = `expires_at − expiry_minutes` (skew bounded by a GM edit; `created_at` → SCR) · lockout ladder, 3/24 h alert, 5/min/IP, 20/h/email NOT built (no failure instants/lockout record/IP column) → SCR · refusals of a request are silent (200), of a verify uniform 422 · resend checked before hourly · unit `seconds` · `fast-check` devDependency on `packages/identity` (lockfile: 3-line importer entry, via pnpm) · README register line written at bookkeeping (lane-guard refuses it to lane M → X part 15, also packages/ RED paths).
+- **Review (pg-reviewer):** pre-build FAIL(8) → PASS(0); close FAIL(4) → FAIL(1, separable: DB backstop for "one live code per email") → `2.16 part 1a-6`; acceptance "lockout ladder 15→30→60 min" NOT delivered.
+- **Budget overrun:** > 2× the 150k slice budget — three tester rounds, two post-build test defects (RLS on thresholds in the property test; WBS 0.17 regressions contradicting D3), one close-review test rewrite.
+- Model: M-core session R3 (opus) · Delegated: pg-tester (sonnet), pg-builder-core (opus), pg-reviewer (opus) · Review: PASS(13 findings, 2 rounds) · tokens: pg-tester ≈500k · pg-builder-core ≈128k · pg-reviewer ≈200k · session ≈260k.
+
 ## X — merge main (ba875ad, PR #165) into the Master's launch PR #166; repository made public (Master M3, 2026-09-28)
 
 - **Why:** #165 (4.1b part 2) merged first and left #166 dirty (conflict on `docs/state/header.md`, `docs/CHANGELOG.md`, `database/migrations/README.md`, `docs/PROJECT_STATE.md`). Separately, GitHub Actions had stopped assigning runners on main (billing block — payments failed / spending limit); the GM made the repository public so standard runners run free, and CI recovered (verified: run 36389392268 attempt 3, jobs assigned and green).
