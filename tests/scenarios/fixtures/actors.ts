@@ -11,18 +11,9 @@ import type { Pool, QueryResult } from 'pg';
 
 import { issueSession, SESSION_LIFETIME_MINUTES_KEY } from '@pg-eos/identity-mechanisms';
 
-// X part 5d: issueSession (mint) and verifySessionSubject (the host's own auth hook, apps/api/src/
-// auth.ts) both hash the session token via keyedHash (packages/identity/src/hmac.ts), which throws
-// without OTP_HMAC_SECRET. `apps/api`'s and `packages/identity`'s own vitest.config.ts already set
-// this exact test-only value for the identical purpose (never a real secret) — Playwright has no
-// equivalent `env:` config and `playwright.config.ts` is frozen for this slice, so it is set here,
-// once, at module load, before any actor is issued a session. DEFAULT taken (recorded in the
-// closing report): reuse the established precedent value verbatim, never a new fabricated secret.
-const OTP_HMAC_SECRET_ENV_VAR = 'OTP_HMAC_SECRET';
-const TEST_ONLY_OTP_HMAC_SECRET = 'test-only-not-a-secret-pg-eos-identity-suite';
-if (!process.env[OTP_HMAC_SECRET_ENV_VAR]) {
-  process.env[OTP_HMAC_SECRET_ENV_VAR] = TEST_ONLY_OTP_HMAC_SECRET;
-}
+// X part 5d: issueSession needs OTP_HMAC_SECRET — set once for the whole run in
+// tests/scenarios/playwright.config.ts (the test-only value apps/api's and packages/identity's
+// vitest.config.ts already use), never here.
 
 export const WH_MGR_ROLE_CODE = 'WH_MGR';
 export const WH_SUP_ROLE_CODE = 'WH_SUP';
@@ -37,6 +28,9 @@ export const SCENARIO_ACTOR_ROLE_CODES = [WH_MGR_ROLE_CODE, WH_SUP_ROLE_CODE] as
 const SCENARIO_SESSION_LIFETIME_MINUTES = '43'; // the precedent's own value, server.test.ts:422.
 const SCENARIO_SESSION_LIFETIME_UNIT = 'minutes';
 const SCENARIO_SESSION_LIFETIME_DESCRIPTION_AR = 'عمر الجلسة بالدقائق — صف اختباري (X part 5d fixtures/actors.ts)';
+// changed_by = the all-zero system user the seed migrations use (0042 header; same sentinel as
+// packages/db/tests/with-context.test.ts:67) — never a fabricated random actor.
+const SYSTEM_SEED_CHANGED_BY = '00000000-0000-0000-0000-000000000000';
 
 async function ensureSessionLifetimeThreshold(pool: Pool): Promise<void> {
   await pool.query(
@@ -48,7 +42,7 @@ async function ensureSessionLifetimeThreshold(pool: Pool): Promise<void> {
       SCENARIO_SESSION_LIFETIME_MINUTES,
       SCENARIO_SESSION_LIFETIME_UNIT,
       SCENARIO_SESSION_LIFETIME_DESCRIPTION_AR,
-      randomUUID(),
+      SYSTEM_SEED_CHANGED_BY,
     ],
   );
 }
