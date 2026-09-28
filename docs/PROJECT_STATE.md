@@ -16,11 +16,11 @@ Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewe
 - lane 2 · billing · 4.19 · since 2026-09-28
 
 ## Last 5 feat/fix commits (git log)
+- `439d172` feat(2.16): G-16a OTP limits — attempts cap, one live code, resend 60 s, 5/email/hour, migration 0042 (part 1a-5)
 - `ba875ad` feat(4.1b): line dimensions + dimension values, list and reference kind, migration 0038 (part 2)
 - `e2826ff` feat(X): host statuses in ALL_ROUTES / OpenAPI, contractFirst mark on the 10 billing routes (X part 12 b + registry mark)
 - `70409de` fix(X): gate ⑦ waits on the api healthcheck only — Compose refuses --wait on the worker (no healthcheck), proven by the first ⑦ run on PR #152 (X pa
 - `6aeaf44` feat(X): one image, api + worker compose services, gate ⑦ arm64 build + compose smoke in CI, role passwords from the host (X part 5c, ADR-0006 §1)
-- `e3ff04c` feat(X): apps/worker — the outbox relay as the non-superuser service role pgeos_worker, migration 0039 (X part 5b, ADR-0006 §1)
 
 ## Blockers
 - G16: changed domain/ per PR, every module nightly (X part 6); G15 per STREAMS §G15 (green.json); G17 NOT RUNNABLE; deploy.sh waits on 0.6b.
