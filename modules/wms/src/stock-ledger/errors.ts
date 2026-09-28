@@ -91,3 +91,19 @@ export class RebuildScopeError extends Error {
     this.name = 'RebuildScopeError';
   }
 }
+
+/** decision 8: two different non-null expiries recorded for the same wms.stock_balance key
+ *  (client, sku, location, batch) — either applyLockedBalanceDelta's UPDATE-first path (decision 2:
+ *  a returned, already-recorded expiry differs from a newly offered non-null expiry) or
+ *  rebuildBalance's fold (decision 6: count(distinct m.expiry_date) > 1 for a (location, batch)
+ *  key). Thrown before the write (decision 2) / before the delete (decision 6) — the transaction
+ *  rolls back, so no balance row is ever overwritten silently. */
+export class ConflictingExpiryError extends Error {
+  constructor(batchKey: string, recordedExpiry: string, offeredExpiry: string) {
+    super(
+      `conflicting expiry for batch ${batchKey}: recorded expiry is ${recordedExpiry}, offered ` +
+        `expiry is ${offeredExpiry}. Allowed: the batch's recorded expiry ${recordedExpiry}, or no expiry.`,
+    );
+    this.name = 'ConflictingExpiryError';
+  }
+}

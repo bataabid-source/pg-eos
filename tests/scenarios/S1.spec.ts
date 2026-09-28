@@ -342,12 +342,12 @@ test.describe('S1 Full 3PL client (Segment A, PST + PDL)', () => {
     let inboundOrderId = '';
     let outboundOrderId = '';
     const pickedLocations = await pickStorageLocationIds(pool, warehouseId, STORAGE_LOCATIONS_NEEDED);
-    // fix round finding 6: repository.ts's own lot-picking, with both batches' expiry_date left
-    // null by the pre-existing ledger defect asserted below, orders candidate lots by `location_id`
-    // ascending — NOT by FEFO. Assigning the 90-day batch to whichever location id sorts LAST keeps
-    // "Then allocation takes 12 units from the 90-day batch" genuinely RED (the 200-day batch's
-    // smaller-sorting location is picked first) instead of passing by chance depending on
-    // pickStorageLocationIds' own (code-ordered) result order.
+    // fix round finding 6: repository.ts's own lot-picking orders candidate lots by
+    // `sb.expiry_date asc nulls last, location_id, batch_no` (FEFO). Assigning the 90-day batch to
+    // whichever location id sorts LAST — the opposite of plain `location_id` ordering — keeps "Then
+    // allocation takes 12 units from the 90-day batch" a genuine test of expiry-based ordering
+    // (WBS 2.9 part 2: stock_balance.expiry_date is now populated by the ledger) instead of a step
+    // that would pass by coincidence if the query ever fell back to `location_id` ordering alone.
     const [sortedFirst, sortedLast] = [...pickedLocations].sort();
     if (!sortedFirst || !sortedLast) throw new Error('fixture: expected two distinct storage locations');
     const location200 = sortedFirst;
@@ -446,20 +446,20 @@ test.describe('S1 Full 3PL client (Segment A, PST + PDL)', () => {
       );
       expect(putaway200.status).toBe(HTTP_STATUS_OK);
 
-      // pre-build finding 1: post-movement.ts / receive-line.ts never carry expiryDate into the
-      // ledger — both stock_balance rows land with expiry_date = null. NOT BUILT, deterministic RED.
+      // WBS 2.9 part 2: receive-line.ts / post-movement.ts now carry expiryDate onto the ledger —
+      // both stock_balance rows are expected to land with their batch's own expiry_date.
       const expiryResult: QueryResult<{ batch_no: string; expiry_date: string | null }> = await pool.query(
-        `select batch_no, expiry_date from wms.stock_balance where sku_id = $1 and batch_no = any($2::text[])`,
+        `select batch_no, expiry_date::text as expiry_date from wms.stock_balance where sku_id = $1 and batch_no = any($2::text[])`,
         [skuTwoId, [S1_2_BATCH_90_NO, S1_2_BATCH_200_NO]],
       );
       const expiryByBatch = new Map(expiryResult.rows.map((row) => [row.batch_no, row.expiry_date]));
       expect.soft(
         expiryByBatch.get(S1_2_BATCH_90_NO),
-        'NOT BUILT: wms.stock_balance.expiry_date is never populated by receive-line.ts/post-movement.ts (fix backlog row against 2.8/2.9) — expected the 90-day batch expiry',
+        'WBS 2.9 part 2: the batch expiry is carried onto its storage balance row — expected the 90-day batch expiry',
       ).toBe(daysAfterClock(S1_2_BATCH_90_EXPIRY_DAYS));
       expect.soft(
         expiryByBatch.get(S1_2_BATCH_200_NO),
-        'NOT BUILT: wms.stock_balance.expiry_date is never populated by receive-line.ts/post-movement.ts (fix backlog row against 2.8/2.9) — expected the 200-day batch expiry',
+        'WBS 2.9 part 2: the batch expiry is carried onto its storage balance row — expected the 200-day batch expiry',
       ).toBe(daysAfterClock(S1_2_BATCH_200_EXPIRY_DAYS));
     });
 
@@ -532,8 +532,8 @@ test.describe('S1 Full 3PL client (Segment A, PST + PDL)', () => {
       const allocatedByBatch = new Map(allocationResult.rows.map((row) => [row.batch_no, Number(row.qty_allocated)]));
       expect.soft(
         allocatedByBatch.get(S1_2_BATCH_90_NO),
-        'NOT BUILT (deterministic via the expiry defect above): with null expiries, allocateFromSingleLot orders lots ' +
-          'by location_id, not FEFO — expected 12 units allocated from the 90-day batch',
+        'WBS 2.9 part 2: with both batch expiries now populated, allocateFromSingleLot orders lots by ' +
+          'expiry_date ascending (FEFO) — expected 12 units allocated from the 90-day batch',
       ).toBe(S1_2_OUTBOUND_ALLOCATED_ON_90_DAY_BATCH);
       expect.soft(allocatedByBatch.get(S1_2_BATCH_200_NO), 'expected 0 units allocated from the 200-day batch').toBe(
         S1_2_OUTBOUND_ALLOCATED_ON_200_DAY_BATCH,

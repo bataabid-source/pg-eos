@@ -160,6 +160,9 @@ const VARIANCE_QTY_ACTUAL = '8.000';
 const VARIANCE_REASON = 'damaged in transit';
 const ZERO_QTY = '0.000';
 const ZERO_QTY_REASON = 'nothing arrived on the truck';
+// WBS 2.9 part 2 (fix) scenario 6 — an arbitrary future date, same literal style as
+// modules/wms/tests/receive-inbound/expiry-balance.test.ts's EXPIRY_DATE_A.
+const EXPIRY_DATE_2_9P2 = '2027-03-15';
 
 const WH_MGR_ROLE_CODE = 'WH_MGR';
 const WH_SUP_ROLE_CODE = 'WH_SUP';
@@ -2121,5 +2124,73 @@ describe('Scenario: cross-entity isolation still holds for the extended commands
     const after = await getOrder(orderId);
     expect(after.status).toBe('draft');
     expect(after.version).toBe(version);
+  });
+});
+
+// ------------------------------------------------------------------------------------------------
+// WBS 2.9 part 2 (fix) EXTENSION (pg-tester, RED-first) — docs/notes/slice-briefs/
+// _slice-2.9-p2.brief.md, RED tests, scenario 6 ("A line received through receive-inbound with an
+// expiry carries it on its RCV balance row and, after put-away, on its storage balance row").
+// Everything above this marker is UNCHANGED — this is the only new `describe` block, appended per
+// that brief's fix-round finding F8. Drives receive-line/confirmPutaway through the SAME
+// application/handler path the rest of this file uses (this file's own existing `receiveLine`/
+// `confirmPutaway`/`suggestLocation` imports and fixtures); queries wms.stock_balance directly.
+// RCV staging location is identified by zone_type = 'receiving', the same RCV_ZONE_TYPE literal
+// `infrastructure/receive-inbound/repository.ts` itself uses for `pickRcvLocation`.
+
+describe('Scenario: A line received through receive-inbound with an expiry carries it on its RCV balance row and, after put-away, on its storage balance row', () => {
+  it('wms.stock_balance has that expiry_date first at the RCV staging location, then at the chosen storage location after ConfirmPutaway', async () => {
+    const sku = await insertSku(fixtureClientId, `RECVINB-EXPIRY-${randomUUID()}`, SAFE_SKU_GROSS_WEIGHT_KG, SAFE_SKU_VOLUME_CBM);
+    const { orderId, lineIds, version } = await createDraftInboundOrder(fixtureClientId, [
+      { skuId: sku, qtyOrdered: QTY_ORDERED },
+    ]);
+    const lineId = lineIds[0] as string;
+    await approveInbound(roleCtx, { orderId, expectedVersion: version, correlationId: nextCorrelationId() }, deps);
+
+    await receiveLine(
+      roleCtx,
+      {
+        orderId,
+        lineId,
+        qtyActual: QTY_ORDERED,
+        expiryDate: EXPIRY_DATE_2_9P2,
+        expectedVersion: (await getOrder(orderId)).version,
+        correlationId: nextCorrelationId(),
+      },
+      deps,
+    );
+
+    const rcvBalanceResult: QueryResult<{ expiry_date: string | null }> = await pool.query(
+      `select sb.expiry_date::text as expiry_date
+         from wms.stock_balance sb
+         join wms.locations l on l.id = sb.location_id
+         join wms.zones z on z.id = l.zone_id
+        where sb.client_id = $1 and sb.sku_id = $2 and z.zone_type = 'receiving' and l.warehouse_id = $3`,
+      [fixtureClientId, sku, warehouseId],
+    );
+    expect(rcvBalanceResult.rows, 'expected exactly one wms.stock_balance row at the RCV staging location').toHaveLength(1);
+    expect(rcvBalanceResult.rows[0]?.expiry_date).toBe(EXPIRY_DATE_2_9P2);
+
+    const suggestion = await suggestLocation(roleCtx, { skuId: sku, qty: QTY_ORDERED, warehouseId }, deps);
+    const chosen = suggestion.candidates[0] as { locationId: string };
+    await confirmPutaway(
+      roleCtx,
+      {
+        orderId,
+        lineId,
+        toLocationId: chosen.locationId,
+        expectedVersion: (await getOrder(orderId)).version,
+        correlationId: nextCorrelationId(),
+      },
+      deps,
+    );
+
+    const storageBalanceResult: QueryResult<{ expiry_date: string | null }> = await pool.query(
+      `select expiry_date::text as expiry_date from wms.stock_balance
+        where client_id = $1 and sku_id = $2 and location_id = $3`,
+      [fixtureClientId, sku, chosen.locationId],
+    );
+    expect(storageBalanceResult.rows, 'expected exactly one wms.stock_balance row at the chosen storage location').toHaveLength(1);
+    expect(storageBalanceResult.rows[0]?.expiry_date).toBe(EXPIRY_DATE_2_9P2);
   });
 });

@@ -83,7 +83,12 @@ import {
   VarianceReasonRequiredError,
   VariancePhotoWithoutVarianceError,
 } from '../../domain/receive-inbound/errors.js';
-import { InvalidQuantityError, LocationBlockedError, LocationLimitExceededError } from '../../src/stock-ledger/errors.js';
+import {
+  ConflictingExpiryError,
+  InvalidQuantityError,
+  LocationBlockedError,
+  LocationLimitExceededError,
+} from '../../src/stock-ledger/errors.js';
 // WBS 2.9b round-1 review finding 1: thrown by the extended approveInbound (D2's optional slot)
 // and cancelInbound (D3's mandatory cancelReason) — mapped alongside every other 422 below, same
 // as ../../api/schedule-inbound/handlers.ts's own error map.
@@ -135,6 +140,8 @@ function errorToApiFailure(error: unknown): ApiFailure {
     error instanceof InvalidQuantityError ||
     error instanceof LocationLimitExceededError ||
     error instanceof LocationBlockedError ||
+    // decision 8 (WBS 2.9 part 2).
+    error instanceof ConflictingExpiryError ||
     // WBS 2.9b round-1 review finding 1.
     error instanceof ScheduleInPastError ||
     error instanceof InvalidVehicleTypeError ||

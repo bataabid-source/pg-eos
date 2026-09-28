@@ -20,7 +20,7 @@ import { balanceRebuildLockKey } from './domain.js';
 import type { LedgerDeps } from './post-movement.js';
 import { sql } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import { RebuildScopeError } from './errors.js';
+import { ConflictingExpiryError, RebuildScopeError } from './errors.js';
 
 /**
  * pg-reviewer gate finding 9 / doc 40 P4 (see errors.ts's RebuildScopeError doc comment): the
@@ -86,20 +86,43 @@ export async function rebuildBalance(
       sql`select pg_advisory_xact_lock(hashtextextended(${balanceRebuildLockKey(input.clientId, input.skuId)}, 0))`,
     );
 
+    // decision 6: min(m.expiry_date) is the single recorded expiry for the key (count(distinct)
+    // ignores nulls, same as min/max — a mix of "no expiry" and one real expiry folds to that one
+    // expiry, matching the incremental path's coalesce). max(m.expiry_date) is carried only to name
+    // a second, concrete conflicting value in ConflictingExpiryError's message below when the count
+    // says there is one.
     const foldResult = await tx.execute<{
       readonly location_id: string;
       readonly batch_no: string;
       readonly qty_on_hand: string;
       readonly last_movement_at: string;
+      readonly expiry_date: string | null;
+      readonly expiry_date_max: string | null;
+      readonly expiry_date_count: string;
     }>(sql`
       select coalesce(m.to_location_id, m.from_location_id) as location_id,
              coalesce(m.batch_no, '') as batch_no,
              sum(case when m.to_location_id is not null then m.qty else -m.qty end)::text as qty_on_hand,
-             max(m.occurred_at)::text as last_movement_at
+             max(m.occurred_at)::text as last_movement_at,
+             min(m.expiry_date)::text as expiry_date,
+             max(m.expiry_date)::text as expiry_date_max,
+             count(distinct m.expiry_date) as expiry_date_count
         from wms.stock_movements m
        where m.client_id = ${input.clientId}::uuid and m.sku_id = ${input.skuId}::uuid
        group by 1, 2
     `);
+
+    // decision 6: a fold key with more than one distinct recorded expiry is refused BEFORE the
+    // delete below — nothing is written for this (client, sku) rebuild.
+    for (const row of foldResult.rows) {
+      if (Number(row.expiry_date_count) > 1) {
+        throw new ConflictingExpiryError(
+          `client ${input.clientId}, sku ${input.skuId}, location ${row.location_id}, batch ${row.batch_no}`,
+          row.expiry_date ?? '',
+          row.expiry_date_max ?? '',
+        );
+      }
+    }
 
     // decision 8: "rows absent from the ledger -> deleted".
     await tx.execute(sql`
@@ -118,13 +141,14 @@ export async function rebuildBalance(
     let rowsWritten = 0;
     for (const row of foldResult.rows) {
       await tx.execute(sql`
-        insert into wms.stock_balance (client_id, sku_id, location_id, batch_no, qty_on_hand, last_movement_at)
+        insert into wms.stock_balance (client_id, sku_id, location_id, batch_no, qty_on_hand, last_movement_at, expiry_date)
         values (${input.clientId}::uuid, ${input.skuId}::uuid, ${row.location_id}::uuid, ${row.batch_no},
-                ${row.qty_on_hand}::numeric, ${row.last_movement_at}::timestamptz)
+                ${row.qty_on_hand}::numeric, ${row.last_movement_at}::timestamptz, ${row.expiry_date}::date)
         on conflict (client_id, sku_id, location_id, batch_no)
         do update set
           qty_on_hand = excluded.qty_on_hand,
-          last_movement_at = excluded.last_movement_at
+          last_movement_at = excluded.last_movement_at,
+          expiry_date = excluded.expiry_date
       `);
       rowsWritten += 1;
     }
