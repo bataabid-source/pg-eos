@@ -44,6 +44,9 @@ import {
 // technique as the 500 test below) — api/-layer mapping only; the domain rules themselves are
 // asserted end-to-end in ./receive-inbound.test.ts.
 import { CancelReasonRequiredError, InvalidLabourCountError } from '../../domain/schedule-inbound/errors.js';
+// WBS 2.9 part 2 (decision 8): thrown by the ledger when a receipt/put-away/transfer/rebuild would
+// overwrite a batch's recorded expiry — mapped to 422 by the same error map.
+import { ConflictingExpiryError } from '../../src/stock-ledger/errors.js';
 
 const pool = new Pool({
   host: process.env['PGHOST'] ?? 'localhost',
@@ -482,6 +485,38 @@ describe('WBS 2.9b: every typed error of the extended ApproveInbound/CancelInbou
     expect(result.status).toBe(422);
     expect(result.body).toMatchObject({ title: 'CancelReasonRequiredError' });
     expect(throwing.logger.errorCalls).toHaveLength(0);
+  });
+});
+
+// --- WBS 2.9 part 2: ConflictingExpiryError maps to 422 ------------------------------------------
+
+describe('WBS 2.9 part 2: ConflictingExpiryError maps to 422, title = error.name (never a 500)', () => {
+  it('handleReceiveLine: ConflictingExpiryError thrown by the command -> 422, title "ConflictingExpiryError", not logged as an error', async () => {
+    const order = await insertFreshDraftOrder();
+    const logger = spyLogger();
+    const depsWithSpyLogger = createReceiveInboundDeps({ clock, ids, logger });
+    const throwingDeps = {
+      ...depsWithSpyLogger,
+      repo: {
+        ...depsWithSpyLogger.repo,
+        getOrderForUpdate: async (): Promise<never> => {
+          throw new ConflictingExpiryError('handlers-test batch key', '2027-03-15', '2027-06-01');
+        },
+      },
+    };
+    const result = await handleReceiveLine(
+      requestWithKey({
+        orderId: order.id,
+        lineId: randomUUID(),
+        expectedVersion: order.version,
+        correlationId: randomUUID(),
+        qtyActual: '1.000',
+      }),
+      throwingDeps,
+    );
+    expect(result.status).toBe(422);
+    expect(result.body).toMatchObject({ title: 'ConflictingExpiryError' });
+    expect(logger.errorCalls).toHaveLength(0);
   });
 });
 

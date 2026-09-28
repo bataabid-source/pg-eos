@@ -20,6 +20,7 @@ export {
 } from './domain.js';
 
 export {
+  ConflictingExpiryError,
   InvalidLedgerEntryError,
   InvalidQuantityError,
   LocationBlockedError,

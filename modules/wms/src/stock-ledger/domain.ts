@@ -261,3 +261,32 @@ export function planReversal(original: LedgerEntry): LedgerEntry {
     movementType: 'adjust',
   };
 }
+
+/**
+ * WBS 2.9 part 2 decision 2: one expiry per wms.stock_balance row. Decides what an offered expiry
+ * does to the expiry already recorded for the same (client, sku, location, batch) key:
+ * - `keep`: nothing offered, or the offered value equals the recorded one — the recorded value stays;
+ * - `fill`: nothing recorded yet and one is offered — the offered value becomes the recorded one;
+ * - `conflict`: two different non-null expiries — refused, never overwritten silently.
+ * Dates are compared as the same ISO `YYYY-MM-DD` text the database returns for a `date` column.
+ */
+export type BatchExpiryResolution =
+  | { readonly kind: 'keep'; readonly expiry: string | null }
+  | { readonly kind: 'fill'; readonly expiry: string }
+  | { readonly kind: 'conflict'; readonly recorded: string; readonly offered: string };
+
+export function resolveBatchExpiry(
+  recorded: string | null,
+  offered: string | null,
+): BatchExpiryResolution {
+  if (offered === null) {
+    return { kind: 'keep', expiry: recorded };
+  }
+  if (recorded === null) {
+    return { kind: 'fill', expiry: offered };
+  }
+  if (recorded === offered) {
+    return { kind: 'keep', expiry: recorded };
+  }
+  return { kind: 'conflict', recorded, offered };
+}

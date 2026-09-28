@@ -261,6 +261,8 @@ export interface LedgerPort {
       readonly uom: string;
       readonly correlationId: string;
       readonly refId: string;
+      // decision 7: the batch expiry offered for this receipt — null means "none offered".
+      readonly expiryDate: string | null;
     },
     actorId: string,
     deps: ClockDeps,
