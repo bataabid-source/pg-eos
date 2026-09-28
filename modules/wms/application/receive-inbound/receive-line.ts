@@ -208,6 +208,7 @@ export async function receiveLine(
           uom: line.uom,
           correlationId: input.correlationId,
           refId: input.orderId,
+          expiryDate: input.expiryDate ?? null,
         },
         actorId,
         deps,
