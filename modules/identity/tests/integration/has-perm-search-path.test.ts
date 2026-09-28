@@ -124,7 +124,7 @@ describe('platform.has_perm runs with a pinned search_path (SCR-IDENTITY-RLS-01 
     expect(await hasPermAs(HOLDER_USER_ID, UNKNOWN_PERMISSION)).toBe(false);
   });
 
-  it("A temp-schema object named like has_perm's dependencies cannot change its answer", async () => {
+  it("An operator in a caller-controlled schema ahead of pg_catalog cannot change has_perm's answer", async () => {
     const appUser = process.env['PG_APP_USER'];
     if (!appUser) throw new Error('PG_APP_USER must name the app role');
     const scratch = `hp_shadow_${randomUUID().replace(/-/g, '')}`;

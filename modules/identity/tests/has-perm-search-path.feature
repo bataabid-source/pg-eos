@@ -20,7 +20,7 @@ Feature: platform.has_perm runs with a pinned search_path (SCR-IDENTITY-RLS-01 d
     And the user without a role gets false for "hr.commission.read_all"
     And the GM holder gets false for an unknown code
 
-  Scenario: A temp-schema object named like has_perm's dependencies cannot change its answer
+  Scenario: An operator in a caller-controlled schema ahead of pg_catalog cannot change has_perm's answer
     Given a fixture user holding the GM role
     And a scratch schema with an operator =(text, text) that behaves as equality but also matches the unknown probe code
     And the session role is pgeos_app and its search_path puts the scratch schema before pg_catalog
