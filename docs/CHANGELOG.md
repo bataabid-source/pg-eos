@@ -17,6 +17,13 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 - Model: lane session (opus) · Delegated: pg-tester (sonnet), pg-builder-core (opus), pg-reviewer (opus ×3) · Review: PASS(31 findings, 2 rounds) · tokens: tester ~410k · builder-core ~295k · reviewer ~420k.
 - **fix(4.19), PR #170 automated review FAIL(2):** .feature same-status prose corrected to D4 (accepted unless version decreases); `title_ar` now loaded when deps are built (`loadReopenDecisionTitleAr` + `ReopenDecisionTitleMissingError`, `createAccountingPeriodRepository(title)`), so a missing i18n file fails host startup, not a request — merge order is hard: packages/i18n lands first; `reopen-title.unit.test.ts` 6 cases. Fix review FAIL(1)→PASS; ~90k tokens.
 
+## X — S4 scenario RED: station client iMile (integration lane 3, R2-successor) (2026-09-28)
+
+- **What:** `tests/scenarios/S4.spec.ts` + `fixtures/imile.ts`, doc 40 Part E lines 469-477. Scan-to-cage: sorting-plan Given BACKED, scan + 1000 ms NOT BUILT (row 3.15). Attribution: first `handleAssignDriverId` real (200); ID release at 14/03 11:20 NOT BUILT (row 3.12), so the second assign returns 409; attribution read from `imile.shipments_attributed` — shipment 2 misattributed as a named consequence; `verify_attribution()` zero rows, scoped to this run's tracking numbers.
+- **Defaults:** year = scenario clock year · Asia/Kuwait · employees on PDL · doc codes PG-0231/PG-0245/D-0451 · shipments' `driver_code`/`ofd_at` are fixture stand-ins.
+- **Review, per REVIEW CAP:** round 1 PASS(10, 2 rounds) → post-PASS fix round (magic number, scoped check) → FAIL(3: structural bookkeeping + linear history, both process, not code) → Master rebase/squash → FAIL(2: `attributedTrackingNos[i] ?? ''` masking fallback, plus a since-dropped backlog row) → R2-successor fixed the fallback directly (named consts, no masking default) in the same round, so no backlog row exists.
+- Model: integration lane 3 (R2-successor, opus) · Delegated: pg-tester (sonnet), pg-reviewer (opus) · tokens: pg-tester ≈185k (over 150k, under 2×).
+
 ## X — D-197: ADR-0007 Phase 2 rebase auto-merge accepted, gate ⑦ moves to nightly (Master M4, 2026-09-28)
 
 - **Why:** GM directive "موافق علي القرارت" (production-practices follow-up, 17:33Z) — native GitHub merge queue is unavailable on this repo (owner is a User account, not an organization); the GM configured auto-merge + a main ruleset instead, ahead of the Phase 2 2026-09-30 evaluation.
