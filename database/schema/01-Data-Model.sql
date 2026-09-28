@@ -310,8 +310,10 @@ create table identity.column_classification (
 -- ═══════════════════════════════════════════════════════════════════════════
 
 -- هل للمستخدم الحالي صلاحية معيّنة؟
+-- (SCR-IDENTITY-RLS-01 delta 4 / migration 0043, WBS 2.16 part 1a-7: search_path pinned, body
+--  otherwise identical. Kept identical to 0043 — schema-file parity, 0009/0031 precedent.)
 create or replace function platform.has_perm(p_code text) returns boolean
-language sql stable security definer as $$
+language sql stable security definer set search_path = pg_catalog, pg_temp as $$
   select exists (
     select 1
     from identity.user_roles ur
