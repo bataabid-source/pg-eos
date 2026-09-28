@@ -4,6 +4,13 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — ADR-0007 Phase 1 launch: wave-1 briefs, migration 0042, cloud locks for R3/R4/R5 (Master M2, 2026-09-28)
+
+- **Why:** GM handover (D-196; "موافق و تابع مع الماستر وأبلغني بعد الدمج"): the GM opened R2–R5; the Master briefs them and claims their locks.
+- **Change:** `_slice-2.16-1a-5.brief.md` (M-core R3, pg-builder-core, branch `core/2.16-1a-5`, migration **0042** issued to lane M) · `_slice-2.9-p2.brief.md` (lane 1 R4, branch `lane/1-2.9p2`) · `_slice-4.19` / `_slice-4.20` "Routes:" lines (a built contract-first route mounts itself once X part 12 part 4 merges) · `database/migrations/README.md` next free 0043 · locks: `wms` lane 1, `packages/identity` + `identity` lane M, `billing` lane 2 → 4.19 (cloud:session ids) · state header/next.
+- **Defaults:** 2.9 part 2 lock = whole `wms` (the defect is in module-wide `src/stock-ledger/`, not the use case) · 1a-5: G-16a items the schema cannot hold (per-IP limit, lockout history) → SCR-IDENTITY-AUTH-01, never invented · `identity.session.lifetime_minutes` stays unseeded (GM question).
+- Model: Master session · Delegated: none · Review: n/a (briefs; each slice's pre-build review covers its brief) · tokens: ~40k.
+
 ## X part 12 (b) + the contract-first mark — host statuses in ALL_ROUTES / OpenAPI; `contractFirst` on the 10 billing routes (2026-09-28)
 
 - **Why:** the host's 401/403/422/500 (+400/413/415 on body methods, 501 on unbuilt routes) were undeclared on most operations, and ADR-0006 §4 asks for the unimplemented mark in the registry.

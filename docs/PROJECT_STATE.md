@@ -4,20 +4,23 @@ Plan: docs/STREAMS.md (ADR-0005, D-192) — scenario-driven streams A–F; DONE 
 Phase: enablement week (Master + integration lane; build lanes frozen) → wave 1 (A: 2.16→2.18 · B: 4.1b p2→4.19→4.20).
 Done so far: phase 0 closed · phase 1 done except 1.11 (BLOCKED D-178) · phase 2 warehouse 9/19 · golden slice 2.9 ACCEPTED.
 Pilot: Tier 0 = local Docker postgres:16 (D-129), seed 019 + synthetic data (D-127); doc 38 v4.7 (154 rows).
-Schema: migrations 0001–0037 + 0039 applied (0022 withdrawn); 0038 · 0040 · 0041 issued to lane 2 (4.1b p2 · 4.19 · 4.20); next free number 0042.
+Schema: 0001–0037 + 0039 applied (0022 withdrawn); issued: 0038 · 0040 · 0041 (lane 2) · 0042 (lane M, 2.16 1a-5); next free 0043.
 Sessions: remote containers boot Postgres from .claude/hooks/session-start.sh; PG_APP_USER is required (ADR-0005 §7).
-Master: «الماستر M2» (cloud, D-195), rotation due (559k / 400k, ADR-0007 §6). Max five cloud sessions (D-196). Next migration 0042.
+Master: «الماستر M2» (cloud, D-195), rotation due (≈ 600k / 400k, ADR-0007). Max five cloud sessions (D-196). Next migration 0043.
 Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewer (opus); bookkeeping by scripts/scribe.mjs (state, locks, CHANGELOG template).
 
 ## Lanes (tasks/LANE_LOCKS.md)
-- lane 2 · billing · 4.1b · since 2026-09-27
+- lane 1 · wms · 2.9 · since 2026-09-28
+- lane M · packages/identity · 2.16 · since 2026-09-28
+- lane M · identity · 2.16 · since 2026-09-28
+- lane 2 · billing · 4.19 · since 2026-09-28
 
 ## Last 5 feat/fix commits (git log)
+- `e2826ff` feat(X): host statuses in ALL_ROUTES / OpenAPI, contractFirst mark on the 10 billing routes (X part 12 b + registry mark)
 - `70409de` fix(X): gate ⑦ waits on the api healthcheck only — Compose refuses --wait on the worker (no healthcheck), proven by the first ⑦ run on PR #152 (X pa
 - `6aeaf44` feat(X): one image, api + worker compose services, gate ⑦ arm64 build + compose smoke in CI, role passwords from the host (X part 5c, ADR-0006 §1)
 - `e3ff04c` feat(X): apps/worker — the outbox relay as the non-superuser service role pgeos_worker, migration 0039 (X part 5b, ADR-0006 §1)
 - `f5935ee` feat(X): apps/api — the Fastify host: every registered operation mounted, session → ctx guard, X-Entity-Id scope, 501 for unbuilt rows (X part 5a, A
-- `3146b60` feat(X): identity verifySessionSubject, ALL_ROUTES exported by name, api-kit comment — Master pre-task for X part 5a
 
 ## Blockers
 - G16: changed domain/ per PR, every module nightly (X part 6); G15 per STREAMS §G15 (green.json); G17 NOT RUNNABLE; deploy.sh waits on 0.6b.
