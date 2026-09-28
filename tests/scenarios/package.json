@@ -11,6 +11,7 @@
   "dependencies": {
     "@pg-eos/api-kit": "workspace:*",
     "@pg-eos/contracts": "workspace:*",
+    "@pg-eos/db": "workspace:*",
     "@pg-eos/domain-kit": "workspace:*",
     "@pg-eos/wms": "workspace:*",
     "pg": "^8.13.0"

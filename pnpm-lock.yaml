@@ -960,6 +960,9 @@ importers:
       '@pg-eos/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@pg-eos/db':
+        specifier: workspace:*
+        version: link:../../packages/db
       '@pg-eos/domain-kit':
         specifier: workspace:*
         version: link:../../packages/domain-kit
