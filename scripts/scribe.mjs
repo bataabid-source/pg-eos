@@ -9,7 +9,7 @@
 //                                        limits, or a source line is over LINE_MAX / carries `<this commit>`
 //   --claim <module> <lane> <task> [cloud:session_<id>]
 //                                        add a lock row (claimed_at = today, worktree = ../pg-eos-lane-<lane>, or the
-//                                        cloud session that holds the lane — ADR-0007 §5(b)) and
+//                                        cloud session that holds the lane — ADR-0007 Decision 3(c)) and
 //                                        regenerate PROJECT_STATE.md; refused if scripts/check-locks.sh rejects the
 //                                        resulting table (the file is left unchanged)
 //   --release <module> [<lane>]          remove that lock row (of that lane, when given) and regenerate
