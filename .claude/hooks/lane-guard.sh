@@ -21,6 +21,17 @@
 #   PG_LANE unset → Master session. Everything allowed except database/schema/*,
 #                   which is the delivered schema (01 · 13 · 13B · 019) and is
 #                   changed only under the G-01 rule (EXECUTION-MASTER-v4 §1.11).
+#   Cloud session (CLAUDE_CODE_REMOTE=true, ADR-0007 Decision 3) — the Master cannot hand a cloud
+#   session an environment variable, so with PG_LANE unset the role comes from the branch:
+#                   lane/<id>-<wbs> → lane <id> · core/<wbs> → M-core (lane M) · any other
+#                   branch → Master. PG_LANE, when set, wins and must match the branch.
+#                   `git config --local pgeos.role master` keeps a Master in Master mode while
+#                   it has a lane branch checked out for the merge queue.
+#   Lane M (M-core) → frozen paths open to it through its lane-M lock rows, except CLAUDE.md
+#                   (Master only): `packages/<name>` → packages/<name>/**, `tooling` →
+#                   .claude/** scripts/** .github/**, plus module/use-case rows as for any lane.
+#   These modes prevent accidents; a session that switches its own branch or role config
+#   leaves them — pg-reviewer checks the branch and files of every slice.
 #
 # Lock scope (tasks/LANE_LOCKS.md, `module` column):
 #   `wms`             → modules/wms/**  and apps/wms/**
@@ -79,24 +90,61 @@ case "$REL" in
     block "database/schema/* is the delivered schema (01 · 13 · 13B · 019 · guards.sql · apply.sh). File a schema-change request under EXECUTION-MASTER-v4 §1.11 (G-01); write a migration under database/migrations/ instead." ;;
 esac
 
+# ---- which role is writing ------------------------------------------------
+CLOUD=""
+[ "${CLAUDE_CODE_REMOTE:-}" = "true" ] && CLOUD=1
+BRANCH=""
+[ -n "$CLOUD" ] && BRANCH="$(git -C "$ROOT" symbolic-ref --short -q HEAD 2>/dev/null || true)"
+LANE="${PG_LANE:-}"
+if [ -z "$LANE" ] && [ -n "$CLOUD" ]; then
+  ROLE="$(git -C "$ROOT" config --local --get pgeos.role 2>/dev/null || true)"
+  if [ "$ROLE" != "master" ]; then
+    case "$BRANCH" in
+      lane/[123ABC]-?*) LANE="${BRANCH#lane/}"; LANE="${LANE%%-*}" ;;
+      core/?*)          LANE="M" ;;
+    esac
+  fi
+fi
+
 # ---- Master session: everything else is allowed --------------------------
-if [ -z "${PG_LANE:-}" ]; then
+if [ -z "$LANE" ]; then
   exit 0
 fi
 
-LANE="$PG_LANE"
-
-# ---- D-179: a lane session writes only from its own worktree -------------
-WT_NAME="$(basename "$ROOT_FWD")"
-if [ "$WT_NAME" != "pg-eos-lane-$LANE" ]; then
-  block "lane $LANE may write only inside its own worktree ../pg-eos-lane-$LANE (this checkout is '$WT_NAME'). Two sessions on one checkout clobber each other (incident a901a04). Open the worktree: git worktree add ../pg-eos-lane-$LANE -b lane/$LANE"
+# ---- where a lane may write from ---------------------------------------------
+# D-179 (local): only from its own worktree ../pg-eos-lane-<id>. ADR-0007 Decision 3(a) (cloud):
+# a cloud session is its own container and clone, so the branch replaces the directory —
+# lane/<id>-<wbs> for a lane, core/<wbs> for M-core.
+if [ -n "$CLOUD" ]; then
+  if [ "$LANE" = "M" ]; then
+    case "$BRANCH" in
+      core/?*) ;;
+      *) block "M-core writes only on a branch core/<wbs> (this checkout is on '${BRANCH:-a detached HEAD}') — ADR-0007 Decision 3(a). Run: git checkout -b core/<wbs>" ;;
+    esac
+  else
+    case "$BRANCH" in
+      lane/"$LANE"-?*) ;;
+      *) block "cloud lane $LANE writes only on a branch lane/$LANE-<wbs> (this checkout is on '${BRANCH:-a detached HEAD}') — ADR-0007 Decision 3(a). Run: git checkout -b lane/$LANE-<wbs>" ;;
+    esac
+  fi
+else
+  WT_NAME="$(basename "$ROOT_FWD")"
+  if [ "$WT_NAME" != "pg-eos-lane-$LANE" ]; then
+    block "lane $LANE may write only inside its own worktree ../pg-eos-lane-$LANE (this checkout is '$WT_NAME'). Two sessions on one checkout clobber each other (incident a901a04). Open the worktree: git worktree add ../pg-eos-lane-$LANE -b lane/$LANE"
+  fi
 fi
 
-# ---- lane session: the rest of the frozen list ---------------------------
-case "$REL" in
-  packages/*|CLAUDE.md|.claude/*)
-    block "frozen during a parallel phase (packages/* · database/schema/* · packages/contracts/_shared/* · CLAUDE.md · .claude/*). A change here is a single-lane Master task, merged before lanes resume." ;;
-esac
+# ---- the rest of the frozen list ------------------------------------------
+if [ "$LANE" = "M" ]; then
+  case "$REL" in
+    CLAUDE.md) block "CLAUDE.md is changed by the Master only, on a GM directive (ADR-0007 Decision 2) — M-core reports the text it needs." ;;
+  esac
+else
+  case "$REL" in
+    packages/*|CLAUDE.md|.claude/*)
+      block "frozen for every lane (packages/* · database/schema/* · packages/contracts/_shared/* · CLAUDE.md · .claude/*). A change here is an M-core task under a lane-M lock (ADR-0007), merged before the lanes rebase." ;;
+  esac
+fi
 
 # ---- always-writable lane paths ------------------------------------------
 case "$REL" in
@@ -154,6 +202,16 @@ for m in $OWNED; do
     }' | head -1)"
   [ -z "$conflict" ] || block "lock conflict in tasks/LANE_LOCKS.md: lane $LANE holds '$m' while $conflict is also held. A whole-module row and a use-case row of the same module never coexist for two lanes — the Master fixes the table before either lane writes."
 done
+
+# ADR-0007 Decision 2: M-core's lane-M rows that name a frozen path.
+if [ "$LANE" = "M" ]; then
+  for m in $OWNED; do
+    case "$m" in
+      packages/?*) case "$REL" in "$m"/*) exit 0 ;; esac ;;
+      tooling)     case "$REL" in .claude/*|scripts/*|.github/*) exit 0 ;; esac ;;
+    esac
+  done
+fi
 
 for m in $OWNED; do
   case "$m" in

@@ -1,3 +1,3 @@
-Master (M2): D6 · S18 · docs/gov merged → condition A met (⑤ 1.4 min, PR #156): lanes B (billing 0038/0040/0041) + integration requested from the GM.
-Master after A: X part 5d (S1/S2 over HTTP) / 5a part 2 / 12 → 2.16 part 1a-5 + SCR-IDENTITY-RLS-01 → SCR-AUDIT-CHAIN-01 1/4 → X part 7–10.
+ADR-0007 P1 (D-196): Master merges it → briefs 1a-5 (M-core) + 2.9 p2 fix (lane 1) → launch sessions → Master rotation + watchdog.
+M-core: 2.16 part 1a-5 → SCR-IDENTITY-RLS-01 → SCR-AUDIT-CHAIN-01 1/4 → Master batch. Integration: X part 5d (S1/S2 over HTTP).
 Stream A first slice after 2.16 part 1a-4: `2.9 part 2 (fix)` (ledger expiry_date) then 2.16 part 1a-5 (G-16a limits) before /login mounts.
