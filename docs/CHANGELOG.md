@@ -4,6 +4,17 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X part 12 (b) + the contract-first mark — host statuses in ALL_ROUTES / OpenAPI; `contractFirst` on the 10 billing routes (2026-09-28)
+
+- **Why:** the host's 401/403/422/500 (+400/413/415 on body methods, 501 on unbuilt routes) were undeclared on most operations, and ADR-0006 §4 asks for the unimplemented mark in the registry.
+- **Change (committed subset, REVIEW CAP):** `contractFirst?: true` on `RouteDefinitionInput` (10 billing marks; Master) · `withHostResponses` + exported `HTTP_STATUS_NOT_IMPLEMENTED` / `NOT_IMPLEMENTED_RESPONSE` in `route-responses.ts`, applied in `routes.ts` → `ALL_ROUTES` + regenerated `openapi.json` (a route's own entry always kept; GET routes keep their own 400) · otp-login declares its held 501 · `packages/contracts/tests/host-responses.test.ts`. contracts 239/239 · api 17/17 (main's apps/api unchanged).
+- **Not committed → X part 12 part 4:** the apps/api use case (route-table `contractFirst` rule + `logger`, `UNIMPLEMENTED_ROUTES` deleted, derived tests, x-part-5a/x-part-12 features, README, server.ts header) — built and green, held by close round 2's one open nit (a test comment), per REVIEW CAP.
+- **Defaults recorded:** no blanket 404 (deviation from row (b)) · GET's own 400 kept (the RED "GET has no 400" was the defect; the builder's removal of 400 was reverted) · reads outside the 8-file list recorded from both worker REPORTs (contract files, contracts tests, generate-openapi, http-status, README, 2 handlers files).
+- **G16 at close:** RED locally on the shared `pgeos` (platform dry run: leftover `identity.users` row, `users_pkey`) — known test-hygiene defect X part 4, unrelated to this diff; CI ⑤ on an ephemeral database is the arbiter.
+- **Budget:** ~745k tokens across the slice vs 150k (split twice: part 2, part 3, and now part 4) — reported to the GM.
+- **Review (pg-reviewer, opus):** pre-build R1 FAIL(18) → R2 FAIL(7) → PASS subset · close R1 FAIL(11) → fix round → R2 FAIL(2: G16 environment + 1 test-comment nit) → PASS subset committed.
+- Model: Master session · Delegated: pg-tester (sonnet), pg-builder (sonnet), pg-reviewer (opus) · Review: PASS(38 findings, 2 rounds) · tokens: ~745k.
+
 ## X — ADR-0007 Phase 1: cloud sessions, M-core, session limits and rotation (D-196, 2026-09-28)
 
 - **Why:** GM directives "نعم جهّز مسودة تقسيم الأدوار" and D-196 (Phase 1 approved, Phase 2 scheduled, limits and rotation for every session including the Master).

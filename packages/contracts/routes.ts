@@ -14,7 +14,8 @@
 //   - sales/customer-profile, sales/resolve-price — no handlers.ts exists yet (composition.ts's
 //     own header comment: "No API endpoint exists yet").
 
-import type { ContractRegistry } from './_shared/registry.js';
+import type { ContractRegistry, RouteDefinitionInput } from './_shared/registry.js';
+import { withHostResponses } from './_shared/route-responses.js';
 import { ROUTES as BILLING_ACCOUNTING_PERIODS_ROUTES } from './billing/accounting-periods.js';
 import { ROUTES as BILLING_DIMENSIONS_ROUTES } from './billing/dimensions.js';
 import { ROUTES as BILLING_POST_JOURNAL_ROUTES } from './billing/post-journal.js';
@@ -44,9 +45,10 @@ import { ROUTES as WMS_SCHEDULE_INBOUND_ROUTES } from './wms/schedule-inbound.js
 import { ROUTES as WMS_TAKE_OCCUPANCY_SNAPSHOT_ROUTES } from './wms/take-occupancy-snapshot.js';
 
 /** Every registered route, module by module (alphabetical, matching `ls packages/contracts` module
- * directories). Exported so tests can assert the exact fixture count without re-scanning modules/
- * at test time. */
-export const ALL_ROUTES = [
+ * directories), each carrying the host statuses (X part 12 (a)+(b), brief decision 3) so
+ * `ALL_ROUTES`, the registry and openapi.json all agree. Exported so tests can assert the exact
+ * fixture count without re-scanning modules/ at test time. */
+export const ALL_ROUTES: readonly RouteDefinitionInput[] = [
   ...BILLING_ACCOUNTING_PERIODS_ROUTES,
   ...BILLING_DIMENSIONS_ROUTES,
   ...BILLING_POST_JOURNAL_ROUTES,
@@ -74,7 +76,7 @@ export const ALL_ROUTES = [
   ...WMS_RECEIVE_INBOUND_ROUTES,
   ...WMS_SCHEDULE_INBOUND_ROUTES,
   ...WMS_TAKE_OCCUPANCY_SNAPSHOT_ROUTES,
-];
+].map(withHostResponses);
 
 /** Registers every module's routes on `registry`. Called once, at import time, from index.ts on
  * the shared `registry` singleton. */
