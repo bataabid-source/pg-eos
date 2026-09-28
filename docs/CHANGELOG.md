@@ -4,6 +4,16 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## 4.1b part 2 — line dimensions + dimension values (list and reference kind), migration 0038 (lane 2, 2026-09-27)
+
+- **Why:** doc 38 row 4.1b half 2 "undefined value rejected" (SCR-ACC-01 row 9, D-190): `billing.dimension_values` + `billing.line_dimensions`, append-only (doc 40 P3).
+- **Change:** `database/migrations/0038_2_line-dimensions.sql` (2 tables, entity_scope RLS, 3 SECURITY DEFINER constraint triggers `assert_dimension_value()` / `assert_line_dimension_entity()` / `assert_dimension_value_list_type()`, R2 composite FKs, column grants, 12 classification rows) · `modules/billing/{domain,application,infrastructure,api}/dimensions/**` (XState `machine.ts`, create/deactivate commands, outbox + audit in one transaction; composition only, no handlers) · tests `modules/billing/tests/dimensions/{line-dimensions.*,machine.unit.test.ts}` (the DB-backed property test is `*.property.integration.test.ts`, part-1 precedent — gate ② runs `*.property.test.ts` without a database) · `tests/isolation/tests/app-role-rls.test.ts` entity_scope 75→77.
+- **Defaults recorded (questions to the Master):** R1 — D-190's declarative FK `(dimension_type_id, value_id) → dimension_values` would refuse every reference-kind tag and cannot express "inactive refused, old tags stay": one trigger validates both kinds, no new column · R2 — composite FKs `(entity_id, dimension_type_id) → dimension_types (entity_id, id)` on both tables · R3 — no role gate (part-1 precedent) · R4 — no (line, type) uniqueness · R5 + F6 — HTTP handlers and typed application errors split to `4.1b part 3` instead of the brief's list/reference split (R1 makes that split impossible without a second migration) · F2 — `dimension_types` UPDATE narrowed to (code, name_ar, name_en, is_active, version) · F4 — a value only under a list-kind type · `dimension_values.code` unique per (entity, type), kept after deactivation.
+- **Review (pg-reviewer):** pre-build round 1 FAIL(21) → pg-tester fix → round 2 FAIL(15) → D-117 fix by the lane session (opus, findings 1–4 + nits 6–11), 5/12/13 → part 3; close round 1 FAIL(7) → fix round → round 2 FAIL(2, both separable: guards.sql orphan query = Master, `entity_id` immutability assertion) → PASS subset = whole diff committed; open → `4.1b part 3`.
+- **Verified:** billing 496/496, domain coverage 98%; `G16_MODULES=billing scripts/guards-run.sh` exit 0 (G1–G14, G18 green; G16 billing 77.84 ≥ 75; G17 not runnable); isolation 230/230; tsc + eslint clean.
+- **Budget breach (recorded, not hidden):** worker estimates ≈ 815k tokens (> 2× the 150k budget) and 14 files; the only split taken was R5.
+- Model: lane session (opus) · Delegated: pg-tester (sonnet), pg-builder-core (opus), pg-reviewer (opus ×4), D-117 test edits by the lane session · Review: PASS(45 findings, 2 rounds) · tokens: tester ~275k · builder-core ~185k · reviewer ~355k.
+
 ## X part 12 (b) + the contract-first mark — host statuses in ALL_ROUTES / OpenAPI; `contractFirst` on the 10 billing routes (2026-09-28)
 
 - **Why:** the host's 401/403/422/500 (+400/413/415 on body methods, 501 on unbuilt routes) were undeclared on most operations, and ADR-0006 §4 asks for the unimplemented mark in the registry.
