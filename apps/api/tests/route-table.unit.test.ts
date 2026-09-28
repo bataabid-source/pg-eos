@@ -235,7 +235,7 @@ function includesHeldPath(path: string): boolean {
   return NOT_MOUNTED_UNTIL_2_16_PART_1A_5.includes(path as (typeof NOT_MOUNTED_UNTIL_2_16_PART_1A_5)[number]);
 }
 
-describe('Scenario: A contract-first route without a handler answers 501 to a valid session (fixture a)', () => {
+describe('a contractFirst route with no handlers file becomes a 501 table entry', () => {
   it('a contractFirst route with no handlers file on disk produces a 501 unimplemented entry naming the route', async () => {
     const modulesRoot = emptyFixtureModulesRoot();
     const route: RouteDefinitionInput = {
@@ -255,25 +255,33 @@ describe('Scenario: A contract-first route without a handler answers 501 to a va
   });
 });
 
-describe('Scenario: A contract-first route whose handler exists is mounted and served, with one startup warning (fixture b)', () => {
-  it('a contractFirst route with a handlers file is mounted, and the logger receives exactly one warn naming it', async () => {
-    const modulesRoot = fixtureModulesRootWithHandlers();
-    const route: RouteDefinitionInput = {
+describe('a contractFirst route with a handlers file is mounted with exactly one warn', () => {
+  it('mounts the still-marked route and the logger receives exactly one warn naming it — not the unmarked, already-built route next to it', async () => {
+    const modulesRoot = fixtureModulesRootWithHandlersAndAnUnmarkedBuiltRoute();
+    const markedRoute: RouteDefinitionInput = {
       method: 'POST',
       path: FIXTURE_ROUTE_PATH,
       summary: 'fixture: contractFirst, handlers file present',
       contractFirst: true,
       responses: { 200: { description: 'OK' } },
     };
+    const unmarkedBuiltRoute: RouteDefinitionInput = {
+      method: 'POST',
+      path: FIXTURE_UNMARKED_BUILT_PATH,
+      summary: 'fixture: unmarked, already built — no mark to warn about',
+      responses: { 200: { description: 'OK' } },
+    };
     const logger = createCapturingLogger();
 
-    const table = await buildRouteTable([route], { modulesRoot, logger });
+    const table = await buildRouteTable([markedRoute, unmarkedBuiltRoute], { modulesRoot, logger });
 
     expect(table.unimplemented).toHaveLength(0);
-    expect(table.mounted).toHaveLength(1);
-    expect(table.mounted[0]?.path).toBe(FIXTURE_ROUTE_PATH);
+    expect(table.mounted.map((entry) => entry.path).sort()).toEqual(
+      [FIXTURE_ROUTE_PATH, FIXTURE_UNMARKED_BUILT_PATH].sort(),
+    );
     expect(logger.calls).toHaveLength(1);
     expect(JSON.stringify(logger.calls[0])).toContain(FIXTURE_ROUTE_PATH);
+    expect(JSON.stringify(logger.calls[0])).not.toContain(FIXTURE_UNMARKED_BUILT_PATH);
   });
 });
 

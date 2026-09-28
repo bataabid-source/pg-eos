@@ -1,14 +1,13 @@
-// packages/contracts/tests/host-responses.test.ts — X part 12 (a)+(b), revision 3
+// packages/contracts/tests/host-responses.test.ts — X part 12 (a)+(b), revision 3, GREEN state
 // (docs/notes/slice-briefs/_slice-X-part-12.brief.md, decisions 3 and 4).
 //
-// RED, and why it is the right RED: `withHostResponses` does not exist yet on
-// `packages/contracts/_shared/route-responses.ts` — the named import below fails to resolve
-// (a SyntaxError at module load under Node ESM), so every test in this file fails for that one
-// reason. The last describe below additionally fails on its own merits even once the import
-// resolves: the committed `packages/contracts/openapi/openapi.json` has not been regenerated with
-// host statuses yet (it declares 501 only on the two otp-login operations today), so its derived
-// 501 set will not yet match ALL_ROUTES' contractFirst-derived set until the builder both wires
-// `withHostResponses` into `routes.ts` and regenerates the document.
+// Two things are exercised, deliberately kept apart:
+//   - `withHostResponses` itself (`_shared/route-responses.ts`) — its own add/collision rules,
+//     against fixture routes only.
+//   - `routes.ts`'s WIRING of it into the real `ALL_ROUTES` — asserted directly on
+//     `route.responses`, never by calling `withHostResponses` a second time on an already-hosted
+//     route (that would test the function again, not the wiring).
+// The last describe reads the real, committed `packages/contracts/openapi/openapi.json` off disk.
 //
 // Every expected value below is derived from `ALL_ROUTES` itself (brief: "do not hardcode 12") —
 // never a literal route count.
@@ -151,34 +150,49 @@ describe("Scenario: collision rule — a route's own 422/500 entry and otp-login
 });
 
 describe('Scenario: every ALL_ROUTES entry carries the host statuses', () => {
-  it('every registered route, once withHostResponses is applied, declares every status this host can emit for it', () => {
+  // Asserts on `route.responses` directly — no second `withHostResponses` call: `routes.ts` wires
+  // `withHostResponses` into `ALL_ROUTES` itself (brief decision 3), so this is what proves that
+  // wiring, not a restatement of `withHostResponses`'s own unit behaviour (covered above).
+  it('every registered route already declares every status this host can emit for it', () => {
     expect(ALL_ROUTES.length).toBeGreaterThan(0);
 
     for (const route of ALL_ROUTES) {
-      const hosted = withHostResponses(route);
-
       for (const status of EVERY_OPERATION_HOST_STATUSES) {
-        expect(isProblemBody(hosted.responses[status])).toBe(true);
+        expect(isProblemBody(route.responses[status])).toBe(true);
       }
 
       const isBodyCarrying = BODY_CARRYING_METHODS.has(route.method);
       for (const status of BODY_CARRYING_ONLY_HOST_STATUSES) {
         if (isBodyCarrying) {
-          expect(isProblemBody(hosted.responses[status])).toBe(true);
-        } else if (status === PROBLEM_STATUS.BAD_REQUEST) {
-          // GET: the HOST never adds 400 (brief decision 3 fixes 413/415 as the only statuses a
-          // GET is exempt from; 400 is simply not in the host's add-list for GET). Some real GET
-          // routes already declare their OWN 400 through readErrorResponses (their handlers map a
-          // Zod contract failure to 400 themselves — e.g.
-          // modules/fleet/api/assert-vehicle-assignable/handlers.ts) — withHostResponses must
-          // leave that untouched, never add one where the route had none, never remove one the
-          // route already had.
-          expect(hosted.responses[status]).toBe(route.responses[status]);
-        } else {
-          expect(hosted.responses[status]).toBeUndefined();
+          expect(isProblemBody(route.responses[status])).toBe(true);
+        } else if (status !== PROBLEM_STATUS.BAD_REQUEST) {
+          // GET: the HOST never adds 413/415 (brief decision 3). 400 on GET is its own scenario
+          // below — a route's own declaration, never the host's — so it is not checked here.
+          expect(route.responses[status]).toBeUndefined();
         }
       }
     }
+  });
+
+  it('every real GET route in ALL_ROUTES still declares 400 (its own readErrorResponses entry — routes.ts wiring must not remove it)', () => {
+    const getRoutes = ALL_ROUTES.filter((route) => route.method === 'GET');
+    expect(getRoutes.length).toBeGreaterThan(0);
+
+    for (const route of getRoutes) {
+      expect(isProblemBody(route.responses[PROBLEM_STATUS.BAD_REQUEST])).toBe(true);
+    }
+  });
+
+  it('a GET route declaring its own 400 keeps that exact entry object (collision on 400)', () => {
+    const ownEntry: RouteResponseDefinition = { description: 'Own Bad Request', body: ProblemSchema };
+    const route = withHostResponses(
+      fixtureRoute({
+        method: 'GET',
+        responses: { 200: { description: 'OK' }, [PROBLEM_STATUS.BAD_REQUEST]: ownEntry },
+      }),
+    );
+
+    expect(route.responses[PROBLEM_STATUS.BAD_REQUEST]).toBe(ownEntry);
   });
 });
 

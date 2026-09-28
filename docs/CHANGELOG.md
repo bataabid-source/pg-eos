@@ -4,6 +4,16 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X part 12 (a)+(b) — contract-first mark in the registry (auto-mount when built), host statuses in ALL_ROUTES / OpenAPI (2026-09-28)
+
+- **Why:** lane 2 builds the 10 contract-first billing routes; `UNIMPLEMENTED_ROUTES` refused startup once a listed route had a handler and the route-table test pinned 10/12/70/82 — every billing slice would have gone red until the Master edited `apps/api`.
+- **Change:** `contractFirst?: true` on `RouteDefinitionInput` (10 billing marks; Master) · `withHostResponses` (401/403/422/500 every op; 400/413/415 body-carrying only; 501 contract-first; a route's own entry always kept) applied in `routes.ts` → `ALL_ROUTES` + `openapi.json` (regenerated) · otp-login declares its held 501 via the shared `NOT_IMPLEMENTED_RESPONSE` · `route-table.ts`: `UNIMPLEMENTED_ROUTES` deleted, marked route → 501 until built then mounted + one `warn` (`BuildRouteTableOptions.logger`), unmarked route without handler still fails startup (ADR-0006 §4) · tests derived, never pinned · README.
+- **Defaults recorded:** GET routes keep their own 400 (handlers map a Zod failure to 400; the RED "GET has no 400" was the defect, corrected by pg-tester, and the builder's removal of 400 from `readErrorResponses` was reverted) · no blanket 404 (the host's 404 is only the unknown-path handler; deviation from row (b)) · `server.ts` header comment edited by the Master (named the deleted constant; out of rev-3 write set) · the default logger is a no-op until X part 12 part 3 forwards the host's pino logger · reads outside the 8-file list (both workers): contract files registry/problem/index/billing×3/otp-login/4 GET contracts, `openapi.json`, `routes.test.ts`, `openapi-document.test.ts`, `generate-openapi.ts`, `http-status.ts`, `README.md`, two handlers files (diagnosis).
+- **Split:** (c) `/ready` → X part 12 part 2 (pg-builder-core) · pre-build round-2 leftovers (server `contractRoutes` seam, HTTP scenarios 1/2/8, server.test/x-part-5a off the real post-journal route, lane-brief "Routes:" lines) → X part 12 part 3, due before the first lane-2 contract-first handler merges.
+- **Tests:** contracts 239/239 · api 22/22 · tsc + eslint clean.
+- **Review (pg-reviewer, opus):** pre-build R1 FAIL(18: 11 blocking) → rev 2 · R2 FAIL(7: 3 blocking) → REVIEW CAP: PASS subset built, rest → part 2/3 · close R1 FAIL(11: 1 blocking — x-part-5a.feature described the deleted rule; 10 nits) → fix round → close R2.
+- Model: Master session · Delegated: pg-tester (sonnet), pg-builder (sonnet), pg-reviewer (opus) · Review: see commit trailer · tokens: tester ~170k, builder ~185k, reviewer ~330k, Master ~60k.
+
 ## X part 5a part 2 + X part 5b part 3 — host HEAD-route assertion restored, worker test constants, server.test seeds its own session threshold (2026-09-27)
 
 - **Why:** the two open review nits of X part 5a / 5b (test-only rows), plus a test-order dependency found while running them: `apps/api/tests/server.test.ts` read `identity.session.lifetime_minutes` without seeding it and passed in CI only when another package's suite had left the row behind.
