@@ -164,6 +164,8 @@ test.describe('S4 Station client (iMile)', () => {
   let employeePg0245Id = '';
   let shipment1Id = '';
   let shipment2Id = '';
+  // this run's two attributed shipments' tracking numbers — verify_attribution() is scoped to them.
+  let attributedTrackingNos: string[] = [];
   // populated by the When step, read by the Then step (finding 2: "keep the rows in a describe-level
   // variable") — imile.shipments_attributed is the only permitted source (see header).
   let attributedShipmentRows: { shipment_id: string; employee_id: string | null }[] = [];
@@ -314,13 +316,12 @@ test.describe('S4 Station client (iMile)', () => {
         // (database/schema/13-Schema-Additions.sql:391-413), a SEPARATE trigger from
         // imile.close_assignment_on_suspension / trg_close_on_suspension on imile.driver_ids
         // (13-Schema-Additions.sql:415-430) — neither is a manual release path, neither is exercised
-        // here. Never invented as a call to a handler that does not exist — a plain, declarative
-        // NOT BUILT, same style Scenario 1's own gaps use.
+        // here. Never invented as a call to a handler that does not exist — the gap is asserted on
+        // real state in (c) below, which fails with this message until the release lands.
         const releaseNotBuiltMessage =
           `NOT BUILT: no driver-ID release path at ${PG_0231_ASSIGNED_UNTIL_ISO} (14/03 11:20) (row 3.12, doc 40 line 474)`;
-        expect.soft(false, releaseNotBuiltMessage).toBe(true);
 
-        // (c) confirms (a) for real: the live driver_id_assignments row for PG-0231 is checked
+        // (c) asserts (a) on real state: the live driver_id_assignments row for PG-0231 is checked
         // against the Gherkin's own closing instant entirely in SQL (node-pg returns a timestamptz
         // column as a JS Date — comparing here, server-side, avoids a JS Date/string mismatch).
         const assignmentsResult: QueryResult<{ employee_id: string; closed_at_gherkin_instant: boolean }> = await pool.query(
@@ -359,15 +360,16 @@ test.describe('S4 Station client (iMile)', () => {
     );
 
     await test.step('When shipments delivered on 14/03 10:00 and 15/03 09:00 are attributed', async () => {
+      attributedTrackingNos = [`_s4_${randomUUID()}_1`, `_s4_${randomUUID()}_2`];
       shipment1Id = await insertShipment(pool, {
-        trackingNo: `_s4_${randomUUID()}_1`,
+        trackingNo: attributedTrackingNos[0] ?? '',
         driverCode: S4_DRIVER_CODE,
         zoneCode: S4_ZONE_SABAH,
         internalStatus: SHIPMENT_INTERNAL_STATUS_DELIVERED,
         ofdAt: SHIPMENT_1_OFD_AT_ISO,
       });
       shipment2Id = await insertShipment(pool, {
-        trackingNo: `_s4_${randomUUID()}_2`,
+        trackingNo: attributedTrackingNos[1] ?? '',
         driverCode: S4_DRIVER_CODE,
         zoneCode: S4_ZONE_SABAH,
         internalStatus: SHIPMENT_INTERNAL_STATUS_DELIVERED,
@@ -385,7 +387,9 @@ test.describe('S4 Station client (iMile)', () => {
         [[shipment1Id, shipment2Id]],
       );
       attributedShipmentRows = attributedResult.rows;
-      expect(attributedShipmentRows, 'imile.shipments_attributed must return exactly the two seeded shipments').toHaveLength(2);
+      expect(attributedShipmentRows, 'imile.shipments_attributed must return exactly the two seeded shipments').toHaveLength(
+        attributedTrackingNos.length,
+      );
     });
 
     await test.step('Then the first is attributed to "PG-0231" and the second to "PG-0245"', async () => {
@@ -419,8 +423,9 @@ test.describe('S4 Station client (iMile)', () => {
       // may still match PG-0231's own still-open assignment window, which would make this genuinely
       // PASS despite the misattribution reported in the previous step.
       const verifyResult: QueryResult<{ tracking_no: string; driver_code: string; ofd_at: Date; reason: string }> = await pool.query(
-        `select tracking_no, driver_code, ofd_at, reason from imile.verify_attribution($1::date, $2::date)`,
-        [VERIFY_ATTRIBUTION_FROM_DATE, VERIFY_ATTRIBUTION_TO_DATE],
+        `select tracking_no, driver_code, ofd_at, reason from imile.verify_attribution($1::date, $2::date)
+          where tracking_no = any($3::text[])`,
+        [VERIFY_ATTRIBUTION_FROM_DATE, VERIFY_ATTRIBUTION_TO_DATE, attributedTrackingNos],
       );
       expect.soft(
         verifyResult.rows,
