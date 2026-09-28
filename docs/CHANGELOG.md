@@ -4,6 +4,14 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — D-198: ADR-0007 Phase 2 — session cap 6, auto-archive, G16/Stryker out of local guards (Master M5, 2026-09-28)
+
+- **Why:** M-core's own blocking question (Stryker timing, auto-archive policy, session cap) — its status showed it stuck on exactly these three items, unable to proceed on SCR-IDENTITY-RLS-01 tooling. GM answered with a fresh, specific directive naming all three (quoted verbatim in the commit trailer below), not a reused generic one — a second same-day `docs(X)` commit, so it also carries `Override: GM`.
+- **Change:** CLAUDE.md (merge-queue line: five→six concurrent cloud sessions, room for a third build lane once claimed, not yet launched; rotation line: watchdog auto-archives an ACKed/merged session outright, and an idle-2h+/no-PR session only if its tree is clean and pushed) · `docs/adr/ADR-0007-cloud-sessions-and-roles.md` (§1 Ceiling, §5 Watchdog, Phase 2 section, roles table, status line, review-header scope note) · `docs/DECISION_LOG.md` D-198.
+- **Not built here:** the actual G16/Stryker local-guards removal is M-core's own `tooling`-lock slice with its own pre-build/close review (frozen path, same class as the D-197 gate ⑦ move) — this commit only records the decision and raises the session cap so a third build lane can launch once claimed.
+- **Review:** this is a governance-only diff (no code, migration or lock file), not a fresh opus ADR pre-build/close review — the automated PR review ran three rounds on wording accuracy (premature "lane already exists" phrasing, a stale generated-file edit, a self-contradictory "evaluation changes nothing" vs. "rising to seven" claim, and the auto-archive precondition below), all fixed in this commit; see the commit's own `Review:` trailer for the exact round.
+- Model: Master session (M5) · Delegated: none · tokens: ~10k.
+
 ## X — D-197: ADR-0007 Phase 2 rebase auto-merge accepted, gate ⑦ moves to nightly (Master M4, 2026-09-28)
 
 - **Why:** GM directive "موافق علي القرارت" (production-practices follow-up, 17:33Z) — native GitHub merge queue is unavailable on this repo (owner is a User account, not an organization); the GM configured auto-merge + a main ruleset instead, ahead of the Phase 2 2026-09-30 evaluation.
