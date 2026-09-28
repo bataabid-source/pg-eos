@@ -4,6 +4,13 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — S4 scenario RED: station client iMile (integration lane 3, R2-successor) (2026-09-28)
+
+- **What:** `tests/scenarios/S4.spec.ts` + `fixtures/imile.ts`, doc 40 Part E lines 469-477. Scan-to-cage: sorting-plan Given BACKED, scan + 1000 ms NOT BUILT (row 3.15). Attribution: first `handleAssignDriverId` real (200); ID release at 14/03 11:20 NOT BUILT (row 3.12), so the second assign returns 409; attribution read from `imile.shipments_attributed` — shipment 2 misattributed as a named consequence; `verify_attribution()` zero rows, scoped to this run's tracking numbers.
+- **Defaults:** year = scenario clock year · Asia/Kuwait · employees on PDL · doc codes PG-0231/PG-0245/D-0451 · shipments' `driver_code`/`ofd_at` are fixture stand-ins.
+- **Review, per REVIEW CAP:** round 1 PASS(10, 2 rounds) → post-PASS fix round (magic number, scoped check) → FAIL(3: structural bookkeeping + linear history, both process, not code) → Master rebase/squash. PASS subset committed = the whole content as the lane wrote it; the one remaining nit (`attributedTrackingNos[i] ?? ''` masking fallback) is deferred to `tasks/MASTER_BACKLOG.md` row `3.15 — S4 scenario polish`, not fixed here — that edit belongs to pg-tester/the lane, not the Master.
+- Model: integration lane 3 (R2-successor, opus) · Delegated: pg-tester (sonnet), pg-reviewer (opus) · tokens: pg-tester ≈185k (over 150k, under 2×).
+
 ## X — D-197: ADR-0007 Phase 2 rebase auto-merge accepted, gate ⑦ moves to nightly (Master M4, 2026-09-28)
 
 - **Why:** GM directive "موافق علي القرارت" (production-practices follow-up, 17:33Z) — native GitHub merge queue is unavailable on this repo (owner is a User account, not an organization); the GM configured auto-merge + a main ruleset instead, ahead of the Phase 2 2026-09-30 evaluation.
