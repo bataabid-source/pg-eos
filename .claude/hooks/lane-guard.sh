@@ -15,7 +15,9 @@
 #   any other exit code is a non-blocking error.
 #
 # Session mode:
-#   PG_LANE set   → lane session. Writes allowed only under the locked scope (see below),
+#   PG_LANE set   → lane session. A cloud session cannot receive an environment variable from the
+#                   Master, so there the lane id may come from the clone's `git config pgeos.lane <id>`,
+#                   set by the lane's first command (ADR-0007 §6); PG_LANE wins when both exist. Writes allowed only under the locked scope (see below),
 #                   tests/, docs/notes/, its MIGRATION-REQUEST file and its Master-numbered
 #                   migration whose request row names existing RED tests.
 #   PG_LANE unset → Master session. Everything allowed except database/schema/*,
@@ -80,16 +82,29 @@ case "$REL" in
 esac
 
 # ---- Master session: everything else is allowed --------------------------
-if [ -z "${PG_LANE:-}" ]; then
+LANE="${PG_LANE:-}"
+if [ -z "$LANE" ] && [ "${CLAUDE_CODE_REMOTE:-}" = "true" ]; then
+  LANE="$(git -C "$ROOT" config --get pgeos.lane 2>/dev/null || true)"
+fi
+if [ -z "$LANE" ]; then
   exit 0
 fi
 
-LANE="$PG_LANE"
-
 # ---- D-179: a lane session writes only from its own worktree -------------
+# ADR-0007 §5(a): a cloud session (CLAUDE_CODE_REMOTE=true) is its own container and clone, so
+# two sessions cannot share a checkout; there the directory rule is replaced by the branch rule —
+# the checkout must be on lane/<PG_LANE>-<wbs>. Local sessions keep the D-179 directory rule.
 WT_NAME="$(basename "$ROOT_FWD")"
 if [ "$WT_NAME" != "pg-eos-lane-$LANE" ]; then
-  block "lane $LANE may write only inside its own worktree ../pg-eos-lane-$LANE (this checkout is '$WT_NAME'). Two sessions on one checkout clobber each other (incident a901a04). Open the worktree: git worktree add ../pg-eos-lane-$LANE -b lane/$LANE"
+  if [ "${CLAUDE_CODE_REMOTE:-}" = "true" ]; then
+    BRANCH="$(git -C "$ROOT" symbolic-ref --short -q HEAD 2>/dev/null || true)"
+    case "$BRANCH" in
+      lane/"$LANE"-?*) ;;
+      *) block "cloud lane $LANE writes only on a branch lane/$LANE-<wbs> (this checkout is on '${BRANCH:-a detached HEAD}') — ADR-0007 §5(a). Run: git checkout -b lane/$LANE-<wbs>" ;;
+    esac
+  else
+    block "lane $LANE may write only inside its own worktree ../pg-eos-lane-$LANE (this checkout is '$WT_NAME'). Two sessions on one checkout clobber each other (incident a901a04). Open the worktree: git worktree add ../pg-eos-lane-$LANE -b lane/$LANE"
+  fi
 fi
 
 # ---- lane session: the rest of the frozen list ---------------------------

@@ -7,7 +7,8 @@
 #   1. A lock is `module` or `module/use-case`; each appears at most once.
 #   2. A whole-module row and a use-case row of the same module never coexist for two lanes.
 #   3. A lane row (lane 1|2|3|A|B|C) names the worktree `../pg-eos-lane-<lane>` — never the
-#      shared `claude-kit` checkout. Lane M (Master) is exempt.
+#      shared `claude-kit` checkout — or, for a cloud session, `cloud:session_<id>` (ADR-0007 §5(b)).
+#      Lane M (Master) is exempt.
 #   4. At most three lane rows with distinct lanes (max three lanes).
 #   5. The `task` of every row is a row ID of docs/package/38-WBS.md (or the literal `X`) — D-185:
 #      a lock for a task that is not a doc-38 row is refused, so a staged row (tasks/MASTER_BACKLOG.md
@@ -53,7 +54,8 @@ WBS_DOC="${CHECK_LOCKS_WBS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/doc
     [ "$l" = "M" ] && continue
     case "$w" in
       "../pg-eos-lane-$l"|"../pg-eos-lane-$l "*|"../pg-eos-lane-$l("*) ;;
-      *) err "'$m' (lane $l) names worktree '$w' — a lane runs only in ../pg-eos-lane-$l (D-179), never the shared claude-kit checkout" ;;
+      cloud:session_[A-Za-z0-9]*) ;;
+      *) err "'$m' (lane $l) names worktree '$w' — a lane runs only in ../pg-eos-lane-$l (D-179) or a cloud session cloud:session_<id> (ADR-0007), never the shared claude-kit checkout" ;;
     esac
   done <<< "$rows"
 

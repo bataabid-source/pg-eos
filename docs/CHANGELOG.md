@@ -4,6 +4,15 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — ADR-0007 Phase 1: cloud sessions, M-core, session limits and rotation (D-196, 2026-09-28)
+
+- **Why:** GM directives "نعم جهّز مسودة تقسيم الأدوار" and D-196 (Phase 1 approved, Phase 2 scheduled, limits and rotation for every session including the Master).
+- **What:** `docs/adr/ADR-0007-cloud-sessions-and-roles.md` (Phase 1 Accepted, §6 limits + handover packet + watchdog, Phase 2 Proposed) · `.claude/hooks/lane-guard.sh` (cloud branch rule, lane id from `git config pgeos.lane`) · `scripts/check-locks.sh` + `scripts/scribe.mjs` (`cloud:session_<id>` worktree) · `tests/hooks/run.sh` (+15 cases, 184/184; cloud cases RED on the old guard) · CLAUDE.md (five sessions, M-core, rotation line, successor reads its packet) · DECISION_LOG D-196.
+- **Found:** cloud lanes ran with no `PG_LANE` (create_session takes no env), so lane-guard treated them as the Master — no lock was enforced in the cloud until this commit.
+- **Default recorded:** ceilings Master 400k / 24 h / wave boundary; M-core, lanes, integration 300k (above lane B's measured 265k for one slice).
+- **Next (Master):** merge this first; write the 1a-5 and 2.9 part 2 (fix) briefs; launch M-core + lane 1, relaunch lane 2 (4.19), replace integration; M2 is at 559k — its own rotation is due after this merge.
+- Model: GM advisory session · Delegated: pg-reviewer · Review: see commit trailer · tokens: ~200k.
+
 ## X part 5a part 2 + X part 5b part 3 — host HEAD-route assertion restored, worker test constants, server.test seeds its own session threshold (2026-09-27)
 
 - **Why:** the two open review nits of X part 5a / 5b (test-only rows), plus a test-order dependency found while running them: `apps/api/tests/server.test.ts` read `identity.session.lifetime_minutes` without seeding it and passed in CI only when another package's suite had left the row behind.

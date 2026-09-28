@@ -25,7 +25,7 @@ done
 guard() { # guard <root> <lane|""> <path>  → exit code
   local root="$1" lane="$2" path="$3"
   if [ -n "$lane" ]; then
-    printf '{"tool_name":"Write","tool_input":{"file_path":"%s"}}' "$path" | CLAUDE_PROJECT_DIR="$root" PG_LANE="$lane" bash "$root/lane-guard.sh" 2>/dev/null; echo $?
+    printf '{"tool_name":"Write","tool_input":{"file_path":"%s"}}' "$path" | CLAUDE_PROJECT_DIR="$root" PG_LANE="$lane" env -u CLAUDE_CODE_REMOTE bash "$root/lane-guard.sh" 2>/dev/null; echo $?
   else
     printf '{"tool_name":"Write","tool_input":{"file_path":"%s"}}' "$path" | CLAUDE_PROJECT_DIR="$root" env -u PG_LANE bash "$root/lane-guard.sh" 2>/dev/null; echo $?
   fi
@@ -38,6 +38,32 @@ expect "master: database/schema blocked"        2 "$(guard "$SHARED" "" "databas
 locks '| wms | 1 | 2.10 | 2026-09-25 | ../pg-eos-lane-1 |'
 cp "$LANE1/tasks/LANE_LOCKS.md" "$SHARED/tasks/LANE_LOCKS.md"
 expect "lane in shared checkout blocked (D-179)" 2 "$(guard "$SHARED" 1 "modules/wms/index.ts")"
+# ADR-0007 §5(a): in a cloud session (CLAUDE_CODE_REMOTE=true) the clone is `pg-eos`; the branch
+# lane/<PG_LANE>-<wbs> replaces the worktree directory rule. Locks and frozen paths still apply.
+CLOUD="$TMP/pg-eos"; mkdir -p "$CLOUD/tasks" && cp "$REPO/.claude/hooks/lane-guard.sh" "$CLOUD/lane-guard.sh"
+git -C "$CLOUD" init -q -b main 2>/dev/null || { git -C "$CLOUD" init -q && git -C "$CLOUD" checkout -q -b main; }
+cp "$LANE1/tasks/LANE_LOCKS.md" "$CLOUD/tasks/LANE_LOCKS.md"
+guardc() { # guardc <lane> <path> → exit code, as a cloud session in $CLOUD
+  printf '{"tool_name":"Write","tool_input":{"file_path":"%s"}}' "$2" | CLAUDE_PROJECT_DIR="$CLOUD" PG_LANE="$1" CLAUDE_CODE_REMOTE=true bash "$CLOUD/lane-guard.sh" 2>/dev/null; echo $?
+}
+expect "cloud lane on main blocked (ADR-0007)"  2 "$(guardc 1 "modules/wms/index.ts")"
+git -C "$CLOUD" checkout -q -b lane/2-4.19
+expect "cloud lane on another lane's branch blocked" 2 "$(guardc 1 "modules/wms/index.ts")"
+git -C "$CLOUD" checkout -q -b lane/1-2.16
+expect "cloud lane on its branch: lock allows"  0 "$(guardc 1 "modules/wms/domain/put-away/x.ts")"
+expect "cloud lane on its branch: other module blocked" 2 "$(guardc 1 "modules/hr/index.ts")"
+expect "cloud lane on its branch: packages/* frozen" 2 "$(guardc 1 "packages/db/index.ts")"
+expect "local lane outside worktree still blocked" 2 "$(guard "$CLOUD" 1 "modules/wms/domain/put-away/x.ts")"
+guardg() { # guardg <path> → exit code, cloud session whose lane comes from `git config pgeos.lane`
+  printf '{"tool_name":"Write","tool_input":{"file_path":"%s"}}' "$1" | CLAUDE_PROJECT_DIR="$CLOUD" CLAUDE_CODE_REMOTE=true env -u PG_LANE bash "$CLOUD/lane-guard.sh" 2>/dev/null; echo $?
+}
+expect "cloud, no lane id anywhere: Master mode"  0 "$(guardg "modules/hr/index.ts")"
+git -C "$CLOUD" config pgeos.lane 1
+expect "cloud, lane from git config: lock allows" 0 "$(guardg "modules/wms/domain/put-away/x.ts")"
+expect "cloud, lane from git config: other module blocked" 2 "$(guardg "modules/hr/index.ts")"
+expect "cloud, lane from git config: CLAUDE.md frozen" 2 "$(guardg "CLAUDE.md")"
+expect "local session ignores git config (D-179 unchanged)" 0 "$(printf '{"tool_name":"Write","tool_input":{"file_path":"modules/hr/index.ts"}}' | CLAUDE_PROJECT_DIR="$CLOUD" env -u PG_LANE -u CLAUDE_CODE_REMOTE bash "$CLOUD/lane-guard.sh" 2>/dev/null; echo $?)"
+git -C "$CLOUD" config --unset pgeos.lane
 expect "lane: whole-module lock allows module"  0 "$(guard "$LANE1" 1 "modules/wms/domain/put-away/x.ts")"
 expect "lane: other module blocked"             2 "$(guard "$LANE1" 1 "modules/hr/index.ts")"
 expect "lane: packages/* frozen"                2 "$(guard "$LANE1" 1 "packages/db/index.ts")"
@@ -117,6 +143,8 @@ cl() { printf '| module | lane | task | claimed_at | worktree |\n|---|---|---|--
 expect "valid table OK"                         0 "$(cl '| wms/put-away | 1 | 2.10 | d | ../pg-eos-lane-1 |\n| wms/manage-space | 2 | 2.15 | d | ../pg-eos-lane-2 (building) |\n| imile | 3 | 3.14 | d | ../pg-eos-lane-3 |')"
 expect "shared claude-kit worktree refused"     1 "$(cl '| imile | 3 | 3.14 | d | shared `claude-kit` |')"
 expect "wrong lane worktree refused"            1 "$(cl '| imile | 3 | 3.14 | d | ../pg-eos-lane-2 |')"
+expect "cloud session worktree accepted (ADR-0007)" 0 "$(cl '| imile | 3 | 3.14 | d | cloud:session_01AbC |')"
+expect "bare cloud: worktree refused"           1 "$(cl '| imile | 3 | 3.14 | d | cloud: |')"
 expect "Master row exempt from worktree rule"   0 "$(cl '| packages/db | M | 0.6a | d | claude-kit |')"
 expect "duplicate lock refused"                 1 "$(cl '| wms | 1 | 2.11 | d | ../pg-eos-lane-1 |\n| wms | 2 | 2.13 | d | ../pg-eos-lane-2 |')"
 expect "whole + use-case clash refused"         1 "$(cl '| wms | 2 | 2.13 | d | ../pg-eos-lane-2 |\n| wms/put-away | 1 | 2.10 | d | ../pg-eos-lane-1 |')"
@@ -372,6 +400,8 @@ expect "scribe: --claim wms 1 2.9 exits 0"                        0 "$(sc --clai
 expect "scribe: claim row written with today's date and worktree" 0 "$(grep -qE '^\| wms \| 1 \| 2\.9 \| [0-9]{4}-[0-9]{2}-[0-9]{2} \| \.\./pg-eos-lane-1 \|$' "$SC/tasks/LANE_LOCKS.md"; echo $?)"
 expect "scribe: PROJECT_STATE lists the lane after a claim"       0 "$(grep -q 'lane 1 · wms · 2.9' "$SC/docs/PROJECT_STATE.md"; echo $?)"
 expect "scribe: second claim of the same lock refused"            1 "$(sc --claim wms 2 2.9)"
+expect "scribe: cloud claim writes cloud:session_<id> (ADR-0007)" 0 "$(sc --claim fleet 2 2.9 cloud:session_01XyZ >/dev/null; grep -qE '^\| fleet \| 2 \| 2\.9 \| [0-9-]+ \| cloud:session_01XyZ \|$' "$SC/tasks/LANE_LOCKS.md"; echo $?)"
+expect "scribe: malformed cloud worktree refused"                 1 "$(sc --claim tms 2 2.9 somewhere)"
 expect "scribe: claim with a task that is not a doc-38 row refused (check-locks), table unchanged" 1 "$(sc --claim hr 2 NOPE-ROW)"
 expect "scribe: table unchanged after the refused claim"          1 "$(grep -q '^| hr ' "$SC/tasks/LANE_LOCKS.md"; echo $?)"
 expect "scribe: claim with a bad lane refused"                    1 "$(sc --claim hr 9 2.9)"

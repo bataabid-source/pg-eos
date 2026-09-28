@@ -7,7 +7,9 @@
 //                                        the lock table and `git log` (last five feat/fix(<WBS>) commits)
 //   --check                              exit 1 if PROJECT_STATE.md differs from the generated text, exceeds the
 //                                        limits, or a source line is over LINE_MAX / carries `<this commit>`
-//   --claim <module> <lane> <task>       add a lock row (claimed_at = today, worktree = ../pg-eos-lane-<lane>) and
+//   --claim <module> <lane> <task> [cloud:session_<id>]
+//                                        add a lock row (claimed_at = today, worktree = ../pg-eos-lane-<lane>, or the
+//                                        cloud session that holds the lane — ADR-0007 §5(b)) and
 //                                        regenerate PROJECT_STATE.md; refused if scripts/check-locks.sh rejects the
 //                                        resulting table (the file is left unchanged)
 //   --release <module> [<lane>]          remove that lock row (of that lane, when given) and regenerate
@@ -27,6 +29,7 @@ const DONE_COUNT = 5;
 const PLACEHOLDER = '<this commit>';
 const SOURCE_LIMITS = { 'docs/state/header.md': 8, 'docs/state/blockers.md': 12, 'docs/state/next.md': 3 };
 const LANE_RE = /^(1|2|3|A|B|C|M)$/;
+const CLOUD_WORKTREE_RE = /^cloud:session_[A-Za-z0-9]+$/;
 const LOCK_RE = /^[a-z][a-z0-9-]*(\/[a-z][a-z0-9-]*)?$/;
 const EXIT_OK = 0;
 const EXIT_FAIL = 1;
@@ -149,14 +152,17 @@ function checkLocksOrRestore(previous) {
   }
 }
 
-function claim(module, lane, task) {
+function claim(module, lane, task, cloudSession) {
   if (!LOCK_RE.test(module)) throw new Error(`lock '${module}' is not <module> or <module>/<use-case>`);
   if (!LANE_RE.test(lane)) throw new Error(`lane '${lane}' is not one of 1 2 3 A B C M`);
   if (!task) throw new Error('task (a doc-38 row id or X) is required');
   const previous = read(LOCKS);
   const table = lockTable();
   if (table.rows.some((r) => r.module === module)) throw new Error(`lock '${module}' is already claimed`);
-  const worktree = lane === 'M' ? '.' : `../pg-eos-lane-${lane}`;
+  if (cloudSession !== undefined && !CLOUD_WORKTREE_RE.test(cloudSession)) {
+    throw new Error(`worktree '${cloudSession}' is not cloud:session_<id>`);
+  }
+  const worktree = lane === 'M' ? '.' : (cloudSession ?? `../pg-eos-lane-${lane}`);
   table.rows.push({ module, lane, task, claimedAt: today(), worktree, raw: '' });
   write(LOCKS, renderLocks(table));
   checkLocksOrRestore(previous);
@@ -200,7 +206,7 @@ function insertChangelog(entry) {
 
 const [mode, ...args] = process.argv.slice(2);
 const usage =
-  'usage: node scripts/scribe.mjs --write | --check | --claim <module> <lane> <task> | --release <module> [<lane>] | --changelog-template <WBS> "<title>" [--insert]\n';
+  'usage: node scripts/scribe.mjs --write | --check | --claim <module> <lane> <task> [cloud:session_<id>] | --release <module> [<lane>] | --changelog-template <WBS> "<title>" [--insert]\n';
 
 try {
   switch (mode) {
@@ -217,8 +223,8 @@ try {
       break;
     }
     case '--claim':
-      if (args.length !== 3) throw new Error(usage.trim());
-      claim(args[0], args[1], args[2]);
+      if (args.length < 3 || args.length > 4) throw new Error(usage.trim());
+      claim(args[0], args[1], args[2], args[3]);
       break;
     case '--release':
       if (args.length < 1 || args.length > 2) throw new Error(usage.trim());

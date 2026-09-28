@@ -6,7 +6,7 @@ Done so far: phase 0 closed · phase 1 done except 1.11 (BLOCKED D-178) · phase
 Pilot: Tier 0 = local Docker postgres:16 (D-129), seed 019 + synthetic data (D-127); doc 38 v4.7 (154 rows).
 Schema: migrations 0001–0037 + 0039 applied (0022 withdrawn); 0038 · 0040 · 0041 issued to lane 2 (4.1b p2 · 4.19 · 4.20); next free number 0042.
 Sessions: remote containers boot Postgres from .claude/hooks/session-start.sh; PG_APP_USER is required (ADR-0005 §7).
-Master: «الماستر M2 — طابور الدمج والموجة 1» (cloud, D-195); «تقييم المشروع والمسار القادم» stood down after PR #153. Next migration 0042.
+Master: «الماستر M2» (cloud, D-195), rotation due (559k / 400k, ADR-0007 §6). Max five cloud sessions (D-196). Next migration 0042.
 Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewer (opus); bookkeeping by scripts/scribe.mjs (state, locks, CHANGELOG template).
 
 ## Lanes (tasks/LANE_LOCKS.md)
@@ -32,6 +32,6 @@ Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewe
 - Master batch (frozen paths): entityId on WithContextCtx; domain-kit browser break; eslint cwd bug; new-slice.sh stale citations.
 
 ## Next
-1. Master (M2): D6 · S18 · docs/gov merged → condition A met (⑤ 1.4 min, PR #156): lanes B (billing 0038/0040/0041) + integration requested from the GM.
-2. Master after A: X part 5d (S1/S2 over HTTP) / 5a part 2 / 12 → 2.16 part 1a-5 + SCR-IDENTITY-RLS-01 → SCR-AUDIT-CHAIN-01 1/4 → X part 7–10.
+1. ADR-0007 P1 (D-196): Master merges it → briefs 1a-5 (M-core) + 2.9 p2 fix (lane 1) → launch sessions → Master rotation + watchdog.
+2. M-core: 2.16 part 1a-5 → SCR-IDENTITY-RLS-01 → SCR-AUDIT-CHAIN-01 1/4 → Master batch. Integration: X part 5d (S1/S2 over HTTP).
 3. Stream A first slice after 2.16 part 1a-4: `2.9 part 2 (fix)` (ledger expiry_date) then 2.16 part 1a-5 (G-16a limits) before /login mounts.
