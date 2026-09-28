@@ -11,6 +11,12 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 - **Local gate note:** gate ③ (`pnpm guards:run`) was run against a fresh, isolated `pgeos_m3` database (`createdb -T template0`, `database/schema/apply.sh --no-guards`, CREATE-only, D-183) instead of the shared local `pgeos`, which carries a pre-existing leftover `identity.users` row from an interrupted earlier run (known defect, `tasks/MASTER_BACKLOG.md` 0.18 item 6 / X part 4) — no data was deleted anywhere.
 - Model: Master session (M3) · Delegated: none · Review: n/a (merge/bookkeeping, no new code) · tokens: ~15k.
 
+## X — pg-reviewer findings on merged #166: MIGRATION-REQUEST-M.md, second GM-Directive recorded (Master M3, 2026-09-28)
+
+- **Why:** the `review` check came back online after #166 was already merged (`89f83c2`) and posted `FAIL(2)`: [1 BLOCKING] migration 0042 was issued to lane M but `tasks/backlog/MIGRATION-REQUEST-M.md` never existed, which `lane-guard.sh` would refuse the moment R3 (already running, `core/2.16-1a-5`) tries to write `database/migrations/0042_M_identity-auth-thresholds.sql`; [NIT] the squashed commit's trailer cited only the wave-1 launch GM-Directive, not the separate M3 authorization that covers the merge-conflict-resolution / repository-made-public bookkeeping folded into the same PR.
+- **Change:** created `tasks/backlog/MIGRATION-REQUEST-M.md` (precedent: `MIGRATION-REQUEST-2.md`) with the 0042 row — module `identity`, slug `identity-auth-thresholds`, purpose and the four RED test paths verbatim from `_slice-2.16-1a-5.brief.md` ("RED tests" section) — so R3 is unblocked without R3 having to write its own lock-adjacent bookkeeping file; recorded the second GM-Directive ("نعم، أنت الماستر M3 خلفًا لـ M2 ... نفّذ بالترتيب: rebase-merge للـPR #165، ثم squash-merge للـPR #166") as its own CHANGELOG line above, per the nit (commit `89f83c2` on main is not rewritten).
+- Model: Master session (M3) · Delegated: none · Review: n/a (bookkeeping fix, addresses posted review findings) · tokens: ~5k.
+
 ## X — ADR-0007 Phase 1 launch: wave-1 briefs, migration 0042, cloud locks for R3/R4/R5 (Master M2, 2026-09-28)
 
 - **Why:** GM handover (D-196; "موافق و تابع مع الماستر وأبلغني بعد الدمج"): the GM opened R2–R5; the Master briefs them and claims their locks.
