@@ -5,3 +5,5 @@ Numbers issued by the Master on 2026-09-28 (`database/migrations/README.md`). On
 | number | module | slug | purpose | RED tests |
 |---|---|---|---|---|
 | 0042 | identity | identity-auth-thresholds | WBS 2.16 part 1a-5: every G-16a number (OTP TTL/attempts/resend/hourly cap, login rate limits, lockout ladder 15→30→60 min) seeded as `platform.thresholds` rows under `identity.otp.*` / `identity.login.*` keys, idempotent `insert … on conflict (key) do nothing` (`_slice-2.16-1a-5.brief.md` Decision 1); `identity.session.lifetime_minutes` NOT seeded here | packages/identity/tests/g16a-limits.feature · packages/identity/tests/g16a-limits.test.ts · packages/identity/tests/g16a-limits.property.test.ts · modules/identity/tests/otp-login/g16a-refusals.test.ts |
+
+Note (R3, 2.16 part 1a-5): `lane-guard.sh`'s RED-path pattern accepts only `modules|tests|apps/…`, so the three `packages/identity/tests/…` paths above are read as `tests/…` and refused; only `modules/identity/tests/otp-login/g16a-refusals.test.ts` satisfied the hook when 0042 was written (after all four existed) → X part 15.

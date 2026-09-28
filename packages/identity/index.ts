@@ -30,10 +30,19 @@
 export type { LoginOtpRequestResult, LoginOtpVerification } from './src/login.js';
 export { requestLoginOtp, verifyLoginOtp } from './src/login.js';
 
-export type { GeneratedOtp, OtpClockOptions, OtpVerification } from './src/otp.js';
+export type {
+  GeneratedOtp,
+  OtpClockOptions,
+  OtpRateLimitReason,
+  OtpVerification,
+} from './src/otp.js';
 export {
   generateOtp,
   OTP_EXPIRY_MINUTES_KEY,
+  OTP_MAX_ATTEMPTS_KEY,
+  OTP_REQUESTS_PER_EMAIL_PER_HOUR_KEY,
+  OTP_RESEND_SECONDS_KEY,
+  OtpRateLimitedError,
   UnknownOrInactiveUserError,
   verifyOtp,
 } from './src/otp.js';
