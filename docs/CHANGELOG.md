@@ -4,6 +4,20 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — merge main (ba875ad, PR #165) into the Master's launch PR #166; repository made public (Master M3, 2026-09-28)
+
+- **Why:** #165 (4.1b part 2) merged first and left #166 dirty (conflict on `docs/state/header.md`, `docs/CHANGELOG.md`, `database/migrations/README.md`, `docs/PROJECT_STATE.md`). Separately, GitHub Actions had stopped assigning runners on main (billing block — payments failed / spending limit); the GM made the repository public so standard runners run free, and CI recovered (verified: run 36389392268 attempt 3, jobs assigned and green).
+- **Change:** merged `origin/main` into `claude/inspiring-edison-1evygw`; resolved the four conflicts by hand (kept both CHANGELOG entries, newest first; corrected `0038` from "issued" to "applied, lane 2" in the migration register and state header; next free stays `0043`); regenerated `docs/PROJECT_STATE.md` via `node scripts/scribe.mjs --write` rather than editing the generated file.
+- **Local gate note:** gate ③ (`pnpm guards:run`) was run against a fresh, isolated `pgeos_m3` database (`createdb -T template0`, `database/schema/apply.sh --no-guards`, CREATE-only, D-183) instead of the shared local `pgeos`, which carries a pre-existing leftover `identity.users` row from an interrupted earlier run (known defect, `tasks/MASTER_BACKLOG.md` 0.18 item 6 / X part 4) — no data was deleted anywhere.
+- Model: Master session (M3) · Delegated: none · Review: n/a (merge/bookkeeping, no new code) · tokens: ~15k.
+
+## X — ADR-0007 Phase 1 launch: wave-1 briefs, migration 0042, cloud locks for R3/R4/R5 (Master M2, 2026-09-28)
+
+- **Why:** GM handover (D-196; "موافق و تابع مع الماستر وأبلغني بعد الدمج"): the GM opened R2–R5; the Master briefs them and claims their locks.
+- **Change:** `_slice-2.16-1a-5.brief.md` (M-core R3, pg-builder-core, branch `core/2.16-1a-5`, migration **0042** issued to lane M) · `_slice-2.9-p2.brief.md` (lane 1 R4, branch `lane/1-2.9p2`) · `_slice-4.19` / `_slice-4.20` "Routes:" lines (a built contract-first route mounts itself once X part 12 part 4 merges) · `database/migrations/README.md` next free 0043 · locks: `wms` lane 1, `packages/identity` + `identity` lane M, `billing` lane 2 → 4.19 (cloud:session ids) · state header/next.
+- **Defaults:** 2.9 part 2 lock = whole `wms` (the defect is in module-wide `src/stock-ledger/`, not the use case) · 1a-5: G-16a items the schema cannot hold (per-IP limit, lockout history) → SCR-IDENTITY-AUTH-01, never invented · `identity.session.lifetime_minutes` stays unseeded (GM question).
+- Model: Master session · Delegated: none · Review: n/a (briefs; each slice's pre-build review covers its brief) · tokens: ~40k.
+
 ## 4.1b part 2 — line dimensions + dimension values (list and reference kind), migration 0038 (lane 2, 2026-09-27)
 
 - **Why:** doc 38 row 4.1b half 2 "undefined value rejected" (SCR-ACC-01 row 9, D-190): `billing.dimension_values` + `billing.line_dimensions`, append-only (doc 40 P3).
