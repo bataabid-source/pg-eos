@@ -4,10 +4,10 @@ Feature: X part 5a — one host serves every registered operation
 
   Scenario: the route table is complete and one-to-one
     Then every entry of ALL_ROUTES is mounted exactly once on its method and path
-    And the entries mounted on a handler number ALL_ROUTES minus the 501 set, and each resolves to an exported handle* function
-    And the 501 entries are exactly the contractFirst routes with no handlers file, plus the NOT_MOUNTED_UNTIL_2_16_PART_1A_5 routes
+    And the entries mounted on a handler number 70 and each resolves to an exported handle* function
+    And the 501 entries are exactly the 10 UNIMPLEMENTED_ROUTES plus the 2 NOT_MOUNTED_UNTIL_2_16_PART_1A_5 routes
     And a route whose handler cannot be resolved makes startup fail with the route in the error
-    And a contractFirst route that has a handlers file is mounted with one startup warning
+    And a listed unimplemented route that has a handlers.js makes startup fail
     And a GET route's HEAD counterpart is never auto-exposed
 
   Scenario: a request without a session is refused

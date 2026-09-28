@@ -1,17 +1,10 @@
-// apps/api/src/route-table.ts — X part 5a (ADR-0006 §1, §4), X part 12 (a)+(b). ALL_ROUTES →
-// handlers, one-to-one, from the registry itself (no second routing table).
+// apps/api/src/route-table.ts — X part 5a (ADR-0006 §1, §4). ALL_ROUTES → handlers, one-to-one,
+// from the registry itself (no second routing table).
 //
 // Convention: `/<module>/<use-case>/<operation>` is served by
 // `modules/<module>/api/<use-case>/handlers` exporting `handle<Operation>` — or `handle<UseCase>`
 // for the verb-prefix operations — with deps from `composition`'s `create<UseCase>Deps`, built once
 // here and holding no request state. Every inconsistency is a startup error, never a silent skip.
-//
-// X part 12 (a)+(b): the unimplemented mark lives in the registry itself (`RouteInput.contractFirst`,
-// `packages/contracts/_shared/registry.ts`), not in a hardcoded list here. A `contractFirst` route
-// with no handlers file on disk answers 501; one with a handlers file is mounted exactly like any
-// other route, and logs exactly one `logger.warn` naming it ("contract-first mark can be removed")
-// so the Master can find and remove stale marks at merge. An unmarked route with no handlers file
-// is still a startup error, naming the route (ADR-0006 §4: no silent 501).
 
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -22,6 +15,21 @@ import { SystemClock, UuidGenerator, type Clock, type IdGenerator } from '@pg-eo
 
 import { HTTP_STATUS_NOT_IMPLEMENTED } from './http-status.js';
 
+/** ADR-0006 §4: registered without a handler — 501 until their rows are built. The mark belongs in
+ *  the registry (`packages/contracts`, frozen for this part); it lives here until the Master moves it. */
+export const UNIMPLEMENTED_ROUTES = [
+  '/billing/accounting-periods/create-fiscal-year',
+  '/billing/accounting-periods/open-period',
+  '/billing/accounting-periods/close-period',
+  '/billing/accounting-periods/lock-period',
+  '/billing/accounting-periods/reopen-period',
+  '/billing/dimensions/create-dimension-value',
+  '/billing/dimensions/deactivate-dimension-value',
+  '/billing/post-journal/post-journal',
+  '/billing/post-journal/reverse-journal',
+  '/billing/post-journal/adjust-journal',
+] as const;
+
 /** ADR-0006 consequences: the login endpoints are not mounted until 2.16 part 1a-5 (G-16a limits)
  *  is DONE (modules/identity/api/otp-login/handlers.ts "NOT FOR MOUNTING YET"). */
 export const NOT_MOUNTED_UNTIL_2_16_PART_1A_5 = [
@@ -29,19 +37,10 @@ export const NOT_MOUNTED_UNTIL_2_16_PART_1A_5 = [
   '/identity/otp-login/verify-otp-code',
 ] as const;
 
-/** A pino-compatible logger's `warn` method — the only capability `buildRouteTable` needs
- *  (X part 12 (a)+(b), brief decision 2: one warning per mounted `contractFirst` route). */
-export interface RouteTableLogger {
-  warn(obj: object, msg?: string): void;
-}
-
 /** The route shape the table reads — a subset of `RouteContract`. */
 export interface RouteInput {
   readonly method: HttpMethod;
   readonly path: string;
-  /** ADR-0006 §4 (X part 12): registered ahead of its handler — 501 until the handlers file
-   *  exists, mounted normally (with one startup warning) once it does. */
-  readonly contractFirst?: true;
 }
 
 export interface RouteSegments {
@@ -82,14 +81,7 @@ export interface BuildRouteTableOptions {
   readonly modulesRoot?: URL;
   /** Composition inputs; default: one SystemClock and one UuidGenerator for the whole host. */
   readonly depsInput?: DepsInput;
-  /** X part 12 (a)+(b), brief decision 2: receives exactly one `warn` per mounted `contractFirst`
-   *  route, naming it ("contract-first mark can be removed"). Default: a no-op (the host's own
-   *  pino logger is wired in from `server.ts` separately, out of scope this slice). */
-  readonly logger?: RouteTableLogger;
 }
-
-const NO_OP_LOGGER: RouteTableLogger = { warn: () => {} };
-const CONTRACT_FIRST_MARK_WARNING = 'contract-first mark can be removed';
 
 /** apps/api/src → the repository's `modules/` tree. */
 export const DEFAULT_MODULES_ROOT = new URL('../../../modules/', import.meta.url);
@@ -178,11 +170,10 @@ function notMountedProblem(route: RouteInput): ApiFailure {
 }
 
 /**
- * Resolves every route to its handler or to a 501. Throws (startup fails) when an unmarked route
- * has no handlers file, when a handlers or composition file fails to load, when
- * `create<UseCase>Deps` is missing, or when no handler name resolves — the route is always named
- * in the error. A `contractFirst` route with no handlers file answers 501 instead of throwing; one
- * with a handlers file is mounted like any other route, logging exactly one `warn` naming it.
+ * Resolves every route to its handler or to a 501. Throws (startup fails) when a route outside
+ * UNIMPLEMENTED_ROUTES has no handlers file, when a listed route HAS one, when a handlers or
+ * composition file fails to load, when `create<UseCase>Deps` is missing, or when no handler name
+ * resolves — the route is always named in the error.
  */
 export async function buildRouteTable(
   routes: readonly RouteInput[],
@@ -190,7 +181,6 @@ export async function buildRouteTable(
 ): Promise<RouteTable> {
   const modulesRoot = options.modulesRoot ?? DEFAULT_MODULES_ROOT;
   const depsInput = options.depsInput ?? { clock: new SystemClock(), ids: new UuidGenerator() };
-  const logger = options.logger ?? NO_OP_LOGGER;
   const depsByUseCase = new Map<string, unknown>();
   const mounted: MountedRoute[] = [];
   const unimplemented: UnimplementedRoute[] = [];
@@ -206,18 +196,19 @@ export async function buildRouteTable(
     const useCaseDir = new URL(`${segments.module}/api/${segments.useCase}/`, modulesRoot);
     const handlersFile = findModuleFile(useCaseDir, 'handlers');
 
-    if (!handlersFile) {
-      if (route.contractFirst === true) {
-        unimplemented.push({ method: route.method, path: route.path, problem: unimplementedProblem(route) });
-        continue;
+    if (includesPath(UNIMPLEMENTED_ROUTES, route.path)) {
+      if (handlersFile) {
+        throw new Error(
+          `route ${route.method} ${route.path} is listed in UNIMPLEMENTED_ROUTES but ${handlersFile.href} exists — remove it from the list`,
+        );
       }
+      unimplemented.push({ method: route.method, path: route.path, problem: unimplementedProblem(route) });
+      continue;
+    }
+
+    if (!handlersFile) {
       throw new Error(`route ${route.method} ${route.path}: no handlers file under ${useCaseDir.href}`);
     }
-
-    if (route.contractFirst === true) {
-      logger.warn({ method: route.method, path: route.path }, `${CONTRACT_FIRST_MARK_WARNING}: ${route.method} ${route.path}`);
-    }
-
     const handlers = await importModule(handlersFile, route);
     const candidates = handlerNamesFor(segments);
     const handlerName = candidates.find((name) => isModuleHandler(handlers[name]));

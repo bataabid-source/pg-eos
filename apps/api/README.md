@@ -10,10 +10,8 @@ Pipeline: `Authorization: Bearer <session token>` → `verifySessionSubject` in 
 user passes; every other cause is the one `UNAUTHORIZED_PROBLEM`, 401) → 501 sets → `X-Entity-Id`
 entity scope (403 / 422) → handler with `{ headers (no authorization), body (GET: query), ctx }`.
 
-501 sets: routes marked `contractFirst` in `packages/contracts` (ADR-0006 §4, X part 12) answer 501
-until their `handlers` file exists and are mounted as soon as it does (one startup warning per
-stale mark); `NOT_MOUNTED_UNTIL_2_16_PART_1A_5` in `src/route-table.ts` (the two otp-login routes)
-is a security hold. No public routes.
+501 sets (`src/route-table.ts`): `UNIMPLEMENTED_ROUTES` (10 billing operations, ADR-0006 §4) and
+`NOT_MOUNTED_UNTIL_2_16_PART_1A_5` (the two otp-login routes). No public routes.
 
 Recorded gaps:
 - GET query values arrive as strings; numeric contract fields need coercion in the contracts.
