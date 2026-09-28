@@ -15,6 +15,7 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 - **Verified:** billing 615/615 twice consecutively; domain/accounting-periods coverage 100%; isolation 233/233 (G14); guards.sql G2/G6/G7 0 rows (G12 1 pre-existing row, not this slice — clear before merge); tsc + eslint clean; 0040 applied twice; full `guards:run` (G16) not run by the lane.
 - **Budget breach (recorded, not hidden):** ≈ 1.1M worker tokens (> 2× the 150k budget); no split taken — the Master decides.
 - Model: lane session (opus) · Delegated: pg-tester (sonnet), pg-builder-core (opus), pg-reviewer (opus ×3) · Review: PASS(31 findings, 2 rounds) · tokens: tester ~410k · builder-core ~295k · reviewer ~420k.
+- **fix(4.19), PR #170 automated review FAIL(2):** .feature same-status prose corrected to D4 (accepted unless version decreases); `title_ar` now loaded when deps are built (`loadReopenDecisionTitleAr` + `ReopenDecisionTitleMissingError`, `createAccountingPeriodRepository(title)`), so a missing i18n file fails host startup, not a request — merge order is hard: packages/i18n lands first; `reopen-title.unit.test.ts` 6 cases. Fix review FAIL(1)→PASS; ~90k tokens.
 
 ## 4.19 — i18n prerequisite: `packages/i18n/<lang>/billing.json`, reopen decision title, six locales (M-core, 2026-09-29)
 
