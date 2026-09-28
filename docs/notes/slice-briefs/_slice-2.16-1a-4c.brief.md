@@ -1,0 +1,64 @@
+# SLICE BRIEF — WBS 2.16 part 1a-4c · the language selector is constant across locales (PDA + admin shells)
+
+Task: 2.16 part 1a-4c (MASTER_BACKLOG)      Lane: 1 (stream A, wave 1)      Lock: `pda` + `admin` (see Default 7)
+builder: pg-builder
+Session: R4 (`pg-eos:lane-1`), branch `lane/1-2.16-1a-4c` (from origin/main 8a68e79). Brief drafted by the lane at the Master's request (M4, 2026-09-28 18:40Z).
+Model routing (ADR-0005 §5): pg-tester sonnet (RED) → pg-reviewer opus (brief + RED) → pg-builder sonnet → pg-tester verify → pg-reviewer opus close. Budget ≤ 8 files / 1,000 lines read, ≤ 150k tokens; REVIEW CAP 2 rounds.
+
+## Acceptance (backlog row 2.16 part 1a-4c, verbatim)
+"Selector label and six option labels identical under ar/en/hi/ur/bn/am; i18n key-set test green; tab title decided"
+
+GM directive 2026-09-27 (verbatim, relayed in the backlog row): "ثبت تعريف صندوق اللغات يعرف بالانجليزيه وثابت حتي بعد تغير الللغات".
+
+## Facts (verified on main 8a68e79)
+- PDA: the selector lives in the shell, `apps/pda/src/router.tsx:42-49` (`LOCALE_LABEL_KEY`) and `:128-145` (`<label>` with an `sr-only` span `t(locale, 'locale.select.label')`, `<select data-testid="locale-select">`, options `t(locale, LOCALE_LABEL_KEY[code])`).
+- Admin: the same selector is duplicated in two screens — `features/customer-profile/customer-profile-screen.tsx:30-37, 96-111` and `features/decision-inbox/decision-inbox-screen.tsx:27-34, 112-127`.
+- Keys `locale.select.label` + `locale.name.{ar,en,hi,ur,bn,am}` exist in all six `apps/pda/src/i18n/*.json` and all six `apps/admin/src/i18n/*.json`; `apps/pda/tests/i18n/keys.test.ts:53-59` lists them.
+- Tab titles: `apps/pda/index.html:6` "Premium WH", `apps/admin/index.html:6` "PG-EOS Admin".
+- No table, column, contract or migration involved.
+
+## Decisions (defaults — one CHANGELOG line each)
+1. One table per app, `apps/<app>/src/i18n/languages.ts` (apps may not import each other; `packages/*` is frozen): `LANGUAGE_SELECTOR_LABEL = 'Language'` and `LANGUAGE_OPTIONS: Readonly<Record<Locale, { label: string; lang: Locale; dir: 'rtl' | 'ltr' }>>`, `dir` from the existing `directionOf`. A header comment names it the documented exception to "no embedded UI strings" and quotes the GM directive.
+2. Option labels verbatim from the backlog row: "العربية · Arabic", "English", "हिन्दी · Hindi", "اردو · Urdu", "বাংলা · Bengali", "አማርኛ · Amharic"; each `<option>` carries its own `lang` and `dir`.
+3. The label "Language" is VISIBLE (the `sr-only` class is dropped) — the directive concerns what the worker sees; the `<label>` keeps wrapping the `<select>` (accessible name unchanged in kind).
+4. Remove `locale.select.label` and the six `locale.name.*` keys from all twelve locale files (mechanical scripted edit — the builder does not read the eleven other JSON files); key sets stay identical per app. `LOCALE_LABEL_KEY` is deleted from the three components.
+5. Tab title: stays a brand constant in each `index.html` ("Premium WH", "PG-EOS Admin"), documented by an HTML comment citing this slice — a product name is not translated (same exception as Decision 1). No locale key added.
+6. `<html lang/dir>` behaviour and the locale state (default `ar`, no persistence) unchanged.
+7. Locks: `pda` (claimed by M4) and `admin` (requested from M4). If `admin` is not granted, the admin half (both screens, admin locale files, admin tests, admin index.html) splits off as `2.16 part 1a-4d` with the same decisions, and this slice's acceptance is read for `apps/pda` only.
+
+## Read ONLY (workers)
+- `CLAUDE.md`
+- `.claude/briefs/admin.brief.md`
+- `apps/pda/src/router.tsx` lines 20-60, 120-150
+- `apps/pda/src/i18n/t.ts`
+- `apps/pda/src/i18n/en.json`
+- `apps/admin/src/features/customer-profile/customer-profile-screen.tsx` lines 20-120
+- `apps/admin/src/features/decision-inbox/decision-inbox-screen.tsx` lines 20-135
+- `apps/pda/tests/i18n/keys.test.ts` lines 40-80
+Write ONLY: `apps/pda/src/**` · `apps/pda/index.html` · `apps/admin/src/**` · `apps/admin/index.html` · `apps/pda/tests/**` · `apps/admin/tests/**` (tests: pg-tester only). Frozen paths untouched.
+Contract: none. Screen/Board spec: none (shell chrome only). Migration number: none.
+
+## RED tests
+`apps/pda/tests/i18n/language-selector.feature` · `apps/pda/tests/i18n/language-selector.test.tsx` · `apps/admin/tests/i18n/language-selector.test.tsx` · `apps/pda/tests/i18n/keys.test.ts` (key list updated) · the admin key-set test if one exists (else added in the admin test file)
+
+```gherkin
+Feature: The language selector reads the same in every language (WBS 2.16 part 1a-4c)
+  Scenario Outline: The selector label is "Language" under every UI locale
+    Given the <app> shell is shown in <locale>
+    Then the selector's visible label text is exactly "Language"
+  Scenario Outline: The six option labels are byte-identical under every UI locale
+    Given the <app> shell is shown in <locale>
+    Then the options read "العربية · Arabic", "English", "हिन्दी · Hindi", "اردو · Urdu", "বাংলা · Bengali", "አማርኛ · Amharic" in that order
+    And each option carries its own lang and dir
+  Scenario: Switching the language leaves the selector unchanged
+    Given the shell is shown in ar
+    When the worker selects hi
+    Then the label and the six option labels are unchanged
+  Scenario: The locale files hold no language-name keys and the key sets stay identical
+    Then no locale file has "locale.select.label" or "locale.name.*" and all six key sets are equal
+```
+Examples: app ∈ {pda shell, admin customer-profile, admin decision-inbox}; locale ∈ {ar, en, hi, ur, bn, am}.
+
+Deliver: `apps/{pda,admin}/src/i18n/languages.ts` (new) · `apps/pda/src/router.tsx` · the two admin screens · twelve locale JSON files (keys removed) · two `index.html` (comment only) + the RED files; `pnpm --filter @pg-eos/pda test` and `--filter @pg-eos/admin test`, typecheck, eslint green; `pnpm guards:run` unaffected (no DB change).
+
+Stop-and-ask if: any table/column/rule not in 01 / 13 / 13B / 019 / 40 — STOP and report (G-01).
