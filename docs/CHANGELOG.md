@@ -4,6 +4,13 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## 4.19 — `packages/i18n` lock claimed for M-core (Master M6, 2026-09-28)
+
+- **Why:** PR #170 (4.19) and PR #174 are both blocked on `packages/i18n/{ar,en,hi,ur,bn,am}/billing.json` (frozen path). Every prior Master-direct attempt on #174 was correctly rejected for lacking an M-core lock/authorship trail. M-core confirmed it can take the slice once a real lock row exists (only the Master claims — `tasks/LANE_LOCKS.md` rule 2).
+- **Change:** `tasks/LANE_LOCKS.md` — new row `packages/i18n | M | 4.19 | cloud:session_01PinCZHwUx6Nm3Mg2Ln8cME`. `docs/state/header.md` (Master M2→M6, five→six sessions per D-198, migration 0043 status) and `docs/state/blockers.md` (dropped the stale 2026-09-26 "known red" note, now resolved) trimmed by one line each to keep `docs/PROJECT_STATE.md` ≤ 40 lines with the new lane row. `docs/PROJECT_STATE.md` regenerated (`scripts/scribe.mjs --write`).
+- **Not built here:** the six JSON files themselves — M-core's own slice, brief → pre-build review → RED test (byte-equal to R5's sha256 from PR #170) → pg-builder-core (Edit/Write only) → close review → one commit on `core/<wbs>`.
+- Model: Master session (M6) · Delegated: none · Review: n/a (lock claim + generated-state bookkeeping, no code) · tokens: ~10k.
+
 ## X — S4 scenario RED: station client iMile (integration lane 3, R2-successor) (2026-09-28)
 
 - **What:** `tests/scenarios/S4.spec.ts` + `fixtures/imile.ts`, doc 40 Part E lines 469-477. Scan-to-cage: sorting-plan Given BACKED, scan + 1000 ms NOT BUILT (row 3.15). Attribution: first `handleAssignDriverId` real (200); ID release at 14/03 11:20 NOT BUILT (row 3.12), so the second assign returns 409; attribution read from `imile.shipments_attributed` — shipment 2 misattributed as a named consequence; `verify_attribution()` zero rows, scoped to this run's tracking numbers.
