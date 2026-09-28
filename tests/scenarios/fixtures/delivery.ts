@@ -6,11 +6,10 @@
 // order lines are not part of either use case's own command surface" reasoning seed.ts's own header
 // gives for wms.order_lines).
 //
-// hr.employees.code range: this file uses PG-0xxx — grep-verified unused by any real INSERT under
-// modules/ or tests/ (the only two PG-0xxx hits are a rolled-back-by-design suite's own disjoint
-// PG-9xxx comment and a pure format-validation unit test that never touches the database) — a lane
-// default, Master to confirm a permanent range. This file's own rows are real and torn down in the
-// spec's own afterAll (D-183 carve-out, same as every other fixtures/*.ts file here).
+// hr.employees.code: never a hand-picked code. insertDriverEmployee takes the highest code of the
+// schema's own format (CHECK code ~ '^PG-[0-9]{4}$') that no committed row uses, at insert time, so
+// it never collides with a real employee. The row is torn down in the spec's afterAll (D-183
+// carve-out, same as every other fixtures/*.ts file here).
 //
 // Clock: created_at / attempted_at are inserted EXPLICITLY from caller-supplied values — never DB
 // now() — so the spec fully controls the created-before-attempt-1-before-attempt-2-before-clock
@@ -24,7 +23,12 @@ const DRIVER_STATUS = 'active';
 const CONTACT_LOG_DIRECTION = 'outbound';
 // same "fixed clock date, never current_date" one-year-back convention as seed.ts's own
 // START_DATE_OFFSET_INTERVAL_SQL — hr.employees.hire_date is NOT NULL with no default.
-const HIRE_DATE_OFFSET_INTERVAL_SQL = `interval '1 year'`;
+const HIRE_DATE_OFFSET_INTERVAL = '1 year';
+// hr.employees.code format, from its CHECK constraint '^PG-[0-9]{4}$'.
+const EMPLOYEE_CODE_PREFIX = 'PG-';
+const EMPLOYEE_CODE_DIGITS = 4;
+const EMPLOYEE_CODE_BASE = 10;
+const EMPLOYEE_CODE_MAX = EMPLOYEE_CODE_BASE ** EMPLOYEE_CODE_DIGITS - 1;
 
 export async function setContractBillsFailedAttempt(pool: Pool, contractId: string, value: boolean): Promise<void> {
   await pool.query(`update sales.contracts set bills_failed_attempt = $2 where id = $1`, [contractId, value]);
@@ -32,7 +36,6 @@ export async function setContractBillsFailedAttempt(pool: Pool, contractId: stri
 
 export interface InsertDriverEmployeeParams {
   readonly entityId: string;
-  readonly code: string;
   readonly nameAr: string;
   /** the fixed scenario clock date (yyyy-mm-dd) — hire_date is computed one year back from it. */
   readonly hireDateAnchor: string;
@@ -40,13 +43,29 @@ export interface InsertDriverEmployeeParams {
 
 export async function insertDriverEmployee(pool: Pool, params: InsertDriverEmployeeParams): Promise<string> {
   const result: QueryResult<{ id: string }> = await pool.query(
-    `insert into hr.employees (entity_id, code, name_ar, hire_date, employment_type, status)
-     values ($1, $2, $3, $4::date - ${HIRE_DATE_OFFSET_INTERVAL_SQL}, $5, $6)
+    `with free_code as (
+       select $7::text || lpad(n::text, $8::int, '0') as code
+         from generate_series($9::int, 0, -1) as n
+        where not exists (select 1 from hr.employees e where e.code = $7::text || lpad(n::text, $8::int, '0'))
+        limit 1
+     )
+     insert into hr.employees (entity_id, code, name_ar, hire_date, employment_type, status)
+     select $1, free_code.code, $2, $3::date - $4::interval, $5, $6 from free_code
      returning id`,
-    [params.entityId, params.code, params.nameAr, params.hireDateAnchor, DRIVER_EMPLOYMENT_TYPE, DRIVER_STATUS],
+    [
+      params.entityId,
+      params.nameAr,
+      params.hireDateAnchor,
+      HIRE_DATE_OFFSET_INTERVAL,
+      DRIVER_EMPLOYMENT_TYPE,
+      DRIVER_STATUS,
+      EMPLOYEE_CODE_PREFIX,
+      EMPLOYEE_CODE_DIGITS,
+      EMPLOYEE_CODE_MAX,
+    ],
   );
   const row = result.rows[0];
-  if (!row) throw new Error('fixture hr.employees insert returned no row');
+  if (!row) throw new Error('fixture hr.employees insert returned no row (no free PG-NNNN code left)');
   return row.id;
 }
 
