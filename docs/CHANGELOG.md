@@ -4,13 +4,6 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
-## X — D-198: ADR-0007 Phase 2 — session cap 6 (Stream C), auto-archive, G16/Stryker out of local guards (Master M5, 2026-09-28)
-
-- **Why:** M-core's own blocking question (Stryker timing, auto-archive policy, session cap) — its status showed it stuck on exactly these three items, unable to proceed on SCR-IDENTITY-RLS-01 tooling. GM answered with a fresh, specific directive naming all three, not a reused generic one.
-- **Change:** CLAUDE.md (merge-queue line: five→six concurrent cloud sessions, three build lanes; rotation line: watchdog auto-archives an ACKed/merged/idle-2h+-no-PR session) · `docs/adr/ADR-0007-cloud-sessions-and-roles.md` (§1 Ceiling, §5 Watchdog, Phase 2 section, roles table — Lane 3/Stream C row, status line) · `docs/DECISION_LOG.md` D-198.
-- **Not built here:** the actual G16/Stryker local-guards removal is M-core's own `tooling`-lock slice with its own pre-build/close review (frozen path, same class as the D-197 gate ⑦ move) — this commit only records the decision and raises the session cap so Stream C can launch.
-- Model: Master session (M5) · Delegated: none · Review: n/a (governance record, no code) · tokens: ~8k.
-
 ## X — D-197: ADR-0007 Phase 2 rebase auto-merge accepted, gate ⑦ moves to nightly (Master M4, 2026-09-28)
 
 - **Why:** GM directive "موافق علي القرارت" (production-practices follow-up, 17:33Z) — native GitHub merge queue is unavailable on this repo (owner is a User account, not an organization); the GM configured auto-merge + a main ruleset instead, ahead of the Phase 2 2026-09-30 evaluation.
