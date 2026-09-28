@@ -6,7 +6,7 @@ Done so far: phase 0 closed · phase 1 done except 1.11 (BLOCKED D-178) · phase
 Pilot: Tier 0 = local Docker postgres:16 (D-129), seed 019 + synthetic data (D-127); doc 38 v4.7 (154 rows).
 Schema: 0001–0039 applied (0022 withdrawn; 0038 = lane 2, 4.1b p2); issued: 0040 · 0041 (lane 2) · 0042 (lane M, 2.16 1a-5); next free 0043.
 Sessions: remote containers boot Postgres from .claude/hooks/session-start.sh; PG_APP_USER is required (ADR-0005 §7).
-Master: «الماستر M2» (cloud, D-195), rotation due (≈ 600k / 400k, ADR-0007). Max five cloud sessions (D-196). Next migration 0043.
+Master: M6 (cloud), max six concurrent sessions (D-198). Migration 0043 (M-core 1a-7) ready for merge; next free 0044.
 Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewer (opus); bookkeeping by scripts/scribe.mjs (state, locks, CHANGELOG template).
 
 ## Lanes (tasks/LANE_LOCKS.md)
@@ -14,18 +14,18 @@ Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewe
 - lane M · packages/identity · 2.16 · since 2026-09-28
 - lane M · identity · 2.16 · since 2026-09-28
 - lane 2 · billing · 4.19 · since 2026-09-28
+- lane M · packages/i18n · 4.19 · since 2026-09-28
 
 ## Last 5 feat/fix commits (git log)
+- `439d172` feat(2.16): G-16a OTP limits — attempts cap, one live code, resend 60 s, 5/email/hour, migration 0042 (part 1a-5)
 - `ba875ad` feat(4.1b): line dimensions + dimension values, list and reference kind, migration 0038 (part 2)
 - `e2826ff` feat(X): host statuses in ALL_ROUTES / OpenAPI, contractFirst mark on the 10 billing routes (X part 12 b + registry mark)
 - `70409de` fix(X): gate ⑦ waits on the api healthcheck only — Compose refuses --wait on the worker (no healthcheck), proven by the first ⑦ run on PR #152 (X pa
 - `6aeaf44` feat(X): one image, api + worker compose services, gate ⑦ arm64 build + compose smoke in CI, role passwords from the host (X part 5c, ADR-0006 §1)
-- `e3ff04c` feat(X): apps/worker — the outbox relay as the non-superuser service role pgeos_worker, migration 0039 (X part 5b, ADR-0006 §1)
 
 ## Blockers
 - G16: changed domain/ per PR, every module nightly (X part 6); G15 per STREAMS §G15 (green.json); G17 NOT RUNNABLE; deploy.sh waits on 0.6b.
 - S1–S20 2/20 present, 0/20 passed (S1/S2 RED on unbuilt rows); previous integration lane silent since 06:32Z — replaced after 5a merges (S18 + 5d).
-- The "known red" set (platform evaluate-alerts/schema-invariants/audit-chain, wms T9) ran green 2026-09-26 under coverage gates; CI is the arbiter.
 - Identity threshold test race under turbo (X part 3); superuser-role catalog test deferred (X part 2) — MASTER_BACKLOG.
 - Open G-01: G8 anchor (approved doc 31 v4.2/D-194, deferrable); imile entity_id/CHECKs/outbox; 2.15 space_reservations.qty CHECK; 3.1 shift_groups.vehicle_id.
 - INV-C4-1 DB-level enforcement on tms.delivery_tasks / tms.routes.vehicle_id required before 3.4 (stream B).
