@@ -22,6 +22,10 @@
 //     be the oracle. The throwing transaction has already rolled back — nothing is written.
 //   - UnknownOrInactiveUserError from generateOtpInTx / issueSessionInTx (the account was
 //     deactivated between the lookup transaction and the write transaction) is absorbed the same way.
+//   - OtpRateLimitedError from generateOtpInTx (G-16a resend window or per-email hourly cap, WBS 2.16
+//     part 1a-5) is absorbed the same way and NOT logged: a refused request answers exactly like an
+//     unknown email (`code: null`), so the caller learns neither that the email is known nor that a
+//     limit bound. generateOtpInTx wrote nothing before throwing.
 //
 // SECRETS ARE NEVER PERSISTED. withIdempotentContext stores the wrapped function's result as
 // platform.idempotency_keys.response_body. The OTP code and the session token must never reach the
@@ -36,6 +40,7 @@ import { internalCtxForSubject } from './context.js';
 import {
   findActiveUserIdByEmail,
   generateOtpInTx,
+  OtpRateLimitedError,
   otpExpiryMinutes,
   UnknownOrInactiveUserError,
   verifyOtpInTx,
@@ -87,9 +92,13 @@ type PersistedVerification =
       readonly expiresAt: string;
     };
 
-/** The two failures the flows absorb into the unknown-email result (see the header). */
+/** The failures the flows absorb into the unknown-email result (see the header). */
 function isAbsorbedFailure(error: unknown): boolean {
-  return error instanceof IdempotencyConflictError || error instanceof UnknownOrInactiveUserError;
+  return (
+    error instanceof IdempotencyConflictError ||
+    error instanceof UnknownOrInactiveUserError ||
+    error instanceof OtpRateLimitedError
+  );
 }
 
 /**
@@ -98,8 +107,8 @@ function isAbsorbedFailure(error: unknown): boolean {
  * (a) looks up the active user id in its own short transaction (released); (b) if found, issues the
  * OTP inside withIdempotentContext under the package-internal context for that subject; (c) on
  * every path, reads the live OTP-expiry threshold in its own short transaction. An unknown or
- * inactive email, an idempotency conflict and a deactivation race all return `code: null` with
- * nothing written. `idem.requestHash` is computed by the caller over the request body.
+ * inactive email, an idempotency conflict, a deactivation race and a G-16a rate-limit refusal
+ * (OtpRateLimitedError) all return `code: null` with nothing written. `idem.requestHash` is computed by the caller over the request body.
  *
  * @throws Error when platform.thresholds has no row for the OTP expiry key.
  */

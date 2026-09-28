@@ -6,11 +6,17 @@
 // Idempotency-Key header required on both writes (CLAUDE.md · ARCHITECTURE), every typed error
 // mapped to the RFC 9457 Problem envelope. No business logic lives here.
 //
-// NOT FOR MOUNTING YET (review round 1, finding 4). These handlers must not be mounted on any real
-// transport until the G-16a limits (DECISION_LOG §1.8) exist somewhere enforcing them: OTP — 5
-// attempts, resend 60 s, 5 per email per hour; lockout — 10 failures per 15 min; login — 5 per
-// minute per IP, 20 per hour per email. None of them is enforced anywhere in this codebase today,
-// and inventing that policy here is what CLAUDE.md forbids; tracked in MASTER_BACKLOG.
+// NOT FOR MOUNTING YET (review round 1, finding 4; updated WBS 2.16 part 1a-5). G-16a
+// (EXECUTION-MASTER-v4 §1.8) is now enforced in @pg-eos/identity-mechanisms for the OTP mechanism —
+// 5 attempts (a code that absorbed identity.otp.max_attempts wrong verifications is refused even
+// when correct), resend 60 s, 5 requests per email per hour, and a new request invalidates every
+// earlier live code — each number read from platform.thresholds (migration 0042). Every refusal
+// reaches this layer as the same outcome as an unknown email: requestOtpCode's 200
+// { expiresInMinutes }, verifyOtpCode's uniform 422 InvalidOtpError — no new mapping, no oracle.
+// Still OPEN, and not invented here: the lockout ladder (10 failures per 15 min → 15→30→60 min),
+// "3 lockouts/24 h → alert", and the login rate limits (5 per minute per IP, 20 per hour per
+// email) — the schema holds no per-failure instant, lockout record or client IP;
+// docs/notes/SCR-IDENTITY-AUTH-01.md (G-01). Mounting /login is a Master step, not this module's.
 //
 // ApiRequest carries NO `ctx`: the caller is, by definition, not yet authenticated. No RLS context
 // is assembled anywhere in this module (review round 1, finding 3 — closed by Master task P6c):
@@ -35,8 +41,9 @@
 //   - the Zod `.parse()` call is INSIDE the same try/catch as the command, so a bad body is a 400
 //     Problem (title 'ZodError'), never an uncaught exception;
 //   - InvalidOtpError -> 422 (the one rejection verifyOtpCode ever raises — uniform for an unknown
-//     or inactive email, a wrong, expired or consumed code, and a replay that carries no token).
-//     requestOtpCode raises no typed rejection at all: every email is a normal 200;
+//     or inactive email, a wrong, expired, consumed, exhausted or superseded code, and a replay that
+//     carries no token). requestOtpCode raises no typed rejection at all: every email, and every
+//     G-16a-refused request, is a normal 200;
 //   - NO 409: IdempotencyConflictError is absorbed inside login.ts on both flows (a surfaced 409
 //     would itself be the enumeration oracle — login.ts header), so it never reaches this layer;
 //     it is deliberately not mapped here. Should it ever surface, it is an unknown error (500);

@@ -3,8 +3,21 @@
 // The OTP mechanism: generateOtp issues a one-time code for an existing, active user;
 // verifyOtp checks one. Both run inside withContext(ctx, fn) (@pg-eos/db, WBS 0.11) — CLAUDE.md ·
 // ARCHITECTURE: "All DB access goes through withContext(ctx, fn), which sets RLS session
-// variables." No login endpoint, no self-registration, no rate-limit policy is built here: this
-// slice is the mechanism only (WBS 0.17 brief, Scope; GM decision 2026-09-22).
+// variables." No login endpoint and no self-registration are built here (WBS 0.17 brief, Scope;
+// GM decision 2026-09-22).
+//
+// G-16a (EXECUTION-MASTER-v4 §1.8, verbatim): "OTP 6 digits · TTL 5 min · single-use · 5 attempts ·
+// resend 60 s · 5/email/hour. Lockout 10 fails/15 min → 15→30→60 min; 3 lockouts/24 h → alert.
+// Rate limits: login 5/min/IP + 20/h/email". WBS 2.16 part 1a-5 enforces the OTP-mechanism part of
+// it here, every number read from platform.thresholds (seeded by migration 0042):
+//   - TTL                       identity.otp.expiry_minutes            (generateOtpInTx, WBS 0.17)
+//   - 5 attempts                identity.otp.max_attempts              (verifyOtpInTx)
+//   - resend 60 s               identity.otp.resend_seconds            (generateOtpInTx)
+//   - 5/email/hour              identity.otp.requests_per_email_per_hour (generateOtpInTx)
+//   - single-use + a new request invalidates every earlier live code  (generateOtpInTx, D3)
+// NOT enforced — the lockout ladder, "3 lockouts/24 h → alert" and both login rate limits. Their
+// numbers are seeded (identity.login.*, migration 0042) but the schema holds no per-failure instant,
+// no lockout record and no client IP; docs/notes/SCR-IDENTITY-AUTH-01.md (G-01) requests them.
 //
 // Tables (database/schema/01-Data-Model.sql:212-224, 279-286), used exactly as defined, nothing
 // added:
@@ -34,6 +47,27 @@ import { getThreshold, minutesAfter } from './thresholds.js';
 /** platform.thresholds key holding the OTP lifetime, in minutes. See thresholds.ts — the value is
  *  read from the table, never defaulted here. */
 export const OTP_EXPIRY_MINUTES_KEY = 'identity.otp.expiry_minutes';
+
+/** platform.thresholds key: wrong verifications a code absorbs before it is refused even when
+ *  correct (G-16a "5 attempts"). Read by verifyOtpInTx. */
+export const OTP_MAX_ATTEMPTS_KEY = 'identity.otp.max_attempts';
+
+/** platform.thresholds key: minimum seconds between two OTP requests for one email (G-16a
+ *  "resend 60 s"). Read by generateOtpInTx. */
+export const OTP_RESEND_SECONDS_KEY = 'identity.otp.resend_seconds';
+
+/** platform.thresholds key: OTP requests accepted per email per hour (G-16a "5/email/hour"). Read
+ *  by generateOtpInTx. */
+export const OTP_REQUESTS_PER_EMAIL_PER_HOUR_KEY = 'identity.otp.requests_per_email_per_hour';
+
+/** The length of the hourly-cap window, as a Postgres interval literal. It is the unit named in
+ *  the G-16a rule itself ("5/email/hour") — the definition of "hour", not a GM-editable number;
+ *  the cap's COUNT is the threshold. */
+const HOURLY_CAP_WINDOW = '1 hour';
+
+/** Namespace of the per-email advisory lock taken by generateOtpInTx, so the lock key can never
+ *  coincide with an advisory lock another module derives from the same email text. */
+const OTP_REQUEST_LOCK_NAMESPACE = 'identity.otp.request:';
 
 /** Code length, from the WBS 0.17 brief ("a 6-digit OTP is a 1e6-space …"). A format constant of
  *  the mechanism, not a GM-editable threshold, so it is a named constant and not a
@@ -87,6 +121,25 @@ export class UnknownOrInactiveUserError extends Error {
   }
 }
 
+/** Why generateOtpInTx refused a request: inside the resend window, or over the hourly cap. */
+export type OtpRateLimitReason = 'resend' | 'hourly';
+
+/**
+ * generateOtpInTx refused the request under a G-16a limit (resend window or per-email hourly cap);
+ * nothing was written. The message carries only the fixed reason — never the email or a code — so
+ * it is safe in any log line. login.ts absorbs it into the anti-enumeration result: a caller never
+ * learns that a limit bound.
+ */
+export class OtpRateLimitedError extends Error {
+  readonly reason: OtpRateLimitReason;
+
+  constructor(reason: OtpRateLimitReason) {
+    super(`OTP request refused by G-16a limit: ${reason}`);
+    this.name = 'OtpRateLimitedError';
+    this.reason = reason;
+  }
+}
+
 function defaultClock(): Date {
   return new Date();
 }
@@ -119,9 +172,43 @@ async function activeUserIdByEmailInTx(tx: NodePgDatabase, email: string): Promi
  * deadlocks under concurrency. `tx` is typed exactly as getThreshold's (thresholds.ts). The
  * caller's context must satisfy the identity tables' `internal_only` RLS policy.
  *
+ * Order (WBS 2.16 part 1a-5, G-16a):
+ *   1. active-user check — an unknown or inactive email is refused before any limit is evaluated.
+ *   2. SERIALISE PER EMAIL, as its own statement, before anything is counted:
+ *      `pg_advisory_xact_lock(hashtext(namespace || email))`. Chosen over
+ *      `select … for no key update` on the identity.users row because a row lock needs UPDATE
+ *      privilege on identity.users and would also queue behind (and block) every unrelated writer
+ *      of that user row; the advisory lock touches no table and is released with the transaction.
+ *      A hashtext collision between two emails only serialises two unrelated requests — it can
+ *      never let two requests for ONE email count concurrently. Being its own statement matters:
+ *      under READ COMMITTED the count below takes a fresh snapshot AFTER the lock is granted, so it
+ *      sees the row the previous lock holder committed.
+ *   3. read expiry, resend and hourly cap — once each, via getThreshold (never a literal).
+ *   4. ONE statement over EVERY identity.otp_codes row for the email (consumed and expired rows
+ *      included — a code the user already used or let lapse was still a request):
+ *        derived_issue = expires_at − expiry_minutes × 1 minute (see ISSUE-INSTANT SKEW below)
+ *        resend  refused when any derived_issue > now − resend_seconds (so a request exactly
+ *                resend_seconds later is accepted);
+ *        hourly  refused when count(derived_issue > now − 1 hour) ≥ requests_per_email_per_hour.
+ *      No upper bound on derived_issue: a row issued "after" the injected instant still counts.
+ *   5. refused → throw OtpRateLimitedError(reason), nothing written. Otherwise every unconsumed
+ *      row for the email gets consumed_at = now (a new request invalidates every earlier live code,
+ *      D3), then the new row is inserted.
+ * `now` is bound as a timestamptz parameter and compared by Postgres, as verifyOtpInTx does.
+ *
+ * ISSUE-INSTANT SKEW (D4). identity.otp_codes has no created_at column (01-Data-Model.sql:289-296),
+ * so the issue instant is derived from expires_at and the CURRENT identity.otp.expiry_minutes. If a
+ * GM edits expiry_minutes, rows issued under the old value are placed off their true issue instant
+ * by exactly the size of the edit: LOWERING it moves them later (they count longer — fails closed);
+ * RAISING it moves them earlier, so a resend can be accepted early — fails open on resend for at
+ * most one old TTL, after which every row was issued under the new value. Removed by adding
+ * identity.otp_codes.created_at (SCR-IDENTITY-AUTH-01, item 5).
+ *
  * @throws UnknownOrInactiveUserError when no active identity.users row matches `email` — this call
  *         writes nothing; the caller's transaction decides what rolls back.
- * @throws Error when platform.thresholds has no row for OTP_EXPIRY_MINUTES_KEY (thresholds.ts).
+ * @throws OtpRateLimitedError when the resend window or the hourly cap refuses the request — this
+ *         call writes nothing.
+ * @throws Error when platform.thresholds has no row for one of the OTP keys (thresholds.ts).
  */
 export async function generateOtpInTx(
   tx: NodePgDatabase,
@@ -135,8 +222,53 @@ export async function generateOtpInTx(
     throw UnknownOrInactiveUserError.forEmail(email);
   }
 
+  await tx.execute(
+    sql`select pg_advisory_xact_lock(hashtext(${OTP_REQUEST_LOCK_NAMESPACE + email}))`,
+  );
+
   const expiryMinutes = await getThreshold(tx, OTP_EXPIRY_MINUTES_KEY);
+  const resendSeconds = await getThreshold(tx, OTP_RESEND_SECONDS_KEY);
+  const requestsPerHour = await getThreshold(tx, OTP_REQUESTS_PER_EMAIL_PER_HOUR_KEY);
+
   const issuedAt = now();
+  const issuedAtParam = issuedAt.toISOString();
+
+  const issueWindow = await tx.execute<{ within_resend: boolean; issued_in_hour: string }>(sql`
+    with issued as (
+      select o.expires_at - ${expiryMinutes}::double precision * interval '1 minute' as derived_issue
+        from identity.otp_codes o
+       where o.email = ${email}
+    )
+    select coalesce(
+             bool_or(
+               derived_issue > ${issuedAtParam}::timestamptz
+                               - ${resendSeconds}::double precision * interval '1 second'
+             ),
+             false
+           ) as within_resend,
+           count(*) filter (
+             where derived_issue > ${issuedAtParam}::timestamptz - ${HOURLY_CAP_WINDOW}::interval
+           ) as issued_in_hour
+      from issued
+  `);
+  const counted = issueWindow.rows[0];
+  if (!counted) {
+    throw new Error('generateOtp: the G-16a window query returned no row');
+  }
+  if (counted.within_resend) {
+    throw new OtpRateLimitedError('resend');
+  }
+  if (Number(counted.issued_in_hour) >= requestsPerHour) {
+    throw new OtpRateLimitedError('hourly');
+  }
+
+  await tx.execute(sql`
+    update identity.otp_codes
+       set consumed_at = ${issuedAtParam}::timestamptz
+     where email = ${email}
+       and consumed_at is null
+  `);
+
   const expiresAt = minutesAfter(issuedAt, expiryMinutes);
   const code = generateCode();
 
@@ -159,7 +291,9 @@ export async function generateOtpInTx(
  *
  * @throws UnknownOrInactiveUserError when no active identity.users row matches `email` — nothing
  *         is written in that case (the withContext transaction rolls back).
- * @throws Error when platform.thresholds has no row for OTP_EXPIRY_MINUTES_KEY (thresholds.ts).
+ * @throws OtpRateLimitedError when the resend window or the hourly cap refuses the request —
+ *         nothing is written.
+ * @throws Error when platform.thresholds has no row for one of the OTP keys (thresholds.ts).
  */
 export async function generateOtp(
   email: string,
@@ -173,11 +307,13 @@ export async function generateOtp(
  * already-open transaction (P6c) — opens no connection of its own; see generateOtpInTx.
  *
  * Decision order, and why:
- *   1. no live candidate row        → invalid. A live candidate is a row that is unconsumed AND
- *                                     not past its own expires_at, so this one branch covers both
- *                                     "a consumed code cannot be reused" and "an expired code is
- *                                     rejected even if correct". Neither kind of row is touched:
- *                                     a dead row's attempts counter records nothing useful.
+ *   1. no live candidate row        → invalid. A live candidate is a row that is unconsumed, not
+ *                                     past its own expires_at, AND has fewer than
+ *                                     identity.otp.max_attempts recorded attempts, so this one
+ *                                     branch covers "a consumed code cannot be reused", "an expired
+ *                                     code is rejected even if correct" and "an exhausted code is
+ *                                     rejected even if correct". No such row is touched: a dead
+ *                                     row's attempts counter records nothing useful.
  *   2. the owning user is inactive  → invalid, and no counter moves (see IS_ACTIVE below).
  *   3. no candidate's code_hash matches → invalid, identity.otp_codes.attempts += 1 on every live
  *                                     candidate, none consumed (see ATTEMPTS below).
@@ -220,10 +356,14 @@ export async function generateOtp(
  * depend on JS parsing Postgres's output format — an avoidable failure mode when the database can
  * compare two timestamptz values exactly.
  *
- * Still deliberately NOT implemented: OTP max attempts. Refusing a verification because attempts
- * exceeded a threshold is a lockout policy that appears nowhere in docs 01 / 13 / 13B / 019 / 40,
- * and inventing one here is what CLAUDE.md · AGENT CONSTRAINTS forbids; it is flagged to the
- * Master for the task that builds the login endpoint, which is where such a policy belongs.
+ * MAX ATTEMPTS (G-16a "5 attempts", WBS 2.16 part 1a-5). identity.otp.max_attempts is read once
+ * via getThreshold and applied as `o.attempts < max` in the candidate select itself, so a row that
+ * has absorbed max wrong verifications is refused even for the correct code, and is neither
+ * consumed nor incremented further. The refusal is the ordinary `{ valid: false }`, never a throw:
+ * a throw would roll back the attempts increment of the same call inside withIdempotentContext,
+ * and it would also give a caller an oracle ("exhausted" vs "wrong") that the uniform refusal
+ * denies. The lockout ladder ("Lockout 10 fails/15 min → 15→30→60 min") is NOT enforced here: it
+ * needs per-failure instants the schema does not hold — docs/notes/SCR-IDENTITY-AUTH-01.md.
  */
 export async function verifyOtpInTx(
   tx: NodePgDatabase,
@@ -233,6 +373,7 @@ export async function verifyOtpInTx(
 ): Promise<OtpVerification> {
   const now = opts.now ?? defaultClock;
   const at = now();
+  const maxAttempts = await getThreshold(tx, OTP_MAX_ATTEMPTS_KEY);
 
   const candidates = await tx.execute<{
     id: string;
@@ -249,6 +390,7 @@ export async function verifyOtpInTx(
      where o.email = ${email}
        and o.consumed_at is null
        and o.expires_at >= ${at.toISOString()}::timestamptz
+       and o.attempts < ${maxAttempts}::numeric
      order by o.id
        for update of o
   `);

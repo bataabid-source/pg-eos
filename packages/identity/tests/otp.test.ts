@@ -71,6 +71,11 @@ import { getThreshold } from '../src/thresholds.js';
 // implementation with a plausible hardcoded default (5, 10, 15 minutes) cannot accidentally pass.
 const OTP_EXPIRY_MINUTES_KEY = 'identity.otp.expiry_minutes';
 
+// WBS 2.16 part 1a-5 / G-16a: the resend-window key the "candidate selection" regression below now
+// has to respect (a second request inside this window is refused) — read live, never seeded by
+// this file (migration 0042 is its only permitted writer; see g16a-limits.test.ts's own header).
+const OTP_RESEND_SECONDS_KEY = 'identity.otp.resend_seconds';
+
 const THRESHOLD_FIXTURES = [
   {
     key: OTP_EXPIRY_MINUTES_KEY,
@@ -84,16 +89,19 @@ const THRESHOLD_FIXTURES = [
 // milliseconds. Not a business number.
 const MILLISECONDS_PER_MINUTE = 60_000;
 
-// Arithmetic, not a business number: the stale-row regression below needs an instant strictly
-// between "now" and "now + the expiry threshold", and the midpoint of the live threshold is the
-// one such instant that can be derived from the table instead of invented.
-const MIDPOINT_DIVISOR = 2;
+// Unit conversion only (seconds, for the resend-window arithmetic the rewritten "candidate
+// selection" regression below needs — WBS 2.16 part 1a-5 / G-16a). Not a business number.
+const MILLISECONDS_PER_SECOND = 1000;
 
-// Two independently generated six-digit codes collide with probability 1e-6. The stale-row
-// regression's premise ("verify the NEWER code") is ambiguous if they do, so the colliding row is
-// discarded and another issued — bounded, so a generator that always returns the same digits fails
-// the test loudly instead of looping.
-const MAX_DISTINCT_CODE_ATTEMPTS = 5;
+// A tiny arithmetic safety margin (not a business number) so "just past the resend window" is
+// unambiguous against an integer-second threshold — same constant name/role as
+// g16a-limits.test.ts's own.
+const BOUNDARY_MARGIN_SECONDS = 1;
+
+// Arithmetic, not a business number: the rewritten "candidate selection" regression below only
+// needs the older row's doctored expires_at to be STRICTLY after the newer row's real one — any
+// positive margin proves the point.
+const INVERSION_MARGIN_MS = 1000;
 
 // The WBS 0.17 brief states the OTP is six digits ("a 6-digit OTP is a 1e6-space, brute-forceable
 // under a bare SHA-256 lookup if the table ever leaked"). Asserted from the brief, not invented.
@@ -183,28 +191,63 @@ async function readOtpRow(otpId: string): Promise<OtpRow> {
   return row;
 }
 
+// --- WBS 2.16 part 1a-5 / G-16a support for the rewritten "candidate selection" regression below
+// (coordinator round 2, defect 2) ------------------------------------------------------------
+//
+// WHY NOT A LIVE identity.otp.expiry_minutes EDIT (as originally instructed) — a documented
+// deviation, not a silent one. The obvious rewrite ("issue code 1 under a LARGER expiry_minutes,
+// lower it, advance the clock past resend_seconds, issue code 2") is mathematically impossible
+// against the REAL, as-built generateOtpInTx: its resend/hourly-cap check re-derives EVERY row's
+// issue instant from `expires_at` using the CURRENT (live) expiry_minutes at check time
+// (otp.ts's own "ISSUE-INSTANT SKEW" note: "LOWERING it moves them later — fails closed"). Given
+// expiry_minutes E1 (older) lowered to E2 (newer, E2 < E1) and a gap of `g` seconds between the two
+// issuances: avoiding a false resend refusal requires g >= resendSeconds + (E1-E2)*60; producing the
+// expires_at INVERSION this regression needs requires g < (E1-E2)*60. Since resendSeconds > 0 (G-16a
+// seeds 60), these two requirements can never both hold — for ANY E1 > E2 and ANY resendSeconds > 0,
+// not just the specific numbers tried. So the second `generateOtp` call in that recipe is ALWAYS
+// refused with OtpRateLimitedError('resend'), confirmed by running it.
+//
+// THE WORKING ALTERNATIVE, achieving the identical end state without fighting that check: issue
+// BOTH codes entirely normally (two real `generateOtp` calls, resend_seconds apart, no threshold
+// ever touched — so the resend/hourly check runs on ACCURATE, unskewed data and never misfires).
+// D3 already invalidates `older` automatically the moment `newer` is issued. Only THEN, with no
+// further `generateOtpInTx` call left to re-derive anything from it, is `older`'s OWN `expires_at`
+// column pushed later than `newer`'s real one via a single, direct, single-row UPDATE — a plain
+// fixture-data edit on this run's own otp_codes row (identical in kind to this file's own
+// pre-existing "update identity.users set is_active = false where id = $1" fixture edit), never a
+// platform.thresholds write, so there is nothing here that could ever leak to another suite.
+async function inflateExpiresAt(otpId: string, mustBeAfter: Date): Promise<void> {
+  const inflated = new Date(mustBeAfter.getTime() + INVERSION_MARGIN_MS);
+  await pool.query('update identity.otp_codes set expires_at = $2 where id = $1', [
+    otpId,
+    inflated.toISOString(),
+  ]);
+}
+
 /**
- * An OTP for `email`, issued at `issuedAt`, whose code differs from `excludedCode`.
- *
- * A colliding code (1e-6) would make the stale-row regression below ambiguous, so the colliding
- * row is deleted — it is this run's own fixture row — and another issued.
+ * Issues an OLDER code, then — after advancing the clock past identity.otp.resend_seconds (WBS
+ * 2.16 part 1a-5: a request inside the resend window is refused) — a NEWER code, both entirely
+ * normally (no threshold ever touched; see inflateExpiresAt's header for why). D3 has already
+ * invalidated `older` by the time this returns. The caller then calls inflateExpiresAt(older.otpId,
+ * newer.expiresAt) to reproduce the exact expires_at INVERSION the WBS 0.17 round-1 bug relied on
+ * (the surviving code has the EARLIER absolute expires_at of the two) — done AFTER both real
+ * `generateOtp` calls have already completed, so it can never affect either one's own resend/hourly
+ * check.
  */
-async function generateOtpWithCodeOtherThan(
+async function issueOlderThenNewer(
   email: string,
-  issuedAt: Date,
-  excludedCode: string,
-): Promise<GeneratedOtp> {
-  for (let attempt = 0; attempt < MAX_DISTINCT_CODE_ATTEMPTS; attempt += 1) {
-    const otp = await generateOtp(email, { now: () => issuedAt });
-    if (otp.code !== excludedCode) {
-      return otp;
-    }
-    await pool.query('delete from identity.otp_codes where id = $1', [otp.otpId]);
-  }
-  throw new Error(
-    `generateOtp returned the same code ${String(MAX_DISTINCT_CODE_ATTEMPTS)} times in a row — ` +
-      'the code generator is not random',
+): Promise<{ older: GeneratedOtp; newer: GeneratedOtp; verifyAt: Date }> {
+  const resendSeconds = await readThresholdValue(OTP_RESEND_SECONDS_KEY);
+
+  const firstIssuedAt = new Date();
+  const older = await generateOtp(email, { now: () => firstIssuedAt });
+
+  const secondIssuedAt = new Date(
+    firstIssuedAt.getTime() + (resendSeconds + BOUNDARY_MARGIN_SECONDS) * MILLISECONDS_PER_SECOND,
   );
+  const newer = await generateOtp(email, { now: () => secondIssuedAt });
+
+  return { older, newer, verifyAt: secondIssuedAt };
 }
 
 beforeAll(async () => {
@@ -420,48 +463,50 @@ describe('OTP storage invariants — the stored value is a keyed HMAC, the expir
   });
 });
 
-describe('OTP candidate selection — regression: "newest" is not "greatest expires_at" (pg-reviewer round 1, finding 3)', () => {
-  // THE BUG THIS PINS DOWN. identity.otp_codes has no created_at column (01:279-286, confirmed
-  // absent), so an implementation that wants "the newest unconsumed code" can only order by
-  // expires_at — and expires_at is issue time PLUS a threshold that is live-editable in
+describe('OTP candidate selection — regression: "newest" is not "greatest expires_at" (pg-reviewer round 1, finding 3), REWRITTEN for WBS 2.16 part 1a-5 / G-16a (coordinator round 2, defect 2)', () => {
+  // THE ORIGINAL BUG THIS PINS DOWN. identity.otp_codes has no created_at column (01:279-286,
+  // confirmed absent), so an implementation that wants "the newest unconsumed code" can only order
+  // by expires_at — and expires_at is issue time PLUS a threshold that is live-editable in
   // platform.thresholds. The moment that threshold is lowered between two outstanding codes, the
   // more recently issued code has the EARLIER expires_at, `order by expires_at desc limit 1` picks
   // the older row, and the code the user just received is rejected while a stale one still works.
   //
-  // The same row state is produced here WITHOUT mutating the threshold row: the clock the brief
-  // requires generateOtp to accept is injected so the second OTP is issued "in the past", which
-  // gives it an earlier expires_at than the first while leaving both unexpired at verify time.
-  // That is the identical database state the threshold-lowering sequence produces — it is what
-  // verifyOtp actually sees — and it does not touch the one shared-key fixture in this suite (see
-  // the CONCURRENCY note in the header). Every instant below is derived from the live threshold
-  // value, never from a literal.
+  // WHY THIS BLOCK CHANGED (coordinator round 2, defect 2). The original two tests below issued TWO
+  // codes for the same email and asserted BOTH remained independently live and verifiable — that
+  // premise is now false: WBS 2.16 part 1a-5's approved G-16a rule (slice brief acceptance: "a new
+  // request invalidates the previous live code") means the SECOND generateOtp call for an email
+  // always consumes the first. The regression this block guards — that candidate selection is a
+  // SCAN over live, unconsumed rows, never an "order by expires_at desc limit 1" — is still real and
+  // still pinned down here: it is now demonstrated by showing that the SURVIVING code (the newer
+  // one, made to have the EARLIER expires_at — see inflateExpiresAt's header) is still found and
+  // verified correctly, while the DEAD code (the older one, with the LATER expires_at) is refused —
+  // the OPPOSITE of what "pick the greatest expires_at" would produce.
   //
-  // RED against `order by o.expires_at desc limit 1`; GREEN once verifyOtp considers EVERY
-  // unconsumed, unexpired row for the email.
+  // HOW THE INVERSION IS PRODUCED NOW (a documented deviation from the coordinator's original
+  // recipe — see issueOlderThenNewer / inflateExpiresAt's own headers, above, for the full
+  // mathematical reason the literal "lower expiry_minutes between two issuances" recipe is
+  // impossible against the real, as-built resend check). Both codes are issued entirely normally;
+  // only AFTER both real `generateOtp` calls (and D3's own automatic invalidation of `older`) have
+  // completed is `older`'s stored expires_at pushed later than `newer`'s via a direct UPDATE — never
+  // a platform.thresholds write, so nothing here can leak to another suite.
 
-  it('verifyOtp accepts the more recently issued code when an older, still-valid OTP for the same email has a LATER expires_at', async () => {
+  it('verifyOtp accepts the more recently issued code even though an older, now-invalidated OTP for the same email has a LATER expires_at', async () => {
     const user = await createFixtureUser(true);
-    const expiryMinutes = await readThresholdValue(OTP_EXPIRY_MINUTES_KEY);
-    const verifyAt = new Date();
+    const { older, newer, verifyAt } = await issueOlderThenNewer(user.email);
 
-    // Issued at the verification instant → expires at verifyAt + the full threshold. This is the
-    // STALE one: older, but with the greatest expires_at of the two.
-    const older = await generateOtp(user.email, { now: () => verifyAt });
+    // D3 already invalidated `older` the instant `newer` was issued — confirmed on the stored row.
+    const olderRowBeforeInversion = await readOtpRow(older.otpId);
+    expect(olderRowBeforeInversion.consumed_at).not.toBeNull();
 
-    // Issued half a threshold ago → expires at verifyAt + half a threshold: strictly earlier than
-    // the older row's expiry, and still strictly in the future. This is the code the user holds.
-    const newerIssuedAt = new Date(
-      verifyAt.getTime() - (expiryMinutes / MIDPOINT_DIVISOR) * MILLISECONDS_PER_MINUTE,
-    );
-    const newer = await generateOtpWithCodeOtherThan(user.email, newerIssuedAt, older.code);
-
-    // The premise is asserted against the stored rows, not assumed from the arithmetic above.
+    // The premise this block needs: the DEAD older row's expires_at is LATER than the LIVE newer
+    // row's — the same inversion round 1's bug relied on, reproduced without touching any
+    // threshold. Exactly the shape a naive `order by expires_at desc limit 1` (run before, or
+    // without, filtering out consumed rows) would still get wrong.
+    await inflateExpiresAt(older.otpId, newer.expiresAt);
     const olderRow = await readOtpRow(older.otpId);
     const newerRow = await readOtpRow(newer.otpId);
     expect(newerRow.expires_at.getTime()).toBeLessThan(olderRow.expires_at.getTime());
     expect(newerRow.expires_at.getTime()).toBeGreaterThan(verifyAt.getTime());
-    expect(olderRow.expires_at.getTime()).toBeGreaterThan(verifyAt.getTime());
-    expect(olderRow.consumed_at).toBeNull();
     expect(newerRow.consumed_at).toBeNull();
 
     const verification = await verifyOtp(user.email, newer.code, { now: () => verifyAt });
@@ -469,40 +514,39 @@ describe('OTP candidate selection — regression: "newest" is not "greatest expi
     expect(verification.valid).toBe(true);
     if (!verification.valid) {
       throw new Error(
-        'the code the user most recently received was rejected because another unconsumed OTP ' +
-          'for the same email has a later expires_at',
+        'the code the user most recently received was rejected — candidate selection must not ' +
+          "have been confused by the older, now-invalidated row's LATER expires_at",
       );
     }
     expect(verification.userId).toBe(user.id);
     // The discriminating assertion: the row that was verified is the one whose code was supplied,
     // not whichever row happened to sort first.
     expect(verification.otpId).toBe(newer.otpId);
+    // Parity with the original (pre-rewrite) test: a successful verification consumes the row.
     expect((await readOtpRow(newer.otpId)).consumed_at).not.toBeNull();
   });
 
-  it('verifyOtp still accepts the older, longer-lived code after the newer one has been consumed — the selection is a scan, not an inverted sort', async () => {
+  it('after the newer code is issued, the older code is refused (D3, "a new request invalidates the previous live code") and the newer one verifies exactly once, then is refused on replay', async () => {
     const user = await createFixtureUser(true);
-    const expiryMinutes = await readThresholdValue(OTP_EXPIRY_MINUTES_KEY);
-    const verifyAt = new Date();
+    const { older, newer, verifyAt } = await issueOlderThenNewer(user.email);
+    await inflateExpiresAt(older.otpId, newer.expiresAt);
 
-    const older = await generateOtp(user.email, { now: () => verifyAt });
-    const newerIssuedAt = new Date(
-      verifyAt.getTime() - (expiryMinutes / MIDPOINT_DIVISOR) * MILLISECONDS_PER_MINUTE,
-    );
-    const newer = await generateOtpWithCodeOtherThan(user.email, newerIssuedAt, older.code);
+    const olderVerification = await verifyOtp(user.email, older.code, { now: () => verifyAt });
+    expect(olderVerification.valid).toBe(false);
 
-    const first = await verifyOtp(user.email, newer.code, { now: () => verifyAt });
-    expect(first.valid).toBe(true);
+    // The surviving code — the one with the numerically EARLIER expires_at of the two — still
+    // verifies exactly once (this is the same "scan, not an inverted sort" guarantee the original
+    // second test pinned down, just no longer phrased as "both codes stay live").
+    const firstNewerVerification = await verifyOtp(user.email, newer.code, {
+      now: () => verifyAt,
+    });
+    expect(firstNewerVerification.valid).toBe(true);
 
-    // Both codes were live; consuming one must not invalidate the other, and the remaining row
-    // must still be reachable whichever end of the expires_at ordering it sits at.
-    const second = await verifyOtp(user.email, older.code, { now: () => verifyAt });
-
-    expect(second.valid).toBe(true);
-    if (!second.valid) {
-      throw new Error('the older, still-unconsumed and unexpired code was rejected');
-    }
-    expect(second.otpId).toBe(older.otpId);
+    // Single-use: a replay of the same, now-consumed code is refused.
+    const replayedNewerVerification = await verifyOtp(user.email, newer.code, {
+      now: () => verifyAt,
+    });
+    expect(replayedNewerVerification.valid).toBe(false);
   });
 });
 

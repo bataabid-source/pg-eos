@@ -9,11 +9,11 @@
 // a default. An embedded fallback here would be exactly the fabricated number the rule forbids,
 // and would silently outlive the day someone sets the real value.
 //
-// KNOWN GAP (WBS 0.17 brief, "Known schema gap"): platform.thresholds carries no production seed
-// row yet for `identity.otp.expiry_minutes`, `identity.otp.max_attempts` or
-// `identity.session.lifetime_minutes`. 13B is frozen and database/schema/* is Master-only, so this
-// package cannot seed them; the test suites seed their own fixture rows. Real seed rows are a
-// Master follow-up, required before any live login flow ships — until then generateOtp and
+// SEED ROWS (WBS 2.16 part 1a-5): migration 0042 seeds every G-16a number — identity.otp.
+// expiry_minutes, max_attempts, resend_seconds, requests_per_email_per_hour, and the 8
+// identity.login.* lockout/rate numbers (seeded but not yet enforced — SCR-IDENTITY-AUTH-01).
+// KNOWN GAP still open: `identity.session.lifetime_minutes` has no production seed row (not a G-16a
+// number; its value is a GM question), so the test suites seed their own fixture row and
 // issueSession will (correctly, loudly) fail against a database that has none.
 //
 // `tx` is the scoped drizzle handle withContext(ctx, fn) passes to its callback (@pg-eos/db, WBS
