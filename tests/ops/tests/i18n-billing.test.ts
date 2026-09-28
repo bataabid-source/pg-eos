@@ -22,7 +22,7 @@ type Locale = (typeof LOCALES)[number];
 const KEY = 'billing.accountingPeriods.reopenDecision.title';
 const JSON_INDENT = 2;
 const NEWLINE = '\n';
-const BOM = '﻿';
+const BOM = '\uFEFF';
 
 // sha256 of each file's raw bytes, published by R5 on PR #170 (issuecomment-5875924622).
 const R5_SHA256: Readonly<Record<Locale, string>> = {
