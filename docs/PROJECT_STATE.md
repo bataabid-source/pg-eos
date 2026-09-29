@@ -4,7 +4,7 @@ Plan: docs/STREAMS.md (ADR-0005, D-192) — scenario-driven streams A–F; DONE 
 Phase: enablement week (Master + integration lane; build lanes frozen) → wave 1 (A: 2.16→2.18 · B: 4.1b p2→4.19→4.20).
 Done so far: phase 0 closed · phase 1 done except 1.11 (BLOCKED D-178) · phase 2 warehouse 9/19 · golden slice 2.9 ACCEPTED.
 Pilot: Tier 0 = local Docker postgres:16 (D-129), seed 019 + synthetic data (D-127); doc 38 v4.7 (154 rows).
-Schema: 0001–0039, 0042–0044 applied (0022 withdrawn; 0042/0043/0044 lane M, 2.16 1a-5/1a-7/1a-8); issued: 0040 · 0041 (lane 2); next free 0045.
+Schema: 0001–0040, 0042–0044 applied (0022 withdrawn; 0040 lane 2, 4.19; 0042/0043/0044 lane M, 2.16 1a-5/1a-7/1a-8); issued: 0041 (lane 2); next free 0045.
 Sessions: cloud Postgres from .claude/hooks/session-start.sh; PG_APP_USER required (ADR-0005 §7) · Master: M10, cap 5 (CLAUDE.md).
 Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewer (opus); bookkeeping by scripts/scribe.mjs (state, locks, CHANGELOG template).
 
@@ -17,11 +17,11 @@ Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewe
 - lane 1 · pda · 2.16 · since 2026-09-29
 
 ## Last 5 feat/fix commits (git log)
+- `70c5058` fix(2.16): PDA put-away retry clears the unavailable state, stable suggest deps (part 2, #211 fix round)
 - `6a5dbf5` feat(2.16): PDA receive + put-away screens, S1's D4 steps (part 2)
 - `a885a99` feat(2.16): sessions/otp_codes writes behind six identity definers, migration 0044 (part 1a-8)
 - `ece7423` feat(4.19): packages/i18n billing.json — reopen decision title, six locales
 - `fc999be` feat(2.16): has_perm pinned search_path, migration 0043 — SCR-IDENTITY-RLS-01 delta 4 (part 1a-7)
-- `439d172` feat(2.16): G-16a OTP limits — attempts cap, one live code, resend 60 s, 5/email/hour, migration 0042 (part 1a-5)
 
 ## Blockers
 - G16: changed domain/ per PR, every module nightly (X part 6); G15 per STREAMS §G15 (green.json); G17 NOT RUNNABLE; deploy.sh waits on 0.6b.
@@ -29,7 +29,7 @@ Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewe
 - Identity threshold test race under turbo (X part 3); superuser-role catalog test deferred (X part 2) — MASTER_BACKLOG.
 - Open G-01: G8 anchor (approved doc 31 v4.2/D-194, deferrable); imile entity_id/CHECKs/outbox; 2.15 space_reservations.qty CHECK; 3.1 shift_groups.vehicle_id.
 - INV-C4-1 DB-level enforcement on tms.delivery_tasks / tms.routes.vehicle_id required before 3.4 (stream B).
-- Lane backlog: 2.16 1a-3c/1a-4b (process) · 3.12 2b/2c-ii · 4.1a 2b · 4.1a p3 p2 · 4.1b p3 · 3.12/3.13 polish · 2.9 part 2 (fix) — see MASTER_BACKLOG.
+- Lane backlog: 2.16 1a-3c/1a-4b (process) · 3.12 2b/2c-ii · 4.1a 2b · 4.1a p3 p2 · 4.1b p3 · 4.19 p2 · 3.12/3.13 polish · 2.9 part 2 (fix) — see MASTER_BACKLOG.
 - WBS 1.11 BLOCKED (D-178). close/0.6a-d166 (2 ahead/151 behind) and lane/3-3.13 (2 ahead) superseded, content on main — GM deletes them (D-193 D5).
 - Deep review (D-193): no HTTP host/worker (X part 5); G-16a lockout/IP → 2.16 1a-6 (AUTH-01); AUDIT-CHAIN-01 open; RLS-01 d1–3 G-01 → GM.
 - Master batch (frozen paths): entityId on WithContextCtx; domain-kit browser break; eslint cwd bug; new-slice.sh stale citations.
