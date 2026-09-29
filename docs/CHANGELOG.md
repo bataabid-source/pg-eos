@@ -6,11 +6,11 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ## X — lane 1 briefs (2.9 p3, 2.16 p3, 2.16 p2e) + `wms` lock + D-204 (Master M12, 2026-09-29)
 
-- **GM 17:30Z** «افتح موجزات خط 1 وقفل wms اليوم» (Override: GM, #207): lock `pda | 1 | 2.16` released → `wms | 1 | 2.9` claimed (scribe, cloud:session_01VComj7TLSZGmgfAUrRbGsP); #215 (D-204) folded in, review nits 2–3 applied (D-204 verbatim separated in DECISION_LOG; handover-master #215 item).
-- **GM 17:50Z** «موافق» (relayed 17:38Z — directive time later than the post): row `2.16 part 2e` PDA visual layer (doc 40 §D4 L420-423), after 2.16 p3, before any real-user demo.
+- **GM 17:30Z** «افتح موجزات خط 1 وقفل wms اليوم» (Override: GM; Advisory relay #207 comment 5895344613): lock `pda | 1 | 2.16` released → `wms | 1 | 2.9` claimed (scribe, cloud:session_01VComj7TLSZGmgfAUrRbGsP); #215 (D-204) folded in, review nits 2–3 applied (D-204 verbatim separated in DECISION_LOG; handover-master #215 item).
+- **GM 17:50Z** «موافق» (as tagged in Advisory's relay, #207 comment 5895434301, posted 17:38:39Z — the tag time is Advisory's; the post time is the checkable one): row `2.16 part 2e` PDA visual layer (doc 40 §D4 L420-423), after 2.16 p3, before any real-user demo.
 - **Briefs:** `_slice-2.9-p3-fefo-expiry` — lane 1 pre-build items 1/3/5/6 applied (put-away destination inherits the source expiry under the batch lock; Read list ports.ts L251-266 + receive-line.ts L1-212, S1.spec.ts dropped; lock order rebuild → location-limit → batch advisory → row locks → audit; 2(c) unconditional). New `_slice-2.16-p3-pda-pick-check-load`, `_slice-2.16-p2e-pda-visual` (brief-check OK: 748 / 820 / 737 lines, 8 files each).
 - **Lane 1 order:** 2.9 p3 (`wms`) → 2.16 p3 → 2.16 p2e (`pda` re-claimed at 2.9 p3 close) — backlog rows, docs/state/next.md, handover-advisory.md (directives A, B verbatim), handover-master.md.
-- **Defaults:** 2.16 p3 has no pack screen (not one of D4's nine; open question); 2.16 p2e's Tailwind deps + lockfile by M-core `tooling` before build; 48 px from the GM-approved scope, not doc 40.
+- **Defaults:** 2.16 p3 has no pack screen (not one of D4's nine; open question); 2.16 p2e's Tailwind deps + lockfile by M-core `tooling` before build; 48 px from the GM-approved scope (not doc 40) lives as a named token in one `apps/pda/src/ui/` token file (brief Decision 3), never inline.
 - **Hash:** backlog `2.16 part 2` placeholder → `66cfccc` (#211 squash left it stale; `resolve-hashes --write`).
 - Model: Master M12 (opus) · Delegated: M12 → subagent · Review: none (docs) · tokens: ≈ 60k subagent.
 
