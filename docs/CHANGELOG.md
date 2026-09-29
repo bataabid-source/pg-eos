@@ -4,6 +4,14 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — S7 Trial client scenario RED (integration lane 3, 2026-09-29)
+
+- **What:** `tests/scenarios/S7.spec.ts`, doc 40 L495-500 verbatim. The Given, the price step and credit_limit=0 are BACKED through real sales handlers (contract create with noticeDays 14 per doc 05 L335 → set price list → sign → activate; resolvePrice gives 'standard_list' while the contract is draft, then the same segment-less list via the contract once active; quote + line at 25.000). The alert step is NOT BUILT (owner row 6.7 → 6.3 → 0.19, 5.13 part 2).
+- **Defaults:** SEG-F (doc 01 L1620, doc 05 L323) · segment_id + cr_number set by one raw UPDATE (no handler writes them) · credit_limit from the schema default 0 · standard price list inserted and removed by the spec · alert date compared as `fired_at::date` in the session TZ, because no tz constant exists.
+- **Review:** S7 round 1 FAIL(2 blocking, 2 nits) → round 2 FAIL(1 blocking, 1 nit) → row S7 part 2 → round 1 PASS(0).
+- **Verified:** 2 identical runs (only the alert step fails), zero residue, G1 = 0, tsc/eslint clean; guards G1–G15, G18, G-SEED green (G16/G17 not observed; test-only).
+- Model: integration lane 3 session · Delegated: pg-tester (sonnet), pg-reviewer (opus) · Review: PASS(6 findings, 3 rounds) · tokens: pg-tester ≈ 95k · pg-reviewer ≈ 75k
+
 ## 2.16 — identity.sessions / otp_codes writes behind definer functions, migration 0044 (part 1a-8) (2026-09-29)
 
 - **Why:** SCR-IDENTITY-RLS-01 delta 2 (D-193 D4 أ): any internal context could write `identity.sessions` / `identity.otp_codes` directly; acceptance "`pgeos_app` cannot insert/update/delete them directly; OTP + session tests stay green".
