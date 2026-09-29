@@ -5,23 +5,23 @@ Phase: enablement week (Master + integration lane; build lanes frozen) → wave 
 Done so far: phase 0 closed · phase 1 done except 1.11 (BLOCKED D-178) · phase 2 warehouse 9/19 · golden slice 2.9 ACCEPTED.
 Pilot: Tier 0 = local Docker postgres:16 (D-129), seed 019 + synthetic data (D-127); doc 38 v4.7 (154 rows).
 Schema: 0001–0040, 0042–0044 applied (0022 withdrawn; 0040 lane 2, 4.19; 0042/0043/0044 lane M, 2.16 1a-5/1a-7/1a-8); issued: 0041 (lane 2); next free 0045.
-Sessions: cloud Postgres from .claude/hooks/session-start.sh; PG_APP_USER required (ADR-0005 §7) · Master: M10, cap 5 (CLAUDE.md).
+Sessions: cloud Postgres from .claude/hooks/session-start.sh; PG_APP_USER required (ADR-0005 §7) · Master: M11, cap 5 (CLAUDE.md).
 Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewer (opus); bookkeeping by scripts/scribe.mjs (state, locks, CHANGELOG template).
 
 ## Lanes (tasks/LANE_LOCKS.md)
 - lane M · packages/identity · 2.16 · since 2026-09-28
 - lane M · identity · 2.16 · since 2026-09-28
-- lane 2 · billing · 4.19 · since 2026-09-28
 - lane M · tooling · X · since 2026-09-29
-- lane 2 · api · 4.19 · since 2026-09-29
 - lane 1 · pda · 2.16 · since 2026-09-29
+- lane 2 · billing · 4.20 · since 2026-09-29
+- lane M · api · X · since 2026-09-29
 
 ## Last 5 feat/fix commits (git log)
+- `d8ffd69` fix(2.16): PDA receive — only a transport failure reads as offline, other faults say "tell your supervisor" (part 2, #211)
 - `0d8a190` fix(2.16): resolve main's stale 4.19 hash placeholder in MASTER_BACKLOG (CI ① resolve-hashes)
 - `21db6b4` fix(2.16): PDA receive clears the scan on accept — a re-tap no longer double-receives (part 2, #211)
 - `9897a01` feat(4.19): fiscal years + accounting periods (open/closed/locked), DB refuses posting into closed/locked periods, migration 0040
 - `70c5058` fix(2.16): PDA put-away retry clears the unavailable state, stable suggest deps (part 2, #211 fix round)
-- `6a5dbf5` feat(2.16): PDA receive + put-away screens, S1's D4 steps (part 2)
 
 ## Blockers
 - G16: changed domain/ per PR, every module nightly (X part 6); G15 per STREAMS §G15 (green.json); G17 NOT RUNNABLE; deploy.sh waits on 0.6b.
@@ -35,5 +35,5 @@ Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewe
 - Master batch (frozen paths): entityId on WithContextCtx; domain-kit browser break; eslint cwd bug; new-slice.sh stale citations.
 
 ## Next
-1. Weekly goal S1+S2+S18 (GM 07:20Z): Lane 1: 2.16 p2 done-in-part (2b, 2c) → p3 · Integration: 2.18, S1 to green · waiting: S9 p2, 2.9 p3, 1a-4c.
-2. Lane 2: 4.19 (#205) → 4.20 · M-core: X part 16 tooling → X part 18 (`review` fails on FAIL) · 1a-9 BLOCKED G-01 → AUDIT-CHAIN-01.
+1. Weekly goal S1+S2+S18 (GM 07:20Z): Lane 1: 2.16 part 2 (pda) → part 3 · Integration: 2.18, S1 to green · waiting: S9 p2, 2.9 p3, 1a-4c.
+2. Lane 2: 4.20 (billing, 0041) · M-core: X part 16 (#209) → X part 5 (api) → X part 17 → X part 18 · 1a-9 BLOCKED G-01 → AUDIT-CHAIN-01.
