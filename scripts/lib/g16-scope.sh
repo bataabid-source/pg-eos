@@ -27,7 +27,8 @@ g16_changed_modules() {
 # g16_decide → prints `all`, `scoped:<space-separated modules>` (`scoped:` alone = none in scope) or
 # `local`. Three-way rule, first match wins (X part 16, D-198 (أ) — Stryker out of the local check,
 # kept in CI and nightly):
-#   1. PG_GUARDS_STRICT=1 (deploy) → `all`, CI or not — deploy never runs a partial G16.
+#   1. PG_GUARDS_STRICT=1 (deploy: `pnpm guards:deploy` sets it) → `all`, CI or not — deploy never
+#      runs a partial G16.
 #   2. CI mode (CI set, not empty, not "false", not "0" — CI gate ⑤) → G16_MODULES set = `scoped:`,
 #      unset = `all`.
 #   3. otherwise (local pre-commit / pnpm guards:run) → `local`, whatever G16_MODULES is: G16 is

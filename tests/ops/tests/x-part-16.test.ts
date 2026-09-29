@@ -220,6 +220,68 @@ it('With CI=true, G16 runs scoped by G16_MODULES and a score below 75 blocks, ex
   expect(failRun.status).toBe(EXIT_RED);
 });
 
+// ---- deploy entry point (PR #209 finding 1): strict G16 is pinned by the script itself ------------
+// The script string is taken from the real root package.json and executed verbatim in the fixture,
+// so losing `PG_GUARDS_STRICT=1` (or pointing it elsewhere) turns this red — not a regex on the text alone.
+interface RootPackage {
+  scripts?: Record<string, string>;
+}
+const ROOT_PACKAGE = JSON.parse(readFileSync(path.join(ROOT, 'package.json'), 'utf8')) as RootPackage;
+const GUARDS_DEPLOY_SCRIPT = ROOT_PACKAGE.scripts?.['guards:deploy'];
+const ALL_MODULES_CALL = 'mutation:';
+const STRICT_CI_VALUES = [undefined, 'false', '0', 'true'] as const;
+const G16_GREEN_ROW = /^G16\s+-\s+green \(stryker mutation on domain\/ >= 75 %\)\s*$/m;
+const STRICT_NOT_RUNNABLE_ROW = /^G1[57]\s+-\s+RED — NOT RUNNABLE under PG_GUARDS_STRICT=1/m;
+
+function runDeployScript(fx: GuardsFixture, extra: Record<string, string>) {
+  const env: NodeJS.ProcessEnv = { ...process.env };
+  for (const k of ['CI', 'G16_MODULES', 'PG_GUARDS_STRICT', 'STUB_SCORE', 'STUB_ISOLATION_FAIL', 'STUB_PSQL_ROWS']) delete env[k];
+  env['PATH'] = `${fx.binDir}${path.delimiter}${process.env['PATH'] ?? ''}`;
+  env['STUB_LOG'] = fx.log;
+  env['PG_GUARDS_FILE'] = path.join(fx.root, 'guards.sql');
+  return spawnSync('bash', ['-c', GUARDS_DEPLOY_SCRIPT ?? 'exit 127'], {
+    cwd: fx.root,
+    env: { ...env, ...extra },
+    encoding: 'utf8',
+    timeout: EXEC_TIMEOUT_MS,
+  });
+}
+
+it('pnpm guards:deploy is the deploy entry point and pins PG_GUARDS_STRICT=1 (PR #209 finding 1)', () => {
+  expect(GUARDS_DEPLOY_SCRIPT).toBeDefined();
+  expect(GUARDS_DEPLOY_SCRIPT).toMatch(/\bPG_GUARDS_STRICT=1\b/);
+  expect(GUARDS_DEPLOY_SCRIPT).toMatch(/scripts\/guards-run\.sh/);
+
+  // The fixture has no G15/G17 runner, so a strict run reports those two NOT RUNNABLE and exits 1
+  // by design (deploy fails closed); the G16 row is what this scenario pins.
+  const pass = createGuardsFixture();
+  const passRun = runDeployScript(pass, { G16_MODULES: MODULE_A, STUB_SCORE: SCORE_PASS });
+  expect(mutationCalls(pass)).toEqual([ALL_MODULES_CALL]);
+  expect(passRun.stdout).not.toMatch(SKIP_ROW);
+  expect(passRun.stdout).toMatch(G16_GREEN_ROW);
+  expect(passRun.stdout).toMatch(STRICT_NOT_RUNNABLE_ROW);
+
+  const fail = createGuardsFixture();
+  const failRun = runDeployScript(fail, { G16_MODULES: MODULE_A, STUB_SCORE: SCORE_FAIL });
+  expect(mutationCalls(fail)).toEqual([ALL_MODULES_CALL]);
+  expect(failRun.stdout).toMatch(/G16\s+-\s+RED/);
+  expect(failRun.status).toBe(EXIT_RED);
+});
+
+it('Under PG_GUARDS_STRICT=1 alone, guards-run is strict whatever CI is (deploy never skips G16)', () => {
+  for (const ci of STRICT_CI_VALUES) {
+    const fx = createGuardsFixture();
+    const extra: Record<string, string> = { PG_GUARDS_STRICT: '1', G16_MODULES: MODULE_A, STUB_SCORE: SCORE_PASS };
+    if (ci !== undefined) extra['CI'] = ci;
+    const r = runGuards(fx, extra);
+    const label = `CI=${String(ci)}`;
+
+    expect(mutationCalls(fx), label).toEqual([ALL_MODULES_CALL]);
+    expect(r.stdout, label).not.toMatch(SKIP_ROW);
+    expect(r.stdout, label).toMatch(G16_GREEN_ROW);
+  }
+});
+
 it('.githooks/pre-commit sets none of CI, PG_GUARDS_STRICT or G16_MODULES before calling guards:run', () => {
   const code = readFileSync(PRE_COMMIT, 'utf8')
     .split('\n')

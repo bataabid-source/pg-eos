@@ -16,6 +16,7 @@
     "lint": "eslint .",
     "lint:boundaries": "bash scripts/check-boundaries.sh",
     "guards:run": "bash scripts/guards-run.sh",
+    "guards:deploy": "PG_GUARDS_STRICT=1 bash scripts/guards-run.sh",
     "mutation": "bash scripts/mutation-all.sh",
     "check:setup": "bash scripts/check-setup.sh",
     "check:locks": "bash scripts/check-locks.sh tasks/LANE_LOCKS.md",
