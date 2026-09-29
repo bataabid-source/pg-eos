@@ -1,2 +1,2 @@
-Lane 2 (billing): 4.1b part 2 merged → 4.19 (0040) → 4.20 (0041) · Master: 4.1b part 3 (guards.sql orphan query) · X part 12 part 4 before 4.19 handlers.
-M-core: 2.16 1a-8 (RLS-01 d2, 0044) done · D-198 (أ) tooling (lock pending) · 1a-9 BLOCKED G-01 → AUDIT-CHAIN-01 1/4 → Master batch. Integration: X part 5d.
+Weekly goal S1+S2+S18 (GM 07:20Z): Lane 1: 2.16 part 2 (pda) → part 3 · Integration: 2.18, S1 to green · waiting: S9 p2, 2.9 p3, 1a-4c.
+Lane 2: 4.19 (#205) → 4.20 · M-core: X part 16 tooling → X part 18 (`review` fails on FAIL) · 1a-9 BLOCKED G-01 → AUDIT-CHAIN-01.
