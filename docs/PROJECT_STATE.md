@@ -17,11 +17,11 @@ Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewe
 - lane 1 · pda · 2.16 · since 2026-09-29
 
 ## Last 5 feat/fix commits (git log)
-- `44396ab` fix(X): S7 part 2 close-review FAIL(3) — true review record, guards run as observed, live handover packet
 - `a885a99` feat(2.16): sessions/otp_codes writes behind six identity definers, migration 0044 (part 1a-8)
 - `ece7423` feat(4.19): packages/i18n billing.json — reopen decision title, six locales
 - `fc999be` feat(2.16): has_perm pinned search_path, migration 0043 — SCR-IDENTITY-RLS-01 delta 4 (part 1a-7)
 - `439d172` feat(2.16): G-16a OTP limits — attempts cap, one live code, resend 60 s, 5/email/hour, migration 0042 (part 1a-5)
+- `ba875ad` feat(4.1b): line dimensions + dimension values, list and reference kind, migration 0038 (part 2)
 
 ## Blockers
 - G16: changed domain/ per PR, every module nightly (X part 6); G15 per STREAMS §G15 (green.json); G17 NOT RUNNABLE; deploy.sh waits on 0.6b.
@@ -36,4 +36,4 @@ Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewe
 
 ## Next
 1. Weekly goal S1+S2+S18 (GM 07:20Z): Lane 1: 2.16 part 2 (pda) → part 3 · Integration: 2.18, S1 to green · waiting: S9 p2, 2.9 p3, 1a-4c.
-2. Lane 2: 4.19 (#205) → 4.20 · M-core: X part 16 tooling → X part 18 (`review` fails on FAIL) · 1a-9 BLOCKED G-01 → AUDIT-CHAIN-01.
+2. Lane 2: 4.19 (#205) → 4.20 · M-core: X part 16 done → X part 18 (`review` fails on FAIL) · 1a-9 BLOCKED G-01 → AUDIT-CHAIN-01.

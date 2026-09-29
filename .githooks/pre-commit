@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # PG-EOS · pre-commit hook — CLAUDE.md · OPERATING RULES · HOOKS: "Planned pre-commit gates, same
 # mechanism, no husky: ① lint+boundaries+types, ② domain unit tests of the touched module,
-# ③ pnpm guards:run --changed. Commit is refused on red." Activated with the golden-slice acceptance
+# ③ pnpm guards:run --changed. Commit is refused on red." (③ runs G1–G15/G17/G18 locally; G16/Stryker
+# runs in CI gate ⑤ and nightly — D-198 (أ), X part 16.) Activated with the golden-slice acceptance
 # (WBS 2.9, GM directive D-139) by the same `git config core.hooksPath .githooks` that runs
 # commit-msg (scripts/install-hooks.mjs, root `prepare`).
 #
@@ -13,7 +14,10 @@
 #     database) of every modules/<m>/ or packages/<p>/ touched.
 #   - ③ `pnpm guards:run` runs when anything under database/ is staged ("--changed" = the schema or
 #     a migration changed). It needs the local Postgres (infra/docker/docker-compose.yml); if the
-#     guards cannot run at all, the commit is refused rather than let through untested.
+#     guards cannot run at all, the commit is refused rather than let through untested. Locally
+#     (CI unset) guards-run checks the stryker configs but runs no Stryker: G16 prints "SKIPPED
+#     locally" and CI gate ⑤ (scoped) plus the nightly run govern (D-198 (أ)). This hook sets none
+#     of CI, PG_GUARDS_STRICT or G16_MODULES — scripts/lib/g16-scope.sh g16_decide decides.
 # CI (.github/workflows/ci.yml) still runs every gate on every push; this hook refuses a red commit
 # earlier, on the author's machine.
 set -uo pipefail

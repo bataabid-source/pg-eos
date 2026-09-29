@@ -29,7 +29,7 @@
 #                   it has a lane branch checked out for the merge queue.
 #   Lane M (M-core) → frozen paths open to it through its lane-M lock rows, except CLAUDE.md
 #                   (Master only): `packages/<name>` → packages/<name>/**, `tooling` →
-#                   .claude/** scripts/** .github/**, plus module/use-case rows as for any lane.
+#                   .claude/** scripts/** .github/** .githooks/**, plus module/use-case rows as for any lane.
 #   These modes prevent accidents; a session that switches its own branch or role config
 #   leaves them — pg-reviewer checks the branch and files of every slice.
 #
@@ -208,7 +208,7 @@ if [ "$LANE" = "M" ]; then
   for m in $OWNED; do
     case "$m" in
       packages/?*) case "$REL" in "$m"/*) exit 0 ;; esac ;;
-      tooling)     case "$REL" in .claude/*|scripts/*|.github/*) exit 0 ;; esac ;;
+      tooling)     case "$REL" in .claude/*|scripts/*|.github/*|.githooks/*) exit 0 ;; esac ;;
     esac
   done
 fi
