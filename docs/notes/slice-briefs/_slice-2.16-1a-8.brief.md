@@ -15,16 +15,21 @@ Model routing (ADR-0005 §5): pg-tester sonnet (RED) → pg-reviewer opus (brief
 - `database/schema/apply.sh` applies 01 → 13 → 13B → 019 → migrations, so a migration may replace the 13B-generated policy.
 
 ## Decisions (defaults — one CHANGELOG line each)
-1. **Migration 0044** (`database/migrations/0044_M_identity-write-definers.sql`): on both tables `drop policy internal_only`; `create policy internal_read for select using (platform.is_internal())`; NO insert/update/delete policy; `revoke insert, update, delete on identity.sessions, identity.otp_codes from pgeos_app` (defence in depth: a direct write fails with 42501, it is not silently filtered). Idempotent (`drop policy if exists`, `create or replace function`), forward-only, no data change, ends with a do-block self-check (as 0043).
-2. **Five SECURITY DEFINER functions** in schema `identity`, each `language plpgsql volatile security definer set search_path = pg_catalog, pg_temp`, fully schema-qualified body, first statement `if not platform.is_internal() then raise exception … using errcode = '42501'`, `revoke all … from public`, `grant execute … to pgeos_app`. One function per existing write, the SQL moved verbatim — no rule moves from TS to SQL (thresholds, resend window, lockout stay in `otp.ts`):
+1. **Migration 0044** (`database/migrations/0044_M_identity-write-definers.sql`): on both tables `drop policy internal_only`; `create policy internal_read for select using (platform.is_internal())`; NO insert/update/delete policy; `revoke insert, update, delete on identity.sessions, identity.otp_codes from pgeos_app` (defence in depth: a direct write fails with 42501, it is not silently filtered). The header records that `0007:95` re-grants DML on every apply, so the revoke holds only because 0044 runs after 0007 (0010/0038 precedent). Idempotent (`drop policy if exists`, `create or replace function`), forward-only, no data change. It ends with a do-block self-check that raises on any miss:
+   - each of the six definers has `prosecdef`, `provolatile = 'v'`, `proconfig = array['search_path=pg_catalog, pg_temp']`, and an owner with `rolsuper or rolbypassrls` (0010:86-94, 0043 pattern);
+   - PUBLIC has no EXECUTE on any of them;
+   - `has_table_privilege('pgeos_app', t, 'INSERT'|'UPDATE'|'DELETE')` is false on both tables;
+   - `pg_policies` holds exactly one row per table: `internal_read`, cmd SELECT, qual `platform.is_internal()`.
+2. **Six SECURITY DEFINER functions** in schema `identity`, each `language plpgsql volatile security definer set search_path = pg_catalog, pg_temp`, static SQL only (no EXECUTE/format), fully schema-qualified body, first statement `if not platform.is_internal() then raise exception … using errcode = '42501'`, `revoke all … from public`, `grant execute … to pgeos_app`. One function per existing write or row-locking read, the SQL moved verbatim — no rule moves from TS to SQL (thresholds, resend window, lockout stay in `otp.ts`):
+   - `identity.otp_lock_candidates(p_email text, p_at timestamptz, p_max_attempts numeric) returns table(id uuid, code_hash text, user_id uuid, is_active boolean)` — the `otp.ts:380-396` candidate select verbatim, including `order by o.id for update of o` (a row lock needs UPDATE privilege, and under RLS it applies the UPDATE policies too, so it cannot stay direct; the lock lasts until the caller's transaction ends, which keeps the deadlock-regression semantics).
    - `identity.otp_issue(p_email text, p_code_hash text, p_issued_at timestamptz, p_expires_at timestamptz) returns uuid` — the `otp.ts:266` update then the `otp.ts:276` insert, one call (atomic).
-   - `identity.otp_record_failure(p_ids uuid[]) returns void` — `otp.ts:420`.
+   - `identity.otp_record_failure(p_ids uuid[]) returns void` — `otp.ts:420`. Called as `select identity.otp_record_failure(array[${sql.join(ids, sql`, `)}]::uuid[])`: drizzle unwraps a JS array (`otp.ts:414-417`), so never pass one array parameter.
    - `identity.otp_consume(p_id uuid, p_at timestamptz) returns void` — `otp.ts:428`.
    - `identity.session_issue(p_user_id uuid, p_token_hash text, p_issued_at timestamptz, p_expires_at timestamptz) returns uuid` — `session.ts:119`.
    - `identity.session_revoke(p_id uuid, p_at timestamptz) returns void` — `session.ts:273` (keeps `and revoked_at is null`).
-   The hashes are computed in TS as today (the HMAC key never reaches SQL). Public TS signatures of `otp.ts` / `session.ts` do not change.
-3. **Schema parity:** `database/schema/*` is NOT edited — the 13B generator stays the base, 0044 is the delta (0042 precedent; 01 has no text for either policy). The SCR row 2 gets "sessions/otp_codes applied by 0044; users → 1a-9".
-4. Reads (`select` on both tables in otp.ts / session.ts) stay direct under `internal_read`.
+   The hashes are computed in TS as today (the HMAC key never reaches SQL). Public TS signatures of `otp.ts` / `session.ts` do not change. Comments naming the `internal_only` policy (`otp.ts:173` and any others in the two files) are updated to `internal_read` plus the definers.
+3. **Schema parity:** `database/schema/*` is NOT edited — the 13B generator stays the base (its loop skips a table that already has a policy, `13B:3101-3104`), 0044 is the delta (0042 precedent; 01 has no text for either policy). The M-core session (not a worker) updates SCR row 2 in the closing bookkeeping: "sessions/otp_codes applied by 0044; users → 1a-9".
+4. Only plain reads (no locking clause) on both tables in otp.ts / session.ts stay direct under `internal_read`.
 
 ## Read ONLY (workers)
 - `CLAUDE.md`
@@ -47,11 +52,13 @@ Feature: identity.sessions and identity.otp_codes are written only through defin
   Scenario: pgeos_app cannot insert, update or delete identity.sessions directly (42501)
   Scenario: pgeos_app cannot insert, update or delete identity.otp_codes directly (42501)
   Scenario: pgeos_app can still select both tables in an internal context
-  Scenario: Each of the five identity write functions is SECURITY DEFINER with search_path pinned to pg_catalog, pg_temp and is not executable by PUBLIC
-  Scenario: Each write function refuses a non-internal context (42501)
+  Scenario: Each table has exactly one policy, internal_read (SELECT, platform.is_internal()), and an external context reads 0 rows
+  Scenario: Each of the six identity functions is SECURITY DEFINER, volatile, owned by a superuser/bypassrls role, returns its stated type, has search_path exactly pg_catalog, pg_temp and is not executable by PUBLIC
+  Scenario: Each function refuses a non-internal context (42501)
   Scenario: The OTP issue → verify → session issue → revoke flow still succeeds as pgeos_app through withContext
-  Scenario: A wrong code still increments attempts on every live candidate; a new request still consumes the earlier live code
+  Scenario: A wrong code still increments attempts on every live candidate; a new request still consumes the earlier live code at exactly its issue instant
 ```
+Pre-build review round 1 (pg-reviewer, opus): FAIL, 2 blocking + 5 nits. All of them are applied in this brief and in the RED fix round: the sixth definer; the self-check list; a policy catalog test plus a negative read; return type, volatility, owner and a raw `proconfig` in the catalog test; an exact `consumed_at`; interval literals bound from named constants; the array binding form; SCR ownership; the 0007 re-grant note.
 Existing OTP + session + G-16a + deadlock/tx-injectable tests are the regression set and must stay green unedited.
 
 Deliver: migration 0044 · edited `otp.ts` / `session.ts` (each write → `select identity.<fn>(…)`) · the RED files · identity package + module tests, isolation (G14) and `G16_MODULES=identity pnpm guards:run` green on a fresh DB (`createdb -T template0 pgeos_rN && PGDATABASE=pgeos_rN bash database/schema/apply.sh --no-guards`).
