@@ -4,6 +4,14 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — S12 Lost opportunity scenario RED (integration lane 3, 2026-09-29)
+
+- **What:** `tests/scenarios/S12.spec.ts`, doc 40 L531-535 verbatim. A `_s12_` client plus one sales.opportunities row (raw fixture INSERT; no handler writes opportunities). All three steps are named NOT BUILT: close-as-lost command and lost_reason closed-list enforcement → row 1.5 (proof only @ f790da7, full slice pending) → 6.7. Quarterly funnel → 5.13 (R-18, doc 25 L343) → 6.3 → 6.7.
+- **Defaults:** the closed list (doc 01 L489) will be asserted through the close command once it exists, with no enforcement mechanism prescribed. The schema observation (no CHECK/FK on lost_reason) is kept as an annotation only. Cleanup is by id.
+- **Open:** no backlog row for the 1.5 full slice · R-18 is monthly (doc 25) vs quarterly (doc 40 L535, doc 12 L121) · sales.opportunities has no version column.
+- **Verified:** 2 identical runs (3 named softs only), zero residue, G1 = 0, tsc/eslint exit 0; guards not observed locally (test-only; CI ⑤).
+- Model: integration lane 3 session · Delegated: pg-tester (sonnet), pg-reviewer (opus) · Review: PASS(7 findings, 2 rounds) · tokens: pg-tester ≈ 60k · pg-reviewer ≈ 57k
+
 ## 2.16 — identity.sessions / otp_codes writes behind definer functions, migration 0044 (part 1a-8) (2026-09-29)
 
 - **Why:** SCR-IDENTITY-RLS-01 delta 2 (D-193 D4 أ): any internal context could write `identity.sessions` / `identity.otp_codes` directly; acceptance "`pgeos_app` cannot insert/update/delete them directly; OTP + session tests stay green".
