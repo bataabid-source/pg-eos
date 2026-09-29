@@ -116,6 +116,7 @@ const INBOUND_LINE_NO_BATCH_200 = 2;
 const ENTITY_ID_HEADER = 'x-entity-id';
 const CONTENT_TYPE_HEADER = 'content-type';
 const JSON_CONTENT_TYPE = 'application/json';
+const GET_METHOD = 'GET';
 
 test.describe('S1 Full 3PL client (Segment A, PST + PDL)', () => {
   const pool: Pool = createPool();
@@ -144,8 +145,6 @@ test.describe('S1 Full 3PL client (Segment A, PST + PDL)', () => {
   let s1TwoPriceListId = '';
   let grnTemplateId = '';
   let grnTemplateOwned = false;
-
-  const GET_METHOD = 'GET';
 
   /** apps/api/src/server.ts reads a GET route's command from `request.query`, never `request.body`
    *  (`body: method === 'GET' ? request.query : request.body`) — so a GET call's fields must travel
@@ -189,14 +188,10 @@ test.describe('S1 Full 3PL client (Segment A, PST + PDL)', () => {
       headers,
       ...(isGet ? {} : { payload: body }),
     });
-    // fix round finding 5: a non-JSON (or empty) response must not hide the status assertion behind
-    // a thrown parse error — fall back to the raw body so `expect(result.status)` still reports.
-    let responseBody: unknown;
-    try {
-      responseBody = response.json();
-    } catch {
-      responseBody = response.body;
-    }
+    // A non-JSON response (by content-type) falls back to the raw body so `expect(result.status)`
+    // still reports; a JSON content-type MUST parse — its parse error surfaces, never swallowed.
+    const responseContentType = String(response.headers[CONTENT_TYPE_HEADER] ?? '');
+    const responseBody: unknown = responseContentType.includes(JSON_CONTENT_TYPE) ? response.json() : response.body;
     return { status: response.statusCode, body: responseBody };
   }
 
@@ -345,7 +340,10 @@ test.describe('S1 Full 3PL client (Segment A, PST + PDL)', () => {
         `select version from wms.inbound_orders where id = $1`,
         [orderId],
       );
-      orderVersion = versionResult.rows[0]?.version ?? draft.version;
+      const approvedVersion = versionResult.rows[0]?.version;
+      expect(typeof approvedVersion, 'inbound order version must be read back as a number after approve').toBe('number');
+      if (approvedVersion === undefined) throw new Error('fixture: inbound order version missing after approve');
+      orderVersion = approvedVersion;
     });
 
     await test.step('When the PDA receives batch "B2409-7" with expiry 120 days from today', async () => {
@@ -577,7 +575,10 @@ test.describe('S1 Full 3PL client (Segment A, PST + PDL)', () => {
       outboundOrderId = createBody['orderId'];
       if (!outboundOrderId) throw new Error('handleCreateOutbound did not return an order id');
       s1TwoOutboundOrderId = outboundOrderId;
-      let version: number | undefined = typeof createBody['version'] === 'number' ? createBody['version'] : undefined;
+      const createdVersion = createBody['version'];
+      expect(typeof createdVersion, 'handleCreateOutbound must return a numeric version').toBe('number');
+      if (typeof createdVersion !== 'number') throw new Error('handleCreateOutbound did not return a numeric version');
+      let version: number | undefined = createdVersion;
 
       await insertOrderLine(pool, { orderTable: 'wms.outbound_orders', orderId: outboundOrderId, skuId: skuTwoId, qtyOrdered: S1_2_OUTBOUND_QTY });
 
