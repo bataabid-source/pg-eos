@@ -10,7 +10,6 @@ History of claims and releases: `docs/CHANGELOG.md` · migration register and ne
 | tooling | M | X | 2026-09-29 | . |
 | api | 2 | 4.19 | 2026-09-29 | cloud:session_013aUcxUgLt9g8EmcyQZLJsf |
 | pda | 1 | 2.16 | 2026-09-29 | cloud:session_01LurRGWNNZEWuceRGGEaCPP |
-| wms | 1 | 2.9 | 2026-09-29 | ../pg-eos-lane-1 |
 
 ## Rules (CLAUDE.md · AGENTS AND SESSIONS)
 

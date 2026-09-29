@@ -15,7 +15,6 @@ Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewe
 - lane M · tooling · X · since 2026-09-29
 - lane 2 · api · 4.19 · since 2026-09-29
 - lane 1 · pda · 2.16 · since 2026-09-29
-- lane 1 · wms · 2.9 · since 2026-09-29
 
 ## Last 5 feat/fix commits (git log)
 - `a885a99` feat(2.16): sessions/otp_codes writes behind six identity definers, migration 0044 (part 1a-8)

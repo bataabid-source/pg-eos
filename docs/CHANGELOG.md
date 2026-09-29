@@ -4,15 +4,14 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
-## X — lock wms (lane 1, 2.9 part 3) + briefs 2.9 part 3 and X part 17 (Master, 2026-09-29)
+## X — briefs 2.9 part 3 and X part 17; 2.9 part 3 lock deferred to X part 19 (Master, 2026-09-29)
 
-- **GM (a) 08:25Z via Advisory, #207:** 2.9 part 3 (S1 FEFO step) runs in parallel, cap six (D-198) — `node scripts/scribe.mjs --claim wms 1 2.9` (disjoint from `pda`); brief `_slice-2.9-p3-fefo-expiry`; backlog row → TODO.
-- **X part 17:** brief `_slice-X-p17-adr0007-wording` (`tooling`, lane M); the ADR-0007 Proposed addendum lands with it; new item (15) from #209 finding 2: the Master's manual merge runs `PG_GUARDS_STRICT=1 pnpm guards:run`, recorded in CLAUDE.md TESTING (CLAUDE.md stays with the Master).
-- **Defaults:** worktree cell `../pg-eos-lane-1` until the session starts (`cloud:pending` fails check-locks rule 3) · 2.9 part 3 split: incremental ledger path only, rebuild-balance parity proposed as the next part.
-- **#210 fix (Master decisions):** lock widened `wms/receive-inbound` → `wms` (fix is in module-wide `src/stock-ledger/post-movement.ts`) · Step 0 of 2.9 p3 sources "a batch has one expiry" in 01/13/13B/019/40 or files `SCR-WMS-BATCH-EXPIRY-01`; the refusal is not built until sourced · row `2.9 part 4` (rebuild-balance expiry parity, TODO) · 2.9 p3 deletes `_slice-2.9-p2.brief.md`.
-- **#210 round 1 FAIL(4) fix:** 2.9 p3 second session gated on X part 17 (cap-six / two-sessions-in-lane-1 wording); until then it queues behind 2.16 p2 in the one lane-1 session · worktree cell stays `../pg-eos-lane-1` (check-locks refuses `-wms`) · next.md drops Lane 1b · X p17 acceptance names D-199/D-200.
-- **Open:** CLAUDE.md still says five sessions and lane-guard has one session per lane until X part 17 (in its brief).
-- Model: Master session · Delegated: general-purpose (drafting) · Review: none (lock + briefs) · tokens: ≈ 45k subagent.
+- **GM (a) 08:25Z via Advisory, #207:** 2.9 part 3 (S1 FEFO step) in parallel, cap six (D-198) — brief `_slice-2.9-p3-fefo-expiry`; backlog row → TODO; no lock claimed in this PR.
+- **X part 17:** brief `_slice-X-p17-adr0007-wording` (`tooling`, lane M; acceptance names D-199/D-200); the ADR-0007 Proposed addendum lands with it; item (15) from #209 finding 2: the Master's manual merge runs `PG_GUARDS_STRICT=1 pnpm guards:run`, recorded in CLAUDE.md TESTING (CLAUDE.md stays with the Master).
+- **2.9 part 3 brief:** Step 0 sources "a batch has one expiry" in 01/13/13B/019/40 or files `SCR-WMS-BATCH-EXPIRY-01` (refusal not built until sourced) · incremental ledger path only; row `2.9 part 4` (rebuild-balance expiry parity) · deletes `_slice-2.9-p2.brief.md` · session gated on X part 17 or 2.16 part 2 closing.
+- **Rows:** `2.9 part 4`, `X part 19` (#210 open findings: lock scope `wms` vs directive (a); lock claimed only once the session may start) · next.md: 2.9 p3 waiting.
+- **Defaults:** `cloud:pending` fails check-locks rule 3 — a lock row takes `../pg-eos-lane-<n>` or `cloud:session_<id>`.
+- Model: Master session · Delegated: general-purpose (drafting) · Review: FAIL(3 findings, 2 rounds) — PASS subset per REVIEW CAP; lock deferred (X part 19) · tokens: ≈ 60k subagent.
 
 ## X — weekly goal S1+S2+S18: lane 1 on 2.16 PDA screens, integration on 2.18 (Master M10, 2026-09-29)
 
