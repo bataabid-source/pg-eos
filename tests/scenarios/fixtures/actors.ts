@@ -19,32 +19,18 @@ export const WH_MGR_ROLE_CODE = 'WH_MGR';
 export const WH_SUP_ROLE_CODE = 'WH_SUP';
 export const SCENARIO_ACTOR_ROLE_CODES = [WH_MGR_ROLE_CODE, WH_SUP_ROLE_CODE] as const;
 
-// X part 5d (ADR-0006 Decision 2): platform.thresholds has no production seed row for
-// identity.session.lifetime_minutes (issueSession throws without one — packages/identity/src/
-// session.ts). SEED-ONLY, idempotent, NEVER DELETED — precedent apps/api/tests/server.test.ts:
-// 411-487 seeds the exact same production key the same way (a concurrent suite may already own the
-// row via the same on-conflict no-op and rely on it surviving). Value large enough to outlive this
-// suite's own run (minutes, named constant — CLAUDE.md: no magic numbers).
-const SCENARIO_SESSION_LIFETIME_MINUTES = '43'; // the precedent's own value, server.test.ts:422.
-const SCENARIO_SESSION_LIFETIME_UNIT = 'minutes';
-const SCENARIO_SESSION_LIFETIME_DESCRIPTION_AR = 'عمر الجلسة بالدقائق — صف اختباري (X part 5d fixtures/actors.ts)';
-// changed_by = the all-zero system user the seed migrations use (0042 header; same sentinel as
-// packages/db/tests/with-context.test.ts:67) — never a fabricated random actor.
-const SYSTEM_SEED_CHANGED_BY = '00000000-0000-0000-0000-000000000000';
-
-async function ensureSessionLifetimeThreshold(pool: Pool): Promise<void> {
-  await pool.query(
-    `insert into platform.thresholds (key, value, unit, description_ar, changed_by)
-     values ($1, $2, $3, $4, $5)
-     on conflict (key) do nothing`,
-    [
-      SESSION_LIFETIME_MINUTES_KEY,
-      SCENARIO_SESSION_LIFETIME_MINUTES,
-      SCENARIO_SESSION_LIFETIME_UNIT,
-      SCENARIO_SESSION_LIFETIME_DESCRIPTION_AR,
-      SYSTEM_SEED_CHANGED_BY,
-    ],
+// X part 5d (ADR-0006 Decision 2, GM D-203): migration 0045 seeds platform.thresholds
+// identity.session.lifetime_minutes (issueSession throws without it — packages/identity/src/
+// session.ts). This fixture NEVER writes platform.thresholds: it only reads the row and hard-fails
+// if the migration is not applied. The seeded value is asserted by migration-0045.spec.ts, not here.
+async function requireSessionLifetimeThreshold(pool: Pool): Promise<void> {
+  const result: QueryResult<{ key: string }> = await pool.query(
+    `select key from platform.thresholds where key = $1`,
+    [SESSION_LIFETIME_MINUTES_KEY],
   );
+  if (result.rows.length === 0) {
+    throw new Error('platform.thresholds identity.session.lifetime_minutes missing — apply migration 0045 (D-203)');
+  }
 }
 
 /** Creates one identity.users row, membership on every platform.entities row (so RLS's entity
@@ -81,7 +67,7 @@ export async function createActor(
  *  to the host instead of calling the handler in-process. `identity.sessions.user_id` is `on delete
  *  cascade` — `teardownActor` deletes the user and the session goes with it; no separate cleanup. */
 export async function issueActorSession(pool: Pool, userId: string): Promise<string> {
-  await ensureSessionLifetimeThreshold(pool);
+  await requireSessionLifetimeThreshold(pool);
   const session = await issueSession(userId);
   return session.token;
 }

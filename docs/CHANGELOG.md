@@ -4,6 +4,14 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — X part 5d part 2 — S1/S2 over the HTTP host from @pg-eos/api, session lifetime seed 0045 (integration lane 3, #175)
+
+- **What:** S1/S2 call the real Fastify host (inject) with real sessions, a Bearer token, `X-Entity-Id` and an Idempotency-Key on writes. `tests/scenarios/fixtures/host.ts` builds the host only from `@pg-eos/api` (#216). Migration `0045_3_identity-session-lifetime.sql` seeds `identity.session.lifetime_minutes` = 720 minutes (D-203). `fixtures/actors.ts` no longer seeds its fabricated '43' row; it requires the row. RED/green check: `tests/scenarios/migration-0045.spec.ts` (testMatch widened; the verdict ignores non-S specs).
+- **Why:** PR #175 round-2 FAIL(4): fabricated lifetime, relative import into apps/api/src, S1.spec.ts:191 nit, trailer. Row X part 5d part 2.
+- **Verified:** tsc/eslint clean; migration-0045.spec 1/1; S1/S2 fail only the named NOT BUILT steps. The FEFO soft assertion "0 units from the 200-day batch" is intermittent (random location ids while expiries are null), which is pre-existing and ends with 2.9 p3. The full pre-commit ran on pgeos_lane3.
+- **Review:** pre-migration pg-reviewer PASS(3 nits: stale-row note, README in place, stale "no seed" comments in packages/* → Master row for M-core).
+- Model: integration lane 3 session · Delegated: pg-tester (sonnet), pg-builder-core (opus), pg-reviewer (opus)
+
 ## X — X part 5d part 2 (1) — apps/api public entry: hostRoutesFrom, isHostResult, package exports (2026-09-29)
 
 - **Why:** backlog row X part 5d part 2, item (1): PR #175's scenario fixture reached into `apps/api/src` and copied the host's `isHostResult` and table→HostRoute map.
