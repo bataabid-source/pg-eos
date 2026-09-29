@@ -14,6 +14,17 @@ import {
 } from '@tanstack/react-router';
 
 import { PlaceholderScreen } from './features/placeholder-screen/placeholder-screen';
+import { mockReceiveClient, MOCK_ORDER_ID } from './features/receive/mock-client';
+import { ReceiveScreen } from './features/receive/receive-screen';
+import { browserScanSignal } from './features/receive/scan-signal';
+import {
+  mockPutawayClient,
+  MOCK_ORDER_ID as PUTAWAY_ORDER_ID,
+  MOCK_LINE_ID,
+  MOCK_EXPECTED_VERSION,
+  MOCK_SUGGEST_INPUT,
+} from './features/put-away/mock-client';
+import { PutawayScreen } from './features/put-away/put-away-screen';
 import { mockClient } from './features/otp-login/mock-client';
 import { OtpLoginScreen } from './features/otp-login/otp-login-screen';
 import {
@@ -219,16 +230,54 @@ const homeRoute = createRoute({
   component: makePlaceholderRouteComponent('screen.home'),
 });
 
+// WBS 2.16 part 2 — receive and put-away, wired with the mock clients until the host serves the
+// handlers (X part 5). Generators and clock are injected here, never inside the screens.
+const newUuid = (): string => crypto.randomUUID();
+const currentTime = (): Date => new Date();
+
+function ReceiveRouteComponent() {
+  const { locale } = useContext(LocaleContext);
+  return (
+    <ReceiveScreen
+      client={mockReceiveClient}
+      orderId={MOCK_ORDER_ID}
+      signal={browserScanSignal}
+      newKey={newUuid}
+      newCorrelationId={newUuid}
+      now={currentTime}
+      locale={locale}
+    />
+  );
+}
+
+function PutawayRouteComponent() {
+  const { locale } = useContext(LocaleContext);
+  return (
+    <PutawayScreen
+      client={mockPutawayClient}
+      orderId={PUTAWAY_ORDER_ID}
+      lineId={MOCK_LINE_ID}
+      expectedVersion={MOCK_EXPECTED_VERSION}
+      suggest={MOCK_SUGGEST_INPUT}
+      signal={browserScanSignal}
+      newKey={newUuid}
+      newCorrelationId={newUuid}
+      now={currentTime}
+      locale={locale}
+    />
+  );
+}
+
 const receiveRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/receive',
-  component: makePlaceholderRouteComponent('screen.receive'),
+  component: ReceiveRouteComponent,
 });
 
 const putAwayRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/put-away',
-  component: makePlaceholderRouteComponent('screen.putAway'),
+  component: PutawayRouteComponent,
 });
 
 const pickRoute = createRoute({
