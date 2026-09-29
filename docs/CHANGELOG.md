@@ -13,6 +13,15 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 - **Files:** docs/adr/ADR-0007-cloud-sessions-and-roles.md · docs/DECISION_LOG.md · tasks/MASTER_BACKLOG.md · docs/CHANGELOG.md.
 - **Review:** PASS subset (REVIEW CAP, no round 3). Model: opus · Delegated: none · tokens: not measured.
 
+## X — locks: `tooling` to M-core, `api` to lane 2; `packages/i18n` + stale `wms` released; S7 part 2, 2.9 part 3, X part 5d part 2 rows (Master M8, 2026-09-29)
+
+- **Why:** M7 handover queue + GM order (2026-09-29) to grant each role a disjoint lock now: M-core idle on X part 16 (D-198 أ), PR #198 blocked on `apps/api/src/route-table.ts` (lane-guard refused it under `billing`), integration lane waiting on its S7 part 2 row, PR #185 FAIL(4) with its author archived, PR #175 asking for its part 2 row.
+- **Change:** `tasks/LANE_LOCKS.md` — released `packages/i18n | M` (#196 merged), `wms | 1` (R4 archived); claimed `tooling | M | X` ("X part 16" is not a doc-38 row, D-185), `api | 2 | 4.19`. MASTER_BACKLOG — `S7 part 2` READY (lane 3, `eb9a1b6`); `2.9 part 3` (#185 findings 1–4, lock `wms/receive-inbound` at start) supersedes `2.9 part 2 (fix)` (path fixed); `X part 5d part 2` (#175); 1a-4c unchanged, READY, waiting on `X part 17`. The `api` row names 4.19 because #198 (feat(4.19)) is the task that edits `route-table.ts`; its worktree cell is updated when lane 2's successor starts; `api` passes to M-core only after lane 2 releases it. State header M8, cap 5.
+- **REVIEW CAP:** #199 (4 FAIL rounds) → #200 round 1 FAIL(2) → fix → round 2 FAIL(4); this commit is #200's PASS subset. Excluded (open findings, row `2.16 part 1a-4c`): the `pda`/`admin` rows and the 1a-4c brief — they instruct the language-selector exception, which is not in CLAUDE.md yet (`X part 17`).
+- **Fix-forward (GM via Advisory, 2026-09-29 06:45Z):** force-push is refused by the harness and stays refused; pushed branches are never rewritten — round-2 fixes land as a merge of main plus the fix on top, PRs are updated with update-branch or `git merge origin/main`, never rebase + force.
+- **Default recorded:** M-core commits its X part 16 brief under the `tooling` lock as the slice's first commit, brief-check before any build.
+- Model: Master session (M8) · Delegated: none · Review: #200 round 2 FAIL(4) → PASS subset (REVIEW CAP) · tokens: 77k Master session context (get_session, shared with #201).
+
 ## X — S12 Lost opportunity scenario RED (integration lane 3, 2026-09-29)
 
 - **What:** `tests/scenarios/S12.spec.ts`, doc 40 L531-535 verbatim. A `_s12_` client plus one sales.opportunities row (raw fixture INSERT; no handler writes opportunities). All three steps are named NOT BUILT: close-as-lost command and lost_reason closed-list enforcement → row 1.5 (proof only @ f790da7, full slice pending) → 6.7. Quarterly funnel → 5.13 (R-18, doc 25 L343) → 6.3 → 6.7.
