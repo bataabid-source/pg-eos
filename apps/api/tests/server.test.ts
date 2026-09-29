@@ -55,7 +55,7 @@ import {
 // --- Fixed contract facts (brief "Facts the Master verified" — never invented) -------------------
 const APPROVE_INBOUND_PATH = '/wms/receive-inbound/approve-inbound';
 const SUGGEST_LOCATION_PATH = '/wms/receive-inbound/suggest-location';
-const UNBUILT_POST_JOURNAL_PATH = '/billing/post-journal/post-journal';
+const UNBUILT_DIMENSIONS_PATH = '/billing/dimensions/create-dimension-value';
 const NOT_MOUNTED_REQUEST_OTP_PATH = '/identity/otp-login/request-otp-code';
 
 // A stub route path outside ALL_ROUTES entirely — used only by the injected-`routes` scenarios, so
@@ -191,7 +191,7 @@ describe('Feature: X part 5a — one host serves every registered operation (stu
 
   it('an unauthenticated call to an unbuilt route is 401, not 501', async () => {
     const app = buildServer({ verifySubject: stubVerifySubject(new Map()) });
-    const response = await app.inject({ method: 'POST', url: UNBUILT_POST_JOURNAL_PATH, payload: {} });
+    const response = await app.inject({ method: 'POST', url: UNBUILT_DIMENSIONS_PATH, payload: {} });
 
     expect(response.statusCode).toBe(HTTP_STATUS_UNAUTHORIZED);
   });
@@ -275,14 +275,14 @@ describe('Feature: X part 5a — one host serves every registered operation (stu
 
     const response = await app.inject({
       method: 'POST',
-      url: UNBUILT_POST_JOURNAL_PATH,
+      url: UNBUILT_DIMENSIONS_PATH,
       headers: { authorization: `Bearer ${token}` },
       payload: {},
     });
 
     expect(response.statusCode).toBe(HTTP_STATUS_NOT_IMPLEMENTED);
     const body = response.json<{ detail: string }>();
-    expect(body.detail).toContain(UNBUILT_POST_JOURNAL_PATH);
+    expect(body.detail).toContain(UNBUILT_DIMENSIONS_PATH);
   });
 
   it('the login routes are not mounted yet', async () => {
