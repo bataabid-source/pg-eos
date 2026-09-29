@@ -1,8 +1,8 @@
 # SLICE BRIEF — WBS 2.9 part 3 · the ledger writes the batch expiry on `wms.stock_balance` (the FEFO step of S1)
 
-Task: 2.9 part 3 (MASTER_BACKLOG)      Lane: 1 (stream A — Advisory 10:22Z, issue #207, GM delegation «افوضك بفرض افضل الممارسات الإنتاجية والتقنيه»)      Lock: `wms/receive-inbound | 1 | 2.9`
+Task: 2.9 part 3 (MASTER_BACKLOG)      Lane: 1 (stream A — Advisory 10:22Z, issue #207, GM delegation «افوضك بفرض افضل الممارسات الإنتاجية والتقنيه»)      Lock: claimed by the Master when lane 1 reaches it; order: 2.16 part 2d → 2.16 part 3 → 2.9 part 3; one lock row per lane at a time
 builder: pg-builder
-Sequencing: runs in the single lane-1 session, sequentially, after #211 (2.16 part 2) is fixed — no second lane-1 session, no CLAUDE.md change.
+Sequencing: runs in the single lane-1 session, sequentially (2.16 part 2d → 2.16 part 3 → 2.9 part 3) — no second lane-1 session, no CLAUDE.md change.
 Session: lane 1, branch `lane/1-2.9-p3` (first command: `git fetch origin && git checkout -B lane/1-2.9-p3 origin/main`) — the fresh "-r5" rebuild of PR #185, which the Master closes as superseded when this PR opens; the Master sets the lock's worktree cell to that session's `cloud:session_<id>`.
 Model routing (ADR-0005 §5): pg-tester sonnet (RED) → pg-reviewer opus (brief + RED) → pg-builder sonnet → pg-tester verify → pg-reviewer opus close. Budget ≤ 8 files / 1,000 lines read, ≤ 150k tokens; REVIEW CAP 2 rounds — ONE confirmed review round for the fixes carried over from #185 (backlog item 2), no de facto round 3.
 
@@ -18,7 +18,7 @@ doc 40 Part E S1, scenario 2 (verbatim): "Given available stock of "GULF-0137" i
 - #185 findings carried here (backlog items 1–4): trailer states the real verdict · one confirmed round for `resolveBatchExpiry` + three refusal-path tests · the expiry conflict was detected per balance row only (#185 `post-movement.ts:513`), so another location's balance of the same batch was not checked · #185 spent ≈ 760k tokens vs 150k.
 
 ## Step 0 (first step of the slice, before RED)
-Find "a batch has one expiry" in doc 01 / 13 / 13B / 019 / 40 (cite file:line in the CHANGELOG), or file `docs/notes/SCR-WMS-BATCH-EXPIRY-01.md` and build without the refusal (Decision 2b, scenarios 4–5 dropped). Never invent it.
+Read `docs/notes/SCR-WMS-BATCH-EXPIRY-01.md` (filed 2026-09-29; "one expiry per batch" is not found in 01 / 13 / 13B / 019 / 40). If the GM has approved it, build Decision 2b; otherwise build without the refusal (Decision 2b, scenarios 4–5 dropped). Never invent it.
 
 ## Decisions (defaults — one CHANGELOG line each)
 1. Split (backlog item 4): this part = the incremental ledger path only; `rebuild-balance.ts:121` parity is not built here (a next-part row, proposed in draft #210).
@@ -26,7 +26,8 @@ Find "a batch has one expiry" in doc 01 / 13 / 13B / 019 / 40 (cite file:line in
 3. The commit's `Review:` trailer copies the close verdict verbatim (backlog item 1); the ≈ 760k overrun of #185 is one CHANGELOG line.
 
 ## Open items
-- Rule source (G-01): "a batch has one expiry" is #185 brief Decision 2 (a Master default), not yet found in 01 / 13 / 13B / 019 / 40 — Step 0 resolves it or files the SCR; the refusal is not built until sourced.
+- Rule source (G-01): "a batch has one expiry" is #185 brief Decision 2 (a Master default), not found in 01 / 13 / 13B / 019 / 40 — filed as `SCR-WMS-BATCH-EXPIRY-01`; the GM decides; the refusal is not built until it is approved.
+- **Lock scope open:** the fix needs `modules/wms/src/stock-ledger/post-movement.ts:482`; the Master decides use-case vs module lock before claiming (GM question on #207).
 - **Lock rule (CLAUDE.md · Locks, LANE_LOCKS rule 1):** `modules/wms/src/stock-ledger/post-movement.ts` is module-wide and OUTSIDE `wms/receive-inbound`. If the fix needs it (the balance insert is at `post-movement.ts:482`), the lane STOPS and reports to the Master on #207 — it never writes the file and the lock is never widened inside the slice.
 - QRT routing and `quarantine_decision` (S1 scenario 1): owner: TBD (G-01) — doc 38 and doc 40 Part E name no WBS row; not built here (MASTER_BACKLOG owner rows).
 
@@ -40,7 +41,7 @@ Find "a batch has one expiry" in doc 01 / 13 / 13B / 019 / 40 (cite file:line in
 - `database/schema/01-Data-Model.sql` lines 700-732
 - `tests/scenarios/S1.spec.ts` lines 341-380, 520-540
 
-Write ONLY: `docs/notes/SCR-WMS-BATCH-EXPIRY-01.md` (Step 0 only) · `modules/wms/infrastructure/receive-inbound/**` · `modules/wms/application/receive-inbound/**` · `modules/wms/tests/receive-inbound/**` (pg-tester only; `tests/scenarios/**` belongs to the integration lane, 2.18). Frozen paths untouched.
+Write ONLY: `modules/wms/infrastructure/receive-inbound/**` · `modules/wms/application/receive-inbound/**` · `modules/wms/tests/receive-inbound/**` (pg-tester only; `tests/scenarios/**` belongs to the integration lane, 2.18). Frozen paths untouched.
 Contract: none changed. Screen/Board spec: none.
 
 ## RED tests
