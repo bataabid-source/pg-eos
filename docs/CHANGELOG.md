@@ -4,6 +4,13 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — lock wms/receive-inbound (lane 1, 2.9 part 3, sequential) + brief; QRT/quarantine owner rows (Master M11, 2026-09-29)
+
+- **Advisory 10:22Z, #207 (GM delegation «افوضك بفرض افضل الممارسات الإنتاجية والتقنيه»):** `scribe.mjs --claim wms/receive-inbound 1 2.9`; brief `_slice-2.9-p3-fefo-expiry` (from draft #210) runs in the one lane-1 session after #211 — no second session, no CLAUDE.md change; supersedes #210's 2.9 p3 part.
+- **Brief:** Step 0 sources one expiry per batch in 01/13/13B/019/40 or files `SCR-WMS-BATCH-EXPIRY-01` · `post-movement.ts` (balance insert L482) is outside the lock → the lane STOPS and reports; the lock is not widened.
+- **Rows:** `S1 QRT routing`, `S1 quarantine_decision` — owner: TBD (G-01): doc 38 and doc 40 Part E name no WBS row (integration, #207 09:55Z); 2.9 part 3 → TODO; footer stays 154 (part rows not counted).
+- Model: Master session (M11, opus) · Delegated: general-purpose (drafting) · Review: none yet (lock PR) · tokens: ≈ 30k subagent.
+
 ## X — S7 Trial client scenario RED (integration lane 3, 2026-09-29)
 
 - **What:** `tests/scenarios/S7.spec.ts`, doc 40 L495-500 verbatim. The Given, the price step and credit_limit=0 are BACKED through real sales handlers (contract create with noticeDays 14 per doc 05 L335 → set price list → sign → activate; resolvePrice gives 'standard_list' while the contract is draft, then the same segment-less list via the contract once active; quote + line at 25.000). The alert step is NOT BUILT (owner row 6.7 → 6.3 → 0.19, 5.13 part 2).
