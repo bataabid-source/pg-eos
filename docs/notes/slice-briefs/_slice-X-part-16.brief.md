@@ -2,7 +2,7 @@
 
 Task: X part 16 (literal WBS `X`; check-locks D-185 refuses "X part 16" as a doc-38 id)      Lane: M (M-core, ADR-0007)      Lock: `tooling | M | X` (Master M8, PR #203 eff4468; merges after #202, the D-198 wording)
 builder: pg-builder-core
-Session: M-core (`pg-eos:core`, session_011PL2MhC8UPwG79YDwDqjAK), branch `core/X-part-16` from origin/main (rebased onto 4d35ed0, which carries the D-198 row, DECISION_LOG:321).
+Session: M-core (`pg-eos:core`, session_011PL2MhC8UPwG79YDwDqjAK), branch `core/X-part-16-r1` (force-push denied after the rebase onto 4d35ed0) (rebased onto 4d35ed0, which carries the D-198 row, DECISION_LOG:321).
 Model routing (ADR-0005 §5, D-200): pg-tester sonnet (RED) and pg-reviewer opus (pre-build) run in parallel → pg-builder-core opus → pg-tester verify → pg-reviewer opus close. Budget ≤ 8 files / 1,000 lines read, ≤ 150k tokens; REVIEW CAP 2 rounds.
 
 ## Acceptance (MASTER_BACKLOG row X part 16, verbatim)
@@ -21,7 +21,7 @@ Model routing (ADR-0005 §5, D-200): pg-tester sonnet (RED) and pg-reviewer opus
    - CI mode → today's rule unchanged (`G16_MODULES` set → `scoped:`, else `all`).
    - otherwise → `local`.
    CI mode is exactly `[ -n "${CI:-}" ] && [ "$CI" != false ] && [ "$CI" != 0 ]`. `local` ignores `G16_MODULES`.
-2. **guards-run maps `local` onto the existing skipped path.** It prints `G16 SKIPPED locally (D-198 (أ): CI gate ⑤ scoped + nightly govern)`, and the result is not NOT RUNNABLE, not missing and not blocking. The exit code comes from the other guards only. The cheap config check (break 75, mutate domain/) still runs locally, because that is stricter at no cost. `verdict_nonsql`, the BLOCKING count and every other guard are untouched.
+2. **guards-run maps `local` onto the existing skipped path.** It prints the report row `report_line G16 "-" "SKIPPED locally (D-198 (أ): CI gate ⑤ scoped + nightly govern)"`, and the result is not NOT RUNNABLE, not missing and not blocking. The exit code comes from the other guards only. The cheap config check (break 75, mutate domain/) still runs locally, because that is stricter at no cost. `verdict_nonsql`, the BLOCKING count and every other guard are untouched.
 3. **No local opt-in variable.** D-198 has none, so `G16_LOCAL` is dropped. A developer who wants a score runs `pnpm mutation <module>` (scripts/mutation-all.sh).
 4. **`.githooks/pre-commit`:** comment only (`:4,14-16`). Gate ③ runs G1–G15/G17/G18 locally, and G16 runs in CI ⑤ and nightly (D-198). There is no G16 logic in the hook.
 5. **Deploy mode:** `PG_GUARDS_STRICT=1` always runs G16 over every module, CI or not.
@@ -52,7 +52,7 @@ Contract: none. Screen/Board spec: none. Migration number: none.
 ## RED tests
 - `tests/ops/x-part-16.feature` and `tests/ops/tests/x-part-16.test.ts`:
   - `g16_decide` unit cases in x-part-6's `runDecide` style;
-  - the existing guards-run fixture harness (stub `pnpm`/`psql` on PATH);
+  - the guards-run fixture harness in x-part-16.test.ts (stub `pnpm`/`psql` on PATH);
   - a static pre-commit assertion.
 - `tests/hooks/run.sh`: three `.githooks/pre-commit` cases.
 

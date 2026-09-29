@@ -31,7 +31,8 @@ const REQUIRED_BREAK = 75;
 const MODULE_A = 'alpha';
 const MODULE_B = 'beta';
 const TMP_PREFIX = 'x-part-16-';
-const SKIP_LINE = 'G16 SKIPPED locally (D-198 (أ): CI gate ⑤ scoped + nightly govern)';
+// report_line prints printf '%-10s %-8s %s\n' guard rows verdict, so the G16 row is a padded table row.
+const SKIP_ROW = /^G16\s+-\s+SKIPPED locally \(D-198 \(أ\): CI gate ⑤ scoped \+ nightly govern\)\s*$/m;
 const NOT_CI_VALUES = [undefined, '', 'false', '0'] as const;
 const G16_MODULES_VALUES = [undefined, '', 'wms fleet'] as const;
 
@@ -175,7 +176,7 @@ it('Locally, guards-run never invokes the mutation runner, prints G16 SKIPPED lo
     const label = JSON.stringify(extra);
 
     expect(mutationCalls(fx), label).toEqual([]);
-    expect(r.stdout, label).toContain(SKIP_LINE);
+    expect(r.stdout, label).toMatch(SKIP_ROW);
     expect(r.stdout, label).not.toMatch(/G16.*NOT RUNNABLE/);
     expect(r.stdout, label).not.toMatch(/G16.*missing/i);
     expect(r.status, label).toBe(EXIT_OK);
@@ -188,7 +189,7 @@ it('Locally, another red guard still makes guards-run exit 1 while G16 is SKIPPE
     const r = runGuards(fx, extra);
     const label = JSON.stringify(extra);
 
-    expect(r.stdout, label).toContain(SKIP_LINE);
+    expect(r.stdout, label).toMatch(SKIP_ROW);
     expect(mutationCalls(fx), label).toEqual([]);
     expect(r.status, label).toBe(EXIT_RED);
   }

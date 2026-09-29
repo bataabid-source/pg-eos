@@ -27,7 +27,7 @@ Feature: G16/Stryker out of local guards (X part 16, D-198 (أ))
     Given a guards-run fixture with two modules that have a valid stryker.config.json and a stubbed mutation runner
     When scripts/guards-run.sh runs with CI unset (also with G16_MODULES set)
     Then the mutation runner is never invoked
-    And the output has the line "G16 SKIPPED locally (D-198 (أ): CI gate ⑤ scoped + nightly govern)"
+    And the G16 report row is "SKIPPED locally (D-198 (أ): CI gate ⑤ scoped + nightly govern)"
     And G16 is not reported NOT RUNNABLE and the exit code is 0
 
   Scenario: Locally, another red guard still makes guards-run exit 1 while G16 is SKIPPED
@@ -52,6 +52,6 @@ Feature: G16/Stryker out of local guards (X part 16, D-198 (أ))
     Then it calls guards:run
     And it never assigns or exports CI, PG_GUARDS_STRICT or G16_MODULES
 
-  Scenario (tests/hooks/run.sh): lane M with the tooling row may write .githooks/pre-commit; lane M without it and lane 1 may not
+  Scenario: lane M with the tooling row may write .githooks/pre-commit; lane M without it and lane 1 may not (tests/hooks/run.sh)
     Given the cloud lane-guard harness on a core/ branch
     Then with the tooling row the write is allowed (exit 0), without it refused (exit 2), and lane 1 is refused (exit 2)
