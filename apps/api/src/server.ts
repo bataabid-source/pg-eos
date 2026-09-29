@@ -44,6 +44,7 @@ import {
   type VerifySubject,
 } from './auth.js';
 import { normalizeHeaders } from './headers.js';
+import { mountedHostRoutes } from './host-routes.js';
 import {
   BODY_LIMIT_BYTES,
   HTTP_STATUS_NOT_FOUND,
@@ -140,10 +141,6 @@ function sendProblem(reply: FastifyReply, failure: ApiFailure): FastifyReply {
   return reply.status(failure.status).type(PROBLEM_CONTENT_TYPE).send(failure.body);
 }
 
-function isHostResult(value: unknown): value is HostResult {
-  return typeof value === 'object' && value !== null && 'status' in value && typeof value.status === 'number' && 'body' in value;
-}
-
 function isFastifyError(error: unknown): error is FastifyError {
   return error instanceof Error && 'code' in error && typeof error.code === 'string';
 }
@@ -155,20 +152,7 @@ function clientErrorProblem(error: unknown): ApiFailure | undefined {
 
 function tableEntries(table: RouteTable): TableEntry[] {
   return [
-    ...table.mounted.map((entry): TableEntry => ({
-      kind: 'mounted',
-      route: {
-        method: entry.method,
-        path: entry.path,
-        handler: async (request) => {
-          const result = await entry.handler(request, entry.deps);
-          if (!isHostResult(result)) {
-            throw new Error(`handler ${entry.handlerName} for ${entry.path} returned no { status, body }`);
-          }
-          return result;
-        },
-      },
-    })),
+    ...mountedHostRoutes(table).map((route): TableEntry => ({ kind: 'mounted', route })),
     ...table.unimplemented.map((entry): TableEntry => ({ kind: 'unimplemented', ...entry })),
   ];
 }
