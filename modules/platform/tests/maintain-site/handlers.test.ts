@@ -42,6 +42,7 @@ const pool = new Pool({
 });
 
 const FIXTURE_ACTOR_UUID = '00000000-0000-4000-8000-0000000505c1';
+const NO_ROLE_ACTOR_UUID = '00000000-0000-4000-8000-0000000505c2';
 const OPS_DIR_ROLE_CODE = 'OPS_DIR';
 const clock = new FixedClock(new Date('2026-09-24T00:00:00.000Z'));
 const ids = new SequentialIdGenerator(5051);
@@ -221,24 +222,29 @@ describe('SiteRadiusInvalidError maps to 422, title = error.name', () => {
 
 describe('RoleRequiredError maps to 422, title = error.name', () => {
   it('handleCreateSite: a caller with no granted role -> 422, title "RoleRequiredError"', async () => {
-    const NO_ROLE_ACTOR_UUID = '00000000-0000-4000-8000-0000000505c2';
+    await pool.query(`delete from platform.idempotency_keys where user_id = $1`, [NO_ROLE_ACTOR_UUID]);
+    await pool.query(`delete from identity.user_entities where user_id = $1`, [NO_ROLE_ACTOR_UUID]);
+    await pool.query(`delete from identity.users where id = $1`, [NO_ROLE_ACTOR_UUID]);
     await pool.query(`insert into identity.users (id, email, full_name_ar, user_type) values ($1, $2, $3, 'internal')`, [
       NO_ROLE_ACTOR_UUID,
       `_maintainsite_handlers_norole_${randomUUID()}@test.invalid`,
       'ممثل اختبار — بلا دور',
     ]);
-    await pool.query(`insert into identity.user_entities (user_id, entity_id) values ($1, $2)`, [NO_ROLE_ACTOR_UUID, entityId]);
-    const noRoleCtx = { userId: NO_ROLE_ACTOR_UUID, clientId: null, isInternal: true };
+    try {
+      await pool.query(`insert into identity.user_entities (user_id, entity_id) values ($1, $2)`, [NO_ROLE_ACTOR_UUID, entityId]);
+      const noRoleCtx = { userId: NO_ROLE_ACTOR_UUID, clientId: null, isInternal: true };
 
-    const result = await handleCreateSite(
-      { headers: { [IDEMPOTENCY_KEY_HEADER_NAME]: randomUUID() }, body: { kind: 'warehouse', nameAr: uniqueName(), correlationId: randomUUID() }, ctx: noRoleCtx },
-      deps,
-    );
-    expect(result.status).toBe(422);
-    expect(result.body).toMatchObject({ title: 'RoleRequiredError' });
-
-    await pool.query(`delete from identity.user_entities where user_id = $1`, [NO_ROLE_ACTOR_UUID]);
-    await pool.query(`delete from identity.users where id = $1`, [NO_ROLE_ACTOR_UUID]);
+      const result = await handleCreateSite(
+        { headers: { [IDEMPOTENCY_KEY_HEADER_NAME]: randomUUID() }, body: { kind: 'warehouse', nameAr: uniqueName(), correlationId: randomUUID() }, ctx: noRoleCtx },
+        deps,
+      );
+      expect(result.status).toBe(422);
+      expect(result.body).toMatchObject({ title: 'RoleRequiredError' });
+    } finally {
+      await pool.query(`delete from platform.idempotency_keys where user_id = $1`, [NO_ROLE_ACTOR_UUID]);
+      await pool.query(`delete from identity.user_entities where user_id = $1`, [NO_ROLE_ACTOR_UUID]);
+      await pool.query(`delete from identity.users where id = $1`, [NO_ROLE_ACTOR_UUID]);
+    }
   });
 });
 
