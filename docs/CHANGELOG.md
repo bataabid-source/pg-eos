@@ -4,6 +4,15 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — X part 5d part 2 (1) — apps/api public entry: hostRoutesFrom, isHostResult, package exports (2026-09-29)
+
+- **Why:** backlog row X part 5d part 2, item (1): PR #175's scenario fixture reached into `apps/api/src` and copied the host's `isHostResult` and table→HostRoute map.
+- **Change:** `apps/api/src/host-routes.ts` holds `isHostResult` (moved verbatim), `HostRouteRef`, `mountedHostRoutes` (the old `tableEntries` mounted branch, used by `server.ts`, never throws) and `hostRoutesFrom` (adds a handler-name index, throws on a duplicate; for external callers). `apps/api/src/index.ts` is a pure barrel. `package.json` gains main/types/exports `{ types, default }` and `build`. `tsconfig.build.json` emits `src` → `dist` at the same depth, which `route-table.ts:82` depends on. RED: `apps/api/tests/public-entry.test.ts` (7) + `apps/api/features/x-part-5d-p2-1.feature`.
+- **Defaults recorded:** apps/api builds with a separate `tsconfig.build.json` (its tsconfig is noEmit), unlike api-kit/wms · tests import `../src/index.js`; `@pg-eos/api` by name is proven when tests/scenarios depends on it (item 3, integration) · the Dockerfile's root `pnpm build` now also emits apps/api/dist; runtime stays tsx · items (2)–(4) out of scope · guards run on a fresh `pgeos_x5` (`pgeos_x16` predates 0040).
+- **Review (pg-reviewer):** pre-build round 1 FAIL(4 blocking + 3 nits) → fix → round 2 PASS(3 nits); close round 1 FAIL(1 environmental + 1 nit) → round 2 PASS(0 open).
+- **Verified:** apps/api 24/24 (public-entry 7/7; server.test 13/13 and route-table.unit 4/4 unedited) · build emits `dist/index.js` · typecheck, eslint, lint:boundaries, check-locks OK · `pgeos_x5` `pnpm guards:run` exit 0, G1–G16/G18 green, G17 not runnable (CI ⑤ confirms).
+- Model: M-core session (opus) · Delegated: pg-tester (sonnet), pg-builder-core (opus), pg-reviewer (opus) · Review: PASS(12 findings, 4 rounds) · tokens: pg-tester ≈ 61k · pg-builder-core ≈ 35k · pg-reviewer ≈ 105k
+
 ## X — bookkeeping: 2.9 part 3 `wms` lock, D-203 lifetime 720, handover packets, X part 17 rows (Master M12, 2026-09-29)
 
 - **GM defaults 12:25Z (Advisory, #207 — DEFAULT, RECORD, PROCEED):** (a) 2.9 part 3 lock scope = `wms` (whole module; brief write scope adds `stock-ledger/post-movement.ts` + `errors.ts`), claimed when 2.9 p3 is reached with `pda` released in the same step (one lock row per lane — #212 review 13:02Z); `pda | 1 | 2.16` moved to lane 1's live session; lane 1 runs 2.16 p2 → 2.16 p3 → 2.9 p3 sequentially in one session.
