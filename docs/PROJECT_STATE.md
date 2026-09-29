@@ -5,7 +5,7 @@ Phase: enablement week (Master + integration lane; build lanes frozen) → wave 
 Done so far: phase 0 closed · phase 1 done except 1.11 (BLOCKED D-178) · phase 2 warehouse 9/19 · golden slice 2.9 ACCEPTED.
 Pilot: Tier 0 = local Docker postgres:16 (D-129), seed 019 + synthetic data (D-127); doc 38 v4.7 (154 rows).
 Schema: 0001–0039, 0042–0044 applied (0022 withdrawn; 0042/0043/0044 lane M, 2.16 1a-5/1a-7/1a-8); issued: 0040 · 0041 (lane 2); next free 0045.
-Sessions: cloud Postgres from .claude/hooks/session-start.sh; PG_APP_USER required (ADR-0005 §7) · Master: M8, cap 5 (CLAUDE.md).
+Sessions: cloud Postgres from .claude/hooks/session-start.sh; PG_APP_USER required (ADR-0005 §7) · Master: M10, cap 5 (CLAUDE.md).
 Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewer (opus); bookkeeping by scripts/scribe.mjs (state, locks, CHANGELOG template).
 
 ## Lanes (tasks/LANE_LOCKS.md)
@@ -14,6 +14,7 @@ Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewe
 - lane 2 · billing · 4.19 · since 2026-09-28
 - lane M · tooling · X · since 2026-09-29
 - lane 2 · api · 4.19 · since 2026-09-29
+- lane 1 · pda · 2.16 · since 2026-09-29
 
 ## Last 5 feat/fix commits (git log)
 - `a885a99` feat(2.16): sessions/otp_codes writes behind six identity definers, migration 0044 (part 1a-8)
@@ -34,5 +35,5 @@ Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewe
 - Master batch (frozen paths): entityId on WithContextCtx; domain-kit browser break; eslint cwd bug; new-slice.sh stale citations.
 
 ## Next
-1. Lane 2 (billing): 4.1b part 2 merged → 4.19 (0040) → 4.20 (0041) · Master: 4.1b part 3 (guards.sql orphan query) · X part 12 part 4 before 4.19 handlers.
-2. M-core: X part 16 tooling · 1a-9 BLOCKED G-01 → AUDIT-CHAIN-01 · Integration: S7 part 2 → S9 → S12 · Lane 1: 1a-4c waits on X part 17.
+1. Weekly goal S1+S2+S18 (GM 07:20Z): Lane 1: 2.16 part 2 (pda) → part 3 · Integration: 2.18, S1 to green · waiting: S9 p2, 2.9 p3, 1a-4c.
+2. Lane 2: 4.19 (#205) → 4.20 · M-core: X part 16 tooling → X part 18 (`review` fails on FAIL) · 1a-9 BLOCKED G-01 → AUDIT-CHAIN-01.

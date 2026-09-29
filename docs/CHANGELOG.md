@@ -4,6 +4,15 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — weekly goal S1+S2+S18: lane 1 on 2.16 PDA screens, integration on 2.18 (Master M10, 2026-09-29)
+
+- **Weekly goal (GM 07:20Z via Advisory, issue #207):** S1 + S2 + S18 green (shared rows 2.16 + 2.18) — claimed `pda | 1 | 2.16`; briefs `_slice-2.16-p2-pda-receive` (receive + put-away) and `_slice-2.18-s1-green` (integration lane 3, tests/ only, so no lock); `2.16 part 2`/`part 3` rows; 1a-4c, 2.9 part 3 and `S9 part 2` wait; lane 2 stays 4.19 → 4.20.
+- **Rows:** `X part 18` (M-core: `review` fails on a FAIL verdict) · `X part 5b part 2` (d) relay-loop.test.ts:314 bounded poll (flaked ②③ on #203 at 27cd85b) · `S9 part 2` (S9.spec.ts:12/23-24/78 wording).
+- **D-201 (GM «موافق», 05:45Z):** the Master does no inline reads or reviews; every review, gate run or document read goes to a subagent returning ≤ 20 lines; fixes are pushed onto the same PR.
+- **Channel:** the permanent Advisory→Master channel is GitHub issue #207 (the Advisory cannot fire the Master's inbox routine); the Master reads it on every check-in and hourly. Live packet `docs/notes/handover-master.md` rewritten for M10.
+- **Defaults recorded:** STREAMS has no §12 — the screen set is taken from Stream A + doc 40 §D4/Part E: S1 drives receive, put-away, pick, check, load; S2 (VA-08 VAS command) and S18 (monthly snapshot) drive no D4 screen · the `pda` worktree cell names lane 1's live cloud session (`cloud:session_01LurRGWNNZEWuceRGGEaCPP`) · 2.18 goes to lane 3 per the GM although doc 38 names lane 1 · the review-check row is numbered `X part 18` (#202 adds 16/17).
+- Model: Master session (M10, opus) · Delegated: general-purpose (drafting), pg-reviewer (review) · Review: PASS(2 findings, 1 round) · tokens: ≈ 60k subagent.
+
 ## X — D-198 + D-200 + D-202: REVIEW CAP final subset of PR #202 after FAIL(8) (Master M9, 2026-09-29)
 
 - **What:** DECISION_LOG D-198, D-200 (Accepted, wording deferred to X part 17) and D-202; ADR-0007 "Proposed amendment" block (cap six, auto-archive, D-200, D-202); backlog `X part 16`, `X part 17`. CLAUDE.md is unchanged against main (five-session text stays until X part 17).
