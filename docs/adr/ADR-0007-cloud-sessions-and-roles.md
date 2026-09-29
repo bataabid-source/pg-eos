@@ -32,7 +32,7 @@
 
 ## Decision (القرار)
 1. **Ceiling.**
-   - Six concurrent cloud sessions (D-198): the Master, M-core, lane 1, lane 2, integration and the Stream C build lane (S3, S4, S15, S16 — GM instruction to M8, 2026-09-29), once its lock row exists. Phase 1 (D-196) was five.
+   - Six concurrent cloud sessions (D-198): the Master, M-core, lane 1, lane 2, integration and one further slot, not yet assigned (its naming waits on a GM instruction recorded as a D-id, `X part 17`). Phase 1 (D-196) was five.
    - One advisory session for the GM's questions (tag `pg-eos:advisory`) is not counted: it builds nothing and commits only on a GM directive.
    - A local host keeps max three concurrent sessions and the RUNBOOK §2 memory rule.
    - A seventh only after the GM answers when «و7 بعد تقييم 30 سبتمبر» applies (open question, DECISION_LOG D-198).

@@ -4,12 +4,13 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
-## X — D-198 + D-200: session cap 6, auto-archive, G16/Stryker out of local guards; parallel roles on disjoint locks (Master M8, 2026-09-29)
+## X — D-198 + D-200: PASS subset of PR #202 after round 2 FAIL(4) (Master M9, 2026-09-29)
 
-- **Why:** GM directives D-198 (2026-09-28; PR #184 by M5, FAIL(3) + conflict) and D-200 (2026-09-29) — verbatim in DECISION_LOG.
-- **Change:** CLAUDE.md (cap six, seventh after the open D-198 GM question; watchdog auto-archive with the clean-tree/pushed precondition; sixth role named: Stream C build lane, GM instruction 2026-09-29; D-200 folded into the Locks rule) · ADR-0007 §1, §5, Phase 2, status · DECISION_LOG D-198, D-200 · MASTER_BACKLOG `X part 16`, `X part 17`.
-- **REVIEW CAP:** #184 FAIL(3) → #201 round 1 FAIL(6) → one fix round → round 2 FAIL (bot FAIL(5); pg-reviewer opus FAIL(6)); this commit is the PASS subset. Open → `X part 17`: D-199 exception + agent-file copies in one merge, D-200 in-session concurrency wording.
-- Model: Master session (M8) · Delegated: pg-reviewer (opus, round 2) · tokens: 77k Master session context (get_session) + pg-reviewer ≈ 40k (agent usage report).
+- **What:** D-198 (cap six, watchdog auto-archive, G16/Stryker out of local guards) and its DECISION_LOG rows D-198 and D-200 (verbatim GM quotes), ADR-0007, backlog `X part 16`. CLAUDE.md is unchanged against main on the AGENTS AND SESSIONS role and Locks lines.
+- **Why:** round 2 failed on the Stream C sixth-role naming (no D-id row) and the D-200 Locks wording (no enforcing gate); D-198 row now cites PR #202.
+- **Files:** CLAUDE.md · docs/adr/ADR-0007-cloud-sessions-and-roles.md · docs/DECISION_LOG.md · tasks/MASTER_BACKLOG.md · docs/CHANGELOG.md.
+- **Review:** REVIEW CAP, PASS subset after round 2 FAIL(4) of #202; open findings go to `X part 17`.
+- Model: Master session (M9) · Delegated: none · tokens: not measured.
 
 ## 2.16 — identity.sessions / otp_codes writes behind definer functions, migration 0044 (part 1a-8) (2026-09-29)
 
