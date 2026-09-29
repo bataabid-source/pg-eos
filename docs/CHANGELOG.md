@@ -4,6 +4,15 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## 2.16 — lane-1 locks `pda` + `admin` with the 1a-4c brief; `tooling` to M-core; S7 part 2 + 2.9 part 3 rows (Master M8, 2026-09-29)
+
+- **Why:** M7 handover queue: R4 archived with 1a-4c briefed but unlocked; M-core idle on the D-198(أ) tooling slice; integration lane blocked on its S7 part 2 row; PR #185 FAIL(4) with its author archived (REVIEW CAP, no round 3).
+- **Change:** `tasks/LANE_LOCKS.md` — released `packages/i18n | M` (PR #196 merged) and stale `wms | 1` (R4); claimed `pda | 1 | 2.16`, `admin | 1 | 2.16` (whole brief, no 1a-4d split — Decision 7), `tooling | M | X`. `_slice-2.16-1a-4c.brief.md` from R4's `04a6cd0`/`d7c5b32` (brief-check OK). MASTER_BACKLOG: 1a-4c ACTIVE; `2.9 part 2 (fix)` SUPERSEDED (stale path fixed); new rows `S7 part 2` (lane 3, from `eb9a1b6` handover) and `2.9 part 3` (#185 findings 1–4, one item each, lock `wms/receive-inbound` re-claimed at start; #185 held).
+- **Lane 2:** claimed `api | 2 | 4.19` — PR #198's `apps/api/src/route-table.ts` UNIMPLEMENTED_ROUTES drop (five `/billing/accounting-periods/*` entries, route-table.unit.test 10 → 5) is lane 2's to land in #198; lane-guard refused it under `billing` alone.
+- **D-199 (1a-4c brief, Decision 1):** the GM directive of 2026-09-27 recorded verbatim in DECISION_LOG — `languages.ts` (pda, admin) and the two `index.html` brand titles are the only exception to "no embedded UI strings"; gate ① (eslint) carries no UI-string rule — the constraint is enforced by pg-reviewer and the i18n key-set tests — so no lint allowance and no `eslint-disable`.
+- **Defaults recorded:** tooling claimed as task `X` — "X part 16" is not a doc-38 row (check-locks D-185); M-core commits its tooling brief under the lock as the slice's first step, brief-check before any build. #184 FAIL(3) is reworked by the Master on a fresh `-r5` branch (next frozen-path PR, after this one).
+- Model: Master session (M8) · Delegated: none · Review: PR #199 FAIL rounds folded into one commit on `master/locks-s7p2-r1` (rebase merge, PR #199 closed) · tokens: ≈ 90k (Master, estimate).
+
 ## 2.16 — identity.sessions / otp_codes writes behind definer functions, migration 0044 (part 1a-8) (2026-09-29)
 
 - **Why:** SCR-IDENTITY-RLS-01 delta 2 (D-193 D4 أ): any internal context could write `identity.sessions` / `identity.otp_codes` directly; acceptance "`pgeos_app` cannot insert/update/delete them directly; OTP + session tests stay green".
