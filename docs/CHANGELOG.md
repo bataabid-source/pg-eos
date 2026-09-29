@@ -4,6 +4,15 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — X part 16 — G16/Stryker out of local guards (D-198 (أ)), lane-guard .githooks/* (2026-09-29)
+
+- **Why:** D-198 (أ) «Stryker خارج الفحص المحلي، يبقى في CI والليلي»: a local commit touching `database/` ran Stryker on every module (≈ 45 min per commit).
+- **Change:** `scripts/lib/g16-scope.sh` `g16_decide` gains `local` (strict → all; CI mode `[ -n "${CI:-}" ] && [ "$CI" != false ] && [ "$CI" != 0 ]` → today's all/scoped; otherwise local) · `scripts/guards-run.sh` keeps the config check locally, then reports `G16 - SKIPPED locally (D-198 (أ): CI gate ⑤ scoped + nightly govern)`, non-blocking · `.githooks/pre-commit` comments · `.claude/hooks/lane-guard.sh` tooling case + header gain `.githooks/*` · RED `tests/ops/{x-part-16.feature,tests/x-part-16.test.ts}` + 3 `tests/hooks/run.sh` cases.
+- **Defaults recorded:** no local opt-in (G16_LOCAL dropped; use `pnpm mutation <module>`) · the x-part-6 `g16_decide` case pins `CI='true'` (it tested CI-mode behaviour; no assertion changed) · ADR-0007:46's tooling mapping, D-198 (ب) and the D-199 agent copy stay with X part 17 · CI ⑤ and nightly.yml unchanged.
+- **Review (pg-reviewer):** pre-build round 1 FAIL(3 blocking + 8 nits) → fix round → round 2 PASS(4 nits); close PASS(1 nit); all fixed in the same round.
+- **Verified:** CI unset: tests/ops x-part-16 + x-part-6 14/14, tests/hooks 202/202; CI=true 14/14; fresh `pgeos_x16` local `pnpm guards:run` exit 0 in 39 s, no Stryker, G1–G15/G18 green, G16 SKIPPED, G17 not runnable.
+- Model: M-core session (opus) · Delegated: pg-tester (sonnet), pg-builder-core (opus), pg-reviewer (opus) · Review: PASS(16 findings, 3 rounds) · tokens: pg-tester ≈ 78k · pg-builder-core ≈ 45k · pg-reviewer ≈ 110k
+
 ## X — weekly goal S1+S2+S18: lane 1 on 2.16 PDA screens, integration on 2.18 (Master M10, 2026-09-29)
 
 - **Weekly goal (GM 07:20Z via Advisory, issue #207):** S1 + S2 + S18 green (shared rows 2.16 + 2.18) — claimed `pda | 1 | 2.16`; briefs `_slice-2.16-p2-pda-receive` (receive + put-away) and `_slice-2.18-s1-green` (integration lane 3, tests/ only, so no lock); `2.16 part 2`/`part 3` rows; 1a-4c, 2.9 part 3 and `S9 part 2` wait; lane 2 stays 4.19 → 4.20.
