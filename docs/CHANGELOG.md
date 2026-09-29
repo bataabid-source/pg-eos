@@ -4,6 +4,16 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — X part 18 — the `review` CI check fails on a FAIL verdict (M-core, 2026-09-29)
+
+- **Why:** row 364 — `review` was green on any pg-reviewer verdict (nothing read the comment), so the merge queue could read green as PASS.
+- **Change:** `scripts/review-verdict.mjs` (+ `.d.mts`): `pickVerdict(comments, { since, author })` — newest `claude[bot]` comment at/after `--since` whose body matches `PASS|FAIL(<n> findings)`; flat array or `--slurp` pages; CLI under a main guard prints `green` | `red:FAIL(<n> findings) — <url>` | `red:no verdict …`, exit 0/1/2 · `.github/workflows/claude-review.yml`: step `Record job start` (`since=` output) before the action, step `Verdict gate` after it (`gh api …/issues/$PR/comments?per_page=100 --paginate --slurp` → the script), values via `env:`, both gated on the token — no secret = four skipped steps, job green (inert) as before.
+- **Tests:** `tests/ops/x-part-18.feature` · `tests/ops/tests/x-part-18.test.ts` (6 scenarios + a seeded generated case table, 300 cases; workflow parsed as text).
+- **Defaults recorded:** missing verdict with the token present = red (a review that posted nothing is broken, never a silent green) · invalid `--since` or non-array JSON = exit 2 · residual limits: (a) a cancelled run's action posting after the new run's `start` while the new action posts nothing gives a stale verdict for the older SHA (a SHA stamp needs the prompt, frozen here); (b) the gate runs the PR's own script and workflow, so `review` green is trustworthy only on PRs touching neither (both `tooling` paths, manual merge).
+- **Review (pg-reviewer):** pre-build round 1 FAIL(6) → fix → round 2 FAIL(5: four on the RED files as they stood before pg-tester's update landed — review/update race —, one brief list) — REVIEW CAP; open RED items handed to pg-tester before close; close review round 1 FAIL(4 nits: stale cast/comment in the test, usage assertion, CHANGELOG placeholders, brief deletion) → fix round → round 2 PASS (the last open item was this line's own placeholder).
+- **Verified:** `pnpm -s test:ops` 30/30 (x-part-18 7/7) · ops typecheck + `eslint scripts tests/ops` clean · `node --check` OK · YAML parses · check-locks OK · `review-verdict.mjs /nonexistent --since …` exits 2 with the usage line.
+- Model: opus (M-core session) · Delegated: pg-tester (sonnet ×4), pg-reviewer (opus ×4), pg-builder (sonnet) · Review: PASS(4 findings, 2 rounds) · tokens: pg-tester ≈ 90k · pg-reviewer ≈ 100k (pre-build) · pg-builder ≈ 20k
+
 ## X — bookkeeping: 2.9 part 3 `wms` lock, D-203 lifetime 720, handover packets, X part 17 rows (Master M12, 2026-09-29)
 
 - **GM defaults 12:25Z (Advisory, #207 — DEFAULT, RECORD, PROCEED):** (a) 2.9 part 3 lock scope = `wms` (whole module; brief write scope adds `stock-ledger/post-movement.ts` + `errors.ts`), claimed when 2.9 p3 is reached with `pda` released in the same step (one lock row per lane — #212 review 13:02Z); `pda | 1 | 2.16` moved to lane 1's live session; lane 1 runs 2.16 p2 → 2.16 p3 → 2.9 p3 sequentially in one session.

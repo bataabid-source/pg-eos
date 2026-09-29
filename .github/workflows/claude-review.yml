@@ -1,7 +1,7 @@
 # PG-EOS · automated PR review (GM directive 2026-09-27 "نفذ الكل بنفسك").
 # anthropics/claude-code-action reviews every pull request against CLAUDE.md and the doc 36 §5-4
-# checklist and posts its findings as PR comments. It is advisory: merge still needs CI gates ①–⑥
-# green and the human review required by branch protection on main.
+# checklist and posts its findings as PR comments. The check fails on a FAIL verdict or on a missing
+# verdict; merge still needs CI gates ①–⑥ green and the human review required by branch protection on main.
 # Inert until the repository secret CLAUDE_CODE_OAUTH_TOKEN exists (Settings → Secrets → Actions; Pro/Max token from `claude setup-token`, GM option 2 of D-193).
 name: Claude PR review
 
@@ -22,10 +22,15 @@ jobs:
       pull-requests: write
       id-token: write
     # Without the secret the job still starts (a job-level `if` cannot read secrets), so every step
-    # is gated on it: no secret = two skipped steps and a green job, never a red check on each PR.
+    # is gated on it: no secret = four skipped steps and a green job, never a red check on each PR.
     env:
       HAS_REVIEW_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN != '' }}
     steps:
+      - name: Record job start
+        id: start
+        if: ${{ env.HAS_REVIEW_TOKEN == 'true' }}
+        run: echo "since=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+
       - uses: actions/checkout@v4
         if: ${{ env.HAS_REVIEW_TOKEN == 'true' }}
         with:
@@ -57,3 +62,14 @@ jobs:
             each file-specific finding. Only post GitHub comments — no other output.
           claude_args: |
             --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*)"
+
+      - name: Verdict gate — review is red on FAIL or on a missing verdict
+        if: ${{ env.HAS_REVIEW_TOKEN == 'true' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR: ${{ github.event.pull_request.number }}
+          SINCE: ${{ steps.start.outputs.since }}
+          REPO: ${{ github.repository }}
+        run: |
+          gh api "repos/$REPO/issues/$PR/comments?per_page=100" --paginate --slurp > "$RUNNER_TEMP/review-comments.json"
+          node scripts/review-verdict.mjs "$RUNNER_TEMP/review-comments.json" --since "$SINCE"
