@@ -16,11 +16,11 @@ Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewe
 - lane 1 · wms · 2.9 · since 2026-09-29
 
 ## Last 5 feat/fix commits (git log)
+- `aed737c` feat(4.20): posting engine — entry types, reversal/adjustment, balance at commit, posted immutable, migration 0041 (#214)
 - `bf1c51b` fix(X): #209 trimmed to the PASS subset — guards:deploy and its two cases removed, X part 16 part 2 row (Master M12 16:05Z)
 - `66cfccc` feat(2.16): PDA receive + put-away screens on XState v5, S1's D4 steps (part 2) (#211)
 - `03d3644` fix(X): pnpm guards:deploy pins PG_GUARDS_STRICT=1 at deploy — #209 finding 1 (X part 16 fix round)
 - `9897a01` feat(4.19): fiscal years + accounting periods (open/closed/locked), DB refuses posting into closed/locked periods, migration 0040
-- `4b17ae3` feat(X): G16/Stryker out of local guards (D-198 (أ)), lane-guard tooling opens .githooks/* (X part 16)
 
 ## Blockers
 - G16: changed domain/ per PR, every module nightly (X part 6); G15 per STREAMS §G15 (green.json); G17 NOT RUNNABLE; deploy.sh waits on 0.6b.

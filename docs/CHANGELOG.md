@@ -15,6 +15,15 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 - **Verified:** CI unset: tests/ops x-part-16 + x-part-6 14/14, tests/hooks 202/202; CI=true 14/14; fresh `pgeos_x16` local `pnpm guards:run` exit 0 in 39 s, no Stryker, G1–G15/G18 green, G16 SKIPPED, G17 not runnable.
 - Model: M-core session (opus) · Delegated: pg-tester (sonnet), pg-builder-core (opus), pg-reviewer (opus) · Review: PASS(16 findings, 2 rounds) slice; PR #209 FAIL(4) round 2 — PASS subset · tokens: pg-tester ≈ 78k · pg-builder-core ≈ 45k · pg-reviewer ≈ 110k
 
+## X — X part 5d part 2 (1) — apps/api public entry: hostRoutesFrom, isHostResult, package exports (2026-09-29)
+
+- **Why:** backlog row X part 5d part 2, item (1): PR #175's scenario fixture reached into `apps/api/src` and copied the host's `isHostResult` and table→HostRoute map.
+- **Change:** `apps/api/src/host-routes.ts` holds `isHostResult` (moved verbatim), `HostRouteRef`, `mountedHostRoutes` (the old `tableEntries` mounted branch, used by `server.ts`, never throws) and `hostRoutesFrom` (adds a handler-name index, throws on a duplicate; for external callers). `apps/api/src/index.ts` is a pure barrel. `package.json` gains main/types/exports `{ types, default }` and `build`. `tsconfig.build.json` emits `src` → `dist` at the same depth, which `route-table.ts:82` depends on. RED: `apps/api/tests/public-entry.test.ts` (7) + `apps/api/features/x-part-5d-p2-1.feature`.
+- **Defaults recorded:** apps/api builds with a separate `tsconfig.build.json` (its tsconfig is noEmit), unlike api-kit/wms · tests import `../src/index.js`; `@pg-eos/api` by name is proven when tests/scenarios depends on it (item 3, integration) · the Dockerfile's root `pnpm build` now also emits apps/api/dist; runtime stays tsx · items (2)–(4) out of scope · guards run on a fresh `pgeos_x5` (`pgeos_x16` predates 0040).
+- **Review (pg-reviewer):** pre-build round 1 FAIL(4 blocking + 3 nits) → fix → round 2 PASS(3 nits); close round 1 FAIL(1 environmental + 1 nit) → round 2 PASS(0 open).
+- **Verified:** apps/api 24/24 (public-entry 7/7; server.test 13/13 and route-table.unit 4/4 unedited) · build emits `dist/index.js` · typecheck, eslint, lint:boundaries, check-locks OK · `pgeos_x5` `pnpm guards:run` exit 0, G1–G16/G18 green, G17 not runnable (CI ⑤ confirms).
+- Model: M-core session (opus) · Delegated: pg-tester (sonnet), pg-builder-core (opus), pg-reviewer (opus) · Review: PASS(12 findings, 4 rounds) · tokens: pg-tester ≈ 61k · pg-builder-core ≈ 35k · pg-reviewer ≈ 105k
+
 ## 4.20 — Posting engine: entry types, reversal/adjustment, balance at commit, posted immutable, migration 0041 (lane 2, 2026-09-29)
 
 - **Why:** doc 38 row 4.20 "Unbalanced entry refused at commit; UPDATE/DELETE on posted refused; G2 = 0" · ADR-0004 D1 2–4, Consequences 4, OD-15 · SCR-ACC-01 #5–#8 (+ row 30 `version`, Master M12 default F2, #207 12:42Z).
