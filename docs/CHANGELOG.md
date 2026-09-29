@@ -16,6 +16,25 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 - **Process:** workers read beyond the 8-file brief list → 4.20 part 3. Harness refused writing the migration file ([Modify Shared Resources]) until human approval.
 - Model: lane session (opus) · Delegated: pg-tester (sonnet), pg-builder-core (opus), pg-reviewer (opus) · Review (cumulative): slice PASS(7 findings, 2 rounds), pre-migration FAIL(11) + RED FAIL(7) folded in; PR #214 claude[bot] 5 rounds — r1 PASS(2), r2 FAIL(2), r3 FAIL(1, migration escalation = last allowed), r4 FAIL(4), r5 FAIL(4), r6 FAIL(3) exceed the cap → PASS subset only, open findings → 4.20 part 5–9 · tokens: builder ~200k (> 150k, < 2×), tester ~380k, reviewer ~330k.
 
+## X — lane 1 briefs (2.9 p3, 2.16 p3, 2.16 p2e) + `wms` lock + D-204 (Master M12, 2026-09-29)
+
+- **GM 17:30Z** «افتح موجزات خط 1 وقفل wms اليوم» (Override: GM; Advisory relay #207 comment 5895344613): lock `pda | 1 | 2.16` released → `wms | 1 | 2.9` claimed (scribe, cloud:session_01VComj7TLSZGmgfAUrRbGsP); #215 (D-204) folded in, review nits 2–3 applied (D-204 verbatim separated in DECISION_LOG; handover-master #215 item).
+- **GM 17:50Z** «موافق» (as tagged in Advisory's relay, #207 comment 5895434301, posted 17:38:39Z — the tag time is Advisory's; the post time is the checkable one): row `2.16 part 2e` PDA visual layer (doc 40 §D4 L420-423), after 2.16 p3, before any real-user demo.
+- **Briefs:** `_slice-2.9-p3-fefo-expiry` — lane 1 pre-build items 1/3/5/6 applied (put-away destination inherits the source expiry under the batch lock; Read list ports.ts L251-266 + receive-line.ts L1-212, S1.spec.ts dropped; lock order rebuild → location-limit → batch advisory → row locks → audit; 2(c) unconditional). New `_slice-2.16-p3-pda-pick-check-load`, `_slice-2.16-p2e-pda-visual` (brief-check OK: 748 / 820 / 737 lines, 8 files each).
+- **Lane 1 order:** 2.9 p3 (`wms`) → 2.16 p3 → 2.16 p2e (`pda` re-claimed at 2.9 p3 close) — backlog rows, docs/state/next.md, handover-advisory.md (directives A, B verbatim), handover-master.md.
+- **Defaults:** 2.16 p3 has no pack screen (not one of D4's nine; open question); 2.16 p2e's Tailwind deps + lockfile by M-core `tooling` before build; 48 px from the GM-approved scope (not doc 40) lives as a named token in one `apps/pda/src/ui/` token file (brief Decision 3), never inline.
+- **Squash trailers (#215 review round 3):** `Override: GM` · `GM-Directive: "[GM directive 2026-09-29 17:30Z] «افتح موجزات خط 1 وقفل wms اليوم»"` (#207 5895344613) · `GM-Directive: "[GM directive 2026-09-29 17:50Z] «موافق»"` (#207 5895434301, posted 17:38:39Z) · `Decision: D-204`; Master M13.
+- **Hash:** backlog `2.16 part 2` placeholder → `66cfccc` (#211 squash left it stale; `resolve-hashes --write`).
+- Model: Master M12 (opus) · Delegated: M12 → subagent · Review: none (docs) · tokens: ≈ 60k subagent.
+
+## X — D-204: one expiry per batch across locations, SCR-WMS-BATCH-EXPIRY-01 closed (Master M12, 2026-09-29)
+
+- **GM directive 13:25Z (relayed by the Advisory session 13:50Z, #207):** «نعم» — option 1, no schema change → **D-204** (DECISION_LOG; rationale marked Advisory/Master text).
+- **SCR:** `SCR-WMS-BATCH-EXPIRY-01` → APPROVED by D-204 (row approved, §3 Decision: ledger write path; option 2 not approved); the 2.9 part 3 commit still deletes it.
+- **Brief** `_slice-2.9-p3-fefo-expiry`: Rule source → D-204; Decision 2(c), the "refused at another location" scenario and the property test's cross-location clause unconditional (no 2.9 part 4 fallback). Backlog row 2.9 part 3 acceptance restored ("refused at any location"), rule source D-204; brief quotes it verbatim.
+- **Packets:** handover-advisory.md + handover-master.md record D-204; SCR removed from open GM questions. State regenerated (scribe).
+- Model: Master M12 (opus) · Delegated: M12 → subagent · Review: none (docs) · tokens: ≈ 25k subagent.
+
 ## 2.16 — PR #211 fix round: put-away retry clears `unavailable`, stable suggest deps (part 2, fix)
 
 - **What:** pg-reviewer on #211 FAIL(4, 1 blocking). (1) blocking: `unavailable` never cleared → `putaway-retry` button re-requests the suggestion, cleared on retry and on a new suggest input; `putaway.suggestion.unavailable` now names the retry (six locales) + `putaway.retry` (47 keys). (2) nit: effect keyed on `skuId/qty/warehouseId`, not the `suggest` object. (3) trailer of 6a5dbf5 overstated PASS — corrected in the entry below; history not rewritten (no force-push). (4) budget 2.6× — accepted by M11, part 3 gets its own session.

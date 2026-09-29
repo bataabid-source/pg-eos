@@ -8,7 +8,7 @@ History of claims and releases: `docs/CHANGELOG.md` · migration register and ne
 | identity | M | 2.16 | 2026-09-28 | . |
 | tooling | M | X | 2026-09-29 | . |
 | api | M | X | 2026-09-29 | . |
-| pda | 1 | 2.16 | 2026-09-29 | cloud:session_01QdrAPRKmFdLKZYJzbceZDc |
+| wms | 1 | 2.9 | 2026-09-29 | cloud:session_01VComj7TLSZGmgfAUrRbGsP |
 
 ## Rules (CLAUDE.md · AGENTS AND SESSIONS)
 
