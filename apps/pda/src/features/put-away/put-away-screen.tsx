@@ -1,12 +1,15 @@
 // WBS 2.16 part 2 — PDA put-away screen (doc 40 §D4): shows the suggested location, the worker
 // confirms it by scanning the location code.
 import { useEffect, useRef, useState } from 'react';
+import { useMachine } from '@xstate/react';
+import { fromPromise } from 'xstate';
 import type { ConfirmPutawayInput, SuggestLocationInput } from '@pg-eos/contracts/wms/receive-inbound';
 
 import { enqueue as defaultEnqueue } from '../../offline-queue';
-import { t, type Locale, type TranslationKey } from '../../i18n/t';
+import { t, type Locale } from '../../i18n/t';
 import type { ScanSignal } from '../receive/scan-signal';
 import type { PutawayClient } from './client';
+import { putawayMachine } from './put-away-machine';
 
 export interface ConfirmPutawayCommand {
   kind: 'confirm-putaway';
@@ -29,13 +32,6 @@ export interface PutawayScreenProps {
   enqueue?: (payload: unknown) => Promise<void>;
 }
 
-interface Suggestion {
-  locationId: string;
-  locationCode: string;
-}
-
-type Outcome = { kind: 'none' } | { kind: 'confirmed' } | { kind: 'wrongLocation' } | { kind: 'saveFailed' };
-
 export function PutawayScreen({
   client,
   orderId,
@@ -50,83 +46,49 @@ export function PutawayScreen({
   enqueue = defaultEnqueue,
 }: PutawayScreenProps) {
   const locale = controlledLocale ?? 'ar';
-  const [suggestion, setSuggestion] = useState<Suggestion | null>(null);
-  const [unavailable, setUnavailable] = useState(false);
-  const [attempt, setAttempt] = useState(0);
-  const [scanned, setScanned] = useState('');
-  const [outcome, setOutcome] = useState<Outcome>({ kind: 'none' });
-  const inFlight = useRef(false);
-  const signalRef = useRef(signal);
-  signalRef.current = signal;
+  const propsRef = useRef({ client, orderId, lineId, expectedVersion, signal, newKey, newCorrelationId, now, enqueue });
+  propsRef.current = { client, orderId, lineId, expectedVersion, signal, newKey, newCorrelationId, now, enqueue };
+  const [machine] = useState(() =>
+    putawayMachine.provide({
+      actors: {
+        suggestLocation: fromPromise(async ({ input }: { input: SuggestLocationInput }) =>
+          propsRef.current.client.suggestLocation(input),
+        ),
+        confirmPutaway: fromPromise(async ({ input }: { input: { locationId: string } }) => {
+          const p = propsRef.current;
+          const command = {
+            kind: 'confirm-putaway',
+            idempotencyKey: p.newKey(),
+            body: {
+              orderId: p.orderId,
+              lineId: p.lineId,
+              toLocationId: input.locationId,
+              expectedVersion: p.expectedVersion,
+              correlationId: p.newCorrelationId(),
+            },
+            scannedAt: p.now().toISOString(),
+          } satisfies ConfirmPutawayCommand;
+          await p.enqueue(command);
+        }),
+      },
+      actions: {
+        signalOk: () => propsRef.current.signal.ok(),
+        signalError: () => propsRef.current.signal.error(),
+      },
+    }),
+  );
+  const [state, send] = useMachine(machine, { input: { suggest } });
+  const { suggestion, scanned, errorKey } = state.context;
 
   const { skuId, qty, warehouseId } = suggest;
-
   useEffect(() => {
-    let cancelled = false;
-    setUnavailable(false);
-    setSuggestion(null);
-    client
-      .suggestLocation({ skuId, qty, warehouseId })
-      .then((result) => {
-        if (!cancelled) {
-          setSuggestion(result);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setUnavailable(true);
-          signalRef.current.error();
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [client, skuId, qty, warehouseId, attempt]);
+    send({ type: 'SUGGEST_CHANGED', suggest: { skuId, qty, warehouseId } });
+  }, [send, skuId, qty, warehouseId]);
 
-  async function handleConfirm(event: React.FormEvent<HTMLFormElement>) {
+  function handleConfirm(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    // a confirmed put-away is terminal for this line: the guard stays set after success.
-    if (inFlight.current || suggestion === null) {
-      return;
-    }
-    if (scanned !== suggestion.locationCode) {
-      signal.error();
-      setOutcome({ kind: 'wrongLocation' });
-      return;
-    }
-    inFlight.current = true;
-    setOutcome({ kind: 'none' });
-    try {
-      const command = {
-        kind: 'confirm-putaway',
-        idempotencyKey: newKey(),
-        body: {
-          orderId,
-          lineId,
-          toLocationId: suggestion.locationId,
-          expectedVersion,
-          correlationId: newCorrelationId(),
-        },
-        scannedAt: now().toISOString(),
-      } satisfies ConfirmPutawayCommand;
-      await enqueue(command);
-      signal.ok();
-      setOutcome({ kind: 'confirmed' });
-    } catch {
-      // enqueue rejected (storage failure): release the guard so the worker can confirm again.
-      inFlight.current = false;
-      signal.error();
-      setOutcome({ kind: 'saveFailed' });
-    }
+    send({ type: 'CONFIRM' });
   }
-
-  const errorKey: TranslationKey | null = unavailable
-    ? 'putaway.suggestion.unavailable'
-    : outcome.kind === 'wrongLocation'
-      ? 'putaway.error.wrongLocation'
-      : outcome.kind === 'saveFailed'
-        ? 'pda.queue.saveFailed'
-        : null;
 
   return (
     <div data-testid="putaway-screen">
@@ -137,18 +99,18 @@ export function PutawayScreen({
       <form onSubmit={handleConfirm}>
         <label>
           {t(locale, 'putaway.scan.label')}
-          <input data-testid="putaway-location" type="text" value={scanned} onChange={(e) => setScanned(e.target.value)} />
+          <input data-testid="putaway-location" type="text" value={scanned} onChange={(e) => send({ type: 'SCAN', value: e.target.value })} />
         </label>
         <button type="submit" disabled={suggestion === null}>
           {t(locale, 'putaway.confirm')}
         </button>
       </form>
-      {outcome.kind === 'confirmed' ? <p role="status">{t(locale, 'putaway.confirmed')}</p> : null}
+      {state.matches('confirmed') ? <p role="status">{t(locale, 'putaway.confirmed')}</p> : null}
       {errorKey === null ? null : (
         <p role="alert">{t(locale, errorKey, { location: suggestion?.locationCode ?? '' })}</p>
       )}
-      {unavailable ? (
-        <button type="button" data-testid="putaway-retry" onClick={() => setAttempt((a) => a + 1)}>
+      {state.matches('unavailable') ? (
+        <button type="button" data-testid="putaway-retry" onClick={() => send({ type: 'RETRY' })}>
           {t(locale, 'putaway.retry')}
         </button>
       ) : null}
