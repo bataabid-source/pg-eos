@@ -4,14 +4,12 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
-## X — D-198 + D-199 + D-200: ADR-0007 Phase 2 — session cap 6, auto-archive, G16/Stryker out of local guards; parallel at every level (Master M8, 2026-09-29)
+## X — D-198 + D-199 + D-200: ADR-0007 Phase 2 cap 6 + auto-archive + local guards; language-selector exception; parallel at every level (Master M8, 2026-09-29)
 
-- **Why:** D-198 (GM, 2026-09-28, PR #184 by M5, FAIL(3) and conflicting with main) reworked on a fresh `-r5` branch per the GM's order "#184, #185, then #198"; D-200 — GM directive «إذا كان ممكن العمل المتوازي للجلسات طبقه علي كل المستويات» (2026-09-29), applied in CLAUDE.md.
-- **Change (D-198):** CLAUDE.md cap line six (Stream C once its lock row + brief exist), auto-archive with the clean-tree/pushed precondition · ADR-0007 §1, §5, Phase 2, roles table, status · DECISION_LOG D-198. The seven-sessions clause now quotes «الحد 6 الآن و7 بعد تقييم 30 سبتمبر» verbatim; its timing (evaluation itself vs the GM's reading of its report) is an open GM question — cap six until answered (default). G16/Stryker removal stays M-core's `tooling` slice (X part 16).
-- **Change (D-200):** CLAUDE.md · AGENTS AND SESSIONS — new "Parallel at every level" rule (disjoint locks up front, concurrent subagents, next-slice RED while building, next brief before merge, rebase auto-merge at PASS; serial PRs stay serial); a lane session carries its next briefed slice instead of ending after one · ADR-0007 Phase 2 · DECISION_LOG D-200.
-- **Change (D-199):** CLAUDE.md AGENT CONSTRAINTS — "no embedded UI strings" names its sole exception, the language selector `languages.ts` (GM directive 2026-09-27, verbatim in DECISION_LOG); the four agent-file copies follow in M-core's X part 16 (`tooling`). Round 1 fix: CLAUDE.md keeps rules only (quotes and the open D-198 question live in DECISION_LOG/ADR); D-200 names its gates (check-locks.sh, lane-guard.sh, main ruleset).
-- **Review:** #184 FAIL(3) (2 blocking: the "seven" clause rewrote the directive; CLAUDE.md drift — now six with the verbatim clause; nit: this line states the outcome) all addressed here; this PR's own `review` verdict decides the merge.
-- Model: Master session (M8) · Delegated: none · tokens: ≈ 40k (estimate).
+- **Why:** GM directives — D-198 (2026-09-28, PR #184 by M5, FAIL(3) + conflict, reworked here as `-r5`), D-199 (2026-09-27), D-200 (2026-09-29, «إذا كان ممكن العمل المتوازي للجلسات طبقه علي كل المستويات»); full text in DECISION_LOG.
+- **Change:** CLAUDE.md (cap six, seventh after the open D-198 GM question; auto-archive precondition; UI-string exception; "Parallel at every level" rule with its gates) · ADR-0007 §1, §5, Phase 2, roles table, status (stop condition unchanged: back to three) · DECISION_LOG D-198 (verbatim clause), D-199, D-200. The agent-file copies of the constraint follow in M-core's X part 16.
+- **Review:** #184 FAIL(3) → addressed; #201 round 1 FAIL(6: 4 blocking, 2 nits) → one fix round (`1ad2c5e` + this commit); ADR addendum reviewed by pg-reviewer (opus) in round 2.
+- Model: Master session (M8) · Delegated: pg-reviewer (opus) · tokens: 77k (Master session context at this commit, get_session).
 
 ## 2.16 — identity.sessions / otp_codes writes behind definer functions, migration 0044 (part 1a-8) (2026-09-29)
 
