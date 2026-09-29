@@ -11,9 +11,9 @@
 ## 2 · Requested rule
 | # | Object | Rule | Source | status |
 |---|---|---|---|---|
-| 1 | `wms.stock_balance.expiry_date` (ledger write path) | For one (client_id, sku_id, batch_no), every balance row at every location carries the same non-null `expiry_date`. A movement that carries a different non-null expiry for that batch is refused, never overwritten. A null expiry is filled by the first non-null one. | #185 brief Decision 2 (Master default) — no package source | approved (with SCR-WMS-EXPIRY-01) |
+| 1 | `wms.stock_balance.expiry_date` (ledger write path) | For one (client_id, sku_id, batch_no), every balance row at every location carries the same non-null `expiry_date`. A movement that carries a different non-null expiry for that batch is refused, never overwritten. A null expiry is filled by the first non-null one. | #185 brief Decision 2 (Master default) — no package source | open — pending GM decision |
 
-## 3 · Decision
-- Same rule as SCR-WMS-EXPIRY-01 ("one expiry per batch across locations", on the existing `wms.stock_balance.expiry_date`); it adds no table or column, so it is approved with EXPIRY-01.
-- Enforced in application code on the ledger write path (EXPIRY-01 option 1, no schema change). A batch-level table or a constraint (EXPIRY-01 option 2) is NOT approved; it would need its own SCR, migration number and pre-migration review.
-- Applied by 2.9 part 3, whose commit deletes this note.
+## 3 · Proposed (pending GM decision — only the header status can flip this)
+- Proposed: the same rule as SCR-WMS-EXPIRY-01 ("one expiry per batch across locations", on the existing `wms.stock_balance.expiry_date`); it adds no table or column.
+- Proposed enforcement: application code on the ledger write path (EXPIRY-01 option 1, no schema change). A batch-level table or a constraint (EXPIRY-01 option 2) is out of scope for this SCR; it would need its own SCR, migration number and pre-migration review.
+- If approved, applied by 2.9 part 3 (cross-location refusal), whose commit deletes this note; if not approved by slice start, the cross-location clause moves to 2.9 part 4 and this note stays open.
