@@ -4,6 +4,16 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## 2.16 — PDA receive + put-away screens, S1's D4 steps (part 2) (2026-09-29)
+
+- **Why:** weekly goal S1+S2+S18 (GM 07:20Z, #207) — doc 40 §D4 receive + put-away, the PDA steps of S1's first scenario.
+- **Change:** `apps/pda/src/features/{receive,put-away}/**` (ports + mocks, scan signal, `scan-queue.ts` validating against `ReceiveLineInputSchema` fields, one Idempotency-Key + correlationId per accepted scan through `offline-queue.ts`), `router.tsx` `/receive` `/put-away`, 18 i18n keys × 6 locales (46); tests `apps/pda/tests/{receive,put-away}/**` + `keys.test.ts`; pda 104/104.
+- **Defaults recorded:** pg-tester (not the builder) edits `apps/pda/tests/i18n/keys.test.ts` (inside `pda`, outside the brief's Write ONLY) · refusal codes = server errors (lineNotFound, skuClientMismatch, lineAlreadyReceived) · offline receive REFUSES the scan (`receive.offline.retry`), queuing deferred to `2.16 part 2b` · put-away without a suggestion refuses · one confirm per put-away mount · expiry is a `YYYY-MM-DD` text field (wedge scanner) · mocks accept one fixture · empty `batchNo` passes (contract has no min) · `dist` of packages/contracts must be built locally before pda tests.
+- **Partial:** Gherkin scenario 4 ("Offline, both screens keep working") is partly delivered — see `2.16 part 2b`; `checkScan` has no server operation yet (G-01 open question, 2b).
+- **Process:** pg-tester read `otp-login-screen.test.tsx`, `keys.test.ts`, `apps/pda/package.json`, `queue-badge.test.tsx` (grep), `packages/contracts/wms/receive-inbound.ts` L1-140; pg-builder read `i18n/t.ts`, `placeholder-screen.tsx`, the contract — all outside Read ONLY. Budget: ≈ 390k subagent tokens vs 150k (> 2×) — not split before the next review; recorded, not repeated.
+- **Review (pg-reviewer):** pre-build FAIL(7) → fix → FAIL(5, 1 blocking) → PASS subset (offline receive → 2b); close FAIL(7, 2 blocking) → fix → FAIL(1 nit) → PASS subset = whole diff; nit → `2.16 part 2c`.
+- Model: lane session (opus) · Delegated: pg-tester (sonnet), pg-builder (sonnet), pg-reviewer (opus ×4) · Review: PASS(20 findings, 2 rounds) - REVIEW CAP subset, round 2 FAIL(1 nit) · tokens: pg-tester ≈ 132k · pg-builder ≈ 73k · pg-reviewer ≈ 185k.
+
 ## X — weekly goal S1+S2+S18: lane 1 on 2.16 PDA screens, integration on 2.18 (Master M10, 2026-09-29)
 
 - **Weekly goal (GM 07:20Z via Advisory, issue #207):** S1 + S2 + S18 green (shared rows 2.16 + 2.18) — claimed `pda | 1 | 2.16`; briefs `_slice-2.16-p2-pda-receive` (receive + put-away) and `_slice-2.18-s1-green` (integration lane 3, tests/ only, so no lock); `2.16 part 2`/`part 3` rows; 1a-4c, 2.9 part 3 and `S9 part 2` wait; lane 2 stays 4.19 → 4.20.
