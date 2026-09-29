@@ -4,6 +4,25 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — bookkeeping: 2.9 part 3 `wms` lock, D-203 lifetime 720, handover packets, X part 17 rows (Master M12, 2026-09-29)
+
+- **GM defaults 12:25Z (Advisory, #207 — DEFAULT, RECORD, PROCEED):** (a) 2.9 part 3 lock scope = `wms` (whole module; brief write scope adds `stock-ledger/post-movement.ts` + `errors.ts`), claimed when 2.9 p3 is reached with `pda` released in the same step (one lock row per lane — #212 review 13:02Z); `pda | 1 | 2.16` moved to lane 1's live session; lane 1 runs 2.16 p2 → 2.16 p3 → 2.9 p3 sequentially in one session.
+- (b) `SCR-WMS-BATCH-EXPIRY-01` = `SCR-WMS-EXPIRY-01` (51fceb1): same rule, no table/column, but the cited 01:20Z GM approval is unverified (relay only; M6/M7 flagged it) → SCR stays OPEN for a verbatim GM decision; the cross-location refusal is conditional in the brief and backlog row.
+- (c) S1 QRT routing + `quarantine_decision` owner = 2.9 part 3 (lane 1, `wms`), second step after the FEFO fix — a Master planning assignment (not a GM decision, no doc-38 row; GM may reassign), owner rows in MASTER_BACKLOG.
+- (d) **D-203** `identity.session.lifetime_minutes` = 720 (DECISION_LOG); migration **0045** issued to lane 3 for X part 5d part 2 (#175); next free 0046 (README, header).
+- (e) Seven sessions: no change until the Phase-2 evaluation (2026-09-30 08:00Z) — X part 17 brief keeps the cap item Proposed.
+- **Folded from draft #210:** X part 17 item (15) + brief `_slice-X-p17-adr0007-wording` (open items → Decisions 4–6: CLAUDE.md lines applied by the GM, no sixth slot, one session per lane) · row `2.9 part 4` (rebuild-balance parity); X part 19 dropped (answered by (a)). Backlog `--check`: 154 doc-38 rows (part rows are not counted).
+- **Packets:** `docs/notes/handover-master.md` (M11 → M12, 99b25a7) · `docs/notes/handover-advisory.md` (GM 09:35Z «موافق»). State: Master M12. Merge of origin/main (4ef42a1) into #212.
+- Model: Master M12 (opus) · Delegated: general-purpose subagent · Review: pending (fresh round on #212) · tokens: ≈ 120k subagent.
+
+## X — 2.9 part 3 brief (lane 1, sequential, lock deferred) + SCR-WMS-BATCH-EXPIRY-01; QRT/quarantine owner rows (Master M11, 2026-09-29)
+
+- **Advisory 10:22Z, #207 (GM delegation «افوضك بفرض افضل الممارسات الإنتاجية والتقنيه»):** lock deferred (see below); brief `_slice-2.9-p3-fefo-expiry` (from draft #210) runs in the one lane-1 session — no second session, no CLAUDE.md change; supersedes #210's 2.9 p3 part.
+- **Brief:** Step 0 sources one expiry per batch in 01/13/13B/019/40 or files `SCR-WMS-BATCH-EXPIRY-01` · `post-movement.ts` (balance insert L482) is outside the lock → the lane STOPS and reports; the lock is not widened.
+- **Rows:** `S1 QRT routing`, `S1 quarantine_decision` — owner: TBD (G-01): doc 38 and doc 40 Part E name no WBS row (integration, #207 09:55Z); 2.9 part 3 → TODO; footer stays 154 (part rows not counted).
+- **#212 round 1 FAIL(5) fix:** no lock claimed — one lock row per lane; lane 1 order 2.16 p2d → 2.16 p3 → 2.9 p3, claimed when reached · lock scope open (post-movement.ts:482, use-case vs module, GM on #207) · `SCR-WMS-BATCH-EXPIRY-01` filed (rule from #185 brief Decision 2, not in 01/13/13B/019/40; GM decides) · owner rows note: no doc-38 row, doc 40 Part E S1 step only.
+- Model: Master session (M11, opus) · Delegated: general-purpose (drafting) · Review: FAIL(3 findings, 2 rounds) — PASS subset per REVIEW CAP (state regen, base cite, row WAITING_GM) · tokens: ≈ 30k subagent.
+
 ## X — locks: lane 2 → 4.20 (billing), `api` → M-core for X part 5; M-core order (Master M11, 2026-09-29)
 
 - **Advisory 11:20Z, #207 (GM delegation «افوضك بفرض افضل الممارسات الإنتاجية والتقنيه»):** scribe released `billing | 2 | 4.19` and `api | 2 | 4.19`, claimed `billing | 2 | 4.20` (lane 2's existing cloud session) and `api | M | X` (M-core: HTTP host, Playwright webServer, route-table export for #175).
