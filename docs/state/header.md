@@ -3,6 +3,5 @@ Phase: enablement week (Master + integration lane; build lanes frozen) → wave 
 Done so far: phase 0 closed · phase 1 done except 1.11 (BLOCKED D-178) · phase 2 warehouse 9/19 · golden slice 2.9 ACCEPTED.
 Pilot: Tier 0 = local Docker postgres:16 (D-129), seed 019 + synthetic data (D-127); doc 38 v4.7 (154 rows).
 Schema: 0001–0039 applied (0022 withdrawn; 0038 = lane 2, 4.1b p2); issued: 0040 · 0041 (lane 2) · 0042 (lane M, 2.16 1a-5); next free 0043.
-Sessions: remote containers boot Postgres from .claude/hooks/session-start.sh; PG_APP_USER is required (ADR-0005 §7).
+Sessions: containers boot Postgres via .claude/hooks/session-start.sh (PG_APP_USER req'd, ADR-0005 §7). Agents: see CLAUDE.md AGENTS AND SESSIONS.
 Master: «الماستر M2» (cloud, D-195), rotation due (≈ 600k / 400k, ADR-0007). Max five cloud sessions (D-196). Next migration 0043.
-Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewer (opus); bookkeeping by scripts/scribe.mjs (state, locks, CHANGELOG template).
