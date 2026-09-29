@@ -4,10 +4,11 @@ History of claims and releases: `docs/CHANGELOG.md` · migration register and ne
 
 | module | lane | task | claimed_at | worktree |
 |---|---|---|---|---|
-| wms | 1 | 2.9 | 2026-09-28 | cloud:session_012JpnMyNrcJm4vRQfFhjCVx |
 | packages/identity | M | 2.16 | 2026-09-28 | . |
 | identity | M | 2.16 | 2026-09-28 | . |
-| billing | 2 | 4.19 | 2026-09-28 | cloud:session_013aUcxUgLt9g8EmcyQZLJsf |
+| tooling | M | X | 2026-09-29 | . |
+| api | M | X | 2026-09-29 | . |
+| wms | 1 | 2.9 | 2026-09-29 | cloud:session_01VComj7TLSZGmgfAUrRbGsP |
 
 ## Rules (CLAUDE.md · AGENTS AND SESSIONS)
 

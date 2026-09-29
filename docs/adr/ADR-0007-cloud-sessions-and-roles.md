@@ -1,9 +1,10 @@
 # ADR-0007 — Cloud sessions and roles: five concurrent sessions, M-core for frozen paths, session limits and rotation
 
-**Status:** Accepted — Phase 1 (D-196, 2026-09-28) · Phase 2 rebase auto-merge item Accepted (D-197, 2026-09-28) · rest of Phase 2 Proposed, evaluation scheduled 2026-09-30
+**Status:** Accepted — Phase 1 (D-196, 2026-09-28) · Phase 2 rebase auto-merge item Accepted (D-197, 2026-09-28) · rest of Phase 2 Proposed, evaluation scheduled 2026-09-30 · addendum D-198/D-200/D-202 **Proposed** (decisions recorded in `docs/DECISION_LOG.md`; wording lands with `X part 17`)
 **Date:** 2026-09-28
 **Approved by:** GM — D-196: "موافق على المرحلة 1، ابدأ التنفيذ مع جدوله المرجله الثانيه مع وضع محدادت للجلسات بما فيها جلسه الماستر احلال وتجديد مع الحفاظ علي السياق باحترافيه" (drafted on the directive "نعم جهّز مسودة تقسيم الأدوار").
 **Reviewed & accepted: opus** — pg-reviewer round 1 FAIL (6 blocking, 11 nits) → one fix round → round 2 FAIL (3 blocking, 3 nits, all separable; no regression against origin/main). REVIEW CAP: the whole content is the PASS subset; the six open findings are `X part 13` (hook, settings, tests, pg-reviewer.md) and `X part 14` (wording).
+**Proposed amendment (lands with X part 17 — not in force; CLAUDE.md governs):** see the section of that name below. The D-198/D-200/D-202 addendum is not reviewed and accepted: pg-reviewer (opus) FAILed it on PR #201 and PR #202; REVIEW CAP, open findings in `X part 17`.
 **References:** CLAUDE.md · AGENTS AND SESSIONS · `docs/RUNBOOK.md:74` (§2, memory rule) · `docs/GOVERNANCE-HISTORY.md:145` · D-171, D-174, D-179, D-180, D-192, D-195 (`docs/DECISION_LOG.md`) · `docs/STREAMS.md` · `tasks/MASTER_BACKLOG.md` rows 2.12, 3.1, 3.4, 3.14, 2.16 part 1a-5, 2.9 part 2 (fix), 6.4 · `docs/package/38-WBS.md` (Lane column) · `.claude/hooks/lane-guard.sh` · `.claude/settings.json` (deny `git push --force*`) · `scripts/check-locks.sh` · `scripts/scribe.mjs` · `tests/hooks/run.sh` · `.claude/hooks/session-start.sh` · the `create_session` tool schema (no environment-variable parameter) · `list_sessions` metadata read 2026-09-28 ≈ 00:25Z.
 
 ## Context (السياق)
@@ -118,6 +119,14 @@
   - A CI ① check that every `feat`/`fix` commit of a PR carries `Review: PASS(…)`.
 - **Stop condition:** if quota use at five sessions blocks a day's planned merges, return to three sessions and record the measurement.
 
+## Proposed amendment (lands with X part 17 — not in force; CLAUDE.md governs)
+The GM decisions below are recorded verbatim in `docs/DECISION_LOG.md` (D-198, D-200, D-202). Their ADR and CLAUDE.md wording becomes Accepted in the same PR that changes CLAUDE.md, each item with its named gate (`tasks/MASTER_BACKLOG.md` `X part 17`). Until then the body above and CLAUDE.md govern.
+- **D-198 (ج) — cap six.** Six concurrent cloud sessions: the five of §1 plus a sixth slot whose naming waits on a GM instruction recorded as a D-id. Seven waits on the GM's answer to when «و7 بعد تقييم 30 سبتمبر» applies (open question, D-198).
+- **D-198 (ب) — auto-archive.** The GM approved «أرشفة تلقائية». Its conditions are defined with a named constant and gate in `X part 16`/`X part 17`.
+- **D-198 (أ) — Stryker.** G16/Stryker out of local pre-commit and local `pnpm guards:run`, kept in CI ⑤ and nightly; built by M-core under `tooling` (`X part 16`).
+- **D-200 — parallel roles.** Every role live at once up to the cap, each on a disjoint lock granted before it starts (`scripts/check-locks.sh`, `.claude/hooks/lane-guard.sh`); rebase auto-merge (D-197) on every eligible PR at `review` PASS. In-session concurrency and next-slice RED stay open (`X part 17`).
+- **D-202 — Advisory session permanent until production.** No context ceiling (state kept across summarization in a private snapshot); its own hourly advisory watchdog and a daily GM report; the Advisory creates the Master's successor at each rotation; the Master launches every other role.
+
 ## Alternatives rejected (البدائل المرفوضة)
 | Alternative | Why rejected |
 |---|---|
@@ -140,4 +149,4 @@
 - **Unchanged:** the twelve-step loop, REVIEW CAP, migration numbering, forward-only migrations, one commit per task, the human-approval list, and every local-session rule.
 
 ## Status (الحالة)
-Proposed — 2026-09-28 · Phase 1 Accepted — 2026-09-28 (D-196) · Phase 2 rebase-auto-merge item Accepted — 2026-09-28 (D-197) · rest of Phase 2 Proposed (evaluation 2026-09-30).
+Proposed — 2026-09-28 · Phase 1 Accepted — 2026-09-28 (D-196) · Phase 2 rebase-auto-merge item Accepted — 2026-09-28 (D-197) · rest of Phase 2 Proposed (evaluation 2026-09-30) · addendum D-198/D-200/D-202 Proposed — 2026-09-29 (wording lands with X part 17).

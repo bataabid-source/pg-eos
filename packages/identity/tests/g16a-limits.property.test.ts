@@ -165,6 +165,12 @@ async function runInRolledBackTx<T>(fn: (tx: NodePgDatabase) => Promise<T>): Pro
   const client = await superuserPool.connect();
   try {
     await client.query('begin');
+    // 1a-8 / 0044: the write definers refuse a non-internal context, so mirror withContext's
+    // transaction-local GUCs (packages/db/src/with-context.ts) for the internal, no-actor context.
+    await client.query(`select set_config('app.user_id', null, true)`);
+    await client.query(`select set_config('app.client_id', null, true)`);
+    await client.query(`select set_config('app.is_internal', 'true', true)`);
+    await client.query(`select set_config('app.entity_id', null, true)`);
     const tx = drizzle(client);
     try {
       return await fn(tx);

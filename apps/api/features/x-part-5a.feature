@@ -4,8 +4,8 @@ Feature: X part 5a — one host serves every registered operation
 
   Scenario: the route table is complete and one-to-one
     Then every entry of ALL_ROUTES is mounted exactly once on its method and path
-    And the entries mounted on a handler number 70 and each resolves to an exported handle* function
-    And the 501 entries are exactly the 10 UNIMPLEMENTED_ROUTES plus the 2 NOT_MOUNTED_UNTIL_2_16_PART_1A_5 routes
+    And the entries mounted on a handler number 78 and each resolves to an exported handle* function
+    And the 501 entries are exactly the 2 UNIMPLEMENTED_ROUTES plus the 2 NOT_MOUNTED_UNTIL_2_16_PART_1A_5 routes
     And a route whose handler cannot be resolved makes startup fail with the route in the error
     And a listed unimplemented route that has a handlers.js makes startup fail
     And a GET route's HEAD counterpart is never auto-exposed
@@ -20,7 +20,7 @@ Feature: X part 5a — one host serves every registered operation
     Then every reply is 401 with a Problem body identical in shape to the missing-token reply
 
   Scenario: an unauthenticated call to an unbuilt route is 401, not 501
-    When POST /billing/post-journal/post-journal is called without a token
+    When POST /billing/dimensions/create-dimension-value is called without a token
     Then the reply is 401
 
   Scenario: a valid internal session reaches the handler with exactly its ctx
@@ -61,7 +61,7 @@ Feature: X part 5a — one host serves every registered operation
     Then the reply is PROBLEM_STATUS.BAD_REQUEST with the handler's own ZodError Problem (X part 11 recorded gap: GET query values arrive as strings)
 
   Scenario: an unbuilt route answers 501
-    When POST /billing/post-journal/post-journal is called with a valid session
+    When POST /billing/dimensions/create-dimension-value is called with a valid session
     Then the reply is 501 with a Problem body naming the route
 
   Scenario: the login routes are not mounted yet

@@ -170,7 +170,9 @@ async function activeUserIdByEmailInTx(tx: NodePgDatabase, email: string): Promi
  * (P6c). Opens no connection of its own: a caller already holding a pool client (e.g.
  * withIdempotentContext in the login endpoint) must not acquire a second one, or a bounded pool
  * deadlocks under concurrency. `tx` is typed exactly as getThreshold's (thresholds.ts). The
- * caller's context must satisfy the identity tables' `internal_only` RLS policy.
+ * caller's context must be internal: identity.otp_codes carries only the `internal_read` RLS
+ * policy (select), and every write goes through the identity.otp_* SECURITY DEFINER functions of
+ * migration 0044, which refuse a non-internal context (42501).
  *
  * Order (WBS 2.16 part 1a-5, G-16a):
  *   1. active-user check — an unknown or inactive email is refused before any limit is evaluated.
@@ -262,24 +264,22 @@ export async function generateOtpInTx(
     throw new OtpRateLimitedError('hourly');
   }
 
-  await tx.execute(sql`
-    update identity.otp_codes
-       set consumed_at = ${issuedAtParam}::timestamptz
-     where email = ${email}
-       and consumed_at is null
-  `);
-
   const expiresAt = minutesAfter(issuedAt, expiryMinutes);
   const code = generateCode();
 
-  const inserted = await tx.execute<{ id: string }>(sql`
-    insert into identity.otp_codes (email, code_hash, expires_at)
-    values (${email}, ${keyedHash(code)}, ${expiresAt.toISOString()}::timestamptz)
-    returning id
+  // One definer call (migration 0044): consumes every earlier live code for the email at the issue
+  // instant, then inserts the new row — pgeos_app holds no direct DML on identity.otp_codes.
+  const inserted = await tx.execute<{ id: string | null }>(sql`
+    select identity.otp_issue(
+             ${email},
+             ${keyedHash(code)},
+             ${issuedAtParam}::timestamptz,
+             ${expiresAt.toISOString()}::timestamptz
+           ) as id
   `);
   const otpRow = inserted.rows[0];
-  if (!otpRow) {
-    throw new Error('generateOtp: insert into identity.otp_codes returned no row');
+  if (!otpRow?.id) {
+    throw new Error('generateOtp: identity.otp_issue returned no row');
   }
 
   return { otpId: otpRow.id, userId, email, code, expiresAt };
@@ -347,8 +347,11 @@ export async function generateOtp(
  * already dead, so the counter has nothing left to bound. identity.users.email is unique (01:214),
  * so all candidates for one email share one owner and the check cannot be self-contradictory.
  *
- * `for update of o` locks the live candidate rows for the life of the caller's transaction, so two
- * concurrent verifications of the same code cannot both reach step 4.
+ * identity.otp_lock_candidates (SECURITY DEFINER, migration 0044) runs the candidate select with
+ * `for update of o`, locking the live candidate rows for the life of the caller's transaction, so
+ * two concurrent verifications of the same code cannot both reach step 4. The row lock needs
+ * UPDATE privilege, which pgeos_app no longer holds, so it cannot stay a direct select; the
+ * increment and the consume go through identity.otp_record_failure / identity.otp_consume.
  *
  * The expiry comparison is made BY POSTGRES, against the injected instant passed in as a bound
  * timestamptz parameter, rather than in JavaScript: drizzle's node-postgres session installs its
@@ -381,18 +384,12 @@ export async function verifyOtpInTx(
     user_id: string;
     is_active: boolean;
   }>(sql`
-    select o.id,
-           o.code_hash,
-           u.id as user_id,
-           u.is_active
-      from identity.otp_codes o
-      join identity.users u on u.email = o.email
-     where o.email = ${email}
-       and o.consumed_at is null
-       and o.expires_at >= ${at.toISOString()}::timestamptz
-       and o.attempts < ${maxAttempts}::numeric
-     order by o.id
-       for update of o
+    select c.id, c.code_hash, c.user_id, c.is_active
+      from identity.otp_lock_candidates(
+             ${email},
+             ${at.toISOString()}::timestamptz,
+             ${maxAttempts}::numeric
+           ) c
   `);
 
   const liveRows = candidates.rows;
@@ -408,27 +405,21 @@ export async function verifyOtpInTx(
   const matched = liveRows.find((row) => hashesEqual(row.code_hash, presented));
 
   if (!matched) {
-    // Each live id is bound as its own parameter (sql.join), not as one array parameter:
-    // drizzle's sql template unwraps a JS array value into its elements rather than handing
-    // node-postgres an array to serialise, so `= any($1::uuid[])` receives a bare uuid and
-    // Postgres rejects it as a malformed array literal.
+    // Each live id is bound as its own parameter (sql.join) inside an array[…] constructor, not as
+    // one array parameter: drizzle's sql template unwraps a JS array value into its elements rather
+    // than handing node-postgres an array to serialise, so a single `$1::uuid[]` would receive a
+    // bare uuid and Postgres would reject it as a malformed array literal.
     const liveIds = sql.join(
-      liveRows.map((row) => sql`${row.id}::uuid`),
+      liveRows.map((row) => sql`${row.id}`),
       sql`, `,
     );
-    await tx.execute(sql`
-      update identity.otp_codes
-         set attempts = attempts + 1
-       where id in (${liveIds})
-    `);
+    await tx.execute(sql`select identity.otp_record_failure(array[${liveIds}]::uuid[])`);
     return { valid: false };
   }
 
-  await tx.execute(sql`
-    update identity.otp_codes
-       set consumed_at = ${at.toISOString()}::timestamptz
-     where id = ${matched.id}
-  `);
+  await tx.execute(
+    sql`select identity.otp_consume(${matched.id}::uuid, ${at.toISOString()}::timestamptz)`,
+  );
 
   return { valid: true, userId: matched.user_id, otpId: matched.id };
 }

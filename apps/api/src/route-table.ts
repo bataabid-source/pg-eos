@@ -18,16 +18,8 @@ import { HTTP_STATUS_NOT_IMPLEMENTED } from './http-status.js';
 /** ADR-0006 §4: registered without a handler — 501 until their rows are built. The mark belongs in
  *  the registry (`packages/contracts`, frozen for this part); it lives here until the Master moves it. */
 export const UNIMPLEMENTED_ROUTES = [
-  '/billing/accounting-periods/create-fiscal-year',
-  '/billing/accounting-periods/open-period',
-  '/billing/accounting-periods/close-period',
-  '/billing/accounting-periods/lock-period',
-  '/billing/accounting-periods/reopen-period',
   '/billing/dimensions/create-dimension-value',
   '/billing/dimensions/deactivate-dimension-value',
-  '/billing/post-journal/post-journal',
-  '/billing/post-journal/reverse-journal',
-  '/billing/post-journal/adjust-journal',
 ] as const;
 
 /** ADR-0006 consequences: the login endpoints are not mounted until 2.16 part 1a-5 (G-16a limits)

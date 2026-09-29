@@ -5,11 +5,12 @@
 // They live here, once, so the same combination is not re-typed (and drifted) in otp.ts,
 // session.ts and rbac.ts.
 //
-// Why `isInternal: true` in both: every identity table this package reads or writes
-// (identity.users · identity.otp_codes · identity.sessions · identity.user_roles ·
-// identity.user_entities) carries the generated `internal_only` RLS policy —
-// `using (platform.is_internal())`, database/schema/13B-Schema-Reference-Consolidation.sql:3033-3038
-// — and platform.thresholds carries `reference_read`, `for select using (platform.is_internal())`
+// Why `isInternal: true` in both: identity.users · identity.user_roles · identity.user_entities
+// carry the generated `internal_only` RLS policy — `using (platform.is_internal())`,
+// database/schema/13B-Schema-Reference-Consolidation.sql:3033-3038 —; identity.otp_codes and
+// identity.sessions carry the select-only `internal_read` policy and are written only through the
+// identity.* SECURITY DEFINER functions, which refuse a non-internal context (migration 0044,
+// WBS 2.16 part 1a-8); and platform.thresholds carries `reference_read`, `for select using (platform.is_internal())`
 // (13B:3010-3014). Nothing here is reachable without it.
 
 import type { WithContextCtx } from '@pg-eos/db';

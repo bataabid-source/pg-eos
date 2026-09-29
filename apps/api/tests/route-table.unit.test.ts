@@ -34,16 +34,8 @@ import { buildServer } from '../src/server.js';
 const DEFAULT_MODULES_ROOT = new URL('../../../modules/', import.meta.url);
 
 const EXPECTED_UNIMPLEMENTED_ROUTES = [
-  '/billing/accounting-periods/create-fiscal-year',
-  '/billing/accounting-periods/open-period',
-  '/billing/accounting-periods/close-period',
-  '/billing/accounting-periods/lock-period',
-  '/billing/accounting-periods/reopen-period',
   '/billing/dimensions/create-dimension-value',
   '/billing/dimensions/deactivate-dimension-value',
-  '/billing/post-journal/post-journal',
-  '/billing/post-journal/reverse-journal',
-  '/billing/post-journal/adjust-journal',
 ] as const;
 
 const EXPECTED_NOT_MOUNTED_ROUTES = [
@@ -51,11 +43,11 @@ const EXPECTED_NOT_MOUNTED_ROUTES = [
   '/identity/otp-login/verify-otp-code',
 ] as const;
 
-// Route counts fixed by the brief's "Facts the Master verified": 82 total (78 POST + 4 GET), 10 +
-// 2 = 12 answer 501, so 70 are mounted on a real handler.
+// Route counts fixed by the brief's "Facts the Master verified": 82 total (78 POST + 4 GET), 2 +
+// 2 = 4 answer 501, so 78 are mounted on a real handler (4.19 mounted its five routes, 4.20 its three).
 const EXPECTED_TOTAL_ROUTE_COUNT = 82;
-const EXPECTED_UNIMPLEMENTED_COUNT = 12;
-const EXPECTED_MOUNTED_COUNT = 70;
+const EXPECTED_UNIMPLEMENTED_COUNT = 4;
+const EXPECTED_MOUNTED_COUNT = 78;
 
 // The GET route the HEAD-route assertion below probes (apps/api/features/x-part-5a.feature,
 // "the route table is complete and one-to-one"; ADR-0006 one-to-one).
@@ -89,16 +81,16 @@ describe('Feature: X part 5a — one host serves every registered operation', ()
       expect(seenKeys.has(`${route.method} ${route.path}`)).toBe(true);
     }
 
-    // "the entries mounted on a handler number 70 and each resolves to an exported handle* function"
+    // "the entries mounted on a handler number 78 and each resolves to an exported handle* function"
     expect(table.mounted).toHaveLength(EXPECTED_MOUNTED_COUNT);
     for (const entry of table.mounted) {
       expect(entry.handlerName).toMatch(/^handle[A-Z]/);
       expect(typeof entry.handler).toBe('function');
     }
 
-    // "the 501 entries are exactly the 10 UNIMPLEMENTED_ROUTES plus the 2
+    // "the 501 entries are exactly the 2 UNIMPLEMENTED_ROUTES plus the 2
     // NOT_MOUNTED_UNTIL_2_16_PART_1A_5 routes"
-    expect(UNIMPLEMENTED_ROUTES).toHaveLength(10);
+    expect(UNIMPLEMENTED_ROUTES).toHaveLength(2);
     expect([...UNIMPLEMENTED_ROUTES].sort()).toEqual([...EXPECTED_UNIMPLEMENTED_ROUTES].sort());
     expect(NOT_MOUNTED_UNTIL_2_16_PART_1A_5).toHaveLength(2);
     expect([...NOT_MOUNTED_UNTIL_2_16_PART_1A_5].sort()).toEqual([...EXPECTED_NOT_MOUNTED_ROUTES].sort());
@@ -122,13 +114,13 @@ describe('Feature: X part 5a — one host serves every registered operation', ()
     const fixtureModulesRoot = writeListedUnimplementedWithHandlerFixture();
     const listedUnimplementedRoute = {
       method: 'POST' as const,
-      path: '/billing/accounting-periods/create-fiscal-year',
+      path: '/billing/dimensions/create-dimension-value',
       summary: 'fixture: a route the real UNIMPLEMENTED_ROUTES constant lists, given a handlers.js',
       responses: { 200: { description: 'ok' } },
     };
     await expect(
       buildRouteTable([listedUnimplementedRoute], { modulesRoot: fixtureModulesRoot }),
-    ).rejects.toThrow(/\/billing\/accounting-periods\/create-fiscal-year/);
+    ).rejects.toThrow(/\/billing\/dimensions\/create-dimension-value/);
 
     // "a GET route's HEAD counterpart is never auto-exposed" (exposeHeadRoutes: false, server.ts —
     // ADR-0006 one-to-one). Built through the real buildServer host (not buildRouteTable directly)
@@ -181,23 +173,23 @@ describe('handlerNamesFor — the handle<Operation> then handle<UseCase> naming 
   });
 });
 
-/** A temporary modulesRoot fixture: `billing/api/accounting-periods/handlers.js` (+
- *  `composition.js`) present on disk, even though `/billing/accounting-periods/create-fiscal-year`
+/** A temporary modulesRoot fixture: `billing/api/dimensions/handlers.js` (+
+ *  `composition.js`) present on disk, even though `/billing/dimensions/create-dimension-value`
  *  is one of the real, frozen `UNIMPLEMENTED_ROUTES` — exactly the contradiction the brief's
  *  startup rule rejects ("a listed route HAS a handlers.js"). Written to an OS temp dir (never
  *  under `modules/**`, out of pg-tester's write scope) and cleaned up in `afterAll`. */
 function writeListedUnimplementedWithHandlerFixture(): URL {
   const dir = mkdtempSync(join(tmpdir(), 'pg-eos-route-table-fixture-'));
   tempDirsToClean.push(dir);
-  const useCaseDir = join(dir, 'billing', 'api', 'accounting-periods');
+  const useCaseDir = join(dir, 'billing', 'api', 'dimensions');
   mkdirSync(useCaseDir, { recursive: true });
   const handlersSource = [
-    'export async function handleCreateFiscalYear() {',
+    'export async function handleCreateDimensionValue() {',
     '  return { status: 200, body: {} };',
     '}',
     '',
   ].join('\n');
-  const compositionSource = ['export function createAccountingPeriodsDeps() {', '  return {};', '}', ''].join('\n');
+  const compositionSource = ['export function createDimensionsDeps() {', '  return {};', '}', ''].join('\n');
   writeFileSync(join(useCaseDir, 'handlers.ts'), handlersSource, 'utf8');
   writeFileSync(join(useCaseDir, 'composition.ts'), compositionSource, 'utf8');
   return pathToFileURL(`${dir}/`);
