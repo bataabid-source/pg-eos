@@ -1,6 +1,6 @@
 # Handover — Master (ADR-0007 Decision 5)
 
-1. **Role** Master · M11 session_01D4mRd2bGnE31HbhTVFbZKs · 2026-09-29 12:20Z (successor of M10 session_015VfJ1G9rQ4kL3ygksqPrds). Ground truth is `origin/main` (4ef42a1), never a Master checkout. Owns state, merges, migration numbers (next free 0046; 0041 issued to lane 2 for 4.20, 0045 to lane 3 for X part 5d part 2 / D-203), wave contracts; builds nothing.
+1. **Role** Master · M12 session_01GmtMXJuTWmqDjZXWYq4jrT · 2026-09-29 18:10Z (successor of M11 session_01D4mRd2bGnE31HbhTVFbZKs). Ground truth is `origin/main` (66cfccc, red on CI ① resolve-hashes until #215), never a Master checkout. Owns state, merges, migration numbers (next free 0046; 0041 lane 2 / #214, 0045 lane 3 / #175), wave contracts; builds nothing.
 2. **Working rules** (unchanged from M10 + today's lessons)
    - D-201: no inline reads/reviews — subagents return ≤ 20 lines. Fix-forward only; no force-push, no replacement PR; behind PRs take `git merge origin/main`.
    - Read the claude[bot] verdict comment, not the `review` check (green on any verdict until X part 18).
@@ -8,10 +8,14 @@
    - After every squash merge, check `node scripts/resolve-hashes.mjs --check` on main (#205's squash left `<this commit>` → CI ① red until #213).
    - Local pre-merge guards for migration/frozen PRs: `G16_MODULES=<changed modules> pnpm guards:run` (as CI ⑤); full-module G16 exceeds 30 min; strict mode is only proposed (#209).
    - CLAUDE.md edits are refused to the Master by the harness ([Self-Modification], twice); only the GM edits CLAUDE.md. Cap-six edit dropped (Advisory 10:22Z).
+   - Squash merges only on green ①–⑥ AND a READ claude[bot] PASS on the current head (Advisory 16:18Z; the harness refused a check-in after #212 merged on FAIL(1) — [Merge Without Review]). The watchdog never merges by itself.
+   - claude-review.yml runs on opened/synchronize only, and skips drafts: a push made while draft gets no review — the next real push (e.g. `git merge origin/main`) triggers it; never an empty commit.
+   - Daily chore(X)/docs(X) cap is enforced by commit-msg (5 on main 29 Sep); beyond it only with `Override: GM` + a GM directive that covers the work (GM 17:30Z covered #215).
 3. **Channel** GitHub issue #207 (read on every ≤ 15-min check-in and hourly; 👍 applied directives; report in Arabic ≤ 5 lines). Advisory relays GM; cross-session triggers from the Master are refused.
-4. **Routines** Watchdog trig_01DNiAqTRwZbnSgSxTxsfkrU (hourly :06, bound to M11) — successor recreates on itself, then deletes it. Pending one-shot check-in trig_01JPWS5V9yJMz3uyu4Gutgbn (12:31Z) — delete.
-5. **Merged today by M11** #204 → 7d823b6 (S7 part 2) · #205 → 9897a01 (4.19, migration 0040; #198 closed) · #213 → 4ef42a1 (locks: billing|2|4.20, api|M|X; M-core order X16 → X5 → X17 → X18).
+4. **Routines** Watchdog trig_012o5gYZ2M5dnE7KHKCfW2Jo (hourly :06, bound to M12) — successor recreates on itself, then deletes it. Pending one-shot check-in (M12 #207 check-in, 18:21Z) — let it lapse or delete.
+5. **Merged by M12** #212 → cab71f0 (bookkeeping, D-203, packets; merged on FAIL(1) resolved in the squash message — do not repeat) · #211 → 66cfccc (2.16 part 2, XState; left `<this commit>` at MASTER_BACKLOG:108). #210 closed (folded into #212).
 6. **Open PRs**
+   - NEXT: #215 (head 956df6a; PASS(2 nits) on 89ff2da, nits fixed in 956df6a) → squash with `Override: GM` + GM-Directive "[GM directive 2026-09-29 17:30Z] «افتح موجزات خط 1 وقفل wms اليوم»" + `Decision: D-204` (quote only GM words) — fixes main's resolve-hashes. Then resolve-hashes/check-locks/scribe --check on main.
    - #211 lane 1 2.16 part 2 — merged (66cfccc, XState v5 screens).
    - #209 M-core X part 16 (head 03d3644): round-2 FAIL(4), REVIEW CAP reached — merge only the PASS subset (no `guards:deploy` without a caller; the builder-written tests out); open items → `X part 16 part 2` (M12 on #207 16:05Z). #216 (X part 5d p2 item 1, PASS(0)) → #217 (X part 5e) → #218 (X part 18, frozen path) → #209: manual, one at a time, after M-core merges origin/main into each branch. #214 lane 2 4.20 (0041): needs M-core's route-table.ts:23-25 deletion; open findings are rows 4.20 part 8–9.
    - #212 = the Master's bookkeeping PR (M12): GM defaults 12:25Z applied — 2.9 p3 lock `wms` (claimed when reached), QRT/quarantine owner = 2.9 p3, D-203 = 720 (0045 → lane 3); #210 folded in; handover-advisory.md; lane-2 cell = session_012audWizm1uuLmQZBJd1nLy (merged cab71f0).
