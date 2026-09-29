@@ -83,7 +83,12 @@ import {
   VarianceReasonRequiredError,
   VariancePhotoWithoutVarianceError,
 } from '../../domain/receive-inbound/errors.js';
-import { InvalidLedgerEntryError, InvalidQuantityError, LocationBlockedError, LocationLimitExceededError } from '../../src/stock-ledger/errors.js';
+import {
+  InvalidLedgerEntryError,
+  InvalidQuantityError,
+  LocationBlockedError,
+  LocationLimitExceededError,
+} from '../../src/stock-ledger/errors.js';
 // WBS 2.9b round-1 review finding 1: thrown by the extended approveInbound (D2's optional slot)
 // and cancelInbound (D3's mandatory cancelReason) — mapped alongside every other 422 below, same
 // as ../../api/schedule-inbound/handlers.ts's own error map.
