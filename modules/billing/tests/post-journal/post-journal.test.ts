@@ -847,6 +847,28 @@ describe('Scenario: A correction is a reversal or adjustment entry, never an edi
       expect(findRaisedException(await callMark(fx.posterId, original.id, mirror.entryId, STALE_VERSION), CHECK_VIOLATION)).toBeDefined();
     });
 
+    it('an UNPOSTED original entry -> 23514 chk_journal_reversal_posted (created, mirrored and called inside one always-rolled-back pgeos_app transaction)', async () => {
+      const period = await fx.nextPeriod();
+      const origDoc = `JE-POSTJ-${randomUUID().slice(0, 12)}`;
+      const revDoc = `JE-POSTJ-${randomUUID().slice(0, 12)}`;
+      const error = await appRolledBack(fx.posterId, async (tx) => {
+        const orig = await tx.execute<{ id: string }>(sql`insert into billing.journal_entries (entity_id, doc_no, entry_date, description, period_id, entry_type)
+          values (${fx.entityId}, ${origDoc}, ${period.startDate}, 'unposted original', ${period.id}, 'accrual') returning id`);
+        const origId = orig.rows[0]?.id;
+        const rev = await tx.execute<{ id: string }>(sql`insert into billing.journal_entries (entity_id, doc_no, entry_date, description, period_id, entry_type, posted_at, posted_by)
+          values (${fx.entityId}, ${revDoc}, ${period.startDate}, 'mirror', ${period.id}, 'reversing', now(), ${fx.posterId}) returning id`);
+        const revId = rev.rows[0]?.id;
+        if (!origId || !revId) throw new Error('expected inserted entry ids');
+        await tx.execute(sql`insert into billing.journal_lines (entry_id, account_id, debit, credit) values
+          (${origId}, ${fx.accounts.debit}, ${AMOUNT}, 0), (${origId}, ${fx.accounts.credit}, 0, ${AMOUNT}),
+          (${revId}, ${fx.accounts.credit}, ${AMOUNT}, 0), (${revId}, ${fx.accounts.debit}, 0, ${AMOUNT})`);
+        await tx.execute(sql`select billing.mark_journal_reversed(${origId}::uuid, ${revId}::uuid, 1::int)`);
+      });
+      const raised = findRaisedException(error, CHECK_VIOLATION);
+      expect(raised, String(error)).toBeDefined();
+      expect(JSON.stringify(raised, Object.getOwnPropertyNames(raised))).toContain('chk_journal_reversal_posted');
+    });
+
     it('a caller scoped only to another entity -> 23514 (design default: every T6 guard, including the allowed_entities() check, raises the same SQLSTATE and names only the row\'s own values, so the refusal reveals nothing about the entry)', async () => {
       const original = await postFresh();
       const mirror = await commitLineByLine({ entryType: 'reversing', periodId: original.periodId, entryDate: original.entryDate, lines: mirrorOf() });
