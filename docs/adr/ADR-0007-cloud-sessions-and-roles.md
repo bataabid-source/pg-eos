@@ -32,10 +32,10 @@
 
 ## Decision (القرار)
 1. **Ceiling.**
-   - Five concurrent cloud sessions: the Master, M-core, lane 1, lane 2 and integration.
+   - Six concurrent cloud sessions (D-198): the Master, M-core, lane 1, lane 2, integration and the Stream C build lane (S3, S4, S15, S16 — GM instruction to M8, 2026-09-29), once its lock row exists. Phase 1 (D-196) was five.
    - One advisory session for the GM's questions (tag `pg-eos:advisory`) is not counted: it builds nothing and commits only on a GM directive.
    - A local host keeps max three concurrent sessions and the RUNBOOK §2 memory rule.
-   - **(D-198, 2026-09-28) Now six.** A seventh only after the GM answers when «و7 بعد تقييم 30 سبتمبر» applies (open question, DECISION_LOG D-198). Which role takes the sixth slot is set by the Master's launch record, not by this ADR.
+   - A seventh only after the GM answers when «و7 بعد تقييم 30 سبتمبر» applies (open question, DECISION_LOG D-198).
 2. **Roles, Phase 1.**
    - Tags: `pg-eos:master` · `pg-eos:core` · `pg-eos:lane-<id>` · `pg-eos:integration` · `pg-eos:advisory`.
    - A lane reports to the live session tagged `pg-eos:master`, found with `list_sessions`, never by a stored id.
@@ -117,9 +117,9 @@
 - **Accepted (D-198, 2026-09-28).** GM-Directive (verbatim): «موافق: (أ) Stryker خارج الفحص المحلي، يبقى في CI والليلي (ب) أرشفة تلقائية (ج) الحد 6 الآن و7 بعد تقييم 30 سبتمبر». (أ) G16/Stryker out of local pre-commit and local `pnpm guards:run`, kept in CI ⑤ and nightly — built by M-core under `tooling` (X part 16). (ب) auto-archive, §5. (ج) cap six (§1); the timing of seven is an open GM question.
 - **Accepted (D-200, 2026-09-29).** GM-Directive (verbatim): «إذا كان ممكن العمل المتوازي للجلسات طبقه علي كل المستويات». Applied as: every role live at once up to the cap on disjoint locks granted before it starts (`scripts/check-locks.sh`, `.claude/hooks/lane-guard.sh`), and rebase auto-merge (D-197) on every eligible PR at `review` PASS (main ruleset). In-session concurrency and next-slice RED are open (`X part 17`).
 - **Still Proposed for Phase 2, needs GM approval:**
-  - Lane 1b (3.4 with the INV-C4-1 guard, migration 0042) as a sixth session, or in the first free slot.
+  - Lane 1b (3.4 with the INV-C4-1 guard, migration 0042) in the first free slot.
   - A CI ① check that every `feat`/`fix` commit of a PR carries `Review: PASS(…)`.
-- **Stop condition:** if quota use at five sessions blocks a day's planned merges, return to three sessions and record the measurement.
+- **Stop condition:** if quota use at the cap blocks a day's planned merges, return to three sessions and record the measurement.
 
 ## Alternatives rejected (البدائل المرفوضة)
 | Alternative | Why rejected |
