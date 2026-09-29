@@ -4,15 +4,15 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
-## X — D-198 + D-200 + D-202: PASS subset of PR #202 after FAIL(8) (Master M9, 2026-09-29)
+## X — D-198 + D-200 + D-202: REVIEW CAP final subset of PR #202 after FAIL(8) (Master M9, 2026-09-29)
 
-- **What:** DECISION_LOG D-198, D-200 (Accepted, wording deferred to X part 17) and D-202; ADR-0007 (cap six, auto-archive, D-200, Advisory row); backlog `X part 16`, `X part 17`. CLAUDE.md is unchanged against main (five-session text stays until X part 17).
-- **D-202:** GM «موافق» (06:45Z, via Advisory) — Advisory session permanent until production: no context ceiling, private snapshot across summarization, hourly watchdog + daily GM report, creates the Master successor (ADR-0007 Decision 5).
+- **What:** DECISION_LOG D-198, D-200 (Accepted, wording deferred to X part 17) and D-202; ADR-0007 "Proposed amendment" block (cap six, auto-archive, D-200, D-202); backlog `X part 16`, `X part 17`. CLAUDE.md is unchanged against main (five-session text stays until X part 17).
+- **D-202:** GM «موافق» (06:45Z, via Advisory) — Advisory session permanent until production: no context ceiling, private snapshot across summarization, hourly watchdog + daily GM report, creates the Master successor (ADR-0007 Proposed amendment).
 - **Why:** REVIEW CAP after pg-reviewer FAIL(8) at 37fd7b3 — removed the CLAUDE.md cap-six/open-session (1, 2) and auto-archive (3) sentences; fixed 5 (D-200 status), 6 (ADR review header), 8 (X part 17 deduped).
 - **To X part 17:** findings 1, 2, 3 (CLAUDE.md wording with gates), 4 (TESTING G16 after X part 16), 7 (squash-merge into one docs(X) commit).
 - **Files:** docs/adr/ADR-0007-cloud-sessions-and-roles.md · docs/DECISION_LOG.md · tasks/MASTER_BACKLOG.md · docs/CHANGELOG.md.
-- **Review:** PASS subset (REVIEW CAP, no round 3). Model: opus · Delegated: none · tokens: not measured.
-- Round-2 fix (auto review FAIL(4) on 81eb921): D-202 reconciled inside ADR-0007; CLAUDE.md governs until X part 17.
+- **Review:** REVIEW CAP: FAIL(8) → final subset, no further round. D-202 added on explicit GM order (06:45Z: 'inside your open docs(X) PR #202 — no new PR'). Open findings to X part 17. Model: opus · Delegated: none · tokens: not measured.
+- REVIEW CAP final (auto review FAIL on b5fafd7): ADR-0007 addendum is Proposed, in-force text unchanged; decisions recorded in DECISION_LOG; wording lands with X part 17.
 
 ## X — locks: `tooling` to M-core, `api` to lane 2; `packages/i18n` + stale `wms` released; S7 part 2, 2.9 part 3, X part 5d part 2 rows (Master M8, 2026-09-29)
 
