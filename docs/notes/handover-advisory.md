@@ -17,5 +17,5 @@ Read after any context summarization, alongside issue #207. The Master updates t
    - Lane `pnpm add` is refused ([Modify Shared Resources]) — a human approval inside that lane's session, or M-core under `tooling`; the Master never installs for a lane.
    - Cross-session triggers are refused — use #207. Advisory's creation of an M-core successor was refused; the GM starts it from the paste text.
    - No force-push (fix forward, `git merge origin/main`); routine-prompt memory is refused; some "CI bypass"-flagged edits need a GM approval pasted into the session.
-5. **Live sessions** Master M12 session_01GmtMXJuTWmqDjZXWYq4jrT · Advisory session_01FfooFQhb5x64sTXDUKu7tP · lane 1 session_01QdrAPRKmFdLKZYJzbceZDc · M-core session_011PL2MhC8UPwG79YDwDqjAK (over ceiling) · integration session_014KgrtfNdrtkkD5ZYQWSge7 · lane 2: successor being created (12:25Z).
+5. **Live sessions** Master M12 session_01GmtMXJuTWmqDjZXWYq4jrT · Advisory session_01FfooFQhb5x64sTXDUKu7tP · lane 1 session_01QdrAPRKmFdLKZYJzbceZDc · M-core session_011PL2MhC8UPwG79YDwDqjAK (over ceiling) · integration session_014KgrtfNdrtkkD5ZYQWSge7 · lane 2 session_012audWizm1uuLmQZBJd1nLy (4.20).
 6. **Open for the GM** Phase-2 evaluation (seven sessions, 2026-09-30 08:00Z) · cap-six CLAUDE.md line · #211 xstate install approval in lane 1 · M-core successor start.
