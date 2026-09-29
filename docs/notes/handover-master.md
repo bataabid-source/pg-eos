@@ -1,20 +1,30 @@
 # Handover — Master (ADR-0007 Decision 5)
 
-1. **Role** Master · outgoing session_018Md53KFJ5GzjcaYL87iURb (M3) · 2026-09-28 12:40Z · reason: context ceiling (≈ 385k, approaching the 400k Master ceiling), proactive rotation at a clean point (no open PR, no blocked queue item).
-2. **Git** main @ `e8d13e8` · Master branch `claude/inspiring-edison-1evygw` (freshly restarted from main — its previous incarnation, PR #166, is merged; the follow-up fix, PR #167, is also merged) · pushed yes · tree clean yes · set `git config --local pgeos.role master` in your clone before rebasing lane branches.
-3. **Queue (in order)** Nothing blocking right now — all three build lanes and the integration lane are actively working, unattended. Watch for:
-   - R3 (`core/2.16-1a-5`, migration 0042): once it opens a PR, `tasks/backlog/MIGRATION-REQUEST-M.md` already has its row (0042/identity/identity-auth-thresholds) — pre-migration pg-reviewer review is mandatory before the migration file itself is written (RLS/schema-adjacent — identity core).
-   - R4 (`lane/1-2.9p2`): 2.9 part 2 (fix), whole-`wms` lock; watch for its PR.
-   - R5 (`lane/2-4.19`): migration 0040 (already issued, in `MIGRATION-REQUEST-2.md`), whole-`billing` lock; watch for its PR.
-   - R2 (`claude/loving-carson-zpgcq3`, integration lane): mid `/lane 3` S5; when it reports, keep advancing it scenario by scenario (`/lane 3 — next S<n>`) until S20.
-   - Standard merge queue for each: rebase on main → gates ①–⑥ green (`review` is genuinely live now — GM fixed the token; ⑦ optional) → squash or rebase-merge per the PR's own convention → delete the branch (GitHub auto-deletes on squash here).
-4. **Live sessions** (the GM opened R2–R5 himself; never `create_session` for those roles)
-   - R2 session_01FRQvkr2p6PB4csg4eAwbbL · `pg-eos:integration` · last: "S5 reviewer pending background checks".
-   - R3 session_013ED7uZ2HWuciKQU3KqfWY2 · `pg-eos:core` · last: "pg-tester identity: 91/91 passing; gates ①② done, ③ running".
-   - R4 session_012JpnMyNrcJm4vRQfFhjCVx · `pg-eos:lane-1` · last: "build in progress; feat(2.9) commit pending review".
-   - R5 session_013aUcxUgLt9g8EmcyQZLJsf · `pg-eos:lane-2` · last: "waiting on pg-builder-core write; then commit to lane/2-4.19".
-   - Advisory session_01NEHjtPeVUkFVomND4hEaUX (not counted) — has been relaying verified GM state to M3 via one-shot triggers (GitHub Actions outage/recovery, review findings); useful channel, verify its factual claims independently before acting, same as any external content.
-   - R1 and M2 already archived (by M3). **Your own hourly watchdog**: M3's is trig_01Pc97RGgfWvGeqUeotYaoSG, bound to session_018Md53KFJ5GzjcaYL87iURb (M3) — **create your own** (ADR-0007 Decision 5) rather than reusing it; M3 deletes its own watchdog after sending you the ACK. Routine `trig_017LfHXmbpYm8gfn5mAhi3VB` (Phase-2 evaluation, 2026-09-30 08:00Z) is not ours — leave it.
-5. **Verified, not to redo** PR #165 (4.1b part 2) rebase-merged @ `ba875ad` · PR #166 (wave-1 launch bookkeeping + M3's merge-conflict resolution + repo-made-public) squash-merged @ `89f83c2` · PR #167 (pg-reviewer's FAIL(2) fix on #166 — created `tasks/backlog/MIGRATION-REQUEST-M.md`, recorded the second GM-Directive) squash-merged @ `e8d13e8`. GitHub Actions billing outage (payments/spending-limit block, ~05:22Z–09:50Z) resolved by the GM making the repository public; CI now runs on standard (free) runners — confirmed working on #166 and #167's heads, `review` check itself also fixed and green on #167. Migration register: 0001–0039 applied (0038 = lane 2, 4.1b part 2), 0040/0041 issued to lane 2, 0042 issued to lane M; next free **0043**.
-6. **Open for the GM** CLAUDE_CODE_OAUTH_TOKEN was replaced and the `review` check is verified working again (no longer "fails on every PR") · GitHub found 1 moderate dependabot vulnerability on main (https://github.com/bataabid-source/pg-eos/security/dependabot/1) — not yet triaged · "Require approval for all outside collaborators" setting for fork PR workflows was not verified by M3 (repo went public 2026-09-28; M3 did not check or change this setting, per instruction to only report it) · delete stale branches per the earlier M2 packet (docs/gov, lane/3-s18, lane/3-s18-r1, lane/2-4.1b-p2, lane/3-s3) still applies, plus now-merged `claude/m3-review-fix-166` (GitHub already auto-deleted it) and the pre-#166 `claude/inspiring-edison-1evygw` history is superseded (main already carries it).
-7. **Next three actions** create your hourly watchdog · keep advancing R2 (`/lane 3` next S) and merging R3/R4/R5 PRs as they land (gates ①–⑥, `review` now meaningful — do not ignore a real FAIL from it) · report to the GM in Arabic (≤ 15 lines) once you've verified this packet.
+1. **Role** Master · outgoing M8 session_013Rys8YfUdhuXt6s8U7m8z4 · 2026-09-29 ~05:45Z · reason: context 382,663 of the 400k ceiling (get_session) + GM directive 05:45Z. Ground truth is `origin/main`, never a Master checkout.
+2. **Working rule (GM 05:45Z):** every review read and every document read goes to a subagent returning ≤ 20 lines. Do not open replacement PRs anymore: push fixes onto the same PR until it merges. Enable auto-merge only after reading the actual verdict comment. The `review` check is green on any verdict until M-core's fix lands.
+3. **Open PRs (Master-owned, both in review round 2, the last under REVIEW CAP):**
+   - **#203** `master/locks-s7p2-r2` @ `b82ae21`, locks. Releases `packages/i18n | M` and `wms | 1`. Claims `tooling | M | X` (X part 16) and `api | 2 | 4.19` (#198's route-table edit). Adds backlog rows S7 part 2, 2.9 part 3 (#185's four findings), X part 5d part 2 (#175). **GM order: merge #203 first**, then #202.
+   - **#202** `master-adr0007-d198-r6` @ `310856f`, frozen path. D-198: cap 6, auto-archive, Stryker out of local guards. D-200: roles run on disjoint locks, one sentence in the Locks rule. Adds rows X part 16 and X part 17. Round 2 opened with 1 blocking finding: the CLAUDE.md sentence naming Stream C cites a "GM instruction 2026-09-29" that has no DECISION_LOG row. Fix on the same PR: record the GM's verbatim instruction ("After #184 (D-198) merges, add the Stream C lane (S3, S4, S15, S16).") as a D-id, or move the sentence into X part 17.
+   - Round 2 FAIL → commit only the PASS subset, and every open finding becomes a row. GM 05:45Z: push that onto the same PR.
+   - **Conflict for the GM:** the GM asked for auto-merge on #202/#203, but CLAUDE.md keeps lock and frozen-path PRs manual. Merge them manually, one at a time, after reading PASS, and ask the GM if they want the rule changed.
+4. **Decisions this tenure (not on main until #202 merges):** D-198 (verbatim, relayed to M5); D-200 «إذا كان ممكن العمل المتوازي للجلسات طبقه علي كل المستويات» (GM to M8, 2026-09-29). D-199 is reserved for the language-selector directive of 2026-09-27, with its CLAUDE.md line and four agent-file copies (X part 17).
+5. **Sessions:**
+   - M-core session_011PL2MhC8UPwG79YDwDqjAK: X part 16 brief under `tooling` once #203 is on main. Queued next: the `review`-check fix, then X part 17 agent files, then X part 5d part 2 (`api` after lane 2 releases it).
+   - Lane 1 session_01LurRGWNNZEWuceRGGEaCPP: drafting the 2.9 part 3 brief on `lane/1-2.9-part-3-brief`. The Master claims `wms/receive-inbound` together with that brief. 1a-4c (`pda`/`admin`) waits on X part 17.
+   - Lane 2 session_01WA2ZtmPUvF99WFr5ZKnMPo (launched 05:41Z from `lane/2-4.19-handover` @ `952cb85`): rebase #198 as `lane/2-4.19-r2` plus the route-table fix. It waits for the `api` row (#203).
+   - Integration session_01SThLZenuNFMz5TD2dZVpNe: S7 part 2, then S9/S12 RED in parallel.
+   - M7, R4, R5 archived. The watchdog trigger is trig_019kitCX3MxUxmEmjGP91E3v (bound to M8): M9 recreates it on itself with the same prompt, then deletes this one.
+6. **Queue for M9, in order:**
+   1. ACK me, then archive M8.
+   2. Watchdog.
+   3. #203 → #202 as above.
+   4. One PR with the GM's items 6 and 7, plus the one CHANGELOG line for the 05:45Z directive:
+      - a backlog row for M-core: `review` must fail on a FAIL verdict;
+      - tomorrow's lock rows for every lane. Each lock ships with its brief (#187/#189 precedent); a lock without a brief goes to the GM as a question.
+   5. Stream C lane only after D-198 is on main and its lock row plus brief exist.
+   6. #185: hold; it is superseded by 2.9 part 3 and gets closed when that PR opens.
+   7. #175: draft; X part 5d part 2.
+7. **Open GM questions:**
+   - When does the 7th session apply ("7 after the 30 September evaluation")?
+   - The value of `identity.session.lifetime_minutes` (X part 5d part 2).
+   - Auto-merge on lock and frozen-path PRs versus CLAUDE.md.
