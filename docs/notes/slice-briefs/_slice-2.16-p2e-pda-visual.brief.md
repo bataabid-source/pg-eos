@@ -2,7 +2,7 @@
 
 Task: 2.16 part 2e (MASTER_BACKLOG)      Lane: 1 (stream A)      Lock: `pda` (whole module → `apps/pda/**`) — NOT held now: lane 1 holds `wms | 1 | 2.9` for 2.9 part 3; `pda` is re-claimed for lane 1 when 2.9 part 3 closes and kept for 2.16 part 3, then this part
 builder: pg-builder
-Source: GM directive "[GM directive 2026-09-29 17:50Z] «موافق»" (relayed by the Advisory session on issue #207 at 17:38Z — the directive time is later than the relay post time; recorded as relayed).
+Source: GM directive "[GM directive 2026-09-29 17:50Z] «موافق»" — verbatim GM word «موافق»; the 17:50Z tag is Advisory's, the checkable time is the relay post on issue #207 (comment 5895434301, posted 17:38:39Z); carried as a `GM-Directive:` trailer of the #215 squash commit.
 Sequencing: lane 1 order = 2.9 part 3 (`wms`) → 2.16 part 3 (`pda`) → **2.16 part 2e** (`pda`); runs right after 2.16 part 3 and before any real-user demo.
 Session: lane 1, branch `lane/1-2.16-p2e` (first command: `git fetch origin && git checkout -B lane/1-2.16-p2e origin/main`).
 Model routing (ADR-0005 §5): pg-tester sonnet (RED) → pg-reviewer opus (brief + RED) → pg-builder sonnet → pg-tester verify → pg-reviewer opus close. Budget ≤ 8 files / 1,000 lines read, ≤ 150k tokens; REVIEW CAP 2 rounds.

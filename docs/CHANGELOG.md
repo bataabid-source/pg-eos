@@ -11,6 +11,7 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 - **Briefs:** `_slice-2.9-p3-fefo-expiry` — lane 1 pre-build items 1/3/5/6 applied (put-away destination inherits the source expiry under the batch lock; Read list ports.ts L251-266 + receive-line.ts L1-212, S1.spec.ts dropped; lock order rebuild → location-limit → batch advisory → row locks → audit; 2(c) unconditional). New `_slice-2.16-p3-pda-pick-check-load`, `_slice-2.16-p2e-pda-visual` (brief-check OK: 748 / 820 / 737 lines, 8 files each).
 - **Lane 1 order:** 2.9 p3 (`wms`) → 2.16 p3 → 2.16 p2e (`pda` re-claimed at 2.9 p3 close) — backlog rows, docs/state/next.md, handover-advisory.md (directives A, B verbatim), handover-master.md.
 - **Defaults:** 2.16 p3 has no pack screen (not one of D4's nine; open question); 2.16 p2e's Tailwind deps + lockfile by M-core `tooling` before build; 48 px from the GM-approved scope (not doc 40) lives as a named token in one `apps/pda/src/ui/` token file (brief Decision 3), never inline.
+- **Squash trailers (#215 review round 3):** `Override: GM` · `GM-Directive: "[GM directive 2026-09-29 17:30Z] «افتح موجزات خط 1 وقفل wms اليوم»"` (#207 5895344613) · `GM-Directive: "[GM directive 2026-09-29 17:50Z] «موافق»"` (#207 5895434301, posted 17:38:39Z) · `Decision: D-204`; Master M13.
 - **Hash:** backlog `2.16 part 2` placeholder → `66cfccc` (#211 squash left it stale; `resolve-hashes --write`).
 - Model: Master M12 (opus) · Delegated: M12 → subagent · Review: none (docs) · tokens: ≈ 60k subagent.
 
