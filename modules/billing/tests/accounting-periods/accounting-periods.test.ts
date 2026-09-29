@@ -335,12 +335,77 @@ async function getPeriod(id: string): Promise<{ status: string; version: number 
   return row;
 }
 
+/** 0041 (WBS 4.20): entry_type is NOT NULL ('accrual' — a non-manual type) and balance is enforced
+ *  at COMMIT, so the entry is written with two balanced lines in ONE transaction (posted_at stays
+ *  null: UNPOSTED, so 0041's posted-immutability triggers do not pre-empt the period triggers
+ *  under test). A refusal by the period trigger is raised at the entry insert, before any line, and
+ *  is rethrown unchanged. The lines this creates are tracked for afterAll cleanup. Returns the
+ *  entry's id in the same QueryResult shape as before. */
+const accountByEntity = new Map<string, string>();
+const insertedExtraGlAccountIds: string[] = [];
+
+async function glAccountFor(forEntityId: string): Promise<string> {
+  if (forEntityId === entityId) return glAccountId;
+  const known = accountByEntity.get(forEntityId);
+  if (known) return known;
+  const created = await insertGlAccount(forEntityId);
+  insertedExtraGlAccountIds.push(created);
+  accountByEntity.set(forEntityId, created);
+  return created;
+}
+
 async function insertJournalEntryAdmin(input: { forEntityId: string; entryDate: string; periodId?: string | null }): Promise<QueryResult<{ id: string }>> {
-  return pool.query(
-    `insert into billing.journal_entries (entity_id, doc_no, entry_date, description, period_id)
-     values ($1, $2, $3, $4, $5) returning id`,
-    [input.forEntityId, freshDocNo(), input.entryDate, 'قيد اختبار الفترات المحاسبية — WBS 4.19', input.periodId ?? null],
-  );
+  const accountId = await glAccountFor(input.forEntityId);
+  const client = await pool.connect();
+  try {
+    await client.query('begin');
+    const entry: QueryResult<{ id: string }> = await client.query(
+      `insert into billing.journal_entries (entity_id, doc_no, entry_date, description, period_id, entry_type)
+       values ($1, $2, $3, $4, $5, 'accrual') returning id`,
+      [input.forEntityId, freshDocNo(), input.entryDate, 'قيد اختبار الفترات المحاسبية — WBS 4.19', input.periodId ?? null],
+    );
+    const entryRow = entry.rows[0];
+    if (!entryRow) throw new Error('fixture billing.journal_entries insert returned no row');
+    const lines: QueryResult<{ id: string }> = await client.query(
+      `insert into billing.journal_lines (entry_id, account_id, debit, credit)
+       values ($1, $2, 100.000, 0), ($1, $2, 0, 100.000) returning id`,
+      [entryRow.id, accountId],
+    );
+    await client.query('commit');
+    for (const row of lines.rows) insertedJournalLineIds.push(row.id);
+    return entry;
+  } catch (error) {
+    await client.query('rollback');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+/** An UNPOSTED entry with NO lines, inserted as the owner under session_replication_role = replica
+ *  (bypasses balance-at-commit only for this fixture insert). Used where the test's intent is the
+ *  DELETE of an entry by the period trigger: with no lines the FK does not pre-empt it, and being
+ *  unposted the 0041 immutability trigger lets the DELETE through to the period trigger. */
+async function insertLinelessUnpostedJournalEntryAdmin(input: { forEntityId: string; entryDate: string; periodId: string }): Promise<string> {
+  const client = await pool.connect();
+  try {
+    await client.query('begin');
+    await client.query(`set local session_replication_role = replica`);
+    const entry: QueryResult<{ id: string }> = await client.query(
+      `insert into billing.journal_entries (entity_id, doc_no, entry_date, description, period_id, entry_type)
+       values ($1, $2, $3, $4, $5, 'accrual') returning id`,
+      [input.forEntityId, freshDocNo(), input.entryDate, 'قيد اختبار الفترات المحاسبية — WBS 4.19', input.periodId],
+    );
+    await client.query('commit');
+    const row = entry.rows[0];
+    if (!row) throw new Error('fixture billing.journal_entries insert returned no row');
+    return row.id;
+  } catch (error) {
+    await client.query('rollback');
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 async function insertGlAccount(forEntityId: string): Promise<string> {
@@ -546,7 +611,7 @@ afterAll(async () => {
       await client.query(`delete from billing.fiscal_years where id = any($1::uuid[])`, [insertedFiscalYearIds]);
     }
     if (glAccountId) {
-      await client.query(`delete from billing.gl_accounts where id = $1`, [glAccountId]);
+      await client.query(`delete from billing.gl_accounts where id = any($1::uuid[])`, [[glAccountId, ...insertedExtraGlAccountIds]]);
     }
     await client.query('commit');
   } catch (error) {
@@ -584,7 +649,7 @@ describe('Scenario: A journal entry dated inside an open period of its entity is
 // --- Scenario: A journal entry dated inside a closed period is rejected by the database ------------
 
 describe('Scenario: A journal entry dated inside a closed period is rejected by the database (not only the domain)', () => {
-  it('insert, update-into, and delete-from a closed period are all refused (23514), including through a genuine pgeos_app session', async () => {
+  it('insert and delete-from a closed period are refused by the 0040 period rule, an entry UPDATE by the 0041 immutability rule (chk_journal_entry_immutable) — all 23514, including through a genuine pgeos_app session', async () => {
     const range = nextRange();
     const period = await freshOpenPeriod({ forEntityId: entityId, forFiscalYearId: fiscalYearId, ...range });
 
@@ -592,6 +657,10 @@ describe('Scenario: A journal entry dated inside a closed period is rejected by 
     const preExistingId = preExisting.rows[0]?.id;
     if (!preExistingId) throw new Error('expected the pre-close insert to return an id');
     insertedJournalEntryIds.push(preExistingId);
+    // 0041: the DELETE below targets an unposted entry with no lines, so the period trigger (not the
+    // lines FK, not the posted-immutability trigger) is what refuses it.
+    const linelessId = await insertLinelessUnpostedJournalEntryAdmin({ forEntityId: entityId, entryDate: range.startDate, periodId: period.id });
+    insertedJournalEntryIds.push(linelessId);
 
     await closePeriod(ctxFor(CFO_ACTOR_UUID), { periodId: period.id, expectedVersion: period.version, correlationId: nextCorrelationId() }, deps);
     expect((await getPeriod(period.id)).status).toBe('closed');
@@ -600,9 +669,9 @@ describe('Scenario: A journal entry dated inside a closed period is rejected by 
 
     await expect(
       pool.query(`update billing.journal_entries set description = $2 where id = $1`, [preExistingId, 'محاولة تعديل قيد في فترة مقفلة']),
-    ).rejects.toMatchObject({ code: CHECK_VIOLATION });
+    ).rejects.toMatchObject({ code: CHECK_VIOLATION, constraint: 'chk_journal_entry_immutable' });
 
-    await expect(pool.query(`delete from billing.journal_entries where id = $1`, [preExistingId])).rejects.toMatchObject({ code: CHECK_VIOLATION });
+    await expect(pool.query(`delete from billing.journal_entries where id = $1`, [linelessId])).rejects.toMatchObject({ code: CHECK_VIOLATION });
 
     // 4.19 pre-build review finding 18: the SAME refusal through a genuine pgeos_app session, not
     // only the admin/superuser pool.
@@ -610,8 +679,8 @@ describe('Scenario: A journal entry dated inside a closed period is rejected by 
     try {
       await withContext(ctxFor(PLAIN_ACTOR_UUID), async (tx: NodePgDatabase) =>
         tx.execute(
-          sql`insert into billing.journal_entries (entity_id, doc_no, entry_date, description)
-              values (${entityId}, ${freshDocNo()}, ${range.startDate}, ${'قيد اختبار عبر pgeos_app'})`,
+          sql`insert into billing.journal_entries (entity_id, doc_no, entry_date, description, entry_type)
+              values (${entityId}, ${freshDocNo()}, ${range.startDate}, ${'قيد اختبار عبر pgeos_app'}, 'accrual')`,
         ),
       );
     } catch (error) {
@@ -620,7 +689,7 @@ describe('Scenario: A journal entry dated inside a closed period is rejected by 
     expect(findRaisedException(appInsertRejection, CHECK_VIOLATION)).toBeDefined();
   });
 
-  it('an entry on an open or uncovered date whose entry_date is later UPDATED into the closed period is refused (23514) — D5: UPDATE checks old AND new', async () => {
+  it('an entry whose entry_date is later UPDATED into a closed period is refused (23514) by the 0041 immutability rule (chk_journal_entry_immutable), not the 0040 period rule', async () => {
     const targetRange = nextRange();
     const targetPeriod = await freshOpenPeriod({ forEntityId: entityId, forFiscalYearId: fiscalYearId, ...targetRange });
     await closePeriod(ctxFor(CFO_ACTOR_UUID), { periodId: targetPeriod.id, expectedVersion: targetPeriod.version, correlationId: nextCorrelationId() }, deps);
@@ -634,14 +703,14 @@ describe('Scenario: A journal entry dated inside a closed period is rejected by 
 
     await expect(
       pool.query(`update billing.journal_entries set entry_date = $2 where id = $1`, [entryId, targetRange.startDate]),
-    ).rejects.toMatchObject({ code: CHECK_VIOLATION });
+    ).rejects.toMatchObject({ code: CHECK_VIOLATION, constraint: 'chk_journal_entry_immutable' });
     const afterResult: QueryResult<{ entry_date: string }> = await pool.query(`select entry_date::text as entry_date from billing.journal_entries where id = $1`, [
       entryId,
     ]);
     expect(afterResult.rows[0]?.entry_date).toBe(uncoveredDate);
   });
 
-  it("changing an existing entry's entity_id to another entity whose OWN covering period for the SAME entry_date is closed is refused (23514) — D5 follows entity_id too", async () => {
+  it("changing an existing entry's entity_id is refused (23514) by the 0041 immutability rule (chk_journal_entry_immutable), not the 0040 period rule", async () => {
     const pccRange = nextRange();
     const pccPeriod = await openPeriod(
       ctxFor(OUTSIDER_ACTOR_UUID),
@@ -665,6 +734,7 @@ describe('Scenario: A journal entry dated inside a closed period is rejected by 
 
     await expect(pool.query(`update billing.journal_entries set entity_id = $2 where id = $1`, [entryId, outsiderEntityId])).rejects.toMatchObject({
       code: CHECK_VIOLATION,
+      constraint: 'chk_journal_entry_immutable',
     });
   });
 
