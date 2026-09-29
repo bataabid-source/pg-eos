@@ -7,6 +7,7 @@ Model routing (ADR-0005 §5): pg-tester sonnet (RED) → pg-reviewer opus (brief
 
 ## Acceptance
 Backlog row X part 17 (verbatim): "CLAUDE.md constraint and the four agent copies identical in one merge; D-199 row; D-200 permissions consistent with BUILD METHOD and lane-guard".
+Backlog items named by the row: (1) D-199 — the language-selector exception to "no embedded UI strings", limited to the language box (`apps/<app>/src/i18n/languages.ts`; the `index.html` tab title is decided in 2.16 part 1a-4c, not exempted), written into CLAUDE.md AGENT CONSTRAINTS by the Master in the same merge as the four `.claude/agents/*.md` copies, plus its DECISION_LOG row; (2) D-200 — in-session concurrency (concurrent subagents, next-slice RED during a build given lane-guard's branch-to-lane mapping and one session / one slice, next brief dispatched before merge) and "each role's lock is granted before it starts", worded as permissions that keep the BUILD METHOD order, each with its enforcing gate; D-200 moves from "Accepted (wording deferred)" to Accepted when it lands.
 Plus: the ADR-0007 "Proposed amendment" block (D-198 cap six + sixth slot, auto-archive, Stryker; D-200; D-202) becomes Accepted in this PR, each item with its named gate (backlog item 10); the CLAUDE.md TESTING / Merge queue wording records that the Master's manual-merge step runs `PG_GUARDS_STRICT=1 pnpm guards:run` (item 15, from PR #209 review finding 2).
 
 ## Facts (verified by the Master on main 3338da2; re-verify at slice start)

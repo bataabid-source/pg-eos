@@ -10,6 +10,7 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 - **X part 17:** brief `_slice-X-p17-adr0007-wording` (`tooling`, lane M); the ADR-0007 Proposed addendum lands with it; new item (15) from #209 finding 2: the Master's manual merge runs `PG_GUARDS_STRICT=1 pnpm guards:run`, recorded in CLAUDE.md TESTING (CLAUDE.md stays with the Master).
 - **Defaults:** worktree cell `../pg-eos-lane-1` until the session starts (`cloud:pending` fails check-locks rule 3) · 2.9 part 3 split: incremental ledger path only, rebuild-balance parity proposed as the next part.
 - **#210 fix (Master decisions):** lock widened `wms/receive-inbound` → `wms` (fix is in module-wide `src/stock-ledger/post-movement.ts`) · Step 0 of 2.9 p3 sources "a batch has one expiry" in 01/13/13B/019/40 or files `SCR-WMS-BATCH-EXPIRY-01`; the refusal is not built until sourced · row `2.9 part 4` (rebuild-balance expiry parity, TODO) · 2.9 p3 deletes `_slice-2.9-p2.brief.md`.
+- **#210 round 1 FAIL(4) fix:** 2.9 p3 second session gated on X part 17 (cap-six / two-sessions-in-lane-1 wording); until then it queues behind 2.16 p2 in the one lane-1 session · worktree cell stays `../pg-eos-lane-1` (check-locks refuses `-wms`) · next.md drops Lane 1b · X p17 acceptance names D-199/D-200.
 - **Open:** CLAUDE.md still says five sessions and lane-guard has one session per lane until X part 17 (in its brief).
 - Model: Master session · Delegated: general-purpose (drafting) · Review: none (lock + briefs) · tokens: ≈ 45k subagent.
 

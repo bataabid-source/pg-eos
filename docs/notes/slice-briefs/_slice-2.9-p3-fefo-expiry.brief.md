@@ -2,6 +2,7 @@
 
 Task: 2.9 part 3 (MASTER_BACKLOG)      Lane: 1, second session (stream A — GM (a) 2026-09-29 08:25Z via Advisory, issue #207, cap six D-198)      Lock: `wms` (whole module, disjoint from `pda` — Master #210 decision 1)
 builder: pg-builder
+Gate (#210 round 1, F1): the session starts only after X part 17 lands the D-198 cap-six / two-sessions-in-lane-1 wording in CLAUDE.md and lane-guard; until then 2.9 part 3 queues behind 2.16 part 2 in the single lane-1 session.
 Session: lane 1 second session, branch `lane/1-2.9-p3` (first command: `git fetch origin && git checkout -B lane/1-2.9-p3 origin/main`) — the fresh "-r5" rebuild of PR #185, which the Master closes as superseded when this PR opens; the Master sets the lock's worktree cell to `cloud:session_<id>` when the session starts.
 Model routing (ADR-0005 §5): pg-tester sonnet (RED) → pg-reviewer opus (brief + RED) → pg-builder sonnet → pg-tester verify → pg-reviewer opus close. Budget ≤ 8 files / 1,000 lines read, ≤ 150k tokens; REVIEW CAP 2 rounds — ONE confirmed review round for the fixes carried over from #185 (backlog item 2), no de facto round 3.
 
