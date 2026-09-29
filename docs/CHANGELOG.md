@@ -4,6 +4,14 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — S7 Trial client scenario RED (integration lane 3, 2026-09-29)
+
+- **What:** `tests/scenarios/S7.spec.ts`, doc 40 L495-500 verbatim. The Given, the price step and credit_limit=0 are BACKED through real sales handlers (contract create with noticeDays 14 per doc 05 L335 → set price list → sign → activate; resolvePrice gives 'standard_list' while the contract is draft, then the same segment-less list via the contract once active; quote + line at 25.000). The alert step is NOT BUILT (owner row 6.7 → 6.3 → 0.19, 5.13 part 2).
+- **Defaults:** SEG-F (doc 01 L1620, doc 05 L323) · segment_id + cr_number set by one raw UPDATE (no handler writes them) · credit_limit from the schema default 0 · standard price list inserted and removed by the spec · alert date compared as `fired_at::date` in the session TZ, because no tz constant exists.
+- **Review:** S7 part 1 hit the cap (round 1 FAIL(2 blocking, 2 nits) → round 2 FAIL(1 blocking, 1 nit), no round 3) → row S7 part 2. S7 part 2 (this entry): round 1 PASS(0) → close review FAIL(2 blocking, 1 nit: this review record, the unverified guards claim, stale packet) → one fix round.
+- **Verified:** 2 identical runs (only the alert step fails), zero residue, G1 = 0, tsc/eslint clean. `pnpm guards:run` on pgeos_lane3 printed G1–G15, G18, G-SEED green, then did not exit within 580 s (killed; G16/G17 not observed — test-only diff, no domain/).
+- Model: integration lane 3 session · Delegated: pg-tester (sonnet), pg-reviewer (opus) · Review: PASS(3 findings, 2 rounds) · tokens: pg-tester ≈ 95k · pg-reviewer ≈ 75k
+
 ## X — weekly goal S1+S2+S18: lane 1 on 2.16 PDA screens, integration on 2.18 (Master M10, 2026-09-29)
 
 - **Weekly goal (GM 07:20Z via Advisory, issue #207):** S1 + S2 + S18 green (shared rows 2.16 + 2.18) — claimed `pda | 1 | 2.16`; briefs `_slice-2.16-p2-pda-receive` (receive + put-away) and `_slice-2.18-s1-green` (integration lane 3, tests/ only, so no lock); `2.16 part 2`/`part 3` rows; 1a-4c, 2.9 part 3 and `S9 part 2` wait; lane 2 stays 4.19 → 4.20.
