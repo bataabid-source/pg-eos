@@ -12,6 +12,7 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 - **To X part 17:** findings 1, 2, 3 (CLAUDE.md wording with gates), 4 (TESTING G16 after X part 16), 7 (squash-merge into one docs(X) commit).
 - **Files:** docs/adr/ADR-0007-cloud-sessions-and-roles.md · docs/DECISION_LOG.md · tasks/MASTER_BACKLOG.md · docs/CHANGELOG.md.
 - **Review:** PASS subset (REVIEW CAP, no round 3). Model: opus · Delegated: none · tokens: not measured.
+- Round-2 fix (auto review FAIL(4) on 81eb921): D-202 reconciled inside ADR-0007; CLAUDE.md governs until X part 17.
 
 ## X — locks: `tooling` to M-core, `api` to lane 2; `packages/i18n` + stale `wms` released; S7 part 2, 2.9 part 3, X part 5d part 2 rows (Master M8, 2026-09-29)
 
