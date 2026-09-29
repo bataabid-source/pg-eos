@@ -18,7 +18,7 @@ GM directive 2026-09-27 (verbatim, relayed in the backlog row): "ثبت تعري
 - No table, column, contract or migration involved.
 
 ## Decisions (defaults — one CHANGELOG line each)
-1. One table per app, `apps/<app>/src/i18n/languages.ts` (apps may not import each other; `packages/*` is frozen): `LANGUAGE_SELECTOR_LABEL = 'Language'` and `LANGUAGE_OPTIONS: Readonly<Record<Locale, { label: string; lang: Locale; dir: 'rtl' | 'ltr' }>>`, `dir` from the existing `directionOf`. A header comment names it the documented exception to "no embedded UI strings" and quotes the GM directive.
+1. One table per app, `apps/<app>/src/i18n/languages.ts` (apps may not import each other; `packages/*` is frozen): `LANGUAGE_SELECTOR_LABEL = 'Language'` and `LANGUAGE_OPTIONS: Readonly<Record<Locale, { label: string; lang: Locale; dir: 'rtl' | 'ltr' }>>`, `dir` from the existing `directionOf`. A header comment names it the documented exception to "no embedded UI strings" (D-199) and quotes the GM directive.
 2. Option labels verbatim from the backlog row: "العربية · Arabic", "English", "हिन्दी · Hindi", "اردو · Urdu", "বাংলা · Bengali", "አማርኛ · Amharic"; each `<option>` carries its own `lang` and `dir`.
 3. The label "Language" is VISIBLE (the `sr-only` class is dropped) — the directive concerns what the worker sees; the `<label>` keeps wrapping the `<select>` (accessible name unchanged in kind).
 4. Remove `locale.select.label` and the six `locale.name.*` keys from all twelve locale files (mechanical scripted edit — the builder does not read the eleven other JSON files); key sets stay identical per app. `LOCALE_LABEL_KEY` is deleted from the three components.
