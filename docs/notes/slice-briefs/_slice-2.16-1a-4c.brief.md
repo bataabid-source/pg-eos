@@ -1,6 +1,6 @@
 # SLICE BRIEF — WBS 2.16 part 1a-4c · the language selector is constant across locales (PDA + admin shells)
 
-Task: 2.16 part 1a-4c (MASTER_BACKLOG)      Lane: 1 (stream A, wave 1)      Lock: `pda` + `admin` (see Default 7)
+Task: 2.16 part 1a-4c (MASTER_BACKLOG)      Lane: 1 (stream A, wave 1)      Lock: `pda` + `admin` (granted, PR #199)
 builder: pg-builder
 Session: R4 (`pg-eos:lane-1`), branch `lane/1-2.16-1a-4c` (from origin/main 8a68e79). Brief drafted by the lane at the Master's request (M4, 2026-09-28 18:40Z).
 Model routing (ADR-0005 §5): pg-tester sonnet (RED) → pg-reviewer opus (brief + RED) → pg-builder sonnet → pg-tester verify → pg-reviewer opus close. Budget ≤ 8 files / 1,000 lines read, ≤ 150k tokens; REVIEW CAP 2 rounds.
@@ -24,7 +24,7 @@ GM directive 2026-09-27 (verbatim, relayed in the backlog row): "ثبت تعري
 4. Remove `locale.select.label` and the six `locale.name.*` keys from all twelve locale files (mechanical scripted edit — the builder does not read the eleven other JSON files); key sets stay identical per app. `LOCALE_LABEL_KEY` is deleted from the three components.
 5. Tab title: stays a brand constant in each `index.html` ("Premium WH", "PG-EOS Admin"), documented by an HTML comment citing this slice — a product name is not translated (same exception as Decision 1). No locale key added.
 6. `<html lang/dir>` behaviour and the locale state (default `ar`, no persistence) unchanged.
-7. Locks: `pda` (claimed by M4) and `admin` (requested from M4). If `admin` is not granted, the admin half (both screens, admin locale files, admin tests, admin index.html) splits off as `2.16 part 1a-4d` with the same decisions, and this slice's acceptance is read for `apps/pda` only.
+7. Locks: `pda` + `admin` both granted to lane 1 by the Master (M8, PR #199) — one slice covering both apps; no `1a-4d` split.
 
 ## Read ONLY (workers)
 - `CLAUDE.md`
@@ -67,6 +67,6 @@ Stop-and-ask if: any table/column/rule not in 01 / 13 / 13B / 019 / 40 — STOP 
 1. Reason: R4's context passed the 300k lane ceiling (≈ 306k, GM relay 01:21Z). Nothing of this slice was built.
 2. Git: main head at handover = 783acd3; this branch `lane/1-2.16-1a-4c` = wip `04a6cd0` (this brief) + the wip commit carrying this section; pushed; tree clean. The successor works on `lane/1-2.16-1a-4c-r1` from main and folds both wip commits into its single `feat(2.16)` commit.
 3. State of the loop: step 5 done (brief, brief-check OK 8 files / 530 lines). NOT started: pg-tester RED, pre-build review — review rounds unspent (2 left).
-4. Blocker: locks. `tasks/LANE_LOCKS.md` on main has no `pda` / `admin` row for lane 1 (the stale `wms` row of R4 is still there). The Master escalated the lock commit to the GM (M5, 19:39Z). No write under `apps/*` (tests included — `apps/*/tests` is inside the module, lane-guard) until the rows land. `pda` only → Decision 7 split (admin half → `2.16 part 1a-4d`).
+4. Locks: resolved — `pda` + `admin` rows for lane 1 land with this brief (PR #199, M8); the stale `wms` row is released. No write under `apps/*` until #199 is on main.
 5. Decided, not to redo: Decision 3 (visible "Language" label) confirmed by the Master (M5, 19:39Z) as a recorded DEFAULT. Other decisions 1–7 stand as written; pre-build review may still challenge them.
-6. First commands: `git fetch origin && git checkout -B lane/1-2.16-1a-4c-r1 origin/main && git cherry-pick 04a6cd0 <handover wip>`; `bash scripts/check-locks.sh`; `bash scripts/brief-check.sh docs/notes/slice-briefs/_slice-2.16-1a-4c.brief.md`; then /slice step 6 (pg-tester).
+6. First commands: `git fetch origin && git checkout -B lane/1-2.16-1a-4c-r1 origin/main` (this brief is on main via #199 — no cherry-pick); `bash scripts/check-locks.sh`; `bash scripts/brief-check.sh docs/notes/slice-briefs/_slice-2.16-1a-4c.brief.md`; then /slice step 6 (pg-tester).
