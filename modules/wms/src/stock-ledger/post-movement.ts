@@ -115,6 +115,7 @@ type StoredMovementRow = {
   readonly reason_code: string | null;
   readonly performed_by: string;
   readonly device_id: string | null;
+  readonly expiry_date: string | null;
 };
 
 /**
@@ -167,7 +168,7 @@ async function insertMovementRow(
        ${params.performedBy}::uuid, ${params.deviceId})
     returning id, entity_id, occurred_at, movement_type, client_id, sku_id, from_location_id,
               to_location_id, qty::text as qty, uom, batch_no, ref_table, ref_id, reason_code,
-              performed_by, device_id
+              performed_by, device_id, to_char(expiry_date, ${ISO_DATE_FORMAT}) as expiry_date
   `);
 
   const row = result.rows[0];
@@ -864,9 +865,10 @@ export async function reverseMovement(
       readonly qty: string;
       readonly uom: string;
       readonly batch_no: string | null;
+      readonly expiry_date: string | null;
     }>(sql`
       select id, entity_id, movement_type, client_id, sku_id, from_location_id, to_location_id,
-             qty::text as qty, uom, batch_no
+             qty::text as qty, uom, batch_no, to_char(expiry_date, ${ISO_DATE_FORMAT}) as expiry_date
         from wms.stock_movements
        where id = ${input.movementId}::uuid
     `);
@@ -902,6 +904,12 @@ export async function reverseMovement(
     // sorted balance locks -> audit).
     await checkLocationLimitsForEntries(tx, [reversalEntry]);
 
+    // Decision 2(e): batch lock after the location-limit lock, before the row lock, when the
+    // original movement carried an expiry (the reversal writes it on the balance row).
+    if (original.expiry_date !== null) {
+      await lockBatchExpiry(tx, reversalEntry);
+    }
+
     const occurredAt = deps.clock.now();
     const row = await insertMovementRow(tx, {
       entityId: original.entity_id,
@@ -912,10 +920,10 @@ export async function reverseMovement(
       refId: original.id,
       reasonCode: REVERSAL_REASON_CODE,
       deviceId: null,
-      expiryDate: null,
+      expiryDate: original.expiry_date,
     });
 
-    await lockAndApplyBalanceDelta(tx, reversalEntry, occurredAt);
+    await lockAndApplyBalanceDelta(tx, reversalEntry, occurredAt, original.expiry_date);
     await writeMovementEventAndAudit(tx, {
       entityId: original.entity_id,
       movementRow: row,

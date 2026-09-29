@@ -28,7 +28,7 @@ import { IDEMPOTENCY_KEY_HEADER_NAME } from '@pg-eos/contracts';
 import { withContext } from '@pg-eos/db';
 import { FixedClock, Quantity, SequentialIdGenerator } from '@pg-eos/domain-kit';
 
-import { InvalidLedgerEntryError, postMovement, type LedgerDeps } from '../../index.js';
+import { InvalidLedgerEntryError, postMovement, reverseMovement, type LedgerDeps } from '../../index.js';
 import { approveInbound, confirmPutaway, receiveLine, suggestLocation } from '../../application/receive-inbound/index.js';
 import { createReceiveInboundDeps } from '../../api/receive-inbound/composition.js';
 import { handleReceiveLine } from '../../api/receive-inbound/handlers.js';
@@ -507,3 +507,85 @@ describe('Scenario: the line expiryDate reaches the stock_balance row through re
     expect(await outboxCountFor([refusedCorrelation])).toBe(0);
   });
 });
+
+// --- the stored movement is what the outbox event and the audit row carry (decision 7) -----------
+
+describe('Scenario: the wms.stock.moved payload and the audit new_value carry the movement expiry_date', () => {
+  interface JsonRow {
+    readonly j: Record<string, unknown>;
+  }
+
+  async function outboxPayloads(correlationId: string): Promise<readonly Record<string, unknown>[]> {
+    const r: QueryResult<JsonRow> = await pool.query(
+      `select payload as j from platform.outbox
+        where correlation_id = $1 and event_type = 'wms.stock.moved' order by created_at, id`,
+      [correlationId],
+    );
+    return r.rows.map((row) => row.j);
+  }
+
+  async function auditNewValues(correlationId: string): Promise<readonly Record<string, unknown>[]> {
+    const r: QueryResult<JsonRow> = await pool.query(
+      `select new_value as j from platform.audit_log
+        where correlation_id = $1 and schema_name = 'wms' and table_name = 'stock_movements' and operation = 'insert'`,
+      [correlationId],
+    );
+    return r.rows.map((row) => row.j);
+  }
+
+  it('a receipt with an expiry: the outbox payload and the audit new_value carry expiry_date', async () => {
+    const BATCH = 'EXP-E1';
+    const posted = await receive(BATCH, locL1, QTY_TEN, EXPIRY_MAR);
+    const payloads = await outboxPayloads(posted.correlationId);
+    expect(payloads).toHaveLength(1);
+    expect(payloads[0]?.['expiry_date']).toBe(EXPIRY_MAR);
+    const audits = await auditNewValues(posted.correlationId);
+    expect(audits).toHaveLength(1);
+    expect(audits[0]?.['expiry_date']).toBe(EXPIRY_MAR);
+  });
+
+  it('a put-away transfer: both legs carry the source expiry in the outbox payload', async () => {
+    const BATCH = 'EXP-E2';
+    await receive(BATCH, locL2, QTY_TEN, EXPIRY_MAR);
+    const correlationId = randomUUID();
+    correlationIds.push(correlationId);
+    await withContext(ctx, (tx) =>
+      inboundLedgerPort.postPutawayTransfer(
+        tx,
+        { entityId, clientId, skuId, qty: QTY_FIVE, batchNo: BATCH, uom: UOM_EA, fromLocationId: locL2, toLocationId: locL1, correlationId, refId: randomUUID() },
+        ACTOR_UUID,
+        deps,
+      ),
+    );
+    const payloads = await outboxPayloads(correlationId);
+    expect(payloads).toHaveLength(2);
+    expect(payloads.map((p) => p['expiry_date'])).toEqual([EXPIRY_MAR, EXPIRY_MAR]);
+  });
+
+  it('a reversal of a receipt with an expiry: the reversing row, its outbox payload and audit new_value carry it, and the balance row keeps it', async () => {
+    const BATCH = 'EXP-E3';
+    const original = await receive(BATCH, locL1, QTY_TEN, EXPIRY_MAR);
+    const correlationId = randomUUID();
+    correlationIds.push(correlationId);
+    const reversal = await reverseMovement(
+      ctx,
+      { movementId: original.movementIds[0] as string, correlationId, performedBy: ACTOR_UUID },
+      deps,
+    );
+    const reversalId = reversal.movementIds[0] as string;
+    const stored: QueryResult<{ expiry_date: string | null }> = await pool.query(
+      `select to_char(expiry_date, 'YYYY-MM-DD') as expiry_date from wms.stock_movements where id = $1`,
+      [reversalId],
+    );
+    expect(stored.rows[0]?.expiry_date).toBe(EXPIRY_MAR);
+    const payloads = await outboxPayloads(correlationId);
+    expect(payloads).toHaveLength(1);
+    expect(payloads[0]?.['expiry_date']).toBe(EXPIRY_MAR);
+    const audits = await auditNewValues(correlationId);
+    expect(audits).toHaveLength(1);
+    expect(audits[0]?.['expiry_date']).toBe(EXPIRY_MAR);
+    const l1 = (await balances(BATCH)).find((r) => r.location_id === locL1);
+    expect(l1?.expiry_date).toBe(EXPIRY_MAR);
+  });
+});
+

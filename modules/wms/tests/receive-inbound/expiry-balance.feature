@@ -58,3 +58,16 @@ Feature: The stock balance carries the batch expiry (WBS 2.9 part 3)
     Then the response is HTTP 422 with title "InvalidLedgerEntryError"
     And the order line and the order version are unchanged
     And no platform.documents row, no wms.stock_movements row, no wms.stock_balance change and no outbox row is written
+
+  Scenario: The stock-movement event and the audit row carry the movement expiry_date
+    When a receipt of batch "E1" with expiry "2027-03-01" is posted
+    Then the wms.stock.moved outbox payload and the audit_log new_value both carry expiry_date "2027-03-01"
+    When 5.000 of batch "E2" received with expiry "2027-03-01" is transferred by put-away
+    Then both transfer legs' wms.stock.moved payloads carry expiry_date "2027-03-01"
+
+  Scenario: A reversal of a receipt keeps the expiry on the reversing row, its event and audit row, and on the balance row
+    Given a receipt of batch "E3" with expiry "2027-03-01" at L1
+    When that movement is reversed with reverseMovement
+    Then the reversing stock_movements row has expiry_date "2027-03-01"
+    And its wms.stock.moved payload and audit_log new_value carry expiry_date "2027-03-01"
+    And the L1 balance row still has expiry_date "2027-03-01"
