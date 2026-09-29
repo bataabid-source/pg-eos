@@ -16,11 +16,11 @@ Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewe
 - lane 1 · pda · 2.16 · since 2026-09-29
 
 ## Last 5 feat/fix commits (git log)
-- `9897a01` feat(4.19): fiscal years + accounting periods (open/closed/locked), DB refuses posting into closed/locked periods, migration 0040
-- `a885a99` feat(2.16): sessions/otp_codes writes behind six identity definers, migration 0044 (part 1a-8)
-- `ece7423` feat(4.19): packages/i18n billing.json — reopen decision title, six locales
-- `fc999be` feat(2.16): has_perm pinned search_path, migration 0043 — SCR-IDENTITY-RLS-01 delta 4 (part 1a-7)
-- `439d172` feat(2.16): G-16a OTP limits — attempts cap, one live code, resend 60 s, 5/email/hour, migration 0042 (part 1a-5)
+- `62b182d` fix(4.20): PR #214 review round 5 — cumulative review count, open nits to backlog 4.20 part 5-7
+- `8ac7b35` fix(4.20): PR #214 review nit — reversal legality as XState guards
+- `64850e1` fix(4.20): PR #214 review round 4 nits — reversal requires a posted original
+- `343447c` fix(4.20): PR #214 review round 3 — posted entries refuse line INSERT from another transaction
+- `6e7da17` fix(4.20): PR #214 review round 2 — CFO role gate on post/reverse/adjust, mirrorLines without cast
 
 ## Blockers
 - G16: changed domain/ per PR, every module nightly (X part 6); G15 per STREAMS §G15 (green.json); G17 NOT RUNNABLE; deploy.sh waits on 0.6b.
