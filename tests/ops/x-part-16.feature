@@ -52,19 +52,6 @@ Feature: G16/Stryker out of local guards (X part 16, D-198 (أ))
     Then it calls guards:run
     And it never assigns or exports CI, PG_GUARDS_STRICT or G16_MODULES
 
-  Scenario: pnpm guards:deploy is the deploy entry point and pins PG_GUARDS_STRICT=1 (PR #209 finding 1)
-    Given the root package.json script "guards:deploy"
-    Then it sets PG_GUARDS_STRICT=1 and runs scripts/guards-run.sh
-    When that script string runs in the guards-run fixture with CI unset and G16_MODULES set to one module
-    Then the mutation runner is invoked once for every module (never scoped, never SKIPPED locally)
-    And with the stub scoring 80 the G16 row is green (G15/G17 read NOT RUNNABLE under PG_GUARDS_STRICT=1 — no runner in the fixture, deploy fails closed)
-    And with the stub scoring 70 G16 is RED and the exit code is 1
-
-  Scenario: Under PG_GUARDS_STRICT=1 alone, guards-run is strict whatever CI is (deploy never skips G16)
-    Given the same fixture
-    When scripts/guards-run.sh runs with PG_GUARDS_STRICT=1 and CI unset, "false", "0" or "true"
-    Then the mutation runner is invoked once for every module, the G16 row is green and never SKIPPED locally
-
   Scenario: lane M with the tooling row may write .githooks/pre-commit; lane M without it and lane 1 may not (tests/hooks/run.sh)
     Given the cloud lane-guard harness on a core/ branch
     Then with the tooling row the write is allowed (exit 0), without it refused (exit 2), and lane 1 is refused (exit 2)

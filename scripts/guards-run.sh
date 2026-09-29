@@ -26,10 +26,6 @@
 #   - G-SEED (reference-seed completeness) is REPORT-ONLY and never blocks.
 #   - G15–G17 are not SQL: their runners (test:scenarios · mutation · test:trace) are executed here
 #     when present; a missing runner is NOT RUNNABLE (report only) unless PG_GUARDS_STRICT=1 (deploy).
-#   - Deploy entry point: `pnpm guards:deploy` (root package.json) = `PG_GUARDS_STRICT=1` + this
-#     script — G15–G17 all block, G16 runs on every module (never scoped, never skipped); pinned by
-#     tests/ops/tests/x-part-16.test.ts, which executes the script string verbatim (PR #209 finding 1).
-#     The Master's manual-merge step for M-core/migration PRs runs the same strict form.
 #
 # Exit: 0 all blocking guards green · 1 at least one of G1–G14 (G6 included, WBS 0.16 closed;
 #       G14 included, WBS 0.18) returned a row / failed · 2 the guards file, psql or pnpm could not
@@ -149,7 +145,7 @@ verdict_nonsql() {   # $1 guard  $2 label  $3 present(0/1)  $4 result: green|red
   elif [ "${PG_GUARDS_STRICT:-0}" = "1" ]; then
     report_line "$g" "-" "RED — NOT RUNNABLE under PG_GUARDS_STRICT=1 ($label runner missing)"; BLOCKING=$((BLOCKING + 1))
   else
-    report_line "$g" "-" "NOT RUNNABLE — $label runner not present yet (report only; deploy = pnpm guards:deploy, PG_GUARDS_STRICT=1)"
+    report_line "$g" "-" "NOT RUNNABLE — $label runner not present yet (report only; deploy sets PG_GUARDS_STRICT=1)"
   fi
 }
 # G15 — doc 40 Part E scenarios S1..S20 (playwright JSON reporter), judged by
