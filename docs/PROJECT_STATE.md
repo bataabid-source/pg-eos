@@ -14,14 +14,14 @@ Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewe
 - lane M · tooling · X · since 2026-09-29
 - lane 2 · billing · 4.20 · since 2026-09-29
 - lane M · api · X · since 2026-09-29
-- lane 1 · pda · 2.16 · since 2026-09-29
+- lane 1 · wms · 2.9 · since 2026-09-29
 
 ## Last 5 feat/fix commits (git log)
+- `bf1c51b` fix(X): #209 trimmed to the PASS subset — guards:deploy and its two cases removed, X part 16 part 2 row (Master M12 16:05Z)
+- `66cfccc` feat(2.16): PDA receive + put-away screens on XState v5, S1's D4 steps (part 2) (#211)
 - `03d3644` fix(X): pnpm guards:deploy pins PG_GUARDS_STRICT=1 at deploy — #209 finding 1 (X part 16 fix round)
 - `9897a01` feat(4.19): fiscal years + accounting periods (open/closed/locked), DB refuses posting into closed/locked periods, migration 0040
 - `4b17ae3` feat(X): G16/Stryker out of local guards (D-198 (أ)), lane-guard tooling opens .githooks/* (X part 16)
-- `a885a99` feat(2.16): sessions/otp_codes writes behind six identity definers, migration 0044 (part 1a-8)
-- `ece7423` feat(4.19): packages/i18n billing.json — reopen decision title, six locales
 
 ## Blockers
 - G16: changed domain/ per PR, every module nightly (X part 6); G15 per STREAMS §G15 (green.json); G17 NOT RUNNABLE; deploy.sh waits on 0.6b.
@@ -35,5 +35,5 @@ Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewe
 - Master batch (frozen paths): entityId on WithContextCtx; domain-kit browser break; eslint cwd bug; new-slice.sh stale citations.
 
 ## Next
-1. Weekly goal S1+S2+S18 (GM 07:20Z): Lane 1: 2.16 p2 (#211) → 2.16 p3 → 2.9 p3 (lock `wms`) · Integration: X part 5d part 2 (#175, 0045), S1 to green.
+1. Weekly goal S1+S2+S18 (GM 07:20Z): Lane 1: 2.9 p3 (lock `wms`) → 2.16 p3 → 2.16 p2e (`pda`) · Integration: X part 5d part 2 (#175, 0045), S1 to green.
 2. Lane 2: 4.20 (billing, 0041) · M-core: X part 16 (#209) → X part 5 (api) → X part 17 → X part 18 · waiting: S9 p2, 1a-4c · 1a-9 BLOCKED → AUDIT-CHAIN-01.
