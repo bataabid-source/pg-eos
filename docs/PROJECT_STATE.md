@@ -5,23 +5,23 @@ Phase: enablement week (Master + integration lane; build lanes frozen) → wave 
 Done so far: phase 0 closed · phase 1 done except 1.11 (BLOCKED D-178) · phase 2 warehouse 9/19 · golden slice 2.9 ACCEPTED.
 Pilot: Tier 0 = local Docker postgres:16 (D-129), seed 019 + synthetic data (D-127); doc 38 v4.7 (154 rows).
 Schema: 0001–0040, 0042–0044 applied (0022 withdrawn; 0040 lane 2, 4.19; 0042/0043/0044 lane M, 2.16 1a-5/1a-7/1a-8); issued: 0041 (lane 2); next free 0045.
-Sessions: remote containers boot Postgres from .claude/hooks/session-start.sh; PG_APP_USER is required (ADR-0005 §7).
-Master: M6 (cloud), max six concurrent sessions (D-198). Next migration 0045.
+Sessions: cloud Postgres from .claude/hooks/session-start.sh; PG_APP_USER required (ADR-0005 §7) · Master: M10, cap 5 (CLAUDE.md).
 Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewer (opus); bookkeeping by scripts/scribe.mjs (state, locks, CHANGELOG template).
 
 ## Lanes (tasks/LANE_LOCKS.md)
-- lane 1 · wms · 2.9 · since 2026-09-28
 - lane M · packages/identity · 2.16 · since 2026-09-28
 - lane M · identity · 2.16 · since 2026-09-28
 - lane 2 · billing · 4.19 · since 2026-09-28
-- lane M · packages/i18n · 4.19 · since 2026-09-29
+- lane M · tooling · X · since 2026-09-29
+- lane 2 · api · 4.19 · since 2026-09-29
+- lane 1 · pda · 2.16 · since 2026-09-29
 
 ## Last 5 feat/fix commits (git log)
+- `4943c11` fix(4.19): reopen-decision title loaded at deps build (fails at host startup, not per request); .feature same-status prose matches D4
+- `2df079d` feat(4.19): fiscal years + accounting periods (open/closed/locked), DB refuses posting into closed/locked periods, migration 0040
 - `a885a99` feat(2.16): sessions/otp_codes writes behind six identity definers, migration 0044 (part 1a-8)
 - `ece7423` feat(4.19): packages/i18n billing.json — reopen decision title, six locales
 - `fc999be` feat(2.16): has_perm pinned search_path, migration 0043 — SCR-IDENTITY-RLS-01 delta 4 (part 1a-7)
-- `439d172` feat(2.16): G-16a OTP limits — attempts cap, one live code, resend 60 s, 5/email/hour, migration 0042 (part 1a-5)
-- `ba875ad` feat(4.1b): line dimensions + dimension values, list and reference kind, migration 0038 (part 2)
 
 ## Blockers
 - G16: changed domain/ per PR, every module nightly (X part 6); G15 per STREAMS §G15 (green.json); G17 NOT RUNNABLE; deploy.sh waits on 0.6b.
@@ -35,5 +35,5 @@ Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewe
 - Master batch (frozen paths): entityId on WithContextCtx; domain-kit browser break; eslint cwd bug; new-slice.sh stale citations.
 
 ## Next
-1. Lane 2 (billing): 4.19 (0040) on lane/2-4.19-r2 → 4.20 (0041) · Master: 4.1b part 3 (guards.sql orphan query) · X part 12 part 4 before 4.19 handlers.
-2. M-core: 2.16 1a-8 (RLS-01 d2, 0044) done · D-198 (أ) tooling (lock pending) · 1a-9 BLOCKED G-01 → AUDIT-CHAIN-01 1/4 → Master batch. Integration: X part 5d.
+1. Weekly goal S1+S2+S18 (GM 07:20Z): Lane 1: 2.16 part 2 (pda) → part 3 · Integration: 2.18, S1 to green · waiting: S9 p2, 2.9 p3, 1a-4c.
+2. Lane 2: 4.19 (#205) → 4.20 · M-core: X part 16 tooling → X part 18 (`review` fails on FAIL) · 1a-9 BLOCKED G-01 → AUDIT-CHAIN-01.

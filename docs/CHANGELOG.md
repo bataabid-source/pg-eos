@@ -17,6 +17,42 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 - Model: lane session (opus) · Delegated: pg-tester (sonnet), pg-builder-core (opus), pg-reviewer (opus ×3) · Review: PASS(31 findings, 2 rounds) · tokens: tester ~410k · builder-core ~295k · reviewer ~420k.
 - **fix(4.19), PR #170 automated review FAIL(2):** .feature same-status prose corrected to D4 (accepted unless version decreases); `title_ar` now loaded when deps are built (`loadReopenDecisionTitleAr` + `ReopenDecisionTitleMissingError`, `createAccountingPeriodRepository(title)`), so a missing i18n file fails host startup, not a request — merge order is hard: packages/i18n lands first; `reopen-title.unit.test.ts` 6 cases. Fix review FAIL(1)→PASS; ~90k tokens.
 
+## X — weekly goal S1+S2+S18: lane 1 on 2.16 PDA screens, integration on 2.18 (Master M10, 2026-09-29)
+
+- **Weekly goal (GM 07:20Z via Advisory, issue #207):** S1 + S2 + S18 green (shared rows 2.16 + 2.18) — claimed `pda | 1 | 2.16`; briefs `_slice-2.16-p2-pda-receive` (receive + put-away) and `_slice-2.18-s1-green` (integration lane 3, tests/ only, so no lock); `2.16 part 2`/`part 3` rows; 1a-4c, 2.9 part 3 and `S9 part 2` wait; lane 2 stays 4.19 → 4.20.
+- **Rows:** `X part 18` (M-core: `review` fails on a FAIL verdict) · `X part 5b part 2` (d) relay-loop.test.ts:314 bounded poll (flaked ②③ on #203 at 27cd85b) · `S9 part 2` (S9.spec.ts:12/23-24/78 wording).
+- **D-201 (GM «موافق», 05:45Z):** the Master does no inline reads or reviews; every review, gate run or document read goes to a subagent returning ≤ 20 lines; fixes are pushed onto the same PR.
+- **Channel:** the permanent Advisory→Master channel is GitHub issue #207 (the Advisory cannot fire the Master's inbox routine); the Master reads it on every check-in and hourly. Live packet `docs/notes/handover-master.md` rewritten for M10.
+- **Defaults recorded:** STREAMS has no §12 — the screen set is taken from Stream A + doc 40 §D4/Part E: S1 drives receive, put-away, pick, check, load; S2 (VA-08 VAS command) and S18 (monthly snapshot) drive no D4 screen · the `pda` worktree cell names lane 1's live cloud session (`cloud:session_01LurRGWNNZEWuceRGGEaCPP`) · 2.18 goes to lane 3 per the GM although doc 38 names lane 1 · the review-check row is numbered `X part 18` (#202 adds 16/17).
+- Model: Master session (M10, opus) · Delegated: general-purpose (drafting), pg-reviewer (review) · Review: PASS(2 findings, 1 round) · tokens: ≈ 60k subagent.
+
+## X — D-198 + D-200 + D-202: REVIEW CAP final subset of PR #202 after FAIL(8) (Master M9, 2026-09-29)
+
+- **What:** DECISION_LOG D-198, D-200 (Accepted, wording deferred to X part 17) and D-202; ADR-0007 "Proposed amendment" block (cap six, auto-archive, D-200, D-202); backlog `X part 16`, `X part 17`. CLAUDE.md is unchanged against main (five-session text stays until X part 17).
+- **D-202:** GM «موافق» (06:45Z, via Advisory) — Advisory session permanent until production: no context ceiling, private snapshot across summarization, hourly watchdog + daily GM report, creates the Master successor (ADR-0007 Proposed amendment).
+- **Why:** REVIEW CAP after pg-reviewer FAIL(8) at 37fd7b3 — removed the CLAUDE.md cap-six/open-session (1, 2) and auto-archive (3) sentences; fixed 5 (D-200 status), 6 (ADR review header), 8 (X part 17 deduped).
+- **To X part 17:** findings 1, 2, 3 (CLAUDE.md wording with gates), 4 (TESTING G16 after X part 16), 7 (squash-merge into one docs(X) commit).
+- **Files:** docs/adr/ADR-0007-cloud-sessions-and-roles.md · docs/DECISION_LOG.md · tasks/MASTER_BACKLOG.md · docs/CHANGELOG.md.
+- **Review:** REVIEW CAP: FAIL(8) → final subset, no further round. D-202 added on explicit GM order (06:45Z: 'inside your open docs(X) PR #202 — no new PR'). Open findings to X part 17. Model: opus · Delegated: none · tokens: not measured.
+- REVIEW CAP final (auto review FAIL on b5fafd7): ADR-0007 addendum is Proposed, in-force text unchanged; decisions recorded in DECISION_LOG; wording lands with X part 17.
+
+## X — locks: `tooling` to M-core, `api` to lane 2; `packages/i18n` + stale `wms` released; S7 part 2, 2.9 part 3, X part 5d part 2 rows (Master M8, 2026-09-29)
+
+- **Why:** M7 handover queue + GM order (2026-09-29) to grant each role a disjoint lock now: M-core idle on X part 16 (D-198 أ), PR #198 blocked on `apps/api/src/route-table.ts` (lane-guard refused it under `billing`), integration lane waiting on its S7 part 2 row, PR #185 FAIL(4) with its author archived, PR #175 asking for its part 2 row.
+- **Change:** `tasks/LANE_LOCKS.md` — released `packages/i18n | M` (#196 merged), `wms | 1` (R4 archived); claimed `tooling | M | X` ("X part 16" is not a doc-38 row, D-185), `api | 2 | 4.19`. MASTER_BACKLOG — `S7 part 2` READY (lane 3, `eb9a1b6`); `2.9 part 3` (#185 findings 1–4, lock `wms/receive-inbound` at start) supersedes `2.9 part 2 (fix)` (path fixed); `X part 5d part 2` (#175); 1a-4c unchanged, READY, waiting on `X part 17`. The `api` row names 4.19 because #198 (feat(4.19)) is the task that edits `route-table.ts`; its worktree cell is updated when lane 2's successor starts; `api` passes to M-core only after lane 2 releases it. State header M8, cap 5.
+- **REVIEW CAP:** #199 (4 FAIL rounds) → #200 round 1 FAIL(2) → fix → round 2 FAIL(4); this commit is #200's PASS subset. Excluded (open findings, row `2.16 part 1a-4c`): the `pda`/`admin` rows and the 1a-4c brief — they instruct the language-selector exception, which is not in CLAUDE.md yet (`X part 17`).
+- **Fix-forward (GM via Advisory, 2026-09-29 06:45Z):** force-push is refused by the harness and stays refused; pushed branches are never rewritten — round-2 fixes land as a merge of main plus the fix on top, PRs are updated with update-branch or `git merge origin/main`, never rebase + force.
+- **Default recorded:** M-core commits its X part 16 brief under the `tooling` lock as the slice's first commit, brief-check before any build.
+- Model: Master session (M8) · Delegated: none · Review: #200 round 2 FAIL(4) → PASS subset (REVIEW CAP) · tokens: 77k Master session context (get_session, shared with #201).
+
+## X — S12 Lost opportunity scenario RED (integration lane 3, 2026-09-29)
+
+- **What:** `tests/scenarios/S12.spec.ts`, doc 40 L531-535 verbatim. A `_s12_` client plus one sales.opportunities row (raw fixture INSERT; no handler writes opportunities). All three steps are named NOT BUILT: close-as-lost command and lost_reason closed-list enforcement → row 1.5 (proof only @ f790da7, full slice pending) → 6.7. Quarterly funnel → 5.13 (R-18, doc 25 L343) → 6.3 → 6.7.
+- **Defaults:** the closed list (doc 01 L489) will be asserted through the close command once it exists, with no enforcement mechanism prescribed. The schema observation (no CHECK/FK on lost_reason) is kept as an annotation only. Cleanup is by id.
+- **Open:** no backlog row for the 1.5 full slice · R-18 is monthly (doc 25) vs quarterly (doc 40 L535, doc 12 L121) · sales.opportunities has no version column.
+- **Verified:** 2 identical runs (3 named softs only), zero residue, G1 = 0, tsc/eslint exit 0; guards not observed locally (test-only; CI ⑤).
+- Model: integration lane 3 session · Delegated: pg-tester (sonnet), pg-reviewer (opus) · Review: PASS(7 findings, 2 rounds) · tokens: pg-tester ≈ 60k · pg-reviewer ≈ 57k
+
 ## 2.16 — identity.sessions / otp_codes writes behind definer functions, migration 0044 (part 1a-8) (2026-09-29)
 
 - **Why:** SCR-IDENTITY-RLS-01 delta 2 (D-193 D4 أ): any internal context could write `identity.sessions` / `identity.otp_codes` directly; acceptance "`pgeos_app` cannot insert/update/delete them directly; OTP + session tests stay green".
