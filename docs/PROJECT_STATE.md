@@ -4,17 +4,17 @@ Plan: docs/STREAMS.md (ADR-0005, D-192) — scenario-driven streams A–F; DONE 
 Phase: enablement week (Master + integration lane; build lanes frozen) → wave 1 (A: 2.16→2.18 · B: 4.1b p2→4.19→4.20).
 Done so far: phase 0 closed · phase 1 done except 1.11 (BLOCKED D-178) · phase 2 warehouse 9/19 · golden slice 2.9 ACCEPTED.
 Pilot: Tier 0 = local Docker postgres:16 (D-129), seed 019 + synthetic data (D-127); doc 38 v4.7 (154 rows).
-Schema: 0001–0039, 0042–0044 applied (0022 withdrawn; 0042/0043/0044 lane M, 2.16 1a-5/1a-7/1a-8); issued: 0040 · 0041 (lane 2); next free 0045.
-Sessions: cloud Postgres from .claude/hooks/session-start.sh; PG_APP_USER required (ADR-0005 §7) · Master: M10, cap 5 (CLAUDE.md).
+Schema: 0001–0040, 0042–0044 applied (0022 withdrawn; 0040 lane 2, 4.19; 0042/0043/0044 lane M, 2.16 1a-5/1a-7/1a-8); issued: 0041 (lane 2); next free 0045.
+Sessions: cloud Postgres from .claude/hooks/session-start.sh; PG_APP_USER required (ADR-0005 §7) · Master: M11, cap 5 (CLAUDE.md).
 Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewer (opus); bookkeeping by scripts/scribe.mjs (state, locks, CHANGELOG template).
 
 ## Lanes (tasks/LANE_LOCKS.md)
 - lane M · packages/identity · 2.16 · since 2026-09-28
 - lane M · identity · 2.16 · since 2026-09-28
-- lane 2 · billing · 4.19 · since 2026-09-28
 - lane M · tooling · X · since 2026-09-29
-- lane 2 · api · 4.19 · since 2026-09-29
 - lane 1 · pda · 2.16 · since 2026-09-29
+- lane 2 · billing · 4.20 · since 2026-09-29
+- lane M · api · X · since 2026-09-29
 
 ## Last 5 feat/fix commits (git log)
 - `a885a99` feat(2.16): sessions/otp_codes writes behind six identity definers, migration 0044 (part 1a-8)
@@ -29,11 +29,11 @@ Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewe
 - Identity threshold test race under turbo (X part 3); superuser-role catalog test deferred (X part 2) — MASTER_BACKLOG.
 - Open G-01: G8 anchor (approved doc 31 v4.2/D-194, deferrable); imile entity_id/CHECKs/outbox; 2.15 space_reservations.qty CHECK; 3.1 shift_groups.vehicle_id.
 - INV-C4-1 DB-level enforcement on tms.delivery_tasks / tms.routes.vehicle_id required before 3.4 (stream B).
-- Lane backlog: 2.16 1a-3c/1a-4b (process) · 3.12 2b/2c-ii · 4.1a 2b · 4.1a p3 p2 · 4.1b p3 · 3.12/3.13 polish · 2.9 part 2 (fix) — see MASTER_BACKLOG.
+- Lane backlog: 2.16 1a-3c/1a-4b (process) · 3.12 2b/2c-ii · 4.1a 2b · 4.1a p3 p2 · 4.1b p3 · 4.19 p2 · 3.12/3.13 polish · 2.9 part 2 (fix) — see MASTER_BACKLOG.
 - WBS 1.11 BLOCKED (D-178). close/0.6a-d166 (2 ahead/151 behind) and lane/3-3.13 (2 ahead) superseded, content on main — GM deletes them (D-193 D5).
 - Deep review (D-193): no HTTP host/worker (X part 5); G-16a lockout/IP → 2.16 1a-6 (AUTH-01); AUDIT-CHAIN-01 open; RLS-01 d1–3 G-01 → GM.
 - Master batch (frozen paths): entityId on WithContextCtx; domain-kit browser break; eslint cwd bug; new-slice.sh stale citations.
 
 ## Next
-1. Weekly goal S1+S2+S18: Lane 1: 2.16 p2 (#211) → 2.16 p3 → 2.9 p3 (lock when reached) · Integration: X part 5d part 2 (#175) · waiting: S9 p2, 1a-4c.
-2. Lane 2: 4.19 (#205) → 4.20 · M-core: X part 16 tooling → X part 18 (`review` fails on FAIL) · 1a-9 BLOCKED G-01 → AUDIT-CHAIN-01.
+1. Weekly goal S1+S2+S18 (GM 07:20Z): Lane 1: 2.16 p2 (#211) → 2.16 p3 → 2.9 p3 (lock `wms`) · Integration: X part 5d part 2 (#175, 0045), S1 to green.
+2. Lane 2: 4.20 (billing, 0041) · M-core: X part 16 (#209) → X part 5 (api) → X part 17 → X part 18 · waiting: S9 p2, 1a-4c · 1a-9 BLOCKED → AUDIT-CHAIN-01.
