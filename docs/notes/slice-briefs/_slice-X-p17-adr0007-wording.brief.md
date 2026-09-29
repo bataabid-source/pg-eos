@@ -23,6 +23,7 @@ Plus: the ADR-0007 "Proposed amendment" block (D-198 cap six + sixth slot, auto-
 ## Open items (not sourced — the Master answers before the session starts)
 - Cap six: the sixth slot's naming and seven "after 30 September" wait on a GM D-id (D-198 (ج), item 3); check-locks.sh keeps "max three lanes" unless the Master states the new lane rule.
 - D-200 in-session concurrency (item 2) and D-202 scope (item 11) have no verbatim GM wording beyond the recorded rows.
+- CLAUDE.md:28 still says five sessions while the GM (a) directive (08:25Z, #207) runs a sixth under D-198; and two lane-1 sessions (`pda`, `wms`) now share lane 1 in lane-guard.sh (branch → lane, one session one slice) — the wording and gate for a second session on one lane are this part's to state.
 
 ## Read ONLY (workers)
 - `CLAUDE.md`
