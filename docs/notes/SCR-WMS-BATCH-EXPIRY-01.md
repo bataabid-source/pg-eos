@@ -1,6 +1,6 @@
 # SCR-WMS-BATCH-EXPIRY-01 — one expiry per batch on `wms.stock_balance` (G-01 rule request)
 
-**Status:** APPROVED 2026-09-29 — the same request as `SCR-WMS-EXPIRY-01` (lane 1 R4, commit 51fceb1), which the GM approved with backlog row 2.9 part 3 («مواافق» 01:20Z, R4 rulings); GM default (b), Advisory 12:25Z, issue #207. Filed by the Master (M11) under **EXECUTION-MASTER-v4 §1.11 (G-01)** for WBS `2.9 part 3`. No new table or column; nothing in `database/schema/*` or `database/migrations/*` is touched.
+**Status:** OPEN — awaiting a verbatim GM decision on issue #207. Same request as `SCR-WMS-EXPIRY-01` (lane 1 R4, commit 51fceb1, option 1: ledger write-path check, no schema change). Advisory default (b) (12:25Z, #207) approves it only if the 01:20Z GM approval of EXPIRY-01 holds; the 01:20Z «مواافق» is recorded only as a relay in lane commit 51fceb1 (not on main); M6 (f217556) declined that relay as unverified and M7 (fbb9caa) listed it among misleading relay claims — no verbatim GM approval is on record (#212 review 13:02Z). Filed by the Master (M11) under **EXECUTION-MASTER-v4 §1.11 (G-01)** for WBS `2.9 part 3`. No new table or column; nothing in `database/schema/*` or `database/migrations/*` is touched.
 
 ## 1 · Context (verified on `origin/main @ 7d823b6`)
 - The rule "a batch has one expiry" comes from the PR #185 brief (`docs/notes/slice-briefs/_slice-2.9-p2.brief.md`, Decision 2), which was a Master default. It is **not found** in doc 01 / 13 / 13B / 019 / 40.

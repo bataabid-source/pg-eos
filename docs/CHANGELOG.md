@@ -6,8 +6,8 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ## X — bookkeeping: 2.9 part 3 `wms` lock, D-203 lifetime 720, handover packets, X part 17 rows (Master M12, 2026-09-29)
 
-- **GM defaults 12:25Z (Advisory, #207 — DEFAULT, RECORD, PROCEED):** (a) scribe claimed `wms | 1 | 2.9` (whole module; brief write scope adds `stock-ledger/post-movement.ts` + `errors.ts`) and moved `pda | 1 | 2.16` to lane 1's live session; lane 1 runs 2.16 p2 → 2.16 p3 → 2.9 p3 sequentially in one session.
-- (b) `SCR-WMS-BATCH-EXPIRY-01` = `SCR-WMS-EXPIRY-01` (51fceb1, GM «مواافق» 01:20Z): same rule on the existing `stock_balance.expiry_date`, no table/column → approved; enforced on the ledger write path (EXPIRY-01 option 1); brief acceptance keeps "refused at any location".
+- **GM defaults 12:25Z (Advisory, #207 — DEFAULT, RECORD, PROCEED):** (a) 2.9 part 3 lock scope = `wms` (whole module; brief write scope adds `stock-ledger/post-movement.ts` + `errors.ts`), claimed when 2.9 p3 is reached with `pda` released in the same step (one lock row per lane — #212 review 13:02Z); `pda | 1 | 2.16` moved to lane 1's live session; lane 1 runs 2.16 p2 → 2.16 p3 → 2.9 p3 sequentially in one session.
+- (b) `SCR-WMS-BATCH-EXPIRY-01` = `SCR-WMS-EXPIRY-01` (51fceb1): same rule, no table/column, but the cited 01:20Z GM approval is unverified (relay only; M6/M7 flagged it) → SCR stays OPEN for a verbatim GM decision; the cross-location refusal is conditional in the brief and backlog row.
 - (c) S1 QRT routing + `quarantine_decision` owner = 2.9 part 3 (lane 1, `wms`), second step after the FEFO fix — owner rows in MASTER_BACKLOG (STREAMS holds none).
 - (d) **D-203** `identity.session.lifetime_minutes` = 720 (DECISION_LOG); migration **0045** issued to lane 3 for X part 5d part 2 (#175); next free 0046 (README, header).
 - (e) Seven sessions: no change until the Phase-2 evaluation (2026-09-30 08:00Z) — X part 17 brief keeps the cap item Proposed.

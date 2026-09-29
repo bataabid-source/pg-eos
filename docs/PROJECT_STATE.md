@@ -14,7 +14,6 @@ Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewe
 - lane M · tooling · X · since 2026-09-29
 - lane 2 · billing · 4.20 · since 2026-09-29
 - lane M · api · X · since 2026-09-29
-- lane 1 · wms · 2.9 · since 2026-09-29
 - lane 1 · pda · 2.16 · since 2026-09-29
 
 ## Last 5 feat/fix commits (git log)

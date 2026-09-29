@@ -1,6 +1,6 @@
 # SLICE BRIEF — WBS 2.9 part 3 · the ledger writes the batch expiry on `wms.stock_balance` (the FEFO step of S1)
 
-Task: 2.9 part 3 (MASTER_BACKLOG)      Lane: 1 (stream A)      Lock: `wms` (whole module, lane 1 — GM default (a), Advisory 12:25Z, issue #207; `post-movement.ts` is inside it; lane 1 is the only wms lane)
+Task: 2.9 part 3 (MASTER_BACKLOG)      Lane: 1 (stream A)      Lock: `wms` (whole module, lane 1 — GM default (a), Advisory 12:25Z, issue #207; `post-movement.ts` is inside it; lane 1 is the only wms lane; claimed by the Master when the slice starts, `pda` released in the same step)
 builder: pg-builder
 Sequencing: runs in the single lane-1 session after 2.16 part 2 (#211) → 2.16 part 3, sequentially (Advisory 10:22Z, #207) — no second lane-1 session, no CLAUDE.md change.
 Session: lane 1, branch `lane/1-2.9-p3` (first command: `git fetch origin && git checkout -B lane/1-2.9-p3 origin/main`) — the fresh "-r5" rebuild of PR #185, which the Master closes as superseded when this PR opens.
@@ -10,7 +10,7 @@ Model routing (ADR-0005 §5): pg-tester sonnet (RED) → pg-reviewer opus (brief
 Backlog row 2.9 part 3 (verbatim): "S1's FEFO step green; same-batch different-expiry refused at any location; trailer matches the review verdict; one confirmed review round".
 doc 38 row 2.9 (verbatim): "GOLDEN SLICE — Receive inbound order (PDA + state machine + ledger + event + GRN + billable events)" — row stays ACCEPTED; this part is a defect fix.
 doc 40 Part E S1, scenario 2 (verbatim): "Given available stock of "GULF-0137" in two batches with expiries 90 and 200 days / When an outbound order for 12 units is approved / Then allocation takes 12 units from the 90-day batch".
-Rule source for "refused at any location": `SCR-WMS-BATCH-EXPIRY-01` — APPROVED as the same request as `SCR-WMS-EXPIRY-01` (commit 51fceb1; GM «مواافق» 01:20Z approved "SCR-WMS-EXPIRY-01 plus backlog row 2.9 part 3", R4 rulings; GM default (b), Advisory 12:25Z). It adds no table and no column: the rule is enforced in the ledger write path (EXPIRY-01 option 1, no schema change).
+Rule source for "refused at any location": `SCR-WMS-BATCH-EXPIRY-01` — OPEN for a verbatim GM decision on #207 (the cited 01:20Z approval is unverified). It adds no table and no column (EXPIRY-01 option 1, ledger write path). Conditional scope: Decision 2(b) across locations, the scenario "refused at another location" and the property test's cross-location clause are built only if the SCR is APPROVED on #207 when the slice starts; otherwise they are left out, the backlog clause moves to row 2.9 part 4, and the closing report says so. Everything else in this brief is unconditional.
 
 ## Facts (verified by the Master on main 7d823b6; re-verify against the current main at slice start)
 - `wms.stock_movements` carries `expiry_date` (01-Data-Model.sql:705) and `wms.stock_balance` has `expiry_date date` (01:719-732) — no schema change.
@@ -46,7 +46,7 @@ Feature: The stock balance carries the batch expiry (WBS 2.9 part 3)
   Scenario: A second receipt of the same batch keeps the recorded expiry and adds quantity
   Scenario: A receipt without expiry leaves expiry_date null; a later one with expiry fills it
   Scenario: A different expiry for the same batch is refused at the same location
-  Scenario: A different expiry for the same batch is refused at another location
+  Scenario: A different expiry for the same batch is refused at another location (only if SCR-WMS-BATCH-EXPIRY-01 is APPROVED — Rule source above)
 ```
 Property test: for any generated sequence of receipts of one batch across locations, every `stock_balance` row of that batch carries one expiry, and a receipt with a different non-null expiry is refused and changes no row.
 

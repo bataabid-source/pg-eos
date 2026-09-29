@@ -1,6 +1,6 @@
 # Handover — Master (ADR-0007 Decision 5)
 
-1. **Role** Master · M11 session_01D4mRd2bGnE31HbhTVFbZKs · 2026-09-29 12:20Z (successor of M10 session_015VfJ1G9rQ4kL3ygksqPrds). Ground truth is `origin/main` (4ef42a1), never a Master checkout. Owns state, merges, migration numbers (next free 0045; 0041 issued to lane 2 for 4.20), wave contracts; builds nothing.
+1. **Role** Master · M11 session_01D4mRd2bGnE31HbhTVFbZKs · 2026-09-29 12:20Z (successor of M10 session_015VfJ1G9rQ4kL3ygksqPrds). Ground truth is `origin/main` (4ef42a1), never a Master checkout. Owns state, merges, migration numbers (next free 0046; 0041 issued to lane 2 for 4.20, 0045 to lane 3 for X part 5d part 2 / D-203), wave contracts; builds nothing.
 2. **Working rules** (unchanged from M10 + today's lessons)
    - D-201: no inline reads/reviews — subagents return ≤ 20 lines. Fix-forward only; no force-push, no replacement PR; behind PRs take `git merge origin/main`.
    - Read the claude[bot] verdict comment, not the `review` check (green on any verdict until X part 18).
@@ -14,7 +14,7 @@
 6. **Open PRs**
    - #211 lane 1 2.16 part 2 (head d6de727): claude[bot] FAIL(4) — blocking: receive/put-away screens not XState. Lane 1's `pnpm add xstate` refused by its harness ([Modify Shared Resources]); Master granted `xstate@^5.19.2` + lockfile on #211 (12:00Z) but cannot install it for the lane (would launder the refusal). Needs a human approval in lane 1's session, or M-core under `tooling`. Squash manually at PASS.
    - #209 M-core X part 16 (head 4b17ae3, dirty): FAIL(2) open — blocking finding 1 (G16 skipped at deploy). M-core (011PL2M, 458k) is building X part 5 on core/X-part-5 instead; #209 must be fixed on core/X-part-16-r2 (merge main, pinning test) — no r3/r4 PR.
-   - #212 draft = the Master's single bookkeeping PR once the GM answers: 2.9 part 3 lock scope (`wms` vs `wms/receive-inbound`, post-movement.ts:482) and SCR-WMS-BATCH-EXPIRY-01. Fold in #210 (draft), handover-advisory.md (GM 09:35Z «موافق»), X part 17 rows, lane-2 worktree cell (names archived 013aUcx).
+   - #212 = the Master's bookkeeping PR (M12): GM defaults 12:25Z applied — 2.9 p3 lock `wms` (claimed when reached), QRT/quarantine owner = 2.9 p3, D-203 = 720 (0045 → lane 3); #210 folded in; handover-advisory.md; lane-2 cell = session_012audWizm1uuLmQZBJd1nLy.
    - #175 integration X part 5d part 2 (draft) — needs M-core's route-table export under `api`. #185 hold. 
 7. **Sessions** Lane 1 session_01QdrAPRKmFdLKZYJzbceZDc (262k; order: #211 → 2.16 part 2d if any → 2.16 part 3 → 2.9 part 3). Lane 2: no live session — Advisory to create the 4.20 successor. M-core 011PL2M (over ceiling). Integration 014Kgrt (#175). Advisory 01FfooF.
-8. **Open GM questions** 2.9 p3 lock scope · SCR-WMS-BATCH-EXPIRY-01 · owners for S1 QRT routing / quarantine_decision (G-01) · `identity.session.lifetime_minutes` · seven sessions after 30 Sept.
+8. **Open GM questions** SCR-WMS-BATCH-EXPIRY-01 (verbatim approval needed; the 01:20Z relay is unverified) · seven sessions after 30 Sept (default: no change until the 2026-09-30 08:00Z evaluation).
