@@ -4,6 +4,14 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — `scripts/check-locks.sh` lane cap 3 → 4 (D-205 C, M-core `tooling`, 2026-09-29)
+
+- **Why:** GM 20:31Z «موافق A.B.C», relayed verbatim on #207 at 20:46Z → D-205 C (D-205 row in DECISION_LOG is the Master's, before or with this merge): seven sessions (Master, M-core, three build lanes, integration); the lock table may hold four lane rows with distinct lanes. Master M13 21:30Z: "check-locks allows max three lanes — M-core raises it to 4 under `tooling` before lane 2 returns".
+- **Change:** `scripts/check-locks.sh` rule 4 — named constant `MAX_LANES=4` (was the literal 3, D-179), message names D-205 C, header comment updated. `tasks/LANE_LOCKS.md` rule 2 text ("max three lanes") and CLAUDE.md:28 ("two build lanes", "max five") are the Master's / GM's to align.
+- **Tests:** `tests/hooks/run.sh` — four distinct lanes accepted, five refused (new, pg-tester; RED first: the four-lane table exits 1 on main's script); three-lane acceptance is the existing "valid table OK" case (run.sh:166); the old "four lanes refused" case is replaced, being the opposite of D-205 C.
+- **Brief:** none filed — one-constant tooling change on a verbatim GM directive relayed on #207; recorded here instead (DEFAULT, RECORD).
+- Model: opus (M-core session) · Delegated: pg-tester (sonnet), pg-builder (sonnet), pg-reviewer (opus) · Review: PASS(3 findings, 1 round) — close FAIL(3 nits: directive timestamps, D-205 log row, tests wording) fixed in the same round · tokens: ≈ 40k
+
 ## X — X part 5d part 2 (1) — apps/api public entry: hostRoutesFrom, isHostResult, package exports (2026-09-29)
 
 - **Why:** backlog row X part 5d part 2, item (1): PR #175's scenario fixture reached into `apps/api/src` and copied the host's `isHostResult` and table→HostRoute map.
