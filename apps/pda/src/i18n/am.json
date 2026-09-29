@@ -45,5 +45,6 @@
   "putaway.suggestion.unavailable": "የተጠቆመው ቦታ አይገኝም። እንደገና ይሞክሩ ይጫኑ።",
   "putaway.retry": "እንደገና ይሞክሩ",
   "receive.refused.invalidInput": "የማብቂያ ቀን YYYY-MM-DD እና ብዛቱ ቁጥር መሆን አለበት። ያስተካክሉ እና እንደገና ስካን ያድርጉ።",
+  "receive.error.unexpected": "ይህ ስካን ሊረጋገጥ አልቻለም። ለተቆጣጣሪዎ ያሳውቁ።",
   "pda.queue.saveFailed": "በዚህ መሣሪያ ላይ ማስቀመጥ አልተቻለም። እንደገና ስካን ያድርጉ፤ ከተደገመ ተቆጣጣሪውን ይጥሩ።"
 }

@@ -1,9 +1,10 @@
 // WBS 2.16 part 2 — submit a receive scan: the Idempotency-Key and correlation id are generated
 // once, at scan time, and only for an accepted scan. Offline queuing is deferred to 2.16 part 2b:
-// a transport failure refuses the scan.
+// a transport failure (ReceiveTransportError) refuses the scan as 'offline'; any other
+// rejection is a fault and yields 'failed'. Neither enqueues nor generates a key.
 import { ReceiveLineInputSchema, type ReceiveLineInput } from '@pg-eos/contracts/wms/receive-inbound';
 
-import type { ReceiveClient, ReceiveRefusalCode, ReceiveScan } from './client';
+import { ReceiveTransportError, type ReceiveClient, type ReceiveRefusalCode, type ReceiveScan } from './client';
 
 export interface ReceiveLineCommand {
   kind: 'receive-line';
@@ -24,6 +25,7 @@ export type SubmitResult =
   | { status: 'accepted'; command: ReceiveLineCommand }
   | { status: 'refused'; code: ReceiveRefusalCode }
   | { status: 'offline' }
+  | { status: 'failed' }
   | { status: 'invalid' };
 
 export async function submitReceiveScan(deps: SubmitDeps, scan: ReceiveScan): Promise<SubmitResult> {
@@ -39,8 +41,8 @@ export async function submitReceiveScan(deps: SubmitDeps, scan: ReceiveScan): Pr
   let verdict;
   try {
     verdict = await deps.client.checkScan(scan);
-  } catch {
-    return { status: 'offline' };
+  } catch (error) {
+    return error instanceof ReceiveTransportError ? { status: 'offline' } : { status: 'failed' };
   }
   if (!verdict.accepted) {
     return { status: 'refused', code: verdict.code };

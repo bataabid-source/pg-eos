@@ -8,7 +8,7 @@ import fc from 'fast-check';
 import { ReceiveLineInputSchema } from '@pg-eos/contracts/wms/receive-inbound';
 
 import { submitReceiveScan, replayReceiveCommand, type ReceiveLineCommand } from '../../src/features/receive/scan-queue';
-import type { ReceiveClient } from '../../src/features/receive/client';
+import { ReceiveTransportError, type ReceiveClient } from '../../src/features/receive/client';
 
 // 'invalid' = an ACCEPTED verdict but a field the contract's own schemas reject.
 type Outcome = 'accepted' | 'refused' | 'offline' | 'invalid';
@@ -50,7 +50,7 @@ function clientFor(outcome: Outcome): ReceiveClient {
   return {
     checkScan: () => {
       if (outcome === 'offline') {
-        return Promise.reject(new Error('offline'));
+        return Promise.reject(new ReceiveTransportError('offline'));
       }
       return Promise.resolve(
         outcome === 'accepted' || outcome === 'invalid'

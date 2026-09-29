@@ -45,5 +45,6 @@
   "putaway.suggestion.unavailable": "Suggested location unavailable. Press Retry.",
   "putaway.retry": "Retry",
   "receive.refused.invalidInput": "Expiry must be YYYY-MM-DD and quantity a number. Correct it and scan again.",
+  "receive.error.unexpected": "This scan could not be checked. Tell your supervisor.",
   "pda.queue.saveFailed": "Could not save on this device. Scan again; if it repeats, call your supervisor."
 }

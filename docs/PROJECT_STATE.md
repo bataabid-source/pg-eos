@@ -17,11 +17,11 @@ Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewe
 - lane 1 · pda · 2.16 · since 2026-09-29
 
 ## Last 5 feat/fix commits (git log)
+- `0d8a190` fix(2.16): resolve main's stale 4.19 hash placeholder in MASTER_BACKLOG (CI ① resolve-hashes)
+- `21db6b4` fix(2.16): PDA receive clears the scan on accept — a re-tap no longer double-receives (part 2, #211)
 - `9897a01` feat(4.19): fiscal years + accounting periods (open/closed/locked), DB refuses posting into closed/locked periods, migration 0040
 - `70c5058` fix(2.16): PDA put-away retry clears the unavailable state, stable suggest deps (part 2, #211 fix round)
 - `6a5dbf5` feat(2.16): PDA receive + put-away screens, S1's D4 steps (part 2)
-- `a885a99` feat(2.16): sessions/otp_codes writes behind six identity definers, migration 0044 (part 1a-8)
-- `ece7423` feat(4.19): packages/i18n billing.json — reopen decision title, six locales
 
 ## Blockers
 - G16: changed domain/ per PR, every module nightly (X part 6); G15 per STREAMS §G15 (green.json); G17 NOT RUNNABLE; deploy.sh waits on 0.6b.

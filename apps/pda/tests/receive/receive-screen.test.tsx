@@ -15,11 +15,12 @@
 //     export type ReceiveScanVerdict = { accepted: true; lineId: string; expectedVersion: number }
 //       | { accepted: false; code: ReceiveRefusalCode }
 //     export interface ReceiveClient { checkScan(scan: ReceiveScan): Promise<ReceiveScanVerdict> }
-//       checkScan REJECTS ONLY on transport failure; a server 4xx RESOLVES to a refusal verdict.
+//       checkScan REJECTS with ReceiveTransportError (also exported from client.ts, extends Error) ONLY on
+//       transport failure; a server 4xx RESOLVES to a refusal verdict.
 //       lineId / expectedVersion exist ONLY on an accepted verdict.
 //   OFFLINE RECEIPT QUEUING IS DEFERRED to WBS 2.16 part 2b (pre-build review finding 1: the flush
-//   must re-resolve the line from the scanned SKU). In this part a checkScan transport failure
-//   REFUSES the scan: signal.error once, role=alert receive.offline.retry, nothing enqueued, no key.
+//   must re-resolve the line from the scanned SKU). In this part a checkScan ReceiveTransportError
+//   rejection REFUSES the scan: signal.error once, role=alert receive.offline.retry, nothing enqueued, no key.
 //   apps/pda/src/features/receive/mock-client.ts
 //     export const mockReceiveClient: ReceiveClient   (accepts ACCEPTED_SCAN_FIXTURE and returns
 //       { accepted: true, lineId: MOCK_LINE_ID, expectedVersion: MOCK_EXPECTED_VERSION })
@@ -31,7 +32,10 @@
 //     export interface SubmitDeps { client: ReceiveClient; newKey: () => string;
 //       newCorrelationId: () => string; now: () => Date; enqueue: (payload: unknown) => Promise<void> }
 //     export type SubmitResult = { status: 'accepted'; command: ReceiveLineCommand }
-//       | { status: 'refused'; code: ReceiveRefusalCode } | { status: 'offline' } | { status: 'invalid' }
+//       | { status: 'refused'; code: ReceiveRefusalCode } | { status: 'offline' } | { status: 'invalid' } | { status: 'failed' }
+//       'offline' = checkScan rejected with a ReceiveTransportError. 'failed' = checkScan rejected with
+//       ANY other error: nothing enqueued, no key; the screen plays signal.error() once and shows
+//       role=alert receive.error.unexpected (fields kept).
 //       'invalid' = the assembled fields fail the contract's own field schemas (expiryDate must be an
 //       ISO date YYYY-MM-DD, qtyActual a non-negative numeric string up to 3 decimals). Validation
 //       happens before any key is generated: refused / offline / invalid call none of newKey /
@@ -43,7 +47,7 @@
 //       accepted verdict ONLY: newKey() once, newCorrelationId() once, enqueue once with
 //       { kind, idempotencyKey, body: { orderId, lineId (verdict), qtyActual: scan.qty, batchNo,
 //       expiryDate, expectedVersion (verdict), correlationId }, scannedAt: now().toISOString() }.
-//       No skuCode in the body. refused / offline (checkScan rejected): none of newKey /
+//       No skuCode in the body. refused / offline / failed (checkScan rejected): none of newKey /
 //       newCorrelationId / enqueue is called.
 //     export function replayReceiveCommand(c: ReceiveLineCommand):
 //       { headers: { 'Idempotency-Key': string }; body: ReceiveLineInput }   (pure, no enqueue)
@@ -56,14 +60,15 @@
 //       receive.qty.label; button name receive.submit; <h1> screen.receive.
 //     testids: receive-screen · receive-sku · receive-batch · receive-expiry · receive-qty ·
 //       receive-submit · receive-status (role=status, receive.accepted) · receive-error (role=alert,
-//       receive.refused.<code>, or receive.offline.retry on a transport failure). A submit while a
+//       receive.refused.<code>, receive.offline.retry on a transport failure, or
+//       receive.error.unexpected on any other rejection). A submit while a
 //       scan is pending is ignored (one key per scan).
 //   apps/pda/src/router.tsx: '/receive' -> <ReceiveScreen client={mockReceiveClient}
 //     orderId={MOCK_ORDER_ID} .../> with browserScanSignal, crypto.randomUUID for both generators.
 //   i18n keys: receive.sku.label · receive.batch.label · receive.expiry.label · receive.qty.label ·
 //     receive.submit · receive.accepted · receive.refused.lineNotFound ·
 //     receive.refused.skuClientMismatch · receive.refused.lineAlreadyReceived · receive.offline.retry ·
-//     receive.refused.invalidInput · pda.queue.saveFailed
+//     receive.refused.invalidInput · pda.queue.saveFailed · receive.error.unexpected
 //     (each refusal / retry text states the worker's NEXT ACTION).
 
 import 'fake-indexeddb/auto';
@@ -74,7 +79,7 @@ import { RouterProvider } from '@tanstack/react-router';
 import { ReceiveLineInputSchema } from '@pg-eos/contracts/wms/receive-inbound';
 
 import { ReceiveScreen } from '../../src/features/receive/receive-screen';
-import type { ReceiveClient, ReceiveScanVerdict } from '../../src/features/receive/client';
+import { ReceiveTransportError, type ReceiveClient, type ReceiveScanVerdict } from '../../src/features/receive/client';
 import type { ScanSignal } from '../../src/features/receive/scan-signal';
 import { ACCEPTED_SCAN_FIXTURE } from '../../src/features/receive/mock-client';
 import { count, list } from '../../src/offline-queue';
@@ -336,7 +341,7 @@ describe('Scenario: Offline, both screens keep working and the unsynced counter 
   it('a checkScan rejection (transport failure) REFUSES the scan: error signal once, retry message, nothing enqueued, no key', async () => {
     const user = userEvent.setup();
     const signal = makeSignal();
-    const { newKey, newCorrelationId } = renderScreen({ client: makeClient(vi.fn().mockRejectedValue(new Error('offline'))), signal });
+    const { newKey, newCorrelationId } = renderScreen({ client: makeClient(vi.fn().mockRejectedValue(new ReceiveTransportError('offline'))), signal });
     await scanAll(user, 'en');
 
     expect(await screen.findByRole('alert')).toHaveTextContent(t('en', 'receive.offline.retry'));
@@ -345,6 +350,21 @@ describe('Scenario: Offline, both screens keep working and the unsynced counter 
     expect(newKey).not.toHaveBeenCalled();
     expect(newCorrelationId).not.toHaveBeenCalled();
     expect(await count()).toBe(NEVER);
+  });
+
+  it('a non-transport checkScan rejection shows receive.error.unexpected, plays the error signal once, keeps the fields, enqueues nothing', async () => {
+    const user = userEvent.setup();
+    const signal = makeSignal();
+    const { newKey } = renderScreen({ client: makeClient(vi.fn().mockRejectedValue(new TypeError('boom'))), signal });
+    await scanAll(user, 'en');
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(t('en', 'receive.error.unexpected'));
+    expect(signal.error).toHaveBeenCalledTimes(ONCE);
+    expect(signal.ok).not.toHaveBeenCalled();
+    expect(newKey).not.toHaveBeenCalled();
+    expect(await count()).toBe(NEVER);
+    expect(screen.getByTestId('receive-sku')).toHaveValue(SKU);
+    expect(screen.getByTestId('receive-qty')).toHaveValue(QTY);
   });
 
   it('route /receive: an accepted mock scan raises the shell badge to 1', async () => {

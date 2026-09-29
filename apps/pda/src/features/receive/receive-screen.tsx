@@ -25,11 +25,17 @@ const REFUSAL_KEY: Record<ReceiveRefusalCode, TranslationKey> = {
   lineAlreadyReceived: 'receive.refused.lineAlreadyReceived',
 };
 
+const STATUS_KEY: Record<'invalid' | 'offline' | 'failed', TranslationKey> = {
+  invalid: 'receive.refused.invalidInput',
+  offline: 'receive.offline.retry',
+  failed: 'receive.error.unexpected',
+};
+
 function resultKey(result: Exclude<SubmitResult, { status: 'accepted' }>): TranslationKey {
   if (result.status === 'refused') {
     return REFUSAL_KEY[result.code];
   }
-  return result.status === 'invalid' ? 'receive.refused.invalidInput' : 'receive.offline.retry';
+  return STATUS_KEY[result.status];
 }
 
 type Outcome = { kind: 'none' } | { kind: 'accepted' } | { kind: 'error'; key: TranslationKey };
