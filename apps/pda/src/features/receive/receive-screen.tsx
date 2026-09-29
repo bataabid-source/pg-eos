@@ -1,6 +1,6 @@
 // WBS 2.16 part 2 — PDA receive screen (doc 40 §D4): scan SKU, batch, expiry, qty; one step per
 // screen; error signalled by sound+vibration and a message stating the next action.
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { enqueue as defaultEnqueue } from '../../offline-queue';
 import { t, type Locale, type TranslationKey } from '../../i18n/t';
@@ -52,6 +52,14 @@ export function ReceiveScreen({
   const [outcome, setOutcome] = useState<Outcome>({ kind: 'none' });
   const pending = useRef(false);
 
+  // Release after the render with cleared fields commits; only for 'accepted' so the in-flight
+  // 'none' render does not drop the lock early.
+  useEffect(() => {
+    if (outcome.kind === 'accepted') {
+      pending.current = false;
+    }
+  }, [outcome]);
+
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (pending.current) {
@@ -59,6 +67,7 @@ export function ReceiveScreen({
     }
     pending.current = true;
     setOutcome({ kind: 'none' });
+    let accepted = false;
     try {
       const result = await submitReceiveScan(
         { client, newKey, newCorrelationId, now, enqueue },
@@ -66,6 +75,12 @@ export function ReceiveScreen({
       );
       if (result.status === 'accepted') {
         signal.ok();
+        // Clear the fields so a re-tap cannot enqueue the same physical scan again under a fresh Idempotency-Key.
+        setSkuCode('');
+        setBatchNo('');
+        setExpiryDate('');
+        setQty('');
+        accepted = true;
         setOutcome({ kind: 'accepted' });
       } else {
         signal.error();
@@ -76,7 +91,10 @@ export function ReceiveScreen({
       signal.error();
       setOutcome({ kind: 'error', key: 'pda.queue.saveFailed' });
     } finally {
-      pending.current = false;
+      // On accept the lock is released by the outcome effect, after the cleared fields are committed.
+      if (!accepted) {
+        pending.current = false;
+      }
     }
   }
 

@@ -8,7 +8,7 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 - **What:** pg-reviewer on #211 FAIL(4, 1 blocking). (1) blocking: `unavailable` never cleared → `putaway-retry` button re-requests the suggestion, cleared on retry and on a new suggest input; `putaway.suggestion.unavailable` now names the retry (six locales) + `putaway.retry` (47 keys). (2) nit: effect keyed on `skuId/qty/warehouseId`, not the `suggest` object. (3) trailer of 6a5dbf5 overstated PASS — corrected in the entry below; history not rewritten (no force-push). (4) budget 2.6× — accepted by M11, part 3 gets its own session.
 - **Files:** `apps/pda/src/features/put-away/put-away-screen.tsx`, `apps/pda/src/i18n/*.json`, `apps/pda/tests/put-away/put-away-screen.test.tsx` (+4 RED→green), `apps/pda/tests/i18n/keys.test.ts`; main merged in (M11: merge, never rebase).
-- **Bot review on 70c5058:** FAIL(4) → REVIEW CAP, no round 3: findings → row `2.16 part 2d` (double receipt on re-tap first, XState screens, typed transport error); M11 10:40Z.
+- **Bot review on 70c5058:** FAIL(4) → row `2.16 part 2d` (XState screens, typed transport error; M11 10:40Z). The double receipt on re-tap (bot re-marked it blocking on f6c78cd; Advisory 11:22Z: fix before merge if small) is fixed here: `receive-screen.tsx` clears the four fields on accept and holds `pending` until the cleared render commits; 2 tests; pg-reviewer PASS(1 nit, fixed) ≈ 12k.
 - Model: lane 1 session (opus) · Delegated: pg-tester (sonnet), pg-builder (sonnet), pg-reviewer (opus) · tokens: pg-tester ≈ 35k · pg-builder ≈ 25k · pg-reviewer ≈ 22k.
 
 ## 2.16 — PDA receive + put-away screens, S1's D4 steps (part 2) (2026-09-29)

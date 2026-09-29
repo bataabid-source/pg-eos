@@ -249,6 +249,43 @@ describe('Scenario: Scanning SKU, batch and expiry enqueues one receive-line com
   });
 });
 
+describe('Scenario: Form state after a scan (double-receipt guard)', () => {
+  const FIELD_IDS = ['receive-sku', 'receive-batch', 'receive-expiry', 'receive-qty'] as const;
+
+  it('after an accepted scan all four fields are cleared and a second Submit enqueues nothing more', async () => {
+    const user = userEvent.setup();
+    const enqueue = vi.fn().mockResolvedValue(undefined);
+    const checkScan = vi.fn().mockResolvedValue(ACCEPTED);
+    renderScreen({ enqueue, client: makeClient(checkScan) });
+    await scanAll(user, 'en');
+    await screen.findByRole('status');
+
+    for (const id of FIELD_IDS) {
+      expect(screen.getByTestId(id)).toHaveValue('');
+    }
+    await user.click(screen.getByRole('button', { name: t('en', 'receive.submit') }));
+
+    expect(enqueue).toHaveBeenCalledTimes(ONCE);
+    const oldValueCalls = checkScan.mock.calls.filter(
+      ([scan]) => (scan as { skuCode: string }).skuCode === SKU,
+    );
+    expect(oldValueCalls).toHaveLength(ONCE);
+  });
+
+  it('after a refused scan the four fields keep their values so the worker can correct them', async () => {
+    const user = userEvent.setup();
+    const client = makeClient(vi.fn().mockResolvedValue({ accepted: false, code: 'lineNotFound' }));
+    renderScreen({ client });
+    await scanAll(user, 'en');
+    await screen.findByRole('alert');
+
+    expect(screen.getByTestId('receive-sku')).toHaveValue(SKU);
+    expect(screen.getByTestId('receive-batch')).toHaveValue(BATCH);
+    expect(screen.getByTestId('receive-expiry')).toHaveValue(EXPIRY_120_DAYS);
+    expect(screen.getByTestId('receive-qty')).toHaveValue(QTY);
+  });
+});
+
 describe('Scenario: A refused scan plays the error signal and shows the next action, and nothing is enqueued', () => {
   it.each(REFUSAL_CODES)('refusal %s: error signal, its own next-action message, no key, nothing enqueued', async (code) => {
     const user = userEvent.setup();
