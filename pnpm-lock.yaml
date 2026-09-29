@@ -963,6 +963,9 @@ importers:
 
   tests/scenarios:
     dependencies:
+      '@pg-eos/api':
+        specifier: workspace:*
+        version: link:../../apps/api
       '@pg-eos/api-kit':
         specifier: workspace:*
         version: link:../../packages/api-kit
