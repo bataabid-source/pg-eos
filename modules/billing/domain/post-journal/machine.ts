@@ -23,6 +23,13 @@ export const JOURNAL_STATUS = {
 
 export type JournalStatus = (typeof JOURNAL_STATUS)[keyof typeof JOURNAL_STATUS];
 
+const JOURNAL_STATUS_VALUES: readonly string[] = Object.values(JOURNAL_STATUS);
+
+/** Narrows an XState snapshot value to a JournalStatus without an unchecked cast. */
+export function isJournalStatus(value: unknown): value is JournalStatus {
+  return typeof value === 'string' && JOURNAL_STATUS_VALUES.includes(value);
+}
+
 /** The one event this machine accepts. */
 export const JOURNAL_EVENTS = {
   REVERSE: 'REVERSE_JOURNAL',
@@ -110,7 +117,12 @@ export function advanceJournalStatus(entry: JournalEntryState, event: ReverseJou
   const actor = actorAt(entry.status);
   actor.start();
   actor.send({ type: event.type });
-  const next = actor.getSnapshot().value as JournalStatus;
+  const next = actor.getSnapshot().value;
   actor.stop();
+  if (!isJournalStatus(next)) {
+    throw new IllegalJournalTransitionError(
+      `the journal machine reached an unknown state (Allowed: ${JOURNAL_STATUS_VALUES.join(', ')})`,
+    );
+  }
   return next;
 }
