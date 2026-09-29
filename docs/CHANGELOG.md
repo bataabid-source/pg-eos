@@ -4,6 +4,13 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — D-198 + D-200: session cap 6, auto-archive, G16/Stryker out of local guards; parallel roles on disjoint locks (Master M8, 2026-09-29)
+
+- **Why:** GM directives D-198 (2026-09-28; PR #184 by M5, FAIL(3) + conflict) and D-200 (2026-09-29) — verbatim in DECISION_LOG.
+- **Change:** CLAUDE.md (cap six, seventh after the open D-198 GM question; watchdog auto-archive with the clean-tree/pushed precondition; "Parallel roles" rule with its gates) · ADR-0007 §1, §5, Phase 2, status · DECISION_LOG D-198, D-200 · MASTER_BACKLOG `X part 17`.
+- **REVIEW CAP:** #184 FAIL(3) → #201 round 1 FAIL(6) → one fix round → round 2 FAIL (bot FAIL(5); pg-reviewer opus FAIL(6)); this commit is the PASS subset. Open → `X part 17`: D-199 exception + agent-file copies in one merge, D-200 in-session concurrency wording, sixth-slot record.
+- Model: Master session (M8) · Delegated: pg-reviewer (opus, round 2) · tokens: 77k Master session context (get_session) + pg-reviewer ≈ 40k (agent usage report).
+
 ## 2.16 — identity.sessions / otp_codes writes behind definer functions, migration 0044 (part 1a-8) (2026-09-29)
 
 - **Why:** SCR-IDENTITY-RLS-01 delta 2 (D-193 D4 أ): any internal context could write `identity.sessions` / `identity.otp_codes` directly; acceptance "`pgeos_app` cannot insert/update/delete them directly; OTP + session tests stay green".
