@@ -20,9 +20,6 @@ import { HTTP_STATUS_NOT_IMPLEMENTED } from './http-status.js';
 export const UNIMPLEMENTED_ROUTES = [
   '/billing/dimensions/create-dimension-value',
   '/billing/dimensions/deactivate-dimension-value',
-  '/billing/post-journal/post-journal',
-  '/billing/post-journal/reverse-journal',
-  '/billing/post-journal/adjust-journal',
 ] as const;
 
 /** ADR-0006 consequences: the login endpoints are not mounted until 2.16 part 1a-5 (G-16a limits)
