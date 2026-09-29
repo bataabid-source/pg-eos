@@ -277,27 +277,38 @@ async function insertGlAccount(forEntityId: string): Promise<string> {
  *  DEBIT line's id — the one every scenario below tags. Every call is a FRESH entry/pair of lines
  *  (round-1 finding 19 / R4) — no test shares a journal line with another. */
 async function freshLine(): Promise<string> {
-  const entryResult: QueryResult<{ id: string }> = await pool.query(
-    `insert into billing.journal_entries (entity_id, doc_no, entry_date, description)
-     values ($1, $2, current_date, $3) returning id`,
-    [entityId, freshDocNo('JE'), 'قيد اختبار أبعاد السطر — WBS 4.1b part 2'],
-  );
-  const entryRow = entryResult.rows[0];
-  if (!entryRow) throw new Error('fixture billing.journal_entries insert returned no row');
-  insertedJournalEntryIds.push(entryRow.id);
+  // WBS 4.20 (0041): entry_type is NOT NULL and balance is enforced at COMMIT, so the entry and its
+  // two lines are written in ONE transaction. 'accrual' = a non-manual type (no approval needed);
+  // posted_at stays null (UNPOSTED) so 0041's posted-immutability triggers do not pre-empt the
+  // FK / period behaviour the scenarios below exercise.
+  const client = await pool.connect();
+  try {
+    await client.query('begin');
+    const entryResult: QueryResult<{ id: string }> = await client.query(
+      `insert into billing.journal_entries (entity_id, doc_no, entry_date, description, entry_type)
+       values ($1, $2, current_date, $3, 'accrual') returning id`,
+      [entityId, freshDocNo('JE'), 'قيد اختبار أبعاد السطر — WBS 4.1b part 2'],
+    );
+    const entryRow = entryResult.rows[0];
+    if (!entryRow) throw new Error('fixture billing.journal_entries insert returned no row');
 
-  // ONE statement, two VALUES rows — both lines commit together, so the entry is balanced at every
-  // commit (pre-build round-2 finding 7; WBS 4.20 adds balance-at-commit).
-  const linesResult: QueryResult<{ id: string; debit: string }> = await pool.query(
-    `insert into billing.journal_lines (entry_id, account_id, debit, credit)
-     values ($1, $2, 100.000, 0), ($1, $2, 0, 100.000) returning id, debit::text as debit`,
-    [entryRow.id, glAccountId],
-  );
-  const debitRow = linesResult.rows.find((row) => Number(row.debit) > 0);
-  if (!debitRow || linesResult.rows.length !== 2) throw new Error('fixture billing.journal_lines insert did not return two lines');
-  for (const row of linesResult.rows) insertedJournalLineIds.push(row.id);
-
-  return debitRow.id;
+    const linesResult: QueryResult<{ id: string; debit: string }> = await client.query(
+      `insert into billing.journal_lines (entry_id, account_id, debit, credit)
+       values ($1, $2, 100.000, 0), ($1, $2, 0, 100.000) returning id, debit::text as debit`,
+      [entryRow.id, glAccountId],
+    );
+    await client.query('commit');
+    insertedJournalEntryIds.push(entryRow.id);
+    const debitRow = linesResult.rows.find((row) => Number(row.debit) > 0);
+    if (!debitRow || linesResult.rows.length !== 2) throw new Error('fixture billing.journal_lines insert did not return two lines');
+    for (const row of linesResult.rows) insertedJournalLineIds.push(row.id);
+    return debitRow.id;
+  } catch (error) {
+    await client.query('rollback');
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 async function insertDimensionValueFixture(input: {
@@ -572,11 +583,24 @@ afterAll(async () => {
     }
   });
   await cleanup(async () => {
-    if (insertedJournalLineIds.length > 0) {
-      await pool.query(`delete from billing.journal_lines where id = any($1::uuid[])`, [insertedJournalLineIds]);
-    }
-    if (insertedJournalEntryIds.length > 0) {
-      await pool.query(`delete from billing.journal_entries where id = any($1::uuid[])`, [insertedJournalEntryIds]);
+    // 0041: deleting this file's OWN tracked lines/entries under session_replication_role = replica
+    // (4.19 precedent) so balance-at-commit does not fire on a lines-then-entry delete.
+    const client = await pool.connect();
+    try {
+      await client.query('begin');
+      await client.query(`set local session_replication_role = replica`);
+      if (insertedJournalLineIds.length > 0) {
+        await client.query(`delete from billing.journal_lines where id = any($1::uuid[])`, [insertedJournalLineIds]);
+      }
+      if (insertedJournalEntryIds.length > 0) {
+        await client.query(`delete from billing.journal_entries where id = any($1::uuid[])`, [insertedJournalEntryIds]);
+      }
+      await client.query('commit');
+    } catch (error) {
+      await client.query('rollback');
+      throw error;
+    } finally {
+      client.release();
     }
     if (insertedGlAccountIds.length > 0) {
       await pool.query(`delete from billing.gl_accounts where id = any($1::uuid[])`, [insertedGlAccountIds]);

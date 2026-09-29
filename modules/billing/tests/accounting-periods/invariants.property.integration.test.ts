@@ -60,6 +60,43 @@ let outsiderFiscalYearId: string;
 let fyStart: string;
 
 const insertedFiscalYearIds: string[] = [];
+// 0041 (WBS 4.20): an accepted entry needs balanced lines on a postable account of ITS entity.
+const glAccountByEntity = new Map<string, string>();
+const insertedGlAccountIds: string[] = [];
+
+async function insertGlAccountFor(forEntityId: string): Promise<string> {
+  const code = `9-${randomUUID().replace(/\D/g, '').padEnd(14, '0').slice(0, 2)}-${randomUUID().replace(/\D/g, '').padEnd(14, '0').slice(0, 3)}-${randomUUID().replace(/\D/g, '').padEnd(14, '0').slice(0, 3)}`;
+  const result: QueryResult<{ id: string }> = await pool.query(
+    `insert into billing.gl_accounts (entity_id, code, name_ar, account_type) values ($1, $2, $3, 'expense') returning id`,
+    [forEntityId, code, NAME_AR],
+  );
+  const row = result.rows[0];
+  if (!row) throw new Error('fixture billing.gl_accounts insert returned no id');
+  insertedGlAccountIds.push(row.id);
+  glAccountByEntity.set(forEntityId, row.id);
+  return row.id;
+}
+
+/** Deletes this file's OWN accepted entry and its lines in one admin transaction under
+ *  session_replication_role = replica (4.19 precedent) so balance-at-commit / the lines FK do not
+ *  fire. Must run per generated case (not only in afterAll): accepted entries may carry period_id,
+ *  and a period with a referencing entry cannot be deleted, which would leave overlapping periods
+ *  for the next generated case (ex_accounting_periods_no_overlap 23P01). */
+async function deleteOwnEntry(entryId: string): Promise<void> {
+  const client = await pool.connect();
+  try {
+    await client.query('begin');
+    await client.query(`set local session_replication_role = replica`);
+    await client.query(`delete from billing.journal_lines where entry_id = $1`, [entryId]);
+    await client.query(`delete from billing.journal_entries where id = $1`, [entryId]);
+    await client.query('commit');
+  } catch (error) {
+    await client.query('rollback');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
 
 function addDays(isoDate: string, days: number): string {
   const date = new Date(`${isoDate}T00:00:00.000Z`);
@@ -160,18 +197,30 @@ async function dbAcceptsPosting(
   entryDate: string,
   periodId: string | null,
 ): Promise<{ accepted: boolean; insertedId?: string }> {
+  const client = await pool.connect();
   try {
-    const result: QueryResult<{ id: string }> = await pool.query(
-      `insert into billing.journal_entries (entity_id, doc_no, entry_date, description, period_id)
-       values ($1, $2, $3, $4, $5) returning id`,
+    await client.query('begin');
+    const result: QueryResult<{ id: string }> = await client.query(
+      `insert into billing.journal_entries (entity_id, doc_no, entry_date, description, period_id, entry_type)
+       values ($1, $2, $3, $4, $5, 'accrual') returning id`,
       [forEntityId, freshDocNo(), entryDate, NAME_AR, periodId],
     );
     const id = result.rows[0]?.id;
-    return id === undefined ? { accepted: true } : { accepted: true, insertedId: id };
+    const accountId = glAccountByEntity.get(forEntityId);
+    if (id === undefined || accountId === undefined) throw new Error('fixture journal entry / gl account missing');
+    await client.query(
+      `insert into billing.journal_lines (entry_id, account_id, debit, credit) values ($1, $2, 100.000, 0), ($1, $2, 0, 100.000)`,
+      [id, accountId],
+    );
+    await client.query('commit');
+    return { accepted: true, insertedId: id };
   } catch (error) {
+    await client.query('rollback');
     const pgError = error as { code?: string };
     if (pgError.code === CHECK_VIOLATION) return { accepted: false };
     throw error;
+  } finally {
+    client.release();
   }
 }
 
@@ -206,6 +255,8 @@ beforeAll(async () => {
 
   fiscalYearId = await insertFiscalYearFixture(entityId, fyStart, fyEnd);
   outsiderFiscalYearId = await insertFiscalYearFixture(outsiderEntityId, fyStart, fyEnd);
+  await insertGlAccountFor(entityId);
+  await insertGlAccountFor(outsiderEntityId);
 });
 
 afterAll(async () => {
@@ -220,6 +271,9 @@ afterAll(async () => {
   try {
     await client.query('begin');
     await client.query(`set local session_replication_role = replica`);
+    if (insertedGlAccountIds.length > 0) {
+      await client.query(`delete from billing.gl_accounts where id = any($1::uuid[])`, [insertedGlAccountIds]);
+    }
     if (insertedFiscalYearIds.length > 0) {
       // Defense in depth: every fast-check run already deletes its own periods in a `finally`
       // (cleanupPeriods) regardless of pass/fail, so none should ever leak past a single run — this
@@ -274,7 +328,7 @@ describe('the DB accepts a posting <=> the covering period of the same entity is
               expect(outcome.accepted).toBe(expectedAccept);
             } finally {
               if (outcome.insertedId) {
-                await pool.query(`delete from billing.journal_entries where id = $1`, [outcome.insertedId]);
+                await deleteOwnEntry(outcome.insertedId);
               }
             }
           } finally {
@@ -301,7 +355,7 @@ describe('the DB accepts a posting <=> the covering period of the same entity is
           expect(outcome.accepted).toBe(status === 'open');
         } finally {
           if (outcome.insertedId) {
-            await pool.query(`delete from billing.journal_entries where id = $1`, [outcome.insertedId]);
+            await deleteOwnEntry(outcome.insertedId);
           }
         }
       } finally {
