@@ -207,8 +207,20 @@ afterAll(async () => {
     if (insertedDimensionTypeIds.length > 0) await pool.query(`delete from billing.dimension_types where id = any($1::uuid[])`, [insertedDimensionTypeIds]);
   });
   await cleanup(async () => {
-    if (insertedJournalLineIds.length > 0) await pool.query(`delete from billing.journal_lines where id = any($1::uuid[])`, [insertedJournalLineIds]);
-    if (insertedJournalEntryIds.length > 0) await pool.query(`delete from billing.journal_entries where id = any($1::uuid[])`, [insertedJournalEntryIds]);
+    // 0041: own tracked rows only, under session_replication_role = replica (4.19 precedent).
+    const client = await pool.connect();
+    try {
+      await client.query('begin');
+      await client.query(`set local session_replication_role = replica`);
+      if (insertedJournalLineIds.length > 0) await client.query(`delete from billing.journal_lines where id = any($1::uuid[])`, [insertedJournalLineIds]);
+      if (insertedJournalEntryIds.length > 0) await client.query(`delete from billing.journal_entries where id = any($1::uuid[])`, [insertedJournalEntryIds]);
+      await client.query('commit');
+    } catch (error) {
+      await client.query('rollback');
+      throw error;
+    } finally {
+      client.release();
+    }
     if (insertedGlAccountIds.length > 0) await pool.query(`delete from billing.gl_accounts where id = any($1::uuid[])`, [insertedGlAccountIds]);
   });
   await cleanup(async () => {
@@ -277,21 +289,34 @@ async function freshInactiveListValue(): Promise<string> {
  *  findings 7 and 8: balanced at every commit for WBS 4.20; a fresh line per tag, R4). Returns the
  *  debit line's id. */
 async function freshBalancedLine(): Promise<string> {
-  const entryResult: QueryResult<{ id: string }> = await pool.query(
-    `insert into billing.journal_entries (entity_id, doc_no, entry_date, description) values ($1, $2, current_date, $3) returning id`,
-    [entityId, freshDocNo('JE'), 'قيد اختبار خاصية أبعاد السطر'],
-  );
-  const entryId = (entryResult.rows[0] as { id: string }).id;
-  insertedJournalEntryIds.push(entryId);
-  const linesResult: QueryResult<{ id: string; debit: string }> = await pool.query(
-    `insert into billing.journal_lines (entry_id, account_id, debit, credit)
-     values ($1, $2, 50.000, 0), ($1, $2, 0, 50.000) returning id, debit::text as debit`,
-    [entryId, glAccountId],
-  );
-  for (const row of linesResult.rows) insertedJournalLineIds.push(row.id);
-  const debitRow = linesResult.rows.find((row) => Number(row.debit) > 0);
-  if (!debitRow || linesResult.rows.length !== 2) throw new Error('fixture billing.journal_lines insert did not return two lines');
-  return debitRow.id;
+  // WBS 4.20 (0041): entry_type NOT NULL ('accrual', non-manual) and balance at COMMIT, so the
+  // entry and its two lines share ONE transaction; posted_at stays null (unposted).
+  const client = await pool.connect();
+  try {
+    await client.query('begin');
+    const entryResult: QueryResult<{ id: string }> = await client.query(
+      `insert into billing.journal_entries (entity_id, doc_no, entry_date, description, entry_type)
+       values ($1, $2, current_date, $3, 'accrual') returning id`,
+      [entityId, freshDocNo('JE'), 'قيد اختبار خاصية أبعاد السطر'],
+    );
+    const entryId = (entryResult.rows[0] as { id: string }).id;
+    const linesResult: QueryResult<{ id: string; debit: string }> = await client.query(
+      `insert into billing.journal_lines (entry_id, account_id, debit, credit)
+       values ($1, $2, 50.000, 0), ($1, $2, 0, 50.000) returning id, debit::text as debit`,
+      [entryId, glAccountId],
+    );
+    await client.query('commit');
+    insertedJournalEntryIds.push(entryId);
+    for (const row of linesResult.rows) insertedJournalLineIds.push(row.id);
+    const debitRow = linesResult.rows.find((row) => Number(row.debit) > 0);
+    if (!debitRow || linesResult.rows.length !== 2) throw new Error('fixture billing.journal_lines insert did not return two lines');
+    return debitRow.id;
+  } catch (error) {
+    await client.query('rollback');
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 /** True iff the admin-pool insert into billing.line_dimensions for this (dimensionTypeId, valueId)
