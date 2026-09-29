@@ -8,10 +8,14 @@
 // the columns — `posted` while reversed_by is null, `reversed` once it is set. An entry is created
 // in `posted` (no draft rows ever); the ONE edge is REVERSE posted -> reversed; `reversed` is final.
 // Guards (pre-migration + RED review ruling, precedence in this order): same entity, not already
-// reversed, version matches. The database enforces the same edge in billing.mark_journal_reversed()
+// reversed, version matches — `sameEntity` and `versionMatches` are named XState guards on the
+// REVERSE edge over the machine's context (the entry's entityId/version, given as input); "not
+// already reversed" is the chart itself (`reversed` is final, it has no edge). Legality is decided
+// only by the machine (snapshot.can); advanceJournalStatus maps the first refused probe, in the
+// precedence order, to its typed error (PR #214 review). The database enforces the same edge in billing.mark_journal_reversed()
 // and the immutability trigger (migration 0041, T4/T6).
 
-import { createActor, createMachine } from 'xstate';
+import { and, createActor, setup } from 'xstate';
 
 import { AlreadyReversedError, EntityNotInScopeError, IllegalJournalTransitionError, StaleVersionError } from './errors.js';
 
@@ -37,14 +41,41 @@ export const JOURNAL_EVENTS = {
 
 export type JournalEventType = (typeof JOURNAL_EVENTS)[keyof typeof JOURNAL_EVENTS];
 
-/** Pure state chart — no actions, no context: the guards are the functions below. */
-export const journalMachine = createMachine({
+/** The machine's context: the entry's own entity and version (given as input). */
+interface JournalContext {
+  readonly entityId: string;
+  readonly version: number;
+}
+
+/** The event the REVERSE edge is guarded on. */
+interface JournalMachineEvent {
+  readonly type: JournalEventType;
+  readonly entityId: string;
+  readonly expectedVersion: number;
+}
+
+/** One entry's state chart — the REVERSE edge carries the two named guards. */
+export const journalMachine = setup({
+  types: {
+    context: {} as JournalContext,
+    input: {} as JournalContext,
+    events: {} as JournalMachineEvent,
+  },
+  guards: {
+    sameEntity: ({ context, event }) => event.entityId === context.entityId,
+    versionMatches: ({ context, event }) => event.expectedVersion === context.version,
+  },
+}).createMachine({
   id: 'journalEntry',
   initial: JOURNAL_STATUS.POSTED,
+  context: ({ input }) => input,
   states: {
     [JOURNAL_STATUS.POSTED]: {
       on: {
-        [JOURNAL_EVENTS.REVERSE]: JOURNAL_STATUS.REVERSED,
+        [JOURNAL_EVENTS.REVERSE]: {
+          target: JOURNAL_STATUS.REVERSED,
+          guard: and(['sameEntity', 'versionMatches']),
+        },
       },
     },
     [JOURNAL_STATUS.REVERSED]: {
@@ -58,21 +89,41 @@ export function journalStatusOf(reversedBy: string | null): JournalStatus {
   return reversedBy === null ? JOURNAL_STATUS.POSTED : JOURNAL_STATUS.REVERSED;
 }
 
-function actorAt(state: JournalStatus) {
-  const snapshot = journalMachine.resolveState({ value: state });
-  return createActor(journalMachine, { snapshot });
+const KNOWN_EVENTS: readonly string[] = Object.values(JOURNAL_EVENTS);
+
+function isJournalEventType(value: string): value is JournalEventType {
+  return KNOWN_EVENTS.includes(value);
 }
 
-/** True iff `eventType` is a legal edge from `current` (per the state chart above). */
-export function canTransitionJournal(current: JournalStatus, eventType: string): boolean {
-  const actor = actorAt(current);
+function actorAt(state: JournalStatus, context: JournalContext) {
+  const snapshot = journalMachine.resolveState({ value: state, context });
+  return createActor(journalMachine, { snapshot, input: context });
+}
+
+/** True iff the machine, at `state` with `context`, accepts `event` (edge + guards). */
+function machineAccepts(state: JournalStatus, context: JournalContext, event: JournalMachineEvent): boolean {
+  const actor = actorAt(state, context);
   actor.start();
-  const can = actor.getSnapshot().can({ type: eventType });
+  const can = actor.getSnapshot().can(event);
   actor.stop();
   return can;
 }
 
-const KNOWN_EVENTS: readonly string[] = Object.values(JOURNAL_EVENTS);
+// Structural probe for canTransitionJournal: an event whose entity and version match the context,
+// so only the edge itself decides.
+/** journal_entries.version starts at 1 (migration 0041 chk_journal_entries_version). */
+const FIRST_VERSION = 1;
+const STRUCTURAL_CONTEXT: JournalContext = { entityId: '', version: FIRST_VERSION };
+
+/** True iff `eventType` is a legal edge from `current` (per the state chart above). */
+export function canTransitionJournal(current: JournalStatus, eventType: string): boolean {
+  if (!isJournalEventType(eventType)) return false;
+  return machineAccepts(current, STRUCTURAL_CONTEXT, {
+    type: eventType,
+    entityId: STRUCTURAL_CONTEXT.entityId,
+    expectedVersion: STRUCTURAL_CONTEXT.version,
+  });
+}
 
 export interface JournalEntryState {
   readonly status: JournalStatus;
@@ -87,36 +138,63 @@ export interface ReverseJournalEvent {
   readonly expectedVersion: number;
 }
 
+/** One refusal probe: the (state, event) the machine is asked about, and the error its refusal
+ *  maps to. Each probe neutralises the guards checked after it, so the FIRST refused probe names
+ *  the reason, in the ruling's precedence. */
+interface RefusalProbe {
+  readonly probe: (entry: JournalEntryState, event: JournalMachineEvent) => { readonly state: JournalStatus; readonly event: JournalMachineEvent };
+  readonly refuse: (entry: JournalEntryState, event: JournalMachineEvent) => Error;
+}
+
+const REFUSAL_PROBES: readonly RefusalProbe[] = [
+  {
+    // sameEntity alone: from `posted`, with the entry's own version.
+    probe: (entry, event) => ({ state: JOURNAL_STATUS.POSTED, event: { ...event, expectedVersion: entry.version } }),
+    refuse: (_entry, event) =>
+      new EntityNotInScopeError(
+        `the reversal is made in entity ${event.entityId}, not the entry's own entity ` +
+          '(Allowed: a reversal in the same entity as the entry)',
+      ),
+  },
+  {
+    // the chart alone: from the entry's status, with its own entity and version.
+    probe: (entry, event) => ({ state: entry.status, event: { ...event, entityId: entry.entityId, expectedVersion: entry.version } }),
+    refuse: (entry) =>
+      new AlreadyReversedError(`the journal entry is already "${entry.status}" (Allowed: one reversal of a posted entry)`),
+  },
+  {
+    // versionMatches: the full event from the entry's status.
+    probe: (entry, event) => ({ state: entry.status, event }),
+    refuse: (entry, event) =>
+      new StaleVersionError(
+        `expectedVersion ${event.expectedVersion} no longer matches the entry's version ${entry.version} (optimistic lock)`,
+      ),
+  },
+];
+
 /**
  * Applies `event` to `entry` and returns the next status. THROWS, in this precedence (an
  * out-of-scope caller learns nothing about the entry's state): IllegalJournalTransitionError for an
- * event with no edge anywhere, EntityNotInScopeError, AlreadyReversedError, StaleVersionError.
+ * event with no edge anywhere, EntityNotInScopeError, AlreadyReversedError, StaleVersionError —
+ * each decided by the machine's own guards/chart (snapshot.can), never by a hand-written check.
  */
 export function advanceJournalStatus(entry: JournalEntryState, event: ReverseJournalEvent): JournalStatus {
-  if (!KNOWN_EVENTS.includes(event.type)) {
+  if (!isJournalEventType(event.type)) {
     throw new IllegalJournalTransitionError(
-      `${event.type} is not a journal-entry event (Allowed: [${KNOWN_EVENTS.join(', ')}])`,
+      `${String(event.type)} is not a journal-entry event (Allowed: [${KNOWN_EVENTS.join(', ')}])`,
     );
   }
-  if (event.entityId !== entry.entityId) {
-    throw new EntityNotInScopeError(
-      `the reversal is made in entity ${event.entityId}, not the entry's own entity ` +
-        '(Allowed: a reversal in the same entity as the entry)',
-    );
-  }
-  if (!canTransitionJournal(entry.status, event.type)) {
-    throw new AlreadyReversedError(
-      `the journal entry is already "${entry.status}" (Allowed: one reversal of a posted entry)`,
-    );
-  }
-  if (event.expectedVersion !== entry.version) {
-    throw new StaleVersionError(
-      `expectedVersion ${event.expectedVersion} no longer matches the entry's version ${entry.version} (optimistic lock)`,
-    );
-  }
-  const actor = actorAt(entry.status);
+  const context: JournalContext = { entityId: entry.entityId, version: entry.version };
+  const machineEvent: JournalMachineEvent = { type: event.type, entityId: event.entityId, expectedVersion: event.expectedVersion };
+  const refused = REFUSAL_PROBES.find(({ probe }) => {
+    const asked = probe(entry, machineEvent);
+    return !machineAccepts(asked.state, context, asked.event);
+  });
+  if (refused) throw refused.refuse(entry, machineEvent);
+
+  const actor = actorAt(entry.status, context);
   actor.start();
-  actor.send({ type: event.type });
+  actor.send(machineEvent);
   const next = actor.getSnapshot().value;
   actor.stop();
   if (!isJournalStatus(next)) {
