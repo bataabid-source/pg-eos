@@ -4,6 +4,13 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## 2.9 part 3 — SCR-WMS-EXPIRY-01 filed; 2.9 part 2 budget variance accepted (lane 1, R4, 2026-09-29)
+
+- **Why:** GM rulings relayed by the advisory session (GM-Directive: "مواافق") on two questions from PR #185.
+- **Change:** `docs/notes/SCR-WMS-EXPIRY-01.md` (cross-location batch-expiry consistency, three options, no build) · MASTER_BACKLOG row `2.9 part 3` (BLOCKED on the SCR).
+- **Budget:** 2.9 part 2's ≈ 760k tokens vs the 150k budget (> 2×, not split) — variance ACCEPTED by the GM; recorded here, no retroactive split.
+- Model: lane session R4 (opus) · Delegated: none · Review: n/a (SCR + backlog row, no code) · tokens: ~10k.
+
 ## 4.19 — `packages/i18n` lock + brief accepted for M-core (Master M6, 2026-09-29)
 
 - **Why:** PR #170/#174 blocked on `packages/i18n/*/billing.json`; two standalone lock-claim attempts (#187, #189) were rejected for claiming the lock with no brief. Fixed: M-core wrote the brief first (`_slice-4.19-i18n.brief.md`, `builder: pg-builder-core`, `brief-check.sh` OK), Master commits brief + lock together (ADR-0007 P1 pattern), not lock-then-brief.
