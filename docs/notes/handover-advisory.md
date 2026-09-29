@@ -10,7 +10,8 @@ Read after any context summarization, alongside issue #207. The Master updates t
    - «نعم» 08:52Z (cap 6 in CLAUDE.md now) — refused twice as [Self-Modification]; dropped by default (Advisory 10:22Z); the GM may edit CLAUDE.md directly.
    - «مقبول نفذ بنفسك» 09:05Z (route-table) · «موافق» 09:35Z (this file).
    - D-203 «١٢» 11:40Z: `identity.session.lifetime_minutes` = 720 (one warehouse shift on a shared PDA; PIN lock 2.16 covers the unattended device); migration 0045 issued to lane 3 (X part 5d part 2, #175).
-   - Defaults 12:25Z: (a) 2.9 part 3 takes the whole `wms` lock (lane 1) · (b) SCR-WMS-BATCH-EXPIRY-01 = SCR-WMS-EXPIRY-01 (no table/column) — OPEN: the 01:20Z approval is unverified, verbatim GM decision needed · (c) S1 QRT routing + `quarantine_decision` owned by 2.9 part 3 · (d) D-203 = 720 · (e) seven sessions: no change until the Phase-2 evaluation (2026-09-30 08:00Z).
+   - Defaults 12:25Z: (a) 2.9 part 3 takes the whole `wms` lock (lane 1) · (b) SCR-WMS-BATCH-EXPIRY-01 = SCR-WMS-EXPIRY-01 (no table/column) — closed by D-204 · (c) S1 QRT routing + `quarantine_decision` owned by 2.9 part 3 · (d) D-203 = 720 · (e) seven sessions: no change until the Phase-2 evaluation (2026-09-30 08:00Z).
+   - D-204 «نعم» 13:25Z (relayed 13:50Z): SCR-WMS-BATCH-EXPIRY-01 option 1 — one expiry per batch across all locations, enforced by 2.9 part 3 in the ledger write path, no schema change; the SCR closes.
 3. **Weekly goal** S1 + S2 + S18 via 2.16 + 2.18 (GM 07:20Z). Lane 1: 2.16 part 2 (#211) → 2.16 part 3 → 2.9 part 3 (`wms`, sequential, one session). Lane 2: 4.20 (billing, 0041). Integration: X part 5d part 2 (#175, 0045), then 2.18. M-core: X part 16 (#209) → X part 5 → X part 17 → X part 18.
 4. **Harness limits**
    - CLAUDE.md is edited only by the GM (refused to the Master as [Self-Modification]).

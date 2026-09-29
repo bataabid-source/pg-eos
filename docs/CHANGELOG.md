@@ -4,6 +4,14 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — D-204: one expiry per batch across locations, SCR-WMS-BATCH-EXPIRY-01 closed (Master M12, 2026-09-29)
+
+- **GM directive 13:25Z (relayed by the Advisory session 13:50Z, #207):** «نعم» — option 1, no schema change → **D-204** (DECISION_LOG; rationale marked Advisory/Master text).
+- **SCR:** `SCR-WMS-BATCH-EXPIRY-01` → APPROVED by D-204 (row approved, §3 Decision: ledger write path; option 2 not approved); the 2.9 part 3 commit still deletes it.
+- **Brief** `_slice-2.9-p3-fefo-expiry`: Rule source → D-204; Decision 2(c), the "refused at another location" scenario and the property test's cross-location clause unconditional (no 2.9 part 4 fallback). Backlog row 2.9 part 3 acceptance restored ("refused at any location"), rule source D-204; brief quotes it verbatim.
+- **Packets:** handover-advisory.md + handover-master.md record D-204; SCR removed from open GM questions. State regenerated (scribe).
+- Model: Master M12 (opus) · Delegated: M12 → subagent · Review: none (docs) · tokens: ≈ 25k subagent.
+
 ## X — bookkeeping: 2.9 part 3 `wms` lock, D-203 lifetime 720, handover packets, X part 17 rows (Master M12, 2026-09-29)
 
 - **GM defaults 12:25Z (Advisory, #207 — DEFAULT, RECORD, PROCEED):** (a) 2.9 part 3 lock scope = `wms` (whole module; brief write scope adds `stock-ledger/post-movement.ts` + `errors.ts`), claimed when 2.9 p3 is reached with `pda` released in the same step (one lock row per lane — #212 review 13:02Z); `pda | 1 | 2.16` moved to lane 1's live session; lane 1 runs 2.16 p2 → 2.16 p3 → 2.9 p3 sequentially in one session.

@@ -1,6 +1,6 @@
 # SCR-WMS-BATCH-EXPIRY-01 — one expiry per batch on `wms.stock_balance` (G-01 rule request)
 
-**Status:** OPEN — awaiting a verbatim GM decision on issue #207. Same request as `SCR-WMS-EXPIRY-01` (lane 1 R4, commit 51fceb1, option 1: ledger write-path check, no schema change). Advisory default (b) (12:25Z, #207) approves it only if the 01:20Z GM approval of EXPIRY-01 holds; the 01:20Z «مواافق» is recorded only as a relay in lane commit 51fceb1 (not on main); M6 (f217556) declined that relay as unverified and M7 (fbb9caa) listed it among misleading relay claims — no verbatim GM approval is on record (#212 review 13:02Z). Filed by the Master (M11) under **EXECUTION-MASTER-v4 §1.11 (G-01)** for WBS `2.9 part 3`. No new table or column; nothing in `database/schema/*` or `database/migrations/*` is touched.
+**Status:** APPROVED by **D-204** (GM «نعم» 2026-09-29 13:25Z, relayed by the Advisory session 13:50Z, issue #207): option 1 — one expiry per batch across all locations, enforced in the ledger write path, no schema change. Same rule as `SCR-WMS-EXPIRY-01` (lane 1 R4, commit 51fceb1), whose 01:20Z relay stays unverified; D-204 is the verbatim decision. Filed by the Master (M11) under **EXECUTION-MASTER-v4 §1.11 (G-01)** for WBS `2.9 part 3`. No new table or column; nothing in `database/schema/*` or `database/migrations/*` is touched.
 
 ## 1 · Context (verified on `origin/main @ 7d823b6`)
 - The rule "a batch has one expiry" comes from the PR #185 brief (`docs/notes/slice-briefs/_slice-2.9-p2.brief.md`, Decision 2), which was a Master default. It is **not found** in doc 01 / 13 / 13B / 019 / 40.
@@ -11,9 +11,9 @@
 ## 2 · Requested rule
 | # | Object | Rule | Source | status |
 |---|---|---|---|---|
-| 1 | `wms.stock_balance.expiry_date` (ledger write path) | For one (client_id, sku_id, batch_no), every balance row at every location carries the same non-null `expiry_date`. A movement that carries a different non-null expiry for that batch is refused, never overwritten. A null expiry is filled by the first non-null one. | #185 brief Decision 2 (Master default) — no package source | open — pending GM decision |
+| 1 | `wms.stock_balance.expiry_date` (ledger write path) | For one (client_id, sku_id, batch_no), every balance row at every location carries the same non-null `expiry_date`. A movement that carries a different non-null expiry for that batch is refused, never overwritten. A null expiry is filled by the first non-null one. | #185 brief Decision 2 (Master default); GM decision D-204 | approved (D-204) |
 
-## 3 · Proposed (pending GM decision — only the header status can flip this)
-- Proposed: the same rule as SCR-WMS-EXPIRY-01 ("one expiry per batch across locations", on the existing `wms.stock_balance.expiry_date`); it adds no table or column.
-- Proposed enforcement: application code on the ledger write path (EXPIRY-01 option 1, no schema change). A batch-level table or a constraint (EXPIRY-01 option 2) is out of scope for this SCR; it would need its own SCR, migration number and pre-migration review.
-- If approved, applied by 2.9 part 3 (cross-location refusal), whose commit deletes this note; if not approved by slice start, the cross-location clause moves to 2.9 part 4 and this note stays open.
+## 3 · Decision (D-204, GM «نعم» 13:25Z, relayed 13:50Z, #207)
+- Approved: option 1 — the rule above ("one expiry per batch across locations", on the existing `wms.stock_balance.expiry_date`); no table, column or migration.
+- Enforcement: application code on the ledger write path (2.9 part 3, cross-location refusal). Option 2 (a batch-level table or a constraint) is not approved; it would need its own SCR, migration number and pre-migration review.
+- Applied by 2.9 part 3, whose commit deletes this note.
