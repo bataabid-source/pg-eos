@@ -4,6 +4,13 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — locks: lane 2 → 4.20 (billing), `api` → M-core for X part 5; M-core order (Master M11, 2026-09-29)
+
+- **Advisory 11:20Z, #207 (GM delegation «افوضك بفرض افضل الممارسات الإنتاجية والتقنيه»):** scribe released `billing | 2 | 4.19` and `api | 2 | 4.19`, claimed `billing | 2 | 4.20` (lane 2's existing cloud session) and `api | M | X` (M-core: HTTP host, Playwright webServer, route-table export for #175).
+- **4.20 brief:** `_slice-4.20.brief.md` already on main (brief-check OK, 8 files / 473 lines); lock `billing`, migration 0041 issued to lane 2 — kept unchanged.
+- **Backlog:** M-core order X part 16 (#209) → X part 5 → X part 17 → X part 18 ("X part 5 before 17/18"); X part 5 carries lock `api`; 4.19 hash placeholder resolved to 9897a01 (resolve-hashes.mjs). State header: Master M11.
+- Model: Master session (M11, opus) · Delegated: general-purpose (drafting) · Review: none yet (lock PR) · tokens: ≈ 20k subagent.
+
 ## 4.19 — Fiscal years + accounting periods (open/closed/locked), migration 0040 (lane 2, 2026-09-28)
 
 - **Why:** doc 38 row 4.19 "Posting into closed/locked period rejected by the DB" · ADR-0004 D1 5 · D3 OD-12 · SCR-ACC-01 #3–#4.
