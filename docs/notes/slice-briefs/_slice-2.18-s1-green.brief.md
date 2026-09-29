@@ -8,7 +8,7 @@ Model routing (ADR-0005 §5): pg-tester sonnet → pg-reviewer opus (brief + fir
 ## Acceptance (doc 38 row 2.18, verbatim)
 "Playwright green" — for S1, S2, S18 (doc 40 Part E, verbatim, never edited).
 
-## Facts (verified by the Master on main 426c315)
+## Facts (last verified by the Master on main 426c315; re-verify against the current main at slice start)
 - `tests/scenarios/S1.spec.ts` (612 lines) calls the receive-inbound / process-outbound handlers in-process; `tests/scenarios/green.json` lists no scenario; `scripts/scenarios-verdict.mjs` is the one reader (STREAMS §G15).
 - S1's NOT BUILT steps today name: shelf-life → quarantine routing and the `quarantine_decision` item (rows 2.16/2.18), `stock_balance.expiry_date` (2.9 part 3 — waits, GM 07:20Z), billable events OF-01/02/06/07 (4.3), the PDL delivery task (3.4). S2 names the VAS command and Lost Revenue view; S18 names row 4.15.
 - Lane 1 builds the PDA screens S1 drives: `2.16 part 2` (receive + put-away), then `2.16 part 3` (pick → check → load).

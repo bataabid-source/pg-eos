@@ -9,7 +9,7 @@ Model routing (ADR-0005 §5): pg-tester sonnet (RED) → pg-reviewer opus (brief
 doc 38 row 2.16 (verbatim): "Scan response ≤ 1.0 s; shift cannot close with queue > 0" — this part delivers the two D4 screens S1's first scenario drives; the row stays IN PROGRESS.
 doc 40 Part E S1 (verbatim): "When the PDA receives batch "B2409-7" with expiry 120 days from today / Then the line is placed in zone QRT".
 
-## Facts (verified by the Master on main 426c315)
+## Facts (last verified by the Master on main 426c315; re-verify against the current main at slice start)
 - doc 40 §D4 (L422, verbatim): "Nine screens: home · receive · put-away · pick · check · load · count · transfer/return · lookup. Scan is the input; one step per screen; error prevented with sound+vibration and a message stating the next action; … offline 72 h with visible unsynced counter (green 0 / yellow 1–20 / red > 20); shift cannot close with queue > 0; kiosk mode; keyboard-wedge scanner; scan response ≤ 1.0 s."
 - `apps/pda/src/router.tsx` already routes all nine screens to `PlaceholderScreen` (part 1a); `/receive` and `/put-away` are replaced by real features here.
 - The server side exists: `modules/wms/api/receive-inbound/handlers.ts` exports `handleReceiveLine` (L192), `handleSuggestLocation` (L209), `handleConfirmPutaway` (L221); `apps/api/src/route-table.ts` serves `/<module>/<use-case>/<operation>` by convention — no `api` lock needed.
@@ -31,7 +31,7 @@ doc 40 Part E S1 (verbatim): "When the PDA receives batch "B2409-7" with expiry 
 - `modules/wms/api/receive-inbound/handlers.ts` lines 101-240
 - `tests/scenarios/S1.spec.ts` lines 240-330
 
-Write ONLY: `apps/pda/src/features/{receive,put-away}/**` · `apps/pda/src/router.tsx` · `apps/pda/src/i18n/*.json` · `apps/pda/tests/{receive,put-away}/**` · `tests/**` (pg-tester only). Frozen paths untouched.
+Write ONLY: `apps/pda/src/features/{receive,put-away}/**` · `apps/pda/src/router.tsx` · `apps/pda/src/i18n/*.json` · `apps/pda/tests/{receive,put-away}/**` (pg-tester only; `tests/scenarios/**` belongs to the integration lane, 2.18 — lane 1 never edits S1.spec.ts). Frozen paths untouched.
 Contract: none changed (the receive-inbound Zod contracts are consumed as they are). Screen spec: doc 40 §D4 above.
 
 ## RED tests
