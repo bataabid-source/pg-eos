@@ -4,6 +4,17 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — bookkeeping: 2.9 part 3 `wms` lock, D-203 lifetime 720, handover packets, X part 17 rows (Master M12, 2026-09-29)
+
+- **GM defaults 12:25Z (Advisory, #207 — DEFAULT, RECORD, PROCEED):** (a) scribe claimed `wms | 1 | 2.9` (whole module; brief write scope adds `stock-ledger/post-movement.ts` + `errors.ts`) and moved `pda | 1 | 2.16` to lane 1's live session; lane 1 runs 2.16 p2 → 2.16 p3 → 2.9 p3 sequentially in one session.
+- (b) `SCR-WMS-BATCH-EXPIRY-01` = `SCR-WMS-EXPIRY-01` (51fceb1, GM «مواافق» 01:20Z): same rule on the existing `stock_balance.expiry_date`, no table/column → approved; enforced on the ledger write path (EXPIRY-01 option 1); brief acceptance keeps "refused at any location".
+- (c) S1 QRT routing + `quarantine_decision` owner = 2.9 part 3 (lane 1, `wms`), second step after the FEFO fix — owner rows in MASTER_BACKLOG (STREAMS holds none).
+- (d) **D-203** `identity.session.lifetime_minutes` = 720 (DECISION_LOG); migration **0045** issued to lane 3 for X part 5d part 2 (#175); next free 0046 (README, header).
+- (e) Seven sessions: no change until the Phase-2 evaluation (2026-09-30 08:00Z) — X part 17 brief keeps the cap item Proposed.
+- **Folded from draft #210:** X part 17 item (15) + brief `_slice-X-p17-adr0007-wording` (open items → Decisions 4–6: CLAUDE.md lines applied by the GM, no sixth slot, one session per lane) · row `2.9 part 4` (rebuild-balance parity); X part 19 dropped (answered by (a)). Backlog `--check`: 154 doc-38 rows (part rows are not counted).
+- **Packets:** `docs/notes/handover-master.md` (M11 → M12, 99b25a7) · `docs/notes/handover-advisory.md` (GM 09:35Z «موافق»). State: Master M12. Merge of origin/main (4ef42a1) into #212.
+- Model: Master M12 (opus) · Delegated: general-purpose subagent · Review: pending (fresh round on #212) · tokens: ≈ 120k subagent.
+
 ## X — 2.9 part 3 brief (lane 1, sequential, lock deferred) + SCR-WMS-BATCH-EXPIRY-01; QRT/quarantine owner rows (Master M11, 2026-09-29)
 
 - **Advisory 10:22Z, #207 (GM delegation «افوضك بفرض افضل الممارسات الإنتاجية والتقنيه»):** lock deferred (see below); brief `_slice-2.9-p3-fefo-expiry` (from draft #210) runs in the one lane-1 session — no second session, no CLAUDE.md change; supersedes #210's 2.9 p3 part.

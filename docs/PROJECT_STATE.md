@@ -4,24 +4,25 @@ Plan: docs/STREAMS.md (ADR-0005, D-192) — scenario-driven streams A–F; DONE 
 Phase: enablement week (Master + integration lane; build lanes frozen) → wave 1 (A: 2.16→2.18 · B: 4.1b p2→4.19→4.20).
 Done so far: phase 0 closed · phase 1 done except 1.11 (BLOCKED D-178) · phase 2 warehouse 9/19 · golden slice 2.9 ACCEPTED.
 Pilot: Tier 0 = local Docker postgres:16 (D-129), seed 019 + synthetic data (D-127); doc 38 v4.7 (154 rows).
-Schema: 0001–0040, 0042–0044 applied (0022 withdrawn; 0040 lane 2, 4.19; 0042/0043/0044 lane M, 2.16 1a-5/1a-7/1a-8); issued: 0041 (lane 2); next free 0045.
-Sessions: cloud Postgres from .claude/hooks/session-start.sh; PG_APP_USER required (ADR-0005 §7) · Master: M11, cap 5 (CLAUDE.md).
+Schema: 0001–0040, 0042–0044 applied (0022 withdrawn; 0040 lane 2; 0042–0044 lane M); issued: 0041 (lane 2), 0045 (lane 3, D-203); next free 0046.
+Sessions: cloud Postgres from .claude/hooks/session-start.sh; PG_APP_USER required (ADR-0005 §7) · Master: M12, cap 5 (CLAUDE.md).
 Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewer (opus); bookkeeping by scripts/scribe.mjs (state, locks, CHANGELOG template).
 
 ## Lanes (tasks/LANE_LOCKS.md)
 - lane M · packages/identity · 2.16 · since 2026-09-28
 - lane M · identity · 2.16 · since 2026-09-28
 - lane M · tooling · X · since 2026-09-29
-- lane 1 · pda · 2.16 · since 2026-09-29
 - lane 2 · billing · 4.20 · since 2026-09-29
 - lane M · api · X · since 2026-09-29
+- lane 1 · wms · 2.9 · since 2026-09-29
+- lane 1 · pda · 2.16 · since 2026-09-29
 
 ## Last 5 feat/fix commits (git log)
+- `9897a01` feat(4.19): fiscal years + accounting periods (open/closed/locked), DB refuses posting into closed/locked periods, migration 0040
 - `a885a99` feat(2.16): sessions/otp_codes writes behind six identity definers, migration 0044 (part 1a-8)
 - `ece7423` feat(4.19): packages/i18n billing.json — reopen decision title, six locales
 - `fc999be` feat(2.16): has_perm pinned search_path, migration 0043 — SCR-IDENTITY-RLS-01 delta 4 (part 1a-7)
 - `439d172` feat(2.16): G-16a OTP limits — attempts cap, one live code, resend 60 s, 5/email/hour, migration 0042 (part 1a-5)
-- `ba875ad` feat(4.1b): line dimensions + dimension values, list and reference kind, migration 0038 (part 2)
 
 ## Blockers
 - G16: changed domain/ per PR, every module nightly (X part 6); G15 per STREAMS §G15 (green.json); G17 NOT RUNNABLE; deploy.sh waits on 0.6b.
