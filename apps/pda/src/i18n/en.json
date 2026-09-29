@@ -42,7 +42,8 @@
   "putaway.confirm": "Confirm put-away",
   "putaway.confirmed": "Put-away confirmed",
   "putaway.error.wrongLocation": "Wrong location. Go to {location} and scan its code.",
-  "putaway.suggestion.unavailable": "Suggested location unavailable. Wait a moment and reopen this screen.",
+  "putaway.suggestion.unavailable": "Suggested location unavailable. Press Retry.",
+  "putaway.retry": "Retry",
   "receive.refused.invalidInput": "Expiry must be YYYY-MM-DD and quantity a number. Correct it and scan again.",
   "pda.queue.saveFailed": "Could not save on this device. Scan again; if it repeats, call your supervisor."
 }

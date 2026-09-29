@@ -42,7 +42,8 @@
   "putaway.confirm": "پٹ اوے کی تصدیق کریں",
   "putaway.confirmed": "پٹ اوے کی تصدیق ہو گئی",
   "putaway.error.wrongLocation": "غلط مقام۔ {location} پر جائیں اور اس کا کوڈ اسکین کریں۔",
-  "putaway.suggestion.unavailable": "تجویز کردہ مقام دستیاب نہیں۔ ذرا انتظار کریں اور یہ اسکرین دوبارہ کھولیں۔",
+  "putaway.suggestion.unavailable": "تجویز کردہ مقام دستیاب نہیں۔ دوبارہ کوشش کریں دبائیں۔",
+  "putaway.retry": "دوبارہ کوشش کریں",
   "receive.refused.invalidInput": "تاریخِ انقضا YYYY-MM-DD میں اور مقدار ایک عدد ہونی چاہیے۔ درست کریں اور دوبارہ اسکین کریں۔",
   "pda.queue.saveFailed": "اس ڈیوائس پر محفوظ نہیں ہو سکا۔ دوبارہ اسکین کریں؛ دوبارہ ہو تو سپروائزر کو بلائیں۔"
 }

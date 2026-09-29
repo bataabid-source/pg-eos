@@ -42,7 +42,8 @@
   "putaway.confirm": "تأكيد التخزين",
   "putaway.confirmed": "تم تأكيد التخزين",
   "putaway.error.wrongLocation": "موقع خاطئ. اذهب إلى {location} وامسح رمزه.",
-  "putaway.suggestion.unavailable": "الموقع المقترح غير متاح. انتظر قليلاً وأعد فتح هذه الشاشة.",
+  "putaway.suggestion.unavailable": "الموقع المقترح غير متاح. اضغط إعادة المحاولة.",
+  "putaway.retry": "إعادة المحاولة",
   "receive.refused.invalidInput": "يجب أن يكون تاريخ الانتهاء بصيغة YYYY-MM-DD والكمية رقماً. صحح القيمة وأعد المسح.",
   "pda.queue.saveFailed": "تعذر الحفظ على هذا الجهاز. أعد المسح، وإن تكرر الخطأ فاتصل بالمشرف."
 }

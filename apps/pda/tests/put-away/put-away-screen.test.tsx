@@ -86,7 +86,7 @@ const NEW_KEYS = [
   'receive.refused.lineAlreadyReceived', 'receive.offline.retry',
   'receive.refused.invalidInput', 'pda.queue.saveFailed',
   'putaway.suggested', 'putaway.scan.label', 'putaway.confirm', 'putaway.confirmed',
-  'putaway.error.wrongLocation', 'putaway.suggestion.unavailable',
+  'putaway.error.wrongLocation', 'putaway.suggestion.unavailable', 'putaway.retry',
 ] as const;
 
 function resetQueue(): Promise<void> {
@@ -123,6 +123,30 @@ function renderScreen(client: PutawayClient, signal: ScanSignal, newKey: () => s
     />,
   );
   return { newCorrelationId };
+}
+
+const OTHER_SKU_ID = '88888888-8888-4888-8888-888888888888';
+const OTHER_WAREHOUSE_ID = '99999999-9999-4999-8999-999999999999';
+
+function putawayElement(client: PutawayClient, signal: ScanSignal, suggest: SuggestLocationInput) {
+  return (
+    <PutawayScreen
+      client={client}
+      orderId={ORDER_ID}
+      lineId={LINE_ID}
+      expectedVersion={EXPECTED_VERSION}
+      suggest={suggest}
+      signal={signal}
+      newKey={() => 'k'}
+      newCorrelationId={() => CORR}
+      now={() => FIXED_NOW}
+      locale="en"
+    />
+  );
+}
+
+function renderStable(client: PutawayClient, signal: ScanSignal, suggest: SuggestLocationInput) {
+  return render(putawayElement(client, signal, suggest));
 }
 
 beforeEach(async () => {
@@ -223,6 +247,77 @@ describe('Scenario: Offline, both screens keep working and the unsynced counter 
     expect(await count()).toBe(NEVER);
     expect(newKey).not.toHaveBeenCalled();
     expect(newCorrelationId).not.toHaveBeenCalled();
+  });
+
+  it('retry: the button shows after a failed suggestion; clicking clears the alert, re-requests with the same input and a correct scan enqueues once', async () => {
+    const user = userEvent.setup();
+    const signal = makeSignal();
+    const suggestLocation = vi.fn()
+      .mockRejectedValueOnce(new Error('offline'))
+      .mockResolvedValue({ locationId: LOCATION_ID, locationCode: SUGGESTED_CODE });
+    const enqueue = vi.fn().mockResolvedValue(undefined);
+    renderScreen({ suggestLocation }, signal, () => 'key-retry', 'en', enqueue);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(t('en', 'putaway.suggestion.unavailable'));
+    expect(signal.error).toHaveBeenCalledTimes(ONCE);
+    const retry = screen.getByTestId('putaway-retry');
+    expect(retry).toHaveTextContent(t('en', 'putaway.retry'));
+    expect(screen.getByRole('button', { name: t('en', 'putaway.confirm') })).toBeDisabled();
+    expect(enqueue).not.toHaveBeenCalled();
+
+    await user.click(retry);
+    expect(await screen.findByTestId('putaway-suggested')).toHaveTextContent(t('en', 'putaway.suggested', { location: SUGGESTED_CODE }));
+    expect(suggestLocation).toHaveBeenCalledTimes(TWICE);
+    expect(suggestLocation).toHaveBeenLastCalledWith(SUGGEST);
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('putaway-retry')).not.toBeInTheDocument();
+    const confirm = screen.getByRole('button', { name: t('en', 'putaway.confirm') });
+    expect(confirm).toBeEnabled();
+
+    await user.type(screen.getByLabelText(t('en', 'putaway.scan.label')), SUGGESTED_CODE);
+    await user.click(confirm);
+    await waitFor(() => expect(enqueue).toHaveBeenCalledTimes(ONCE));
+  });
+
+  it('retry that rejects again brings the alert back and plays the error signal again', async () => {
+    const user = userEvent.setup();
+    const signal = makeSignal();
+    renderScreen(offlineClient(), signal, () => 'never');
+    await screen.findByRole('alert');
+    await user.click(screen.getByTestId('putaway-retry'));
+    await waitFor(() => expect(signal.error).toHaveBeenCalledTimes(TWICE));
+    expect(await screen.findByRole('alert')).toHaveTextContent(t('en', 'putaway.suggestion.unavailable'));
+    expect(screen.getByTestId('putaway-retry')).toBeInTheDocument();
+  });
+
+  it('changing the suggest prop to another skuId clears the alert and re-requests', async () => {
+    const signal = makeSignal();
+    const suggestLocation = vi.fn()
+      .mockRejectedValueOnce(new Error('offline'))
+      .mockResolvedValue({ locationId: LOCATION_ID, locationCode: SUGGESTED_CODE });
+    const client: PutawayClient = { suggestLocation };
+    const { rerender } = renderStable(client, signal, SUGGEST);
+    await screen.findByRole('alert');
+    const next: SuggestLocationInput = { ...SUGGEST, skuId: OTHER_SKU_ID };
+    rerender(putawayElement(client, signal, next));
+    expect(await screen.findByTestId('putaway-suggested')).toBeInTheDocument();
+    expect(suggestLocation).toHaveBeenCalledTimes(TWICE);
+    expect(suggestLocation).toHaveBeenLastCalledWith(next);
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('a fresh suggest object with equal skuId/qty/warehouseId does not re-request; a different warehouseId does', async () => {
+    const signal = makeSignal();
+    const client = makeClient();
+    const { rerender } = renderStable(client, signal, SUGGEST);
+    await screen.findByTestId('putaway-suggested');
+    rerender(putawayElement(client, signal, { skuId: SKU_ID, qty: '10', warehouseId: WAREHOUSE_ID }));
+    await screen.findByTestId('putaway-suggested');
+    expect(client.suggestLocation).toHaveBeenCalledTimes(ONCE);
+    const other: SuggestLocationInput = { ...SUGGEST, warehouseId: OTHER_WAREHOUSE_ID };
+    rerender(putawayElement(client, signal, other));
+    await waitFor(() => expect(client.suggestLocation).toHaveBeenCalledTimes(TWICE));
+    expect(client.suggestLocation).toHaveBeenLastCalledWith(other);
   });
 
   it('route /put-away: renders the screen with the mock suggestion and the shell badge is present', async () => {

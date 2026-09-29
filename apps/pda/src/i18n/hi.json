@@ -42,7 +42,8 @@
   "putaway.confirm": "पुट-अवे की पुष्टि करें",
   "putaway.confirmed": "पुट-अवे की पुष्टि हो गई",
   "putaway.error.wrongLocation": "गलत लोकेशन। {location} पर जाएँ और उसका कोड स्कैन करें।",
-  "putaway.suggestion.unavailable": "सुझाई गई लोकेशन उपलब्ध नहीं है। थोड़ा रुकें और यह स्क्रीन फिर खोलें।",
+  "putaway.suggestion.unavailable": "सुझाया गया लोकेशन उपलब्ध नहीं है। पुनः प्रयास करें दबाएँ।",
+  "putaway.retry": "पुनः प्रयास करें",
   "receive.refused.invalidInput": "समाप्ति तिथि YYYY-MM-DD में और मात्रा एक संख्या होनी चाहिए। सुधारें और फिर स्कैन करें।",
   "pda.queue.saveFailed": "इस डिवाइस पर सहेजा नहीं जा सका। फिर स्कैन करें; दोबारा हो तो सुपरवाइज़र को बुलाएँ।"
 }

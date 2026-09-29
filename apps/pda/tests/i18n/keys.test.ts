@@ -85,12 +85,13 @@ const EXPECTED_KEYS = [
   'putaway.confirmed',
   'putaway.error.wrongLocation',
   'putaway.suggestion.unavailable',
+  'putaway.retry',
 ] as const;
 
-describe('PDA i18n — key set (Master decision 3, round-1 fix + part 1a-2 + part 1a-4 + part 2: forty-six keys)', () => {
+describe('PDA i18n — key set (Master decision 3, round-1 fix + part 1a-2 + part 1a-4 + part 2: forty-seven keys)', () => {
   it('the ar.json fallback file declares exactly these keys (order-independent)', () => {
     expect(Object.keys(ar).sort()).toEqual([...EXPECTED_KEYS].sort());
-    expect(Object.keys(ar)).toHaveLength(46);
+    expect(Object.keys(ar)).toHaveLength(47);
   });
 
   it.each(SUPPORTED_LOCALES.filter((locale) => locale !== 'ar'))(

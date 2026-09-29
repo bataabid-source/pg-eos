@@ -42,7 +42,8 @@
   "putaway.confirm": "ማስቀመጡን አረጋግጥ",
   "putaway.confirmed": "ማስቀመጡ ተረጋግጧል",
   "putaway.error.wrongLocation": "የተሳሳተ ቦታ። ወደ {location} ይሂዱ እና ኮዱን ስካን ያድርጉ።",
-  "putaway.suggestion.unavailable": "የተጠቆመው ቦታ አይገኝም። ትንሽ ይጠብቁ እና ይህን ገጽ እንደገና ይክፈቱ።",
+  "putaway.suggestion.unavailable": "የተጠቆመው ቦታ አይገኝም። እንደገና ይሞክሩ ይጫኑ።",
+  "putaway.retry": "እንደገና ይሞክሩ",
   "receive.refused.invalidInput": "የማብቂያ ቀን YYYY-MM-DD እና ብዛቱ ቁጥር መሆን አለበት። ያስተካክሉ እና እንደገና ስካን ያድርጉ።",
   "pda.queue.saveFailed": "በዚህ መሣሪያ ላይ ማስቀመጥ አልተቻለም። እንደገና ስካን ያድርጉ፤ ከተደገመ ተቆጣጣሪውን ይጥሩ።"
 }

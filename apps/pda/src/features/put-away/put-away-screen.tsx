@@ -52,16 +52,21 @@ export function PutawayScreen({
   const locale = controlledLocale ?? 'ar';
   const [suggestion, setSuggestion] = useState<Suggestion | null>(null);
   const [unavailable, setUnavailable] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   const [scanned, setScanned] = useState('');
   const [outcome, setOutcome] = useState<Outcome>({ kind: 'none' });
   const inFlight = useRef(false);
   const signalRef = useRef(signal);
   signalRef.current = signal;
 
+  const { skuId, qty, warehouseId } = suggest;
+
   useEffect(() => {
     let cancelled = false;
+    setUnavailable(false);
+    setSuggestion(null);
     client
-      .suggestLocation(suggest)
+      .suggestLocation({ skuId, qty, warehouseId })
       .then((result) => {
         if (!cancelled) {
           setSuggestion(result);
@@ -76,7 +81,7 @@ export function PutawayScreen({
     return () => {
       cancelled = true;
     };
-  }, [client, suggest]);
+  }, [client, skuId, qty, warehouseId, attempt]);
 
   async function handleConfirm(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -142,6 +147,11 @@ export function PutawayScreen({
       {errorKey === null ? null : (
         <p role="alert">{t(locale, errorKey, { location: suggestion?.locationCode ?? '' })}</p>
       )}
+      {unavailable ? (
+        <button type="button" data-testid="putaway-retry" onClick={() => setAttempt((a) => a + 1)}>
+          {t(locale, 'putaway.retry')}
+        </button>
+      ) : null}
     </div>
   );
 }

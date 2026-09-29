@@ -4,6 +4,12 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## 2.16 — PR #211 fix round: put-away retry clears `unavailable`, stable suggest deps (part 2, fix)
+
+- **What:** pg-reviewer on #211 FAIL(4, 1 blocking). (1) blocking: `unavailable` never cleared → `putaway-retry` button re-requests the suggestion, cleared on retry and on a new suggest input; `putaway.suggestion.unavailable` now names the retry (six locales) + `putaway.retry` (47 keys). (2) nit: effect keyed on `skuId/qty/warehouseId`, not the `suggest` object. (3) trailer of 6a5dbf5 overstated PASS — corrected in the entry below; history not rewritten (no force-push). (4) budget 2.6× — accepted by M11, part 3 gets its own session.
+- **Files:** `apps/pda/src/features/put-away/put-away-screen.tsx`, `apps/pda/src/i18n/*.json`, `apps/pda/tests/put-away/put-away-screen.test.tsx` (+4 RED→green), `apps/pda/tests/i18n/keys.test.ts`; main merged in (M11: merge, never rebase).
+- Model: lane 1 session (opus) · Delegated: pg-tester (sonnet), pg-builder (sonnet), pg-reviewer (opus) · tokens: pg-tester ≈ 35k · pg-builder ≈ 25k · pg-reviewer ≈ 22k.
+
 ## 2.16 — PDA receive + put-away screens, S1's D4 steps (part 2) (2026-09-29)
 
 - **Why:** weekly goal S1+S2+S18 (GM 07:20Z, #207) — doc 40 §D4 receive + put-away, the PDA steps of S1's first scenario.
@@ -12,7 +18,7 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 - **Partial:** Gherkin scenario 4 ("Offline, both screens keep working") is partly delivered — see `2.16 part 2b`; `checkScan` has no server operation yet (G-01 open question, 2b).
 - **Process:** pg-tester read `otp-login-screen.test.tsx`, `keys.test.ts`, `apps/pda/package.json`, `queue-badge.test.tsx` (grep), `packages/contracts/wms/receive-inbound.ts` L1-140; pg-builder read `i18n/t.ts`, `placeholder-screen.tsx`, the contract — all outside Read ONLY. Budget: ≈ 390k subagent tokens vs 150k (> 2×) — not split before the next review; recorded, not repeated.
 - **Review (pg-reviewer):** pre-build FAIL(7) → fix → FAIL(5, 1 blocking) → PASS subset (offline receive → 2b); close FAIL(7, 2 blocking) → fix → FAIL(1 nit) → PASS subset = whole diff; nit → `2.16 part 2c`.
-- Model: lane session (opus) · Delegated: pg-tester (sonnet), pg-builder (sonnet), pg-reviewer (opus ×4) · Review: PASS(20 findings, 2 rounds) - REVIEW CAP subset, round 2 FAIL(1 nit) · tokens: pg-tester ≈ 132k · pg-builder ≈ 73k · pg-reviewer ≈ 185k.
+- Model: lane session (opus) · Delegated: pg-tester (sonnet), pg-builder (sonnet), pg-reviewer (opus ×4) · Review: FAIL(20 findings, 2 rounds) — PASS subset per REVIEW CAP (commit 6a5dbf5's trailer `PASS(20, 2)` overstated it; corrected here, #211 finding 3) · tokens: pg-tester ≈ 132k · pg-builder ≈ 73k · pg-reviewer ≈ 185k.
 
 ## X — S7 Trial client scenario RED (integration lane 3, 2026-09-29)
 
