@@ -4,6 +4,13 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## 2.16 — lane-1 locks `pda` + `admin` with the 1a-4c brief; `tooling` to M-core; S7 part 2 + 2.9 part 3 rows (Master M8, 2026-09-29)
+
+- **Why:** M7 handover queue: R4 archived with 1a-4c briefed but unlocked; M-core idle on the D-198(أ) tooling slice; integration lane blocked on its S7 part 2 row; PR #185 FAIL(4) with its author archived (REVIEW CAP, no round 3).
+- **Change:** `tasks/LANE_LOCKS.md` — released `packages/i18n | M` (PR #196 merged) and stale `wms | 1` (R4); claimed `pda | 1 | 2.16`, `admin | 1 | 2.16` (whole brief, no 1a-4d split — Decision 7), `tooling | M | X`. `_slice-2.16-1a-4c.brief.md` from R4's `04a6cd0`/`d7c5b32` (brief-check OK). MASTER_BACKLOG: 1a-4c ACTIVE; new rows `S7 part 2` (lane 3, from `eb9a1b6` handover) and `2.9 part 3` (#185 findings 1–4; #185 held, superseded by an `-r5` rebuild).
+- **Defaults recorded:** tooling claimed as task `X` — "X part 16" is not a doc-38 row (check-locks D-185); M-core commits its tooling brief under the lock as the slice's first step, brief-check before any build. #184 held: FAIL(3, 2 blocking), finding 2 needs the GM's reading of "7 after the 30 September evaluation".
+- Model: Master session (M8) · Delegated: none · Review: n/a (locks + backlog, no code) · tokens: ~40k.
+
 ## 2.16 — identity.sessions / otp_codes writes behind definer functions, migration 0044 (part 1a-8) (2026-09-29)
 
 - **Why:** SCR-IDENTITY-RLS-01 delta 2 (D-193 D4 أ): any internal context could write `identity.sessions` / `identity.otp_codes` directly; acceptance "`pgeos_app` cannot insert/update/delete them directly; OTP + session tests stay green".

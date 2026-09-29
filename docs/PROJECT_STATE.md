@@ -10,18 +10,19 @@ Master: M6 (cloud), max six concurrent sessions (D-198). Next migration 0045.
 Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewer (opus); bookkeeping by scripts/scribe.mjs (state, locks, CHANGELOG template).
 
 ## Lanes (tasks/LANE_LOCKS.md)
-- lane 1 · wms · 2.9 · since 2026-09-28
 - lane M · packages/identity · 2.16 · since 2026-09-28
 - lane M · identity · 2.16 · since 2026-09-28
 - lane 2 · billing · 4.19 · since 2026-09-28
-- lane M · packages/i18n · 4.19 · since 2026-09-29
+- lane M · tooling · X · since 2026-09-29
+- lane 1 · pda · 2.16 · since 2026-09-29
+- lane 1 · admin · 2.16 · since 2026-09-29
 
 ## Last 5 feat/fix commits (git log)
+- `a885a99` feat(2.16): sessions/otp_codes writes behind six identity definers, migration 0044 (part 1a-8)
 - `ece7423` feat(4.19): packages/i18n billing.json — reopen decision title, six locales
 - `fc999be` feat(2.16): has_perm pinned search_path, migration 0043 — SCR-IDENTITY-RLS-01 delta 4 (part 1a-7)
 - `439d172` feat(2.16): G-16a OTP limits — attempts cap, one live code, resend 60 s, 5/email/hour, migration 0042 (part 1a-5)
 - `ba875ad` feat(4.1b): line dimensions + dimension values, list and reference kind, migration 0038 (part 2)
-- `e2826ff` feat(X): host statuses in ALL_ROUTES / OpenAPI, contractFirst mark on the 10 billing routes (X part 12 b + registry mark)
 
 ## Blockers
 - G16: changed domain/ per PR, every module nightly (X part 6); G15 per STREAMS §G15 (green.json); G17 NOT RUNNABLE; deploy.sh waits on 0.6b.
