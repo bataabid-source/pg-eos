@@ -51,6 +51,13 @@ const GH_API_CALL = 'gh api "repos/$REPO/issues/$PR/comments?per_page=100" --pag
 const NODE_CALL = 'node scripts/review-verdict.mjs';
 const SINCE_ARG = '--since "$SINCE"';
 const STALE_HEADER = 'two skipped steps';
+const PR_FILES_CALL = 'gh api "repos/$REPO/pulls/$PR/files?per_page=100" --paginate --jq \'.[].filename\'';
+const PR_FILES_PATH = 'pulls/$PR/files';
+const COMMENTS_PATH = 'issues/$PR/comments';
+const SELF_WORKFLOW_PATH = '.github/workflows/claude-review.yml';
+const SKIP_NOTICE_PREFIX = 'review: verdict gate skipped —';
+const SKIP_PHRASE = 'verdict gate skipped';
+const EXIT_ZERO_CALL = 'exit 0';
 
 // Case-table generator: seeded LCG (Numerical Recipes constants), deterministic across runs.
 const GEN_SEED = 20_260_929;
@@ -222,6 +229,33 @@ it('claude-review.yml records the job start before the action, fetches the PR co
   expect(stepCount).toBeGreaterThanOrEqual(4);
   for (const step of steps) expect(step).toContain(TOKEN_GATE);
   expect(yml.split(TOKEN_GATE).length - 1).toBe(stepCount);
+});
+
+it('the verdict gate is skipped with a notice, exit 0, when the PR changes .github/workflows/claude-review.yml itself (the action does not run on a PR that edits its own workflow — manual review by the Master)', () => {
+  const yml = readFileSync(WORKFLOW, 'utf8');
+  const gateStep = yml
+    .slice(yml.indexOf(ACTION_USES))
+    .split(STEP_SPLIT_RE)
+    .find((st) => st.includes(NODE_CALL));
+  expect(gateStep).toBeDefined();
+  const gate = gateStep ?? '';
+  const runAt = gate.search(/^\s+run:/m);
+  expect(runAt).toBeGreaterThanOrEqual(0);
+  const runText = gate.slice(runAt);
+
+  expect(runText).toContain(PR_FILES_PATH);
+  expect(runText).toContain(PR_FILES_CALL);
+  expect(runText).toContain(SELF_WORKFLOW_PATH);
+  expect(runText).toContain(SKIP_NOTICE_PREFIX);
+  expect(runText).toContain(SKIP_PHRASE);
+  expect(runText).toContain(EXIT_ZERO_CALL);
+
+  const commentsAt = runText.indexOf(COMMENTS_PATH);
+  expect(commentsAt).toBeGreaterThanOrEqual(0);
+  expect(runText.indexOf(PR_FILES_PATH)).toBeLessThan(commentsAt);
+  expect(runText.indexOf(SELF_WORKFLOW_PATH)).toBeLessThan(commentsAt);
+  expect(runText.indexOf(SKIP_PHRASE)).toBeLessThan(commentsAt);
+  expect(runText.indexOf(EXIT_ZERO_CALL)).toBeLessThan(commentsAt);
 });
 
 // ---- generated case table for pickVerdict -----------------------------------------------------
