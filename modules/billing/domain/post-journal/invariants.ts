@@ -76,14 +76,22 @@ export function assertBalanced(lines: readonly AmountLine[]): void {
   }
 }
 
-/** A reversing entry's lines: same order, same other fields, debit and credit swapped. */
-export function mirrorLines<T extends AmountLine>(lines: readonly T[]): T[] {
-  return lines.map((line) => {
+/** A mirrored line: every field of the original except the two sides, which are swapped. */
+export type MirroredLine<T extends AmountLine> = Omit<T, 'debit' | 'credit'> & {
+  debit?: NonNullable<T['credit']>;
+  credit?: NonNullable<T['debit']>;
+};
+
+/** A reversing entry's lines: same order, same other fields, debit and credit swapped (an omitted
+ *  side stays omitted). */
+export function mirrorLines<T extends AmountLine>(lines: readonly T[]): Array<MirroredLine<T>> {
+  return lines.map((line): MirroredLine<T> => {
     const { debit, credit, ...rest } = line;
-    const mirrored: AmountLine = { ...rest };
-    if (credit !== undefined) mirrored.debit = credit;
-    if (debit !== undefined) mirrored.credit = debit;
-    return mirrored as T;
+    return {
+      ...rest,
+      ...(credit === undefined ? {} : { debit: credit }),
+      ...(debit === undefined ? {} : { credit: debit }),
+    };
   });
 }
 

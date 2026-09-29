@@ -3,7 +3,7 @@
 // application/ layer: PostJournal — the ONE posting service (ADR-0004 D1 2). ONE
 // withIdempotentContext transaction (golden slice: modules/wms/application/receive-inbound/*):
 // (0) the idempotency claim when input.idem is set, (1) typed refusals BEFORE any write — entity in
-// the caller's scope, an open period of the entity covering the entry date (4.19 carried), >= 2
+// the caller's scope, the CFO role (doc 38 row 4.20 Owner), an open period of the entity covering the entry date (4.19 carried), >= 2
 // lines and balanced (#6), accounts in the entity and postable (#8), OD-15 manual rule — then
 // (2) doc_no from platform.next_doc_no(entity, 'JE'), the posted entry, its lines, (3) the outbox
 // row, (4) the audit row, last. The database re-checks every rule (migration 0041) — balance at
@@ -14,13 +14,16 @@ import { writeOutboxEvent, type CatalogedEventType } from '@pg-eos/events';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 
 import { PERIOD_STATUS } from '../../domain/accounting-periods/machine.js';
-import { EntityNotInScopeError, MissingActorError, PeriodNotOpenError } from '../../domain/post-journal/errors.js';
+import { EntityNotInScopeError, MissingActorError, PeriodNotOpenError, RoleRequiredError } from '../../domain/post-journal/errors.js';
 import { assertBalanced, assertEntryTypePostable, assertLineAccounts } from '../../domain/post-journal/invariants.js';
 import type { JournalLine, PostJournalDeps } from './ports.js';
 
 export const ENTRIES_AGGREGATE_TYPE = 'billing.journal_entries';
 const POSTED_EVENT_TYPE: CatalogedEventType = 'billing.journal_entry.posted';
 const AUDIT_OPERATION_POST = 'post';
+/** The role post / reverse / adjust require — doc 38 row 4.20 Owner (4.19 precedent); finer
+ *  permission codes are SCR-BILLING-JOURNAL-PERM-01 / 4.20 part 4. */
+export const JOURNAL_POSTING_ROLE = 'CFO';
 
 export interface PostJournalInput {
   readonly entityId: string;
@@ -43,6 +46,13 @@ export interface PostJournalResult {
 export function requireActor(ctx: WithContextCtx, command: string): string {
   if (!ctx.userId) throw new MissingActorError(`${command} requires ctx.userId.`);
   return ctx.userId;
+}
+
+/** Refuses (RoleRequiredError) unless the session user holds JOURNAL_POSTING_ROLE. */
+export async function assertPostingRole(tx: NodePgDatabase, deps: PostJournalDeps, command: string): Promise<void> {
+  if (!(await deps.repo.hasRole(tx, JOURNAL_POSTING_ROLE))) {
+    throw new RoleRequiredError(`${command} requires role ${JOURNAL_POSTING_ROLE} (platform.my_roles()).`);
+  }
 }
 
 /** Refuses (PeriodNotOpenError) unless `periodId` is an open period of `entityId` covering `entryDate`. */
@@ -76,12 +86,14 @@ export async function assertPostable(
     readonly entryType: string;
     readonly lines: readonly JournalLine[];
   },
+  command: string,
 ): Promise<void> {
   if (!(await deps.repo.isEntityInScope(tx, input.entityId))) {
     throw new EntityNotInScopeError(
       `entity ${input.entityId} is not one of the caller's entities (Allowed: an entity the caller belongs to)`,
     );
   }
+  await assertPostingRole(tx, deps, command);
   await assertOpenPeriod(tx, deps, input);
   assertBalanced(input.lines);
   const accounts = await deps.repo.getAccounts(tx, [...new Set(input.lines.map((line) => line.accountId))]);
@@ -129,7 +141,7 @@ export async function postNewEntry(
   const actorId = requireActor(ctx, event.command);
 
   return withIdempotentContext<PostJournalResult>(ctx, input.idem, async (tx) => {
-    await assertPostable(tx, deps, input);
+    await assertPostable(tx, deps, input, event.command);
     const now = deps.clock.now();
     const result = await insertPostedEntry(tx, deps, { ...input, actorId, postedAt: now });
 

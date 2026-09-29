@@ -14,6 +14,15 @@ export class StaleVersionError extends Error {
   }
 }
 
+/** The caller does not hold the role a command requires (platform.my_roles(), read inside the
+ *  transaction — never guessed). Maps to HTTP 422: the frozen contract declares no 403. */
+export class RoleRequiredError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'RoleRequiredError';
+  }
+}
+
 /** Every command's actor is `ctx.userId` only; a missing one is a typed error, never a silent
  *  `null` written to posted_by, the outbox or the audit row. */
 export class MissingActorError extends Error {

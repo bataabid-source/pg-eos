@@ -33,6 +33,8 @@ export type Fixtures = {
   readonly posterId: string;
   /** Scoped to the outsider entity only. */
   readonly outsiderId: string;
+  /** Scoped to the pilot entity, holds NO role (the non-CFO actor of the role-gate scenarios). */
+  readonly plainId: string;
   /** Scoped to BOTH entities (for the "account of another entity" scenario). */
   readonly bothId: string;
   readonly accounts: {
@@ -70,7 +72,9 @@ export async function createFixtures(pool: Pool, opts: { readonly tag: string; r
   const posterId = `00000000-0000-4000-8000-00000420${opts.fileNo}01`;
   const outsiderId = `00000000-0000-4000-8000-00000420${opts.fileNo}02`;
   const bothId = `00000000-0000-4000-8000-00000420${opts.fileNo}03`;
-  const actorIds = [posterId, outsiderId, bothId];
+  const plainId = `00000000-0000-4000-8000-00000420${opts.fileNo}04`;
+  const actorIds = [posterId, outsiderId, bothId, plainId];
+  const CFO_ROLE_CODE = 'CFO'; // doc 38 row 4.20 Owner = CFO; identity.roles seeded by 01.
 
   const entities = await pool.query<{ id: string; code: string }>(`select id, code from platform.entities where code in ('PST','PCC')`);
   const pst = entities.rows.find((row) => row.code === 'PST');
@@ -97,6 +101,14 @@ export async function createFixtures(pool: Pool, opts: { readonly tag: string; r
   await createActor(posterId, [pst.id]);
   await createActor(outsiderId, [pcc.id]);
   await createActor(bothId, [pst.id, pcc.id]);
+  await createActor(plainId, [pst.id]);
+  // Post / reverse / adjust are CFO-gated (platform.my_roles()): every actor except plainId holds CFO.
+  const roleResult: QueryResult<{ id: string }> = await pool.query(`select id from identity.roles where code = $1`, [CFO_ROLE_CODE]);
+  const cfoRoleId = roleResult.rows[0]?.id;
+  if (!cfoRoleId) throw new Error(`identity.roles row not found for code '${CFO_ROLE_CODE}'`);
+  for (const userId of [posterId, outsiderId, bothId]) {
+    await pool.query(`insert into identity.user_roles (user_id, role_id) values ($1, $2) on conflict do nothing`, [userId, cfoRoleId]);
+  }
 
   const yearResult: QueryResult<{ year: number }> = await pool.query(
     `select coalesce(max(extract(year from end_date))::int, $2) + 1 as year
@@ -156,6 +168,7 @@ export async function createFixtures(pool: Pool, opts: { readonly tag: string; r
     fiscalYearStart,
     posterId,
     outsiderId,
+    plainId,
     bothId,
     accounts,
     async nextPeriod() {

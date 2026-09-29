@@ -7,7 +7,7 @@
 //   StaleVersionError, MissingActorError, JournalEntryNotFoundError, UnbalancedEntryError,
 //   InsufficientLinesError, AccountNotInEntityError, AccountNotPostableError,
 //   ManualRevenueJournalRefusedError, ManualJournalApprovalRequiredError, AlreadyReversedError,
-//   EntityNotInScopeError, PeriodNotOpenError, IllegalJournalTransitionError.
+//   EntityNotInScopeError, PeriodNotOpenError, IllegalJournalTransitionError, RoleRequiredError.
 
 import { describe, expect, it } from 'vitest';
 
@@ -23,6 +23,7 @@ import {
   ManualRevenueJournalRefusedError,
   MissingActorError,
   PeriodNotOpenError,
+  RoleRequiredError,
   StaleVersionError,
   UnbalancedEntryError,
 } from '../../domain/post-journal/errors.js';
@@ -41,6 +42,7 @@ const cases: ReadonlyArray<{ readonly ctor: new (message: string) => Error; read
   { ctor: EntityNotInScopeError, name: 'EntityNotInScopeError' },
   { ctor: PeriodNotOpenError, name: 'PeriodNotOpenError' },
   { ctor: IllegalJournalTransitionError, name: 'IllegalJournalTransitionError' },
+  { ctor: RoleRequiredError, name: 'RoleRequiredError' },
 ];
 
 describe('post-journal errors — name, message, instanceof', () => {
@@ -61,6 +63,6 @@ describe('post-journal errors — name, message, instanceof', () => {
   it('every name above is unique (no copy/paste collision)', () => {
     const names = cases.map((c) => new c.ctor('').name);
     expect(new Set(names).size).toBe(names.length);
-    expect(names).toHaveLength(13);
+    expect(names).toHaveLength(14);
   });
 });

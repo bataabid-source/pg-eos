@@ -214,6 +214,25 @@ describe('typed domain refusals map to 422, title = error.name', () => {
   });
 });
 
+describe('RoleRequiredError (no CFO role) maps to 422, title = error.name, on every route (403 is not declared by the frozen contract)', () => {
+  it('handlePostJournal', async () => {
+    const result = await handlePostJournal(requestWithKey(await postBody(), fx.ctx(fx.plainId)), deps);
+    expect(result.status).toBe(422);
+    expect(result.body).toMatchObject({ title: 'RoleRequiredError' });
+  });
+  it('handleReverseJournal', async () => {
+    const posted = await freshPosted();
+    const result = await handleReverseJournal(requestWithKey(await reverseBody(posted.id, posted.version), fx.ctx(fx.plainId)), deps);
+    expect(result.status).toBe(422);
+    expect(result.body).toMatchObject({ title: 'RoleRequiredError' });
+  });
+  it('handleAdjustJournal', async () => {
+    const result = await handleAdjustJournal(requestWithKey(adjustBody(await postBody()), fx.ctx(fx.plainId)), deps);
+    expect(result.status).toBe(422);
+    expect(result.body).toMatchObject({ title: 'RoleRequiredError' });
+  });
+});
+
 describe('StaleVersionError maps to 409, title = error.name', () => {
   it('handleReverseJournal: a stale expectedVersion -> 409', async () => {
     const posted = await freshPosted();

@@ -77,6 +77,8 @@ export interface AuditRowInput {
 export interface JournalRepository {
   /** True iff `entityId` is one of the caller's entities (platform.allowed_entities()). */
   isEntityInScope(tx: NodePgDatabase, entityId: string): Promise<boolean>;
+  /** True iff the session user holds `roleCode` (platform.my_roles()). */
+  hasRole(tx: NodePgDatabase, roleCode: string): Promise<boolean>;
   /** The period `periodId` as RLS lets the caller see it, or null. */
   getPeriod(tx: NodePgDatabase, periodId: string): Promise<PeriodRow | null>;
   /** The GL-account facts for each id the caller can read (missing ids are absent from the map). */

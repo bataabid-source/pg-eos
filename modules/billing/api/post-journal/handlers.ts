@@ -10,7 +10,8 @@
 // Error mapping (title is always error.name, or 'InternalServerError'):
 //   - a missing Idempotency-Key or an invalid body -> 400;
 //   - StaleVersionError, IdempotencyConflictError -> 409;
-//   - every other typed refusal of ../../domain/post-journal/errors.ts -> 422;
+//   - every other typed refusal of ../../domain/post-journal/errors.ts -> 422, RoleRequiredError
+//     included (the frozen contract declares no 403);
 //   - anything else -> 500, logged via deps.logger.error, generic detail (never SQL to the client).
 
 import {
@@ -55,6 +56,7 @@ import {
   ManualRevenueJournalRefusedError,
   MissingActorError,
   PeriodNotOpenError,
+  RoleRequiredError,
   StaleVersionError,
   UnbalancedEntryError,
 } from '../../domain/post-journal/errors.js';
@@ -79,6 +81,7 @@ const UNPROCESSABLE_ERRORS: ReadonlyArray<new (message: string) => Error> = [
   ManualRevenueJournalRefusedError,
   MissingActorError,
   PeriodNotOpenError,
+  RoleRequiredError,
   UnbalancedEntryError,
 ];
 

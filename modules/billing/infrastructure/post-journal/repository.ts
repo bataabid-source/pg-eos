@@ -54,6 +54,11 @@ async function isEntityInScope(tx: NodePgDatabase, entityId: string): Promise<bo
   return result.rows[0]?.in_scope === true;
 }
 
+async function hasRole(tx: NodePgDatabase, roleCode: string): Promise<boolean> {
+  const result = await tx.execute<{ roles: readonly string[] }>(sql`select platform.my_roles() as roles`);
+  return (result.rows[0]?.roles ?? []).includes(roleCode);
+}
+
 async function getPeriod(tx: NodePgDatabase, periodId: string): Promise<PeriodRow | null> {
   const result = await tx.execute<{ id: string; entity_id: string; start_date: string; end_date: string; status: string }>(sql`
     select id, entity_id, start_date::text as start_date, end_date::text as end_date, status
@@ -168,6 +173,7 @@ async function writeAuditRow(tx: NodePgDatabase, params: AuditRowInput): Promise
 export function createJournalRepository(): JournalRepository {
   return {
     isEntityInScope,
+    hasRole,
     getPeriod,
     getAccounts,
     nextDocNo,

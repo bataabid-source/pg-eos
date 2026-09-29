@@ -2,8 +2,8 @@
 //
 // application/ layer: ReverseJournal — ADR-0004 D1 4 "corrections only by reversal/adjustment with
 // an audit row". ONE withIdempotentContext transaction: (0) the idempotency claim, (1) the original
-// entry as RLS shows it (another entity's entry -> JournalEntryNotFoundError), (2) the reversal
-// period, (3) the journal machine's REVERSE edge with its guards (same entity, not already
+// entry as RLS shows it (another entity's entry -> JournalEntryNotFoundError), then the CFO role
+// gate (doc 38 row 4.20 Owner), (2) the reversal period, (3) the journal machine's REVERSE edge with its guards (same entity, not already
 // reversed, version matches — never an if on a status string), (4) an open period covering the
 // reversal date, (5) a NEW posted 'reversing' entry whose lines mirror the original's (debit and
 // credit swapped, same accounts and dimensions), (6) billing.mark_journal_reversed() — the one
@@ -16,9 +16,10 @@ import { writeOutboxEvent, type CatalogedEventType } from '@pg-eos/events';
 import { PeriodNotOpenError } from '../../domain/post-journal/errors.js';
 import { assertLineAccounts, mirrorLines } from '../../domain/post-journal/invariants.js';
 import { JOURNAL_EVENTS, advanceJournalStatus, journalStatusOf } from '../../domain/post-journal/machine.js';
-import { assertOpenPeriod, ENTRIES_AGGREGATE_TYPE, insertPostedEntry, requireActor } from './post-journal.js';
+import { assertOpenPeriod, assertPostingRole, ENTRIES_AGGREGATE_TYPE, insertPostedEntry, requireActor } from './post-journal.js';
 import type { PostJournalDeps } from './ports.js';
 
+const REVERSE_COMMAND = 'ReverseJournal';
 const REVERSING_ENTRY_TYPE = 'reversing';
 const REVERSED_EVENT_TYPE: CatalogedEventType = 'billing.journal_entry.reversed';
 const AUDIT_OPERATION_REVERSE = 'reverse';
@@ -48,10 +49,11 @@ export async function reverseJournal(
   input: ReverseJournalInput,
   deps: PostJournalDeps,
 ): Promise<ReverseJournalResult> {
-  const actorId = requireActor(ctx, 'ReverseJournal');
+  const actorId = requireActor(ctx, REVERSE_COMMAND);
 
   return withIdempotentContext<ReverseJournalResult>(ctx, input.idem, async (tx) => {
     const original = await deps.repo.getPostedEntry(tx, input.entryId);
+    await assertPostingRole(tx, deps, REVERSE_COMMAND);
 
     const period = await deps.repo.getPeriod(tx, input.periodId);
     if (period === null) {

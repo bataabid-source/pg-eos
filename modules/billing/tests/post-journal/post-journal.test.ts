@@ -56,6 +56,7 @@ import {
   ManualJournalApprovalRequiredError,
   ManualRevenueJournalRefusedError,
   PeriodNotOpenError,
+  RoleRequiredError,
   StaleVersionError,
   UnbalancedEntryError,
 } from '../../domain/post-journal/errors.js';
@@ -985,6 +986,55 @@ describe("Scenario: RLS — a caller scoped to another entity cannot post, see o
     ).rejects.toBeInstanceOf(JournalEntryNotFoundError);
     await assertNoWrite(reverseCorrelation);
     expect((await getEntry(posted.id)).reversed_by).toBeNull();
+  });
+});
+
+// --- Scenario: CFO role gate (doc 38 4.20 Owner CFO) ---------------------------------------------------
+// Order asserted: missing-actor check, then (inside the transaction, after the entity-scope / entry
+// lookup) the CFO role check via platform.my_roles(), and BEFORE any write: no journal, outbox or audit row.
+
+describe('Scenario: A caller without the CFO role cannot post, reverse or adjust (doc 38 4.20 Owner CFO; SCR-BILLING-JOURNAL-PERM-01 carries the finer codes)', () => {
+  it('PostJournal by an in-scope non-CFO actor -> RoleRequiredError, no journal/outbox/audit row', async () => {
+    const period = await fx.nextPeriod();
+    const correlationId = nextCorrelationId();
+    await expect(
+      postJournal(
+        ctxFor(fx.plainId),
+        { entityId: fx.entityId, periodId: period.id, entryDate: period.startDate, entryType: 'accrual', description: 'ترحيل بلا دور المدير المالي', lines: balancedLines(), correlationId },
+        deps,
+      ),
+    ).rejects.toBeInstanceOf(RoleRequiredError);
+    await assertNoWrite(correlationId);
+  });
+
+  it('ReverseJournal by an in-scope non-CFO actor -> RoleRequiredError, no new row, original untouched', async () => {
+    const posted = await postFresh();
+    const period = await fx.nextPeriod();
+    const correlationId = nextCorrelationId();
+    await expect(
+      reverseJournal(
+        ctxFor(fx.plainId),
+        { entryId: posted.id, expectedVersion: posted.version, periodId: period.id, entryDate: period.startDate, description: 'عكس بلا دور المدير المالي', correlationId },
+        deps,
+      ),
+    ).rejects.toBeInstanceOf(RoleRequiredError);
+    await assertNoWrite(correlationId);
+    const original = await getEntry(posted.id);
+    expect(original.reversed_by).toBeNull();
+    expect(original.version).toBe(posted.version);
+  });
+
+  it('AdjustJournal by an in-scope non-CFO actor -> RoleRequiredError, no journal/outbox/audit row', async () => {
+    const period = await fx.nextPeriod();
+    const correlationId = nextCorrelationId();
+    await expect(
+      adjustJournal(
+        ctxFor(fx.plainId),
+        { entityId: fx.entityId, periodId: period.id, entryDate: period.startDate, description: 'تسوية بلا دور المدير المالي', lines: balancedLines(), correlationId },
+        deps,
+      ),
+    ).rejects.toBeInstanceOf(RoleRequiredError);
+    await assertNoWrite(correlationId);
   });
 });
 

@@ -144,3 +144,9 @@ Feature: Posting engine (WBS 4.20)
   Scenario: G2 billing.verify_journal_balance() returns zero rows after the suite
     When guard G2 billing.verify_journal_balance() is called after every entry this file posted
     Then it returns zero rows (D1 3: "G2 stays as backstop")
+
+  Scenario: A caller without the CFO role cannot post, reverse or adjust (doc 38 4.20 Owner CFO; SCR-BILLING-JOURNAL-PERM-01 carries the finer codes)
+    Given a caller scoped to the entity who does not hold the CFO role (platform.my_roles())
+    When the caller calls PostJournal, ReverseJournal or AdjustJournal
+    Then each is refused with RoleRequiredError (HTTP 422, title "RoleRequiredError") before any write
+    And no journal entry, outbox row or audit row exists for the call's correlationId
