@@ -1,9 +1,9 @@
 # ADR-0007 — Cloud sessions and roles: six concurrent sessions (D-198), M-core for frozen paths, session limits and rotation
 
-**Status:** Accepted — Phase 1 (D-196, 2026-09-28) · Phase 2 rebase auto-merge item Accepted (D-197, 2026-09-28) · Phase 2 session-cap/auto-archive/local-guards items Accepted (D-198, 2026-09-28) · parallel roles on disjoint locks Accepted (D-200, 2026-09-29) · rest of Phase 2 Proposed, evaluation scheduled 2026-09-30
+**Status:** Accepted — Phase 1 (D-196, 2026-09-28) · Phase 2 rebase auto-merge item Accepted (D-197, 2026-09-28) · Phase 2 session-cap/auto-archive/local-guards items Accepted (D-198, 2026-09-28) · parallel roles on disjoint locks Accepted (D-200, 2026-09-29; wording deferred to X part 17) · Advisory session permanent until production Accepted (D-202, 2026-09-29) · rest of Phase 2 Proposed, evaluation scheduled 2026-09-30
 **Date:** 2026-09-28
 **Approved by:** GM — D-196: "موافق على المرحلة 1، ابدأ التنفيذ مع جدوله المرجله الثانيه مع وضع محدادت للجلسات بما فيها جلسه الماستر احلال وتجديد مع الحفاظ علي السياق باحترافيه" (drafted on the directive "نعم جهّز مسودة تقسيم الأدوار").
-**Reviewed & accepted: opus** — pg-reviewer round 1 FAIL (6 blocking, 11 nits) → one fix round → round 2 FAIL (3 blocking, 3 nits, all separable; no regression against origin/main). REVIEW CAP: the whole content is the PASS subset; the six open findings are `X part 13` (hook, settings, tests, pg-reviewer.md) and `X part 14` (wording). The D-198/D-200 addendum: pg-reviewer (opus) round 2 FAIL(6) on PR #201 — this is its PASS subset (REVIEW CAP); open findings are backlog row `X part 17`.
+**Reviewed & accepted: opus** — pg-reviewer round 1 FAIL (6 blocking, 11 nits) → one fix round → round 2 FAIL (3 blocking, 3 nits, all separable; no regression against origin/main). REVIEW CAP: the whole content is the PASS subset; the six open findings are `X part 13` (hook, settings, tests, pg-reviewer.md) and `X part 14` (wording). The D-198/D-200 addendum is not a reviewed-and-accepted text: pg-reviewer (opus) FAILed round 2 on PR #201 and again on PR #202 (FAIL(8) at 37fd7b3); it is the PASS subset under REVIEW CAP, open findings in backlog row `X part 17`; CLAUDE.md carries none of its wording yet.
 **References:** CLAUDE.md · AGENTS AND SESSIONS · `docs/RUNBOOK.md:74` (§2, memory rule) · `docs/GOVERNANCE-HISTORY.md:145` · D-171, D-174, D-179, D-180, D-192, D-195 (`docs/DECISION_LOG.md`) · `docs/STREAMS.md` · `tasks/MASTER_BACKLOG.md` rows 2.12, 3.1, 3.4, 3.14, 2.16 part 1a-5, 2.9 part 2 (fix), 6.4 · `docs/package/38-WBS.md` (Lane column) · `.claude/hooks/lane-guard.sh` · `.claude/settings.json` (deny `git push --force*`) · `scripts/check-locks.sh` · `scripts/scribe.mjs` · `tests/hooks/run.sh` · `.claude/hooks/session-start.sh` · the `create_session` tool schema (no environment-variable parameter) · `list_sessions` metadata read 2026-09-28 ≈ 00:25Z.
 
 ## Context (السياق)
@@ -71,7 +71,7 @@
    | M-core | one Master task (one WBS part) | 300k | — | a loop step boundary (brief · RED · build · review round) |
    | Build lane | one slice (unchanged) | 300k | — | a loop step boundary |
    | Integration | one batch of ≤ 3 scenarios | 300k | — | after a pushed scenario |
-   | Advisory | the GM's question set | 400k | — | the end of an answer |
+   | Advisory (D-202) | permanent until production | none | — | none: state kept across summarization in a private snapshot; hourly watchdog + daily GM report; it creates the Master successor at each rotation |
 
    The lane ceiling sits above the one-slice figure measured for lane B (265k), so a normal slice never rotates.
 
@@ -89,7 +89,7 @@
    **Sequence (one writer per role at every moment).**
    1. **Trigger.** The watchdog reads a session at its ceiling, or the session sees it in its own `get_session`, or the GM asks.
    2. **Clean point.** The outgoing session reaches its rotation point. It commits unfinished work as `wip(<WBS>)` on its own branch, pushes (never forced), and writes and pushes the packet. From then on it writes nothing.
-   3. **Successor.** The Master launches the successor of a lane, M-core or integration session; a Master launches its own. It calls `create_session` with:
+   3. **Successor.** The Master launches the successor of a lane, M-core or integration session; the Advisory session creates the Master's successor (D-202). It calls `create_session` with:
       - the repository, `source_revision` = the outgoing branch;
       - the role tag and the D-174 model;
       - title `<role> <n+1>`;
@@ -115,7 +115,7 @@
   It reports to the GM and changes nothing. If 48 h have not passed, it re-arms itself for 24 h later.
 - **Accepted (D-197, 2026-09-28): GitHub rebase auto-merge**, for PRs without a migration, frozen-path or lock change. Native merge queue is unavailable (the repo owner is a GitHub User account, not an organization); the GM instead configured: allow auto-merge; a main ruleset requiring checks ①–⑥ + up-to-date branches, linear history, no force push. Gate ⑦ (arm64 image build + compose smoke) moves from per-PR CI to `nightly.yml` (+ `workflow_dispatch`) — a frozen-path change queued as M-core's (R3) first `tooling` slice, with its own pre-build/close review, so per-PR CI keeps only ①–⑥. Rule: the Master enables rebase auto-merge on a PR once `review` posts PASS and the PR touches no migration/frozen-path/lock file; the Master keeps manual, one-at-a-time merges for migration PRs (in number order, D-179), M-core PRs and lock PRs, and keeps behind-main PRs updated (rebase) before enabling auto-merge.
 - **Accepted (D-198, 2026-09-28).** GM-Directive (verbatim): «موافق: (أ) Stryker خارج الفحص المحلي، يبقى في CI والليلي (ب) أرشفة تلقائية (ج) الحد 6 الآن و7 بعد تقييم 30 سبتمبر». (أ) G16/Stryker out of local pre-commit and local `pnpm guards:run`, kept in CI ⑤ and nightly — built by M-core under `tooling` (X part 16). (ب) auto-archive, §5. (ج) cap six (§1); the timing of seven is an open GM question.
-- **Accepted (D-200, 2026-09-29).** GM-Directive (verbatim): «إذا كان ممكن العمل المتوازي للجلسات طبقه علي كل المستويات». Applied as: every role live at once up to the cap on disjoint locks granted before it starts (`scripts/check-locks.sh`, `.claude/hooks/lane-guard.sh`), and rebase auto-merge (D-197) on every eligible PR at `review` PASS (main ruleset). In-session concurrency and next-slice RED are open (`X part 17`).
+- **Accepted (D-200, 2026-09-29; wording deferred to X part 17).** GM-Directive (verbatim): «إذا كان ممكن العمل المتوازي للجلسات طبقه علي كل المستويات». Applied as: every role live at once up to the cap on disjoint locks granted before it starts (`scripts/check-locks.sh`, `.claude/hooks/lane-guard.sh`), and rebase auto-merge (D-197) on every eligible PR at `review` PASS (main ruleset). In-session concurrency and next-slice RED are open (`X part 17`).
 - **Still Proposed for Phase 2, needs GM approval:**
   - Lane 1b (3.4 with the INV-C4-1 guard, migration 0042) in the first free slot.
   - A CI ① check that every `feat`/`fix` commit of a PR carries `Review: PASS(…)`.
@@ -143,4 +143,4 @@
 - **Unchanged:** the twelve-step loop, REVIEW CAP, migration numbering, forward-only migrations, one commit per task, the human-approval list, and every local-session rule.
 
 ## Status (الحالة)
-Proposed — 2026-09-28 · Phase 1 Accepted — 2026-09-28 (D-196) · Phase 2 rebase-auto-merge item Accepted — 2026-09-28 (D-197) · Phase 2 D-198 items Accepted — 2026-09-28 · D-200 parallel roles Accepted — 2026-09-29 · rest of Phase 2 Proposed (evaluation 2026-09-30).
+Proposed — 2026-09-28 · Phase 1 Accepted — 2026-09-28 (D-196) · Phase 2 rebase-auto-merge item Accepted — 2026-09-28 (D-197) · Phase 2 D-198 items Accepted — 2026-09-28 · D-200 parallel roles Accepted, wording deferred to X part 17 — 2026-09-29 · D-202 Advisory permanent until production Accepted — 2026-09-29 · rest of Phase 2 Proposed (evaluation 2026-09-30).

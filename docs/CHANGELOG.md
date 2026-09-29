@@ -4,13 +4,14 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
-## X — D-198 + D-200: PASS subset of PR #202 after round 2 FAIL(4) (Master M9, 2026-09-29)
+## X — D-198 + D-200 + D-202: PASS subset of PR #202 after FAIL(8) (Master M9, 2026-09-29)
 
-- **What:** D-198 (cap six, watchdog auto-archive, G16/Stryker out of local guards) and its DECISION_LOG rows D-198 and D-200 (verbatim GM quotes), ADR-0007, backlog `X part 16`. CLAUDE.md is unchanged against main on the AGENTS AND SESSIONS role and Locks lines.
-- **Why:** round 2 failed on the Stream C sixth-role naming (no D-id row) and the D-200 Locks wording (no enforcing gate); D-198 row now cites PR #202.
-- **Files:** CLAUDE.md · docs/adr/ADR-0007-cloud-sessions-and-roles.md · docs/DECISION_LOG.md · tasks/MASTER_BACKLOG.md · docs/CHANGELOG.md.
-- **Review:** REVIEW CAP, PASS subset after round 2 FAIL(4) of #202; open findings go to `X part 17`.
-- Model: Master session (M9) · Delegated: none · tokens: not measured.
+- **What:** DECISION_LOG D-198, D-200 (Accepted, wording deferred to X part 17) and D-202; ADR-0007 (cap six, auto-archive, D-200, Advisory row); backlog `X part 16`, `X part 17`. CLAUDE.md is unchanged against main (five-session text stays until X part 17).
+- **D-202:** GM «موافق» (06:45Z, via Advisory) — Advisory session permanent until production: no context ceiling, private snapshot across summarization, hourly watchdog + daily GM report, creates the Master successor (ADR-0007 Decision 5).
+- **Why:** REVIEW CAP after pg-reviewer FAIL(8) at 37fd7b3 — removed the CLAUDE.md cap-six/open-session (1, 2) and auto-archive (3) sentences; fixed 5 (D-200 status), 6 (ADR review header), 8 (X part 17 deduped).
+- **To X part 17:** findings 1, 2, 3 (CLAUDE.md wording with gates), 4 (TESTING G16 after X part 16), 7 (squash-merge into one docs(X) commit).
+- **Files:** docs/adr/ADR-0007-cloud-sessions-and-roles.md · docs/DECISION_LOG.md · tasks/MASTER_BACKLOG.md · docs/CHANGELOG.md.
+- **Review:** PASS subset (REVIEW CAP, no round 3). Model: opus · Delegated: none · tokens: not measured.
 
 ## 2.16 — identity.sessions / otp_codes writes behind definer functions, migration 0044 (part 1a-8) (2026-09-29)
 
