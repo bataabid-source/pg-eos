@@ -151,7 +151,7 @@ async function insertMovementRow(
     readonly refId: string | null;
     readonly reasonCode: string | null;
     readonly deviceId: string | null;
-    readonly expiryDate?: string | null;
+    readonly expiryDate: string | null;
   },
 ): Promise<StoredMovementRow> {
   const result = await tx.execute<StoredMovementRow>(sql`
@@ -163,8 +163,8 @@ async function insertMovementRow(
        ${params.entry.movementType}, ${params.entry.clientId}::uuid, ${params.entry.skuId}::uuid,
        ${params.entry.fromLocationId}::uuid, ${params.entry.toLocationId}::uuid,
        ${params.entry.qty.toString()}::numeric, ${params.entry.uom}, ${params.entry.batchNo},
-       ${params.expiryDate ?? null}::date, ${params.refTable}, ${params.refId}::uuid, ${params.reasonCode}, ${params.performedBy}::uuid,
-       ${params.deviceId})
+       ${params.expiryDate}::date, ${params.refTable}, ${params.refId}::uuid, ${params.reasonCode},
+       ${params.performedBy}::uuid, ${params.deviceId})
     returning id, entity_id, occurred_at, movement_type, client_id, sku_id, from_location_id,
               to_location_id, qty::text as qty, uom, batch_no, ref_table, ref_id, reason_code,
               performed_by, device_id
@@ -912,6 +912,7 @@ export async function reverseMovement(
       refId: original.id,
       reasonCode: REVERSAL_REASON_CODE,
       deviceId: null,
+      expiryDate: null,
     });
 
     await lockAndApplyBalanceDelta(tx, reversalEntry, occurredAt);
