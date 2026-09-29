@@ -4,6 +4,15 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## 4.19 — i18n prerequisite: `packages/i18n/<lang>/billing.json`, reopen decision title, six locales (M-core, 2026-09-29)
+
+- **Why:** lane 2's 4.19 (PR #170) reads the reopen decision's `title_ar` from `packages/i18n/ar/billing.json` when deps are built; apps/api boot, the 4.19 tests and G16 fail until it is on main. `packages/*` is frozen: the lane's Bash-written copy and the Master-direct PR #174 were rejected; neither is reused.
+- **Change:** six new files `packages/i18n/{ar,en,hi,ur,bn,am}/billing.json`, one key `billing.accountingPeriods.reopenDecision.title`, values from R5 (PR #170 issuecomment-5875924622) · `tests/ops/i18n-billing.feature` + `tests/ops/tests/i18n-billing.test.ts` (four scenarios: presence, exact key set, sha256 byte-equality with R5, 2-space/no-BOM/one-newline format).
+- **Defaults recorded:** no `packages/i18n/package.json` (the loader reads a path; no import) · byte-equality with R5's sha256 is the acceptance, no re-translation · files written only through the Write tool, never Bash (lane-guard, `packages/i18n` lock) · read-scope deviation: pg-tester read tests/ops/{vitest.config.ts,tsconfig.json,tsconfig.test.json} and x-part-6.feature:1-12 outside the brief's Read ONLY list (no write outside scope).
+- **Timeline (recorded):** a first build ran 23:33–23:44Z under the Master's f039d83 claim, later withdrawn (#187/#189 closed); nothing under `packages/i18n` was committed then. After the lock + brief landed (783acd3, PR #195) pg-builder-core rewrote the six files with Write on `core/4.19-i18n-r1` (force-push denied, so a new branch); output byte-identical.
+- **Verified:** sha256 of all six = R5's · i18n-billing 4/4 · `pnpm check:locks` OK · `pnpm guards:run` on a fresh `pgeos_r7` (shared `pgeos` holds the X part 4 leftover row): G1–G16, G18, G-SEED green; G17 NOT RUNNABLE (runner test:trace is WBS 6.4; blocks only under PG_GUARDS_STRICT=1).
+- Model: M-core session (opus) · Delegated: pg-tester (sonnet), pg-builder-core (opus), pg-reviewer (opus) · Review: PASS(11 findings, 2 rounds) - pre-build PASS(3 nits, fixed); close FAIL(6)->FAIL(2 separable, CHANGELOG text only); PASS subset = whole diff; both nits folded into this entry · tokens: tester ≈35k · builder-core ≈45k · reviewer ≈95k · session ≈40k.
+
 ## 4.19 — `packages/i18n` lock + brief accepted for M-core (Master M6, 2026-09-29)
 
 - **Why:** PR #170/#174 blocked on `packages/i18n/*/billing.json`; two standalone lock-claim attempts (#187, #189) were rejected for claiming the lock with no brief. Fixed: M-core wrote the brief first (`_slice-4.19-i18n.brief.md`, `builder: pg-builder-core`, `brief-check.sh` OK), Master commits brief + lock together (ADR-0007 P1 pattern), not lock-then-brief.
