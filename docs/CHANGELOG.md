@@ -10,7 +10,7 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 - **Brief:** Step 0 sources one expiry per batch in 01/13/13B/019/40 or files `SCR-WMS-BATCH-EXPIRY-01` · `post-movement.ts` (balance insert L482) is outside the lock → the lane STOPS and reports; the lock is not widened.
 - **Rows:** `S1 QRT routing`, `S1 quarantine_decision` — owner: TBD (G-01): doc 38 and doc 40 Part E name no WBS row (integration, #207 09:55Z); 2.9 part 3 → TODO; footer stays 154 (part rows not counted).
 - **#212 round 1 FAIL(5) fix:** no lock claimed — one lock row per lane; lane 1 order 2.16 p2d → 2.16 p3 → 2.9 p3, claimed when reached · lock scope open (post-movement.ts:482, use-case vs module, GM on #207) · `SCR-WMS-BATCH-EXPIRY-01` filed (rule from #185 brief Decision 2, not in 01/13/13B/019/40; GM decides) · owner rows note: no doc-38 row, doc 40 Part E S1 step only.
-- Model: Master session (M11, opus) · Delegated: general-purpose (drafting) · Review: none yet (lock PR) · tokens: ≈ 30k subagent.
+- Model: Master session (M11, opus) · Delegated: general-purpose (drafting) · Review: FAIL(3 findings, 2 rounds) — PASS subset per REVIEW CAP (state regen, base cite, row WAITING_GM) · tokens: ≈ 30k subagent.
 
 ## X — S7 Trial client scenario RED (integration lane 3, 2026-09-29)
 

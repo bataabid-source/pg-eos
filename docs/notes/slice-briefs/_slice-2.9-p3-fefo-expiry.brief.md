@@ -11,7 +11,7 @@ Backlog row 2.9 part 3 (verbatim): "S1's FEFO step green; same-batch different-e
 doc 38 row 2.9 (verbatim): "GOLDEN SLICE — Receive inbound order (PDA + state machine + ledger + event + GRN + billable events)" — row stays ACCEPTED; this part is a defect fix.
 doc 40 Part E S1, scenario 2 (verbatim): "Given available stock of "GULF-0137" in two batches with expiries 90 and 200 days / When an outbound order for 12 units is approved / Then allocation takes 12 units from the 90-day batch".
 
-## Facts (verified by the Master on main 3338da2; re-verify against the current main at slice start)
+## Facts (verified by the Master on main 7d823b6; re-verify against the current main at slice start)
 - `wms.stock_movements` carries `expiry_date` (01-Data-Model.sql:705) and `wms.stock_balance` has `expiry_date date` (01:719-732) — no schema change.
 - `receive-line.ts:137` passes `expiryDate`; the receipt posts through `postMovementInTx` (`modules/wms/src/stock-ledger/post-movement.ts:591`), whose balance insert (`post-movement.ts:482`) writes `(client_id, sku_id, location_id, batch_no, qty_on_hand, last_movement_at)` — no `expiry_date`. None of #185's fix is on main.
 - `tests/scenarios/S1.spec.ts:341-540`: with null expiries, outbound allocation orders lots by `location_id`, not FEFO, so "allocation takes 12 units from the 90-day batch" is RED; filling the expiry is what turns it green (allocation code is not touched).
