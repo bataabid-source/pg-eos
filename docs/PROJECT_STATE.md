@@ -4,7 +4,7 @@ Plan: docs/STREAMS.md (ADR-0005, D-192) — scenario-driven streams A–F; DONE 
 Phase: enablement week (Master + integration lane; build lanes frozen) → wave 1 (A: 2.16→2.18 · B: 4.1b p2→4.19→4.20).
 Done so far: phase 0 closed · phase 1 done except 1.11 (BLOCKED D-178) · phase 2 warehouse 9/19 · golden slice 2.9 ACCEPTED.
 Pilot: Tier 0 = local Docker postgres:16 (D-129), seed 019 + synthetic data (D-127); doc 38 v4.7 (154 rows).
-Schema: 0001–0040, 0042–0044 applied (0022 withdrawn; 0040 lane 2; 0042–0044 lane M); issued: 0041 (lane 2), 0045 (lane 3, D-203); next free 0046.
+Schema: 0001–0044 applied (0022 withdrawn; 0040/0041 lane 2, 4.19/4.20; 0042–0044 lane M); issued: 0045 (lane 3, D-203); next free 0046.
 Sessions: cloud Postgres from .claude/hooks/session-start.sh; PG_APP_USER required (ADR-0005 §7) · Master: M12, cap 5 (CLAUDE.md).
 Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewer (opus); bookkeeping by scripts/scribe.mjs (state, locks, CHANGELOG template).
 
@@ -12,7 +12,6 @@ Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewe
 - lane M · packages/identity · 2.16 · since 2026-09-28
 - lane M · identity · 2.16 · since 2026-09-28
 - lane M · tooling · X · since 2026-09-29
-- lane 2 · billing · 4.20 · since 2026-09-29
 - lane M · api · X · since 2026-09-29
 - lane 1 · pda · 2.16 · since 2026-09-29
 
@@ -36,4 +35,4 @@ Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewe
 
 ## Next
 1. Weekly goal S1+S2+S18 (GM 07:20Z): Lane 1: 2.16 p2 (#211) → 2.16 p3 → 2.9 p3 (lock `wms`) · Integration: X part 5d part 2 (#175, 0045), S1 to green.
-2. Lane 2: 4.20 (billing, 0041) · M-core: X part 16 (#209) → X part 5 (api) → X part 17 → X part 18 · waiting: S9 p2, 1a-4c · 1a-9 BLOCKED → AUDIT-CHAIN-01.
+2. Lane 2: 4.20 PR open → 4.20 part 2 · M-core: X part 16 (#209) → X part 5 (api) → X part 17 → X part 18 · waiting: S9 p2, 1a-4c · 1a-9 BLOCKED → AUDIT-CHAIN-01.

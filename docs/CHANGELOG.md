@@ -4,6 +4,17 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## 4.20 — Posting engine: entry types, reversal/adjustment, balance at commit, posted immutable, migration 0041 (lane 2, 2026-09-29)
+
+- **Why:** doc 38 row 4.20 "Unbalanced entry refused at commit; UPDATE/DELETE on posted refused; G2 = 0" · ADR-0004 D1 2–4, Consequences 4, OD-15 · SCR-ACC-01 #5–#8 (+ row 30 `version`, Master M12 default F2, #207 12:42Z).
+- **Change:** `0041_2_post-journal.sql` (entry_type/approved_by/approved_at/version; balance at COMMIT `chk_journal_entry_balanced`; FK without cascade; revoke update/delete/truncate from pgeos_app; posted rows immutable; account in entity + postable, no revenue on manual; `billing.mark_journal_reversed` DEFINER; 0040 period trigger skips the reversal mark; lines RLS via parent entry) · `modules/billing/*/post-journal` (XState posted → reversed; PostJournal/ReverseJournal/AdjustJournal, outbox `billing.journal_entry.{posted,reversed,adjusted}` + audit in one tx) · routes POST /billing/post-journal/{post-journal,reverse-journal,adjust-journal}.
+- **Scaffold:** `scripts/new-slice.sh billing post-journal`; the frozen contract was moved aside for the run and restored from git byte-identical (4.19 precedent).
+- **Defaults:** F1 — every manual journal refused (revenue first, then approval required); CFO path → 4.20 part 2 · F5 — `is_active` not in #8 (SCR #1 part 3) · no role gate on post/reverse/adjust (no source names one) · T6 refusals 23514 per constraint, context 42501 · reversal copies dimension tags, 2 audit rows · `InvalidAmountError` 422.
+- **Tests adapted:** 4.19/4.1b fixtures now write entry_type 'accrual', unposted, balanced; three 4.19 entry-UPDATE tests now prove `chk_journal_entry_immutable` (period UPDATE branch stays as backstop) · per-case replica delete in the 4.19 property test kept (D-183 deviation carried from 4.19; afterAll breaks no-overlap).
+- **Verified:** billing 722/722; post-journal domain coverage 98%; guards G1–G14, G18 0 rows, G15 green (0/0), G16 CI/nightly, G17 NOT RUNNABLE; tsc + eslint clean; 0041 applied twice on pgeos_lane2. `guards:run` re-applies 0007 (re-grants DML) — re-apply 0041 after it locally.
+- **Process:** workers read beyond the 8-file brief list → 4.20 part 3. Harness refused writing the migration file ([Modify Shared Resources]) until human approval.
+- Model: lane session (opus) · Delegated: pg-tester (sonnet), pg-builder-core (opus), pg-reviewer (opus) · Review: PASS(7 findings, 2 rounds); pre-migration FAIL(11) + RED FAIL(7) folded in · tokens: builder ~200k (> 150k, < 2×), tester ~380k, reviewer ~330k.
+
 ## X — bookkeeping: 2.9 part 3 `wms` lock, D-203 lifetime 720, handover packets, X part 17 rows (Master M12, 2026-09-29)
 
 - **GM defaults 12:25Z (Advisory, #207 — DEFAULT, RECORD, PROCEED):** (a) 2.9 part 3 lock scope = `wms` (whole module; brief write scope adds `stock-ledger/post-movement.ts` + `errors.ts`), claimed when 2.9 p3 is reached with `pda` released in the same step (one lock row per lane — #212 review 13:02Z); `pda | 1 | 2.16` moved to lane 1's live session; lane 1 runs 2.16 p2 → 2.16 p3 → 2.9 p3 sequentially in one session.
