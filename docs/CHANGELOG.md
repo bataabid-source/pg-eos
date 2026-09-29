@@ -8,9 +8,9 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 - **What:** `tests/scenarios/S7.spec.ts`, doc 40 L495-500 verbatim. The Given, the price step and credit_limit=0 are BACKED through real sales handlers (contract create with noticeDays 14 per doc 05 L335 → set price list → sign → activate; resolvePrice gives 'standard_list' while the contract is draft, then the same segment-less list via the contract once active; quote + line at 25.000). The alert step is NOT BUILT (owner row 6.7 → 6.3 → 0.19, 5.13 part 2).
 - **Defaults:** SEG-F (doc 01 L1620, doc 05 L323) · segment_id + cr_number set by one raw UPDATE (no handler writes them) · credit_limit from the schema default 0 · standard price list inserted and removed by the spec · alert date compared as `fired_at::date` in the session TZ, because no tz constant exists.
-- **Review:** S7 round 1 FAIL(2 blocking, 2 nits) → round 2 FAIL(1 blocking, 1 nit) → row S7 part 2 → round 1 PASS(0).
-- **Verified:** 2 identical runs (only the alert step fails), zero residue, G1 = 0, tsc/eslint clean; guards G1–G15, G18, G-SEED green (G16/G17 not observed; test-only).
-- Model: integration lane 3 session · Delegated: pg-tester (sonnet), pg-reviewer (opus) · Review: PASS(6 findings, 3 rounds) · tokens: pg-tester ≈ 95k · pg-reviewer ≈ 75k
+- **Review:** S7 part 1 hit the cap (round 1 FAIL(2 blocking, 2 nits) → round 2 FAIL(1 blocking, 1 nit), no round 3) → row S7 part 2. S7 part 2 (this entry): round 1 PASS(0) → close review FAIL(2 blocking, 1 nit: this review record, the unverified guards claim, stale packet) → one fix round.
+- **Verified:** 2 identical runs (only the alert step fails), zero residue, G1 = 0, tsc/eslint clean. `pnpm guards:run` on pgeos_lane3 printed G1–G15, G18, G-SEED green, then did not exit within 580 s (killed; G16/G17 not observed — test-only diff, no domain/).
+- Model: integration lane 3 session · Delegated: pg-tester (sonnet), pg-reviewer (opus) · Review: PASS(3 findings, 2 rounds) · tokens: pg-tester ≈ 95k · pg-reviewer ≈ 75k
 
 ## 2.16 — identity.sessions / otp_codes writes behind definer functions, migration 0044 (part 1a-8) (2026-09-29)
 
