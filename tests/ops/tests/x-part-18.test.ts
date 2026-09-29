@@ -55,9 +55,21 @@ const PR_FILES_CALL = 'gh api "repos/$REPO/pulls/$PR/files?per_page=100" --pagin
 const PR_FILES_PATH = 'pulls/$PR/files';
 const COMMENTS_PATH = 'issues/$PR/comments';
 const SELF_WORKFLOW_PATH = '.github/workflows/claude-review.yml';
-const SKIP_NOTICE_PREFIX = 'review: verdict gate skipped —';
-const SKIP_PHRASE = 'verdict gate skipped';
 const EXIT_ZERO_CALL = 'exit 0';
+const SKIP_TITLE =
+  'the verdict gate is skipped on a PR that edits claude-review.yml itself: ::warning + step summary + a `review: MANUAL` PR comment, exit 0 (the action does not run on such a PR — manual review by the Master)';
+const MANUAL_TEXT = 'review: MANUAL';
+const MANUAL_WINDOW = 300;
+const WARNING_RE = /::warning[^\n]*review: MANUAL/;
+const SUMMARY_RE = new RegExp(
+  `review: MANUAL[\\s\\S]{0,${MANUAL_WINDOW}}?>>\\s*"?\\$GITHUB_STEP_SUMMARY|>>\\s*"?\\$GITHUB_STEP_SUMMARY[\\s\\S]{0,${MANUAL_WINDOW}}?review: MANUAL`,
+);
+const PR_COMMENT_RE = new RegExp(
+  `review: MANUAL[\\s\\S]{0,${MANUAL_WINDOW}}?gh pr comment|gh pr comment[\\s\\S]{0,${MANUAL_WINDOW}}?review: MANUAL`,
+);
+const SELF_IF_RE = new RegExp(
+  `\\bif\\b[^\\n]*pulls/\\$PR/files[\\s\\S]{0,${MANUAL_WINDOW}}?\\|\\s*grep -F\\w*[\\s\\S]{0,${MANUAL_WINDOW}}?claude-review\\.yml`,
+);
 
 // Case-table generator: seeded LCG (Numerical Recipes constants), deterministic across runs.
 const GEN_SEED = 20_260_929;
@@ -231,7 +243,7 @@ it('claude-review.yml records the job start before the action, fetches the PR co
   expect(yml.split(TOKEN_GATE).length - 1).toBe(stepCount);
 });
 
-it('the verdict gate is skipped with a notice, exit 0, when the PR changes .github/workflows/claude-review.yml itself (the action does not run on a PR that edits its own workflow — manual review by the Master)', () => {
+it(SKIP_TITLE, () => {
   const yml = readFileSync(WORKFLOW, 'utf8');
   const gateStep = yml
     .slice(yml.indexOf(ACTION_USES))
@@ -246,15 +258,20 @@ it('the verdict gate is skipped with a notice, exit 0, when the PR changes .gith
   expect(runText).toContain(PR_FILES_PATH);
   expect(runText).toContain(PR_FILES_CALL);
   expect(runText).toContain(SELF_WORKFLOW_PATH);
-  expect(runText).toContain(SKIP_NOTICE_PREFIX);
-  expect(runText).toContain(SKIP_PHRASE);
   expect(runText).toContain(EXIT_ZERO_CALL);
+  expect(runText).toMatch(WARNING_RE);
+  expect(runText).toMatch(SUMMARY_RE);
+  expect(runText).toMatch(PR_COMMENT_RE);
+  expect(runText).toMatch(SELF_IF_RE);
 
   const commentsAt = runText.indexOf(COMMENTS_PATH);
   expect(commentsAt).toBeGreaterThanOrEqual(0);
+  for (const re of [WARNING_RE, SUMMARY_RE, PR_COMMENT_RE, SELF_IF_RE]) {
+    expect(runText.search(re)).toBeLessThan(commentsAt);
+  }
+  expect(runText.indexOf(MANUAL_TEXT)).toBeLessThan(commentsAt);
   expect(runText.indexOf(PR_FILES_PATH)).toBeLessThan(commentsAt);
   expect(runText.indexOf(SELF_WORKFLOW_PATH)).toBeLessThan(commentsAt);
-  expect(runText.indexOf(SKIP_PHRASE)).toBeLessThan(commentsAt);
   expect(runText.indexOf(EXIT_ZERO_CALL)).toBeLessThan(commentsAt);
 });
 
