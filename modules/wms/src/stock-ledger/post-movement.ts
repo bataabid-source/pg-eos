@@ -65,10 +65,10 @@ const AUDIT_ACTOR_TYPE_SYSTEM = 'system';
 // decision 5: reversal ref_table / reason_code, verbatim.
 const REVERSAL_REF_TABLE = 'wms.stock_movements';
 const REVERSAL_REASON_CODE = 'reversal';
-// D-204: advisory-lock key namespace for one (client, SKU, batch); distinct from balanceKey (which
-// starts with a uuid), the rebuild key and the location-limit key.
 // to_char pattern that renders a date column as the ISO 'YYYY-MM-DD' string PostMovementInput carries.
 const ISO_DATE_FORMAT = 'YYYY-MM-DD';
+// D-204: advisory-lock key namespace for one (client, SKU, batch); distinct from balanceKey (which
+// starts with a uuid), the rebuild key and the location-limit key.
 const BATCH_EXPIRY_LOCK_KEY_PREFIX = 'wms.stock_balance.batch_expiry|';
 
 export interface PostMovementInput {
@@ -647,11 +647,12 @@ async function writeMovementEventAndAudit(
 
 /**
  * Fix round 1 (Master decision, WBS 2.9): the transaction-scoped variant — everything
- * `postMovement` does (same lock order: rebuild -> location-limit -> batch -> row -> audit), but against a CALLER-SUPPLIED, already-open `tx` instead of opening its own via
- * withContext. This is what lets a caller (e.g. modules/wms/application/receive-inbound/
- * receive-line.ts) compose a ledger posting into ONE transaction alongside its own reads/writes,
- * instead of the ledger post committing as a separate transaction. `postMovement` below is now a
- * thin wrapper over this function.
+ * `postMovement` does (same lock order: rebuild -> location-limit -> batch -> row -> audit), but
+ * against a CALLER-SUPPLIED, already-open `tx` instead of opening its own via withContext. This
+ * is what lets a caller (e.g. modules/wms/application/receive-inbound/receive-line.ts) compose
+ * a ledger posting into ONE transaction alongside its own reads/writes, instead of the ledger
+ * post committing as a separate transaction. `postMovement` below is now a thin wrapper over this
+ * function.
  */
 export async function postMovementInTx(
   tx: NodePgDatabase,
