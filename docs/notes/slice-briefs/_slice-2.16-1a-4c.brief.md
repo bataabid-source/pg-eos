@@ -62,3 +62,11 @@ Examples: app ∈ {pda shell, admin customer-profile, admin decision-inbox}; loc
 Deliver: `apps/{pda,admin}/src/i18n/languages.ts` (new) · `apps/pda/src/router.tsx` · the two admin screens · twelve locale JSON files (keys removed) · two `index.html` (comment only) + the RED files; `pnpm --filter @pg-eos/pda test` and `--filter @pg-eos/admin test`, typecheck, eslint green; `pnpm guards:run` unaffected (no DB change).
 
 Stop-and-ask if: any table/column/rule not in 01 / 13 / 13B / 019 / 40 — STOP and report (G-01).
+
+## Handover 1 (R4 → successor, 2026-09-29, ADR-0007 Decision 5)
+1. Reason: R4's context passed the 300k lane ceiling (≈ 306k, GM relay 01:21Z). Nothing of this slice was built.
+2. Git: main head at handover = 783acd3; this branch `lane/1-2.16-1a-4c` = wip `04a6cd0` (this brief) + the wip commit carrying this section; pushed; tree clean. The successor works on `lane/1-2.16-1a-4c-r1` from main and folds both wip commits into its single `feat(2.16)` commit.
+3. State of the loop: step 5 done (brief, brief-check OK 8 files / 530 lines). NOT started: pg-tester RED, pre-build review — review rounds unspent (2 left).
+4. Blocker: locks. `tasks/LANE_LOCKS.md` on main has no `pda` / `admin` row for lane 1 (the stale `wms` row of R4 is still there). The Master escalated the lock commit to the GM (M5, 19:39Z). No write under `apps/*` (tests included — `apps/*/tests` is inside the module, lane-guard) until the rows land. `pda` only → Decision 7 split (admin half → `2.16 part 1a-4d`).
+5. Decided, not to redo: Decision 3 (visible "Language" label) confirmed by the Master (M5, 19:39Z) as a recorded DEFAULT. Other decisions 1–7 stand as written; pre-build review may still challenge them.
+6. First commands: `git fetch origin && git checkout -B lane/1-2.16-1a-4c-r1 origin/main && git cherry-pick 04a6cd0 <handover wip>`; `bash scripts/check-locks.sh`; `bash scripts/brief-check.sh docs/notes/slice-briefs/_slice-2.16-1a-4c.brief.md`; then /slice step 6 (pg-tester).
