@@ -16,11 +16,11 @@ Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewe
 - lane 1 · wms · 2.9 · since 2026-09-29
 
 ## Last 5 feat/fix commits (git log)
+- `aed737c` feat(4.20): posting engine — entry types, reversal/adjustment, balance at commit, posted immutable, migration 0041 (#214)
 - `9d12664` fix(X): verdict gate skips with a notice on a PR that edits claude-review.yml itself (X part 18, #218 review red)
 - `66cfccc` feat(2.16): PDA receive + put-away screens on XState v5, S1's D4 steps (part 2) (#211)
 - `821dd11` feat(X): review CI check fails on a FAIL verdict — scripts/review-verdict.mjs + verdict gate in claude-review.yml (X part 18)
 - `9897a01` feat(4.19): fiscal years + accounting periods (open/closed/locked), DB refuses posting into closed/locked periods, migration 0040
-- `a885a99` feat(2.16): sessions/otp_codes writes behind six identity definers, migration 0044 (part 1a-8)
 
 ## Blockers
 - G16: changed domain/ per PR, every module nightly (X part 6); G15 per STREAMS §G15 (green.json); G17 NOT RUNNABLE; deploy.sh waits on 0.6b.
