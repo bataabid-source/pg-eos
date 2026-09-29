@@ -115,19 +115,19 @@ export async function issueSessionInTx(
   const expiresAt = minutesAfter(issuedAt, lifetimeMinutes);
   const token = generateToken();
 
-  const inserted = await tx.execute<{ id: string }>(sql`
-    insert into identity.sessions (user_id, token_hash, issued_at, expires_at)
-    values (
-      ${userId}::uuid,
-      ${keyedHash(token)},
-      ${issuedAt.toISOString()}::timestamptz,
-      ${expiresAt.toISOString()}::timestamptz
-    )
-    returning id
+  // Definer call (migration 0044): pgeos_app holds no direct DML on identity.sessions, which
+  // carries only the `internal_read` RLS policy (select).
+  const inserted = await tx.execute<{ id: string | null }>(sql`
+    select identity.session_issue(
+             ${userId}::uuid,
+             ${keyedHash(token)},
+             ${issuedAt.toISOString()}::timestamptz,
+             ${expiresAt.toISOString()}::timestamptz
+           ) as id
   `);
   const row = inserted.rows[0];
-  if (!row) {
-    throw new Error('issueSession: insert into identity.sessions returned no row');
+  if (!row?.id) {
+    throw new Error('issueSession: identity.session_issue returned no row');
   }
 
   return { sessionId: row.id, userId, token, issuedAt, expiresAt };
@@ -269,11 +269,9 @@ export async function revokeSession(
   const at = now();
 
   await withContext(INTERNAL_NO_ACTOR_CTX, async (tx) => {
-    await tx.execute(sql`
-      update identity.sessions
-         set revoked_at = ${at.toISOString()}::timestamptz
-       where id = ${sessionId}::uuid
-         and revoked_at is null
-    `);
+    // Definer call (migration 0044); the function keeps the `revoked_at is null` guard.
+    await tx.execute(
+      sql`select identity.session_revoke(${sessionId}::uuid, ${at.toISOString()}::timestamptz)`,
+    );
   });
 }

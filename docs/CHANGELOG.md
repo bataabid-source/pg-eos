@@ -4,6 +4,14 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## 2.16 — identity.sessions / otp_codes writes behind definer functions, migration 0044 (part 1a-8) (2026-09-29)
+
+- **Why:** SCR-IDENTITY-RLS-01 delta 2 (D-193 D4 أ): any internal context could write `identity.sessions` / `identity.otp_codes` directly; acceptance "`pgeos_app` cannot insert/update/delete them directly; OTP + session tests stay green".
+- **Change:** `0044_M_identity-write-definers.sql` — `internal_only` → select-only `internal_read`, INSERT/UPDATE/DELETE revoked from `pgeos_app`, six `identity.*` SECURITY DEFINER functions (`otp_issue`, `otp_record_failure`, `otp_consume`, `otp_lock_candidates` = the `for update` read, `session_issue`, `session_revoke`; is_internal() gate 42501, search_path pinned, static SQL), do-block self-check · `packages/identity/src/{otp,session,context}.ts` call them (public API unchanged) · README register (next 0045) · RED `modules/identity/tests/{identity-write-definers.feature,integration/identity-write-definers.test.ts}` · SCR row 2 sessions/otp applied, users → 1a-9.
+- **Defaults recorded:** `database/schema/*` not edited (13B generator skips a table that has a policy; 0042 precedent) · `g16a-limits.property.test.ts` helper now sets withContext's four GUCs (0044 gate refused its GUC-less superuser tx), no property changed; a superuser bypass in the gate was rejected (a definer's current_user is its owner) · `context.ts` comment refreshed in the close fix round.
+- **Review (pg-reviewer):** pre-build round 1 FAIL(2 blocking: `for update` needs UPDATE → sixth definer; self-check/policy test unspecified + 5 nits) → fix round → round 2 PASS(3 nits); close round 1 PASS(3 nits), all fixed in the same round.
+- **Verified:** fresh `pgeos_b1`: 1a-8 8/8, packages/identity 91/91, modules/identity 60/60, apps/api 17/17, 0044 applied twice clean, `G16_MODULES=identity` guards green (G17 not runnable).
+- Model: M-core session (opus) · Delegated: pg-tester (sonnet), pg-builder-core (opus), pg-reviewer (opus) · Review: PASS(13 findings, 3 rounds) · tokens: pg-tester ≈ 95k · pg-builder-core ≈ 70k · pg-reviewer ≈ 140k
 ## 4.19 — i18n prerequisite: `packages/i18n/<lang>/billing.json`, reopen decision title, six locales (M-core, 2026-09-29)
 
 - **Why:** lane 2's 4.19 (PR #170) reads the reopen decision's `title_ar` from `packages/i18n/ar/billing.json` when deps are built; apps/api boot, the 4.19 tests and G16 fail until it is on main. `packages/*` is frozen: the lane's Bash-written copy and the Master-direct PR #174 were rejected; neither is reused.
