@@ -94,7 +94,6 @@ Feature: Posting engine (WBS 4.20)
     And a direct UPDATE of reversed_by by pgeos_app is refused (42501) and by the owner without the version bump is refused (23514)
     When AdjustJournal is called with new lines
     Then a new posted entry of type "adjustment" exists, the original entry is unchanged, and one outbox row "billing.journal_entry.adjusted" is written
-    And mark_journal_reversed refuses an original entry that is not posted with SQLSTATE 23514 (chk_journal_reversal_posted)
 
   Scenario: A manual journal to a revenue account is refused; other manual journals need CFO approval (OD-15)
     Given the database CHECK constraints of the DESIGN

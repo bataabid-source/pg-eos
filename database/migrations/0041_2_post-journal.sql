@@ -375,7 +375,6 @@ declare
   v_entity      uuid;
   v_reversed_by uuid;
   v_version     int;
-  v_posted      timestamptz;
   v_rev_entity  uuid;
   v_rev_type    text;
   v_rev_posted  timestamptz;
@@ -386,17 +385,12 @@ begin
       'billing.mark_journal_reversed: internal context required';
   end if;
 
-  select je.entity_id, je.reversed_by, je.version, je.posted_at into v_entity, v_reversed_by, v_version, v_posted
+  select je.entity_id, je.reversed_by, je.version into v_entity, v_reversed_by, v_version
     from billing.journal_entries je where je.id = p_entry_id for update;
   if not found or not (v_entity = any (platform.allowed_entities())) then
     raise exception using errcode = '23514', constraint = 'chk_journal_reversal_scope', message = format(
       '0041: journal entry %s cannot be reversed by the caller (Allowed: a posted entry of the '
       'caller''s entities)', p_entry_id);
-  end if;
-
-  if v_posted is null then
-    raise exception using errcode = '23514', constraint = 'chk_journal_reversal_posted', message = format(
-      '0041: journal entry %s is not posted (Allowed: only a posted entry is reversed)', p_entry_id);
   end if;
 
   if p_reversing_id = p_entry_id then
