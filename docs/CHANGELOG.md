@@ -4,6 +4,17 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## 2.9 part 3 — the ledger writes the batch expiry; one expiry per batch at any location (D-204), FEFO step of S1 (lane 1, 2026-09-29)
+
+- **What:** `post-movement.ts` writes `expiry_date` on `stock_movements` and `stock_balance` (insert; UPDATE `coalesce` keeps a recorded expiry, fills a null one); a different non-null expiry for the same (client, SKU, batch) at ANY location → `InvalidLedgerEntryError`, whole transaction rolled back (`lockBatchExpiry` + `assertBatchExpiryConsistent`, plain SELECT); put-away destination inherits the source expiry (2(d)); `expiryDate` through `ports.ts`/`ledger.ts`/`receive-line.ts`; handlers map the refusal to 422. Allocation untouched. Supersedes #185.
+- **Files:** `modules/wms/src/stock-ledger/post-movement.ts`, `api/receive-inbound/handlers.ts`, `application/receive-inbound/{ports,receive-line}.ts`, `infrastructure/receive-inbound/ledger.ts`; tests `expiry-balance.{feature,test.ts,property.test.ts}` (12 + fast-check property incl. transfers). Brief, `_slice-2.9-p2.brief.md` and `SCR-WMS-BATCH-EXPIRY-01.md` (applied, D-204) deleted.
+- **Defaults (pre-build round 2 FAIL(5), cap):** row locks = advisory `lockBalanceRow` keys, not FOR UPDATE; lock order rebuild → location-limit → batch → row → audit; extra read ranges post-movement.ts 183-280 / 656-760; batch lock on a receipt only when its expiry is non-null; `PostTransferInput` omits `expiryDate` (source row decides).
+- **Defaults (close round 1):** `handlers.ts` (inside `wms`, outside the brief Write list) edited for the 422 mapping; GRN-01 fixture mirrors `receive-inbound.test.ts:571-617` (upsert + delete by id; not seed data in lane DBs; safe under `fileParallelism: false`).
+- **S1:** FEFO step "allocation takes 12 units from the 90-day batch" green on pgeos_lane1; `S1.spec.ts:455-462` still red only on typing (pg `date` → JS Date vs string) → integration lane 2.18; remaining S1 reds are unbuilt 4.3 / 3.4.
+- **#185 overrun:** ≈ 760k tokens vs 150k (backlog item 4) — recorded; `rebuild-balance.ts` parity stays row 2.9 part 4.
+- Tests: wms 42/42 files, 1054/1054; tsc + eslint clean; `pnpm guards:run` blocking green (G1 0).
+- Model: lane 1 successor 2 (opus) · Delegated: pg-tester, pg-builder (sonnet), pg-reviewer (opus) · Review: pre-build FAIL(8) → FAIL(5, cap); close FAIL(6) → PASS · tokens: ≈ 330k subagents (tester 105k · pre-build 78k · builder 72k · close 77k) + session — over the 150k brief budget (≈ 2.2×), recorded.
+
 ## X — lane 1 briefs (2.9 p3, 2.16 p3, 2.16 p2e) + `wms` lock + D-204 (Master M12, 2026-09-29)
 
 - **GM 17:30Z** «افتح موجزات خط 1 وقفل wms اليوم» (Override: GM; Advisory relay #207 comment 5895344613): lock `pda | 1 | 2.16` released → `wms | 1 | 2.9` claimed (scribe, cloud:session_01VComj7TLSZGmgfAUrRbGsP); #215 (D-204) folded in, review nits 2–3 applied (D-204 verbatim separated in DECISION_LOG; handover-master #215 item).

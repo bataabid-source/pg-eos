@@ -261,6 +261,7 @@ export interface LedgerPort {
       readonly uom: string;
       readonly correlationId: string;
       readonly refId: string;
+      readonly expiryDate?: string | null;
     },
     actorId: string,
     deps: ClockDeps,

@@ -36,6 +36,7 @@ import {
   type MovementType,
 } from './domain.js';
 import {
+  InvalidLedgerEntryError,
   LocationBlockedError,
   LocationLimitExceededError,
   MovementNotFoundError,
@@ -64,6 +65,11 @@ const AUDIT_ACTOR_TYPE_SYSTEM = 'system';
 // decision 5: reversal ref_table / reason_code, verbatim.
 const REVERSAL_REF_TABLE = 'wms.stock_movements';
 const REVERSAL_REASON_CODE = 'reversal';
+// D-204: advisory-lock key namespace for one (client, SKU, batch); distinct from balanceKey (which
+// starts with a uuid), the rebuild key and the location-limit key.
+// to_char pattern that renders a date column as the ISO 'YYYY-MM-DD' string PostMovementInput carries.
+const ISO_DATE_FORMAT = 'YYYY-MM-DD';
+const BATCH_EXPIRY_LOCK_KEY_PREFIX = 'wms.stock_balance.batch_expiry|';
 
 export interface PostMovementInput {
   readonly entityId: string;
@@ -74,6 +80,8 @@ export interface PostMovementInput {
   readonly refId?: string | null;
   readonly reasonCode?: string | null;
   readonly deviceId?: string | null;
+  /** ISO date 'YYYY-MM-DD' — written to stock_movements.expiry_date and the balance row (D-204). */
+  readonly expiryDate?: string | null;
 }
 
 export interface LedgerDeps {
@@ -143,18 +151,19 @@ async function insertMovementRow(
     readonly refId: string | null;
     readonly reasonCode: string | null;
     readonly deviceId: string | null;
+    readonly expiryDate?: string | null;
   },
 ): Promise<StoredMovementRow> {
   const result = await tx.execute<StoredMovementRow>(sql`
     insert into wms.stock_movements
       (entity_id, occurred_at, movement_type, client_id, sku_id, from_location_id, to_location_id,
-       qty, uom, batch_no, ref_table, ref_id, reason_code, performed_by, device_id)
+       qty, uom, batch_no, expiry_date, ref_table, ref_id, reason_code, performed_by, device_id)
     values
       (${params.entityId}::uuid, ${params.occurredAt.toISOString()}::timestamptz,
        ${params.entry.movementType}, ${params.entry.clientId}::uuid, ${params.entry.skuId}::uuid,
        ${params.entry.fromLocationId}::uuid, ${params.entry.toLocationId}::uuid,
        ${params.entry.qty.toString()}::numeric, ${params.entry.uom}, ${params.entry.batchNo},
-       ${params.refTable}, ${params.refId}::uuid, ${params.reasonCode}, ${params.performedBy}::uuid,
+       ${params.expiryDate ?? null}::date, ${params.refTable}, ${params.refId}::uuid, ${params.reasonCode}, ${params.performedBy}::uuid,
        ${params.deviceId})
     returning id, entity_id, occurred_at, movement_type, client_id, sku_id, from_location_id,
               to_location_id, qty::text as qty, uom, batch_no, ref_table, ref_id, reason_code,
@@ -216,6 +225,56 @@ async function lockRebuildKeysShared(
   }
 }
 
+/**
+ * D-204 / decision 2(e): transaction-scoped advisory lock on (client, SKU, batch), taken AFTER the
+ * location-limit lock and BEFORE every per-row balance lock and the audit write, by every path that
+ * writes a balance expiry (receipt, put-away transfer). Serialises concurrent expiry writes of one
+ * batch across locations; the cross-location check below is a plain SELECT under this lock.
+ */
+async function lockBatchExpiry(tx: NodePgDatabase, entry: LedgerEntry): Promise<void> {
+  const key = `${BATCH_EXPIRY_LOCK_KEY_PREFIX}${entry.clientId}|${entry.skuId}|${entry.batchNo}`;
+  await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${key}, 0))`);
+}
+
+/**
+ * D-204: refuses (InvalidLedgerEntryError) a non-null `expiryDate` that differs from the non-null
+ * expiry of ANY balance row of the same (client, SKU, batch), at any location. Plain SELECT — the
+ * caller holds the batch lock (lockBatchExpiry).
+ */
+async function assertBatchExpiryConsistent(
+  tx: NodePgDatabase,
+  entry: LedgerEntry,
+  expiryDate: string,
+): Promise<void> {
+  const result = await tx.execute<{ readonly location_id: string; readonly expiry_date: string }>(sql`
+    select location_id, to_char(expiry_date, ${ISO_DATE_FORMAT}) as expiry_date
+      from wms.stock_balance
+     where client_id = ${entry.clientId}::uuid and sku_id = ${entry.skuId}::uuid
+       and batch_no = ${entry.batchNo}
+       and expiry_date is not null and expiry_date <> ${expiryDate}::date
+     limit 1
+  `);
+  const conflict = result.rows[0];
+  if (conflict) {
+    throw new InvalidLedgerEntryError(
+      `batch ${entry.batchNo} already carries expiry ${conflict.expiry_date} at location ` +
+        `${conflict.location_id}; expiry ${expiryDate} refused (D-204: one expiry per (client, SKU, ` +
+        `batch) across all locations). Allowed: the batch's recorded expiry.`,
+    );
+  }
+}
+
+/** The expiry of the balance row the entry's location holds for its batch (null when no row or a
+ *  null expiry). Plain SELECT under the batch lock. */
+async function readBalanceExpiry(tx: NodePgDatabase, entry: LedgerEntry): Promise<string | null> {
+  const result = await tx.execute<{ readonly expiry_date: string | null }>(sql`
+    select to_char(expiry_date, ${ISO_DATE_FORMAT}) as expiry_date
+      from wms.stock_balance
+     where client_id = ${entry.clientId}::uuid and sku_id = ${entry.skuId}::uuid
+       and location_id = ${balanceLocationId(entry)}::uuid and batch_no = ${entry.batchNo}
+  `);
+  return result.rows[0]?.expiry_date ?? null;
+}
 
 /**
  * pg-reviewer fix round 1 finding F2: true only for the SQLSTATE `wms.check_location_limits`
@@ -464,14 +523,18 @@ async function applyLockedBalanceDelta(
   tx: NodePgDatabase,
   entry: LedgerEntry,
   occurredAt: Date,
+  expiryDate: string | null,
 ): Promise<void> {
   const locationId = balanceLocationId(entry);
   const signedDelta = entry.toLocationId !== null ? entry.qty : entry.qty.negate();
 
   try {
+    // Decision 2(a): an existing non-null expiry is kept; a null one is filled by the first
+    // non-null (coalesce). A conflicting non-null one was already refused under the batch lock.
     const updateResult = await tx.execute(sql`
       update wms.stock_balance
          set qty_on_hand = qty_on_hand + ${signedDelta.toString()}::numeric,
+             expiry_date = coalesce(expiry_date, ${expiryDate}::date),
              last_movement_at = ${occurredAt.toISOString()}::timestamptz
        where client_id = ${entry.clientId}::uuid and sku_id = ${entry.skuId}::uuid
          and location_id = ${locationId}::uuid and batch_no = ${entry.batchNo}
@@ -479,9 +542,11 @@ async function applyLockedBalanceDelta(
 
     if ((updateResult.rowCount ?? 0) === 0) {
       await tx.execute(sql`
-        insert into wms.stock_balance (client_id, sku_id, location_id, batch_no, qty_on_hand, last_movement_at)
+        insert into wms.stock_balance
+          (client_id, sku_id, location_id, batch_no, qty_on_hand, expiry_date, last_movement_at)
         values (${entry.clientId}::uuid, ${entry.skuId}::uuid, ${locationId}::uuid, ${entry.batchNo},
-                ${signedDelta.toString()}::numeric, ${occurredAt.toISOString()}::timestamptz)
+                ${signedDelta.toString()}::numeric, ${expiryDate}::date,
+                ${occurredAt.toISOString()}::timestamptz)
       `);
     }
   } catch (error) {
@@ -503,10 +568,11 @@ async function lockAndApplyBalanceDelta(
   tx: NodePgDatabase,
   entry: LedgerEntry,
   occurredAt: Date,
+  expiryDate: string | null = null,
 ): Promise<void> {
   const locationId = balanceLocationId(entry);
   await lockBalanceRow(tx, balanceKey(entry.clientId, entry.skuId, locationId, entry.batchNo));
-  await applyLockedBalanceDelta(tx, entry, occurredAt);
+  await applyLockedBalanceDelta(tx, entry, occurredAt, expiryDate);
 }
 
 /** decision 7 / G9: one outbox row for a posted movement, same correlationId as its audit row. */
@@ -581,8 +647,7 @@ async function writeMovementEventAndAudit(
 
 /**
  * Fix round 1 (Master decision, WBS 2.9): the transaction-scoped variant — everything
- * `postMovement` does (same lock order: shared rebuild lock -> location limits -> the balance
- * lock -> audit), but against a CALLER-SUPPLIED, already-open `tx` instead of opening its own via
+ * `postMovement` does (same lock order: rebuild -> location-limit -> batch -> row -> audit), but against a CALLER-SUPPLIED, already-open `tx` instead of opening its own via
  * withContext. This is what lets a caller (e.g. modules/wms/application/receive-inbound/
  * receive-line.ts) compose a ledger posting into ONE transaction alongside its own reads/writes,
  * instead of the ledger post committing as a separate transaction. `postMovement` below is now a
@@ -604,6 +669,15 @@ export async function postMovementInTx(
   // input.entry.toLocationId is set (see checkLocationLimitsForEntries).
   await checkLocationLimitsForEntries(tx, [input.entry]);
 
+  // Decision 2(c)/2(e): a movement carrying an expiry takes the batch lock (after the
+  // location-limit lock, before any row lock) and is refused if the batch already has a
+  // different non-null expiry at ANY location.
+  const expiryDate = input.expiryDate ?? null;
+  if (expiryDate !== null) {
+    await lockBatchExpiry(tx, input.entry);
+    await assertBatchExpiryConsistent(tx, input.entry, expiryDate);
+  }
+
   const occurredAt = deps.clock.now();
   const row = await insertMovementRow(tx, {
     entityId: input.entityId,
@@ -614,9 +688,10 @@ export async function postMovementInTx(
     refId: input.refId ?? null,
     reasonCode: input.reasonCode ?? null,
     deviceId: input.deviceId ?? null,
+    expiryDate,
   });
 
-  await lockAndApplyBalanceDelta(tx, input.entry, occurredAt);
+  await lockAndApplyBalanceDelta(tx, input.entry, occurredAt, expiryDate);
   await writeMovementEventAndAudit(tx, {
     entityId: input.entityId,
     movementRow: row,
@@ -644,14 +719,14 @@ export async function postMovement(
  * `fromLocationId` and an in-row at `toLocationId`, same client/sku/qty/batch/uom, both
  * movementType 'transfer', sharing ref_table/ref_id (whatever `input` carries) and correlationId.
  */
-export type PostTransferInput = Omit<PostMovementInput, 'entry'> & {
+export type PostTransferInput = Omit<PostMovementInput, 'entry' | 'expiryDate'> & {
   readonly base: Parameters<typeof planTransfer>[0];
   readonly fromLocationId: string;
   readonly toLocationId: string;
 };
 
 /** Fix round 1 (Master decision, WBS 2.9): the transaction-scoped variant of postTransfer — same
- *  lock order (shared rebuild lock -> location limits -> sorted balance locks -> audit last, per
+ *  lock order (rebuild -> location-limit -> batch -> sorted row locks -> audit last, per
  *  ADR-0002), against a caller-supplied `tx`. postTransfer below is now a thin wrapper. */
 export async function postTransferInTx(
   tx: NodePgDatabase,
@@ -677,6 +752,14 @@ export async function postTransferInTx(
   // for outEntry (toLocationId null, decision 1); throwing here rolls back the whole transfer, so
   // neither leg is written (checkLocationLimitsForEntries's own comment / D1 "atomically").
   await checkLocationLimitsForEntries(tx, [outEntry, inEntry]);
+
+  // Decision 2(d)/2(e): the batch lock comes AFTER the location-limit lock and BEFORE every row
+  // lock below; the destination row inherits the SOURCE row's expiry, read under that lock.
+  await lockBatchExpiry(tx, outEntry);
+  const sourceExpiry = await readBalanceExpiry(tx, outEntry);
+  if (sourceExpiry !== null) {
+    await assertBatchExpiryConsistent(tx, inEntry, sourceExpiry);
+  }
 
   const occurredAt = deps.clock.now();
 
@@ -710,9 +793,10 @@ export async function postTransferInTx(
       refId: input.refId ?? null,
       reasonCode: input.reasonCode ?? null,
       deviceId: input.deviceId ?? null,
+      expiryDate: sourceExpiry,
     });
 
-    await applyLockedBalanceDelta(tx, entry, occurredAt);
+    await applyLockedBalanceDelta(tx, entry, occurredAt, sourceExpiry);
     rows.push(row);
   }
 
