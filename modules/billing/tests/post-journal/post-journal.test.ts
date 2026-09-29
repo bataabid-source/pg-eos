@@ -481,6 +481,34 @@ describe('Scenario: DELETE on a posted entry or its lines is refused for pgeos_a
   });
 });
 
+// --- Scenario 4b (PR #214 blocking finding: INSERT into an already-posted entry) ---------------------
+
+describe('Scenario: Adding lines to an entry posted in an earlier transaction is refused (23514)', () => {
+  it('a balanced debit+credit pair inserted in a NEW transaction is refused (23514) for pgeos_app and for the owner — always rolled back, the entry keeps its two lines', async () => {
+    const posted = await postFresh();
+    const pairSql = `insert into billing.journal_lines (entry_id, account_id, debit, credit) values ($1, $2, $4, 0), ($1, $3, 0, $4)`;
+
+    const appError = await appRolledBack(fx.posterId, async (tx) =>
+      tx.execute(
+        sql`insert into billing.journal_lines (entry_id, account_id, debit, credit)
+            values (${posted.id}, ${fx.accounts.debit}, ${AMOUNT}, 0), (${posted.id}, ${fx.accounts.credit}, 0, ${AMOUNT})`,
+      ),
+    );
+    expect(findRaisedException(appError, CHECK_VIOLATION), 'pgeos_app INSERT into a posted entry must raise 23514').toBeDefined();
+
+    expect(await ownerRolledBack(pairSql, [posted.id, fx.accounts.debit, fx.accounts.credit, AMOUNT])).toBe(CHECK_VIOLATION);
+
+    expect(await getLines(posted.id)).toHaveLength(2);
+    expect((await getEntry(posted.id)).version).toBe(1);
+  });
+
+  it('control: the normal posting path (entry and lines in one transaction via the service) still posts', async () => {
+    const posted = await postFresh();
+    expect(await getLines(posted.id)).toHaveLength(2);
+    expect((await getEntry(posted.id)).posted_at).not.toBeNull();
+  });
+});
+
 // --- Scenario 5 ---------------------------------------------------------------------------------------
 
 describe('Scenario: The journal_lines → journal_entries FK no longer cascades on delete — asserted from the catalog (`pg_constraint.confdeltype <> \'c\'`), no DELETE runs on the shared DB (D-183) (#7 · 01:1204)', () => {

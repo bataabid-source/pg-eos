@@ -58,6 +58,14 @@ Feature: Posting engine (WBS 4.20)
     And the same DELETE issued as the table owner is refused with SQLSTATE 23514 by the immutability trigger (T4, T5) in a rolled-back transaction
     And no DELETE commits outside this suite's own afterAll, which removes only its own tracked rows (D-183)
 
+  Scenario: Adding lines to an entry posted in an earlier transaction is refused (23514)
+    Given an entry posted and committed through the posting service
+    When a balanced debit and credit pair of extra lines is inserted on that entry in a NEW transaction as pgeos_app
+    Then the INSERT is refused with SQLSTATE 23514 (chk_journal_entry_immutable) in a rolled-back transaction
+    And the same INSERT issued as the table owner is refused with SQLSTATE 23514 in a rolled-back transaction
+    And the entry still has exactly its original two lines
+    And the normal path, entry and lines inserted in ONE transaction through the posting service, still posts (Scenario 1)
+
   Scenario: The journal_lines -> journal_entries FK no longer cascades on delete — asserted from the catalog (`pg_constraint.confdeltype <> 'c'`), no DELETE runs on the shared DB (D-183) (#7 · 01:1204)
     When pg_constraint is read for the foreign key from billing.journal_lines.entry_id to billing.journal_entries
     Then its confdeltype is not 'c' (Consequences 4)

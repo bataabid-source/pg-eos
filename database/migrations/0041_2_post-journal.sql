@@ -280,29 +280,89 @@ create trigger trg_journal_lines_no_truncate
   for each statement execute function billing.refuse_journal_truncate();
 
 -- ── 8. T5 — lines of a posted entry immutable ────────────────────────────────────────────────────
+-- UPDATE/DELETE of a line of a posted entry is refused, and so is an INSERT of a line into an entry
+-- posted by an EARLIER transaction (a balanced pair would otherwise pass the deferred T2 check —
+-- PR #214 review). An entry is "created by the current transaction" iff its visible row version was
+-- written by this transaction or one of its subtransactions AND reversed_by is still null:
+--   * reversed_by null means the row was never updated (T4 allows only reversed_by null -> value), so
+--     its xmin is the inserting xid; a reversed entry never takes new lines;
+--   * xmin = the top-level xid, or xmin is newer than it (< 2^31 ahead, epoch-extended to xid8) and
+--     pg_xact_status() says 'in progress' — a visible row whose writer is still in progress can only
+--     be this transaction's own (another transaction's uncommitted row is not visible). This covers
+--     rows written inside a SAVEPOINT (subtransaction xids are assigned after the top-level xid).
+-- Nothing here reads a GUC or any session state the caller could set; xmin is a system column.
 
 create or replace function billing.guard_journal_line_immutable()
 returns trigger language plpgsql security definer
 set search_path = pg_catalog, pg_temp as $$
+declare
+  c_xid_span    constant bigint := 4294967296;   -- 2^32: one xid epoch
+  c_xid_horizon constant bigint := 2147483648;   -- 2^31: xid comparison horizon
+  c_first_normal_xid constant bigint := 3;       -- xids 0-2 are invalid/bootstrap/frozen
+  v_posted_at   timestamptz;
+  v_reversed_by uuid;
+  v_entity_id   uuid;
+  v_xmin        bigint;
+  v_top         bigint;
+  v_ahead       bigint;
+  v_own         boolean := false;
+  v_rls_scoped  boolean;
 begin
-  if exists (select 1 from billing.journal_entries je where je.id = old.entry_id and je.posted_at is not null) then
-    raise exception using errcode = '23514', constraint = 'chk_journal_entry_immutable', message = format(
-      '0041: journal line %s belongs to a posted entry and is immutable (Allowed: a reversal or '
-      'adjustment entry)', old.id);
+  if tg_op in ('UPDATE', 'DELETE') then
+    if exists (select 1 from billing.journal_entries je where je.id = old.entry_id and je.posted_at is not null) then
+      raise exception using errcode = '23514', constraint = 'chk_journal_entry_immutable', message = format(
+        '0041: journal line %s belongs to a posted entry and is immutable (Allowed: a reversal or '
+        'adjustment entry)', old.id);
+    end if;
+    if tg_op = 'DELETE' then
+      return old;
+    end if;
+    return new;
   end if;
-  if tg_op = 'DELETE' then
-    return old;
+
+  -- INSERT
+  select je.posted_at, je.reversed_by, je.entity_id, je.xmin::text::bigint
+    into v_posted_at, v_reversed_by, v_entity_id, v_xmin
+    from billing.journal_entries je where je.id = new.entry_id;
+  if not found or v_posted_at is null then
+    return new; -- missing parent: journal_lines_entry_id_fkey refuses it (23503); unposted: T2 at COMMIT.
+  end if;
+
+  -- An RLS-scoped caller outside the entry's entity is refused by entry_scope (42501); this definer
+  -- read reveals nothing about that entry (0040 containment note).
+  select not (r.rolsuper or r.rolbypassrls) into v_rls_scoped
+    from pg_catalog.pg_roles r where r.rolname = session_user;
+  if coalesce(v_rls_scoped, true) and not (v_entity_id = any (platform.allowed_entities())) then
+    return new;
+  end if;
+
+  if v_reversed_by is null and v_xmin >= c_first_normal_xid then
+    v_top := pg_catalog.pg_current_xact_id()::text::bigint;
+    v_ahead := ((v_xmin - (v_top % c_xid_span)) % c_xid_span + c_xid_span) % c_xid_span;
+    if v_ahead = 0 then
+      v_own := true;
+    elsif v_ahead < c_xid_horizon then
+      v_own := pg_catalog.pg_xact_status((v_top + v_ahead)::text::xid8) = 'in progress';
+    end if;
+  end if;
+
+  if not v_own then
+    raise exception using errcode = '23514', constraint = 'chk_journal_entry_immutable', message = format(
+      '0041: journal entry %s was posted by an earlier transaction and takes no new lines '
+      '(Allowed: a reversal or adjustment entry)', new.entry_id);
   end if;
   return new;
 end $$;
 comment on function billing.guard_journal_line_immutable() is
-  'WBS 4.20 T5 (SCR-ACC-01 #7): UPDATE/DELETE of a line of a posted entry refused (23514). '
-  'SECURITY DEFINER, pinned search_path.';
+  'WBS 4.20 T5 (SCR-ACC-01 #7, ADR-0004 D1 4): UPDATE/DELETE of a line of a posted entry refused; '
+  'INSERT of a line into an entry posted by an earlier transaction refused (the entry row''s xmin is '
+  'not this transaction or one of its subtransactions, or the entry is reversed). 23514 '
+  'chk_journal_entry_immutable. SECURITY DEFINER, pinned search_path.';
 revoke execute on function billing.guard_journal_line_immutable() from public;
 
 drop trigger if exists trg_journal_line_immutable on billing.journal_lines;
 create trigger trg_journal_line_immutable
-  before update or delete on billing.journal_lines
+  before insert or update or delete on billing.journal_lines
   for each row execute function billing.guard_journal_line_immutable();
 
 -- ── 9. T6 — billing.mark_journal_reversed(): the one in-place write (reversed_by, version) ───────
