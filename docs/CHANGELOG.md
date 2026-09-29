@@ -4,6 +4,13 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## 4.19 — `packages/i18n` lock + brief accepted for M-core (Master M6, 2026-09-29)
+
+- **Why:** PR #170/#174 blocked on `packages/i18n/*/billing.json`; two standalone lock-claim attempts (#187, #189) were rejected for claiming the lock with no brief. Fixed: M-core wrote the brief first (`_slice-4.19-i18n.brief.md`, `builder: pg-builder-core`, `brief-check.sh` OK), Master commits brief + lock together (ADR-0007 P1 pattern), not lock-then-brief.
+- **Change:** `tasks/LANE_LOCKS.md` — row `packages/i18n | M | 4.19 | .` (`scripts/scribe.mjs --claim`, lane-M rows always get `.`). `docs/notes/slice-briefs/_slice-4.19-i18n.brief.md` added (its stale `f039d83` merge-order lines reworded — that commit never merged). `docs/state/next.md` — dropped a fully-superseded "Master rotation" line (already several rotations past) to keep `docs/PROJECT_STATE.md` ≤ 40 lines with the new lane row; `header.md` untouched. `check-locks.sh` and `brief-check.sh` pass.
+- **Not built here:** the six JSON files — M-core's slice on `core/4.19-i18n`, close review round 2 (last, REVIEW CAP) pending this commit landing.
+- Model: Master session (M6) · Delegated: none · Review: n/a (lock + brief acceptance, no code) · tokens: ~10k.
+
 ## 2.16 — part 1a-7 — SCR-IDENTITY-RLS-01 delta 4: `platform.has_perm` pinned search_path, migration 0043 (M-core R6) (2026-09-28)
 
 - **Why:** SCR-IDENTITY-RLS-01 (D-193 D4 أ) — `platform.has_perm`, trusted by every permission-gated RLS policy and definer trigger, was the only SECURITY DEFINER function without a pinned `search_path` (an operator in a caller-controlled schema ahead of pg_catalog flipped its answer).

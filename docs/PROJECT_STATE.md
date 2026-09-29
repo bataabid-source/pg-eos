@@ -14,13 +14,14 @@ Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewe
 - lane M · packages/identity · 2.16 · since 2026-09-28
 - lane M · identity · 2.16 · since 2026-09-28
 - lane 2 · billing · 4.19 · since 2026-09-28
+- lane M · packages/i18n · 4.19 · since 2026-09-29
 
 ## Last 5 feat/fix commits (git log)
+- `fc999be` feat(2.16): has_perm pinned search_path, migration 0043 — SCR-IDENTITY-RLS-01 delta 4 (part 1a-7)
 - `439d172` feat(2.16): G-16a OTP limits — attempts cap, one live code, resend 60 s, 5/email/hour, migration 0042 (part 1a-5)
 - `ba875ad` feat(4.1b): line dimensions + dimension values, list and reference kind, migration 0038 (part 2)
 - `e2826ff` feat(X): host statuses in ALL_ROUTES / OpenAPI, contractFirst mark on the 10 billing routes (X part 12 b + registry mark)
 - `70409de` fix(X): gate ⑦ waits on the api healthcheck only — Compose refuses --wait on the worker (no healthcheck), proven by the first ⑦ run on PR #152 (X pa
-- `6aeaf44` feat(X): one image, api + worker compose services, gate ⑦ arm64 build + compose smoke in CI, role passwords from the host (X part 5c, ADR-0006 §1)
 
 ## Blockers
 - G16: changed domain/ per PR, every module nightly (X part 6); G15 per STREAMS §G15 (green.json); G17 NOT RUNNABLE; deploy.sh waits on 0.6b.
@@ -34,6 +35,5 @@ Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewe
 - Master batch (frozen paths): entityId on WithContextCtx; domain-kit browser break; eslint cwd bug; new-slice.sh stale citations.
 
 ## Next
-1. ADR-0007 P1 (D-196) merged: R2 integration (X part 5d) · R3 M-core (2.16 1a-5) · R4 lane 1 (2.9 p2) · R5 lane 2 (4.19) → Master rotation.
-2. Lane 2 (billing): 4.1b part 2 merged → 4.19 (0040) → 4.20 (0041) · Master: 4.1b part 3 (guards.sql orphan query) · X part 12 part 4 before 4.19 handlers.
-3. M-core: 2.16 1a-7 (RLS-01 d4, 0043) done → 1a-8 (RLS-01 d2) · 1a-9 BLOCKED G-01 → SCR-AUDIT-CHAIN-01 1/4 → Master batch. Integration: X part 5d.
+1. Lane 2 (billing): 4.1b part 2 merged → 4.19 (0040) → 4.20 (0041) · Master: 4.1b part 3 (guards.sql orphan query) · X part 12 part 4 before 4.19 handlers.
+2. M-core: 2.16 1a-7 (RLS-01 d4, 0043) done → 1a-8 (RLS-01 d2) · 1a-9 BLOCKED G-01 → SCR-AUDIT-CHAIN-01 1/4 → Master batch. Integration: X part 5d.
