@@ -1,21 +1,21 @@
-# SCR-BILLING-SYSTEM-ACTOR-01 — a system actor identity for outbox subscribers (G-01 schema-change request, data only)
+# SCR-BILLING-SYSTEM-ACTOR-01 — a system actor identity for outbox subscribers (G-01 schema-change request)
 
-**Status:** DECIDED BY DEFAULT — PENDING GM RATIFICATION (a default the Master recorded so lane 2 can build in dev; applying 0048 beyond development waits for the GM's ratification, reported on #207) (Master M15, 2026-09-30 13:20Z, Advisory proposal 11:52Z «الخيار (أ)», GM standing order «DEFAULT, RECORD, PROCEED») — filed by the Master for lane 2, WBS 4.3 part 1 (#207, 11:26Z). Nothing in `database/schema/*` changes; migration **0048** (lane 2) inserts DATA only.
+**Status:** REQUESTED — PENDING GM RATIFICATION. Filed by the Master M15 (2026-09-30) for lane 2, WBS 4.3 part 1 (#207, 11:26Z). A privileged identity is not a slice-level default, so nothing is decided here. Migration number **0048** is reserved for M-core (lane M, `identity` lock) and is written only after the GM ratifies this SCR.
 
 ## 1 · Context (verified by lane 2 on `pgeos_lane2`, 11:26Z)
 - `platform.allowed_entities()` (01:331, 0031) reads `identity.user_entities` for `platform.current_user_id()`; with `userId: null` it returns `'{}'`, so `entity_scope` hides `wms.outbound_orders` and refuses the `billing.billable_events` insert.
-- `platform.audit_log` policy `audit_append` (0007:249) requires `user_id IS NOT NULL AND user_id = current_user_id()`, so the 4.2 port's audit row for a system actor is refused.
-- `pgeos_app` / `pgeos_worker` have no BYPASSRLS; no system identity is seeded in `identity.users`. `evaluate-alert-rules.ts:106` throws `MissingActorError` without a userId — not a precedent.
-- Already documented: the all-zero uuid `00000000-0000-0000-0000-000000000000` is the "system user" of every `changed_by` seed (13B thresholds seeds; migrations 0010, 0015, 0033, 0045) and `platform.audit_log.actor_type` already allows `system` (13B:183).
+- `platform.audit_log` policy `audit_append` (0007:249) requires `user_id IS NOT NULL AND user_id = current_user_id()`, so an audit row for a system actor is refused.
+- `pgeos_app` / `pgeos_worker` (0039) have no BYPASSRLS; no system identity is seeded in `identity.users`. `platform.audit_log.actor_type` already allows `system` (13B:183); the all-zero uuid is the `changed_by` of every seed row (0010, 0015, 0033, 0045).
 
-## 2 · Decision (default, recorded)
-| # | Need | Decision | status |
+## 2 · Proposal (NOT applied)
+| # | Need | Proposal | status |
 |---|---|---|---|
-| 1 | An identity for `withContext` in outbox subscribers | ONE service identity row in `identity.users`: `id = 00000000-0000-0000-0000-000000000000`, `email = 'system@pg-eos.invalid'`, `full_name_ar = 'نظام PG-EOS'`, `full_name_en = 'PG-EOS system'`, `user_type = 'internal'` (doc 01 enumerates internal · client · agent — a new `system` value would be a real schema change and is NOT made), `is_active = true`. Subscribers open `withContext` with this `userId`; audit rows carry `actor_type = 'system'`. | decided |
-| 2 | Entity scope for that identity | `identity.user_entities` rows for every `platform.entities` row, `on conflict do nothing`. | decided |
-| 3 | Where | migration `0048_2_system-actor-identity.sql`, data only, idempotent; RED paths first in `tasks/backlog/MIGRATION-REQUEST-2.md`; pre-migration pg-reviewer review (identity + RLS → opus) inside lane 2's pre-build pass; the review also checks `identity.column_classification` (G6) for every column the seed touches, the doc 01 `user_type` list, and that the row cannot log in (no credential or `identity.sessions` row is ever created for it; `system@pg-eos.invalid` is a non-routable address). `MIGRATION-REQUEST-2.md` states that 0048 is applied in development and lane databases only until the GM ratifies this SCR. The lane writes this migration file although `identity` code is M-core's lock: a Master-issued data migration is not module code (Master ruling, #207). | decided |
-| 4 | Rejected | (ب) a `SECURITY DEFINER` insert function — bypasses RLS instead of satisfying it; (ج) a system GUC without an identity — any application code could set it. | rejected |
+| 1 | An identity for `withContext` in outbox subscribers | One `identity.users` service row (well-known id), never given a credential or `identity.sessions` row, non-routable email. | requested |
+| 2 | Entity scope | `identity.user_entities` rows for every `platform.entities` row; entities created later get theirs from the entity-creation path (row 4.3 part 1c). | requested |
+| 3 | **Control: the id is usable only by the worker** | A guessable id with all-entity scope must not be usable from request code. Proposal: `platform.allowed_entities()` (and `audit_append`) accept the system id only when `current_user = 'pgeos_worker'` (0039); under `pgeos_app` the id resolves to no entities. Pinned by an RLS test for both roles. | requested |
+| 4 | `user_type` | doc 01 lists internal · client · agent. Either add `system` (a schema change) or use `internal` + the control in #3. | **GM decides** |
+| 5 | Rejected | a `SECURITY DEFINER` insert that bypasses RLS; a system GUC with no identity. Both lack the #3 role binding. | rejected |
 
-## 3 · Open items (GM / follow-up rows)
-- A `platform.entities` row created after 0048 has no `user_entities` row for the system actor: the subscriber then fails closed (RLS refusal, `last_error` on the outbox row) until row **4.3 part 1c** lands. Sequencing: 4.3 part 1 → 4.3 part 1c (same lane, before 4.3 part 2); no new entity is created in dev between them without the row.
-- Whether `user_type = 'system'` should join doc 01's list is the GM's schema decision; until then `internal` + the well-known id is the recorded default.
+## 3 · Open items
+- GM ratification of #1–#4. Then M-core writes `0048_M_system-actor-identity.sql` under `identity | M | 2.16` (the 0044 precedent), with RED paths first in `tasks/backlog/MIGRATION-REQUEST-M.md`, a pre-migration review (opus) covering G6 `identity.column_classification`, the doc 01 `user_type` list and the non-login check.
+- Until then lane 2 keeps 4.3 part 1 on its branch: domain, application and api are built; the four RLS-bound integration tests stay RED (never skipped). Sequencing: 0048 → 4.3 part 1 → 4.3 part 1c → 4.3 part 2.
