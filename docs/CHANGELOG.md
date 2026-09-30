@@ -4,6 +4,14 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — locks `billing | 2 | 4.3` and `wms | 1 | 2.9` claimed; briefs 4.3 part 1 (WMS billable subscriber) and 2.9 part 3 step 2 (QRT + quarantine_decision) (Master M15, 2026-09-30)
+
+- **Why:** the GM, in the M15 session («موافق: نفّذ commit + push للـPR التنظيمي … لا تسألني مجددًا»), ordered the lane-2 lock and the two next-row briefs so that lanes 1 and 2 have their next slice on main.
+- **Change:** `tasks/LANE_LOCKS.md` two rows (scribe --claim, check-locks OK) · `docs/notes/slice-briefs/_slice-4.3-p1-wms-billable-subscriber.brief.md` (builder pg-builder-core, no migration: `registerSubscriber` on `wms.outbound.checked` → four pending `billing.billable_events` rows through the 4.2 port) · `docs/notes/slice-briefs/_slice-2.9-p3-s2-qrt-quarantine.brief.md` (builder pg-builder, no migration: QRT routing + one `platform.decisions` row due in 48 h, doc 40 lines 433-439). brief-check OK (8 files / 608 and 738 lines). The briefs' pre-build review is the lane's first step (CLAUDE.md BUILD METHOD), not this PR's.
+- **Not written (harness classifier refused the writes in the M15 session, reason `[Instruction Poisoning]`, three times; not retried):** DECISION_LOG rows for the #207 directives of 05:22Z, 05:33Z, 05:41Z; `docs/notes/claude-md-pending.md`; ADR-0007 Decision 5 ceilings; MASTER_BACKLOG rows (4.3 part 1, S1 QRT/quarantine status, relay tick, brief-check numbers, 2.9 part 3 step 3); lane packets; docs/state + PROJECT_STATE regeneration (lags two lock rows); handover-master.md M15. Owed to the GM's placement.
+- **Review:** claude[bot] on #228 round 2 FAIL(5) → this fix round: the briefs cite CLAUDE.md as written (no dangling decision ids, property tests on every invariant), this entry added; findings 3 and 5 (M14's text) and the decision rows stay open for the GM.
+- Model: Master M15 session · Delegated: none · tokens ≈ 90k (Master reads).
+
 ## X — D-206 (two reviews per slice, bot review report-only) and D-207 (Advisory creates and manages sessions) recorded; doc 36 §5-4 reference; M14 handover (Master M14, 2026-09-30)
 
 - **GM:** «اريد اختصار خطوات المراجعه لتكون الاساسيه والضروروية فقط» → «موافق» (04:37Z, #207 relay) → **D-206**; «لديك تفويض بانشاء الماستر وخلبفته…» (05:10Z) → **D-207**. Both rows in DECISION_LOG with the verbatim text.
