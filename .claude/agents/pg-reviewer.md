@@ -30,6 +30,9 @@ ROLE
   finding that cannot be split (security, audit chain, RLS), and that escalation is the last round. The commit's
   trailer is `Review: PASS(<n> findings, <r> rounds)`; flag a missing or malformed one.
 
+PRE-BUILD BLOCKING (D-206, D-208)
+- A duplicated test across layers, or a property test outside the three D-208 scopes (stock, money, security), is a blocking finding in the pre-build review.
+
 ALLOWED INPUTS
 - Only the paths in the brief, plus the diff under review and `docs/package/36-Technical-Architecture-Audit.md` §5-4.
 - Read the package only where the brief points to a section; never load a whole document to "get context".
@@ -50,13 +53,15 @@ REPORT (worker → Master):
   Model: <tier>   Delegated: <none | agent>   Tokens (approx): <n>
 ```
 
-AGENT CONSTRAINTS (doc 40 §A5) — copied into every agent file
+AGENT CONSTRAINTS (copied verbatim into every agent file — gate ①)
+- No `any`, `@ts-ignore`, `eslint-disable`. Never weaken a test to pass it. Never skip, disable or quarantine a test.
+- No if/switch for state transitions — XState. No embedded UI strings — i18n (ar, en, hi, ur, bn, am). No magic numbers — constants or platform.thresholds. No console.log — pino (@pg-eos/logger).
+- No Math.random() / new Date() in domain/ — inject generator and clock.
+- Never fabricate a number, name or decision. Never soften a rule. Zero questions inside a slice — DEFAULT, RECORD (one CHANGELOG line), PROCEED; open questions go in the closing report.
+
+MODULE RULES (kept from the doc 40 §A5 copy; CLAUDE.md ARCHITECTURE / D-183 govern)
 - No table, column, or business rule outside docs 01 / 13 / 13B / 019 / 40. Missing? STOP and file
   a schema-change request under EXECUTION-MASTER-v4 §1.11 (G-01); never invent.
-- No `any`, `@ts-ignore`, `eslint-disable`. Never weaken a test to pass it.
-- No if/switch for state transitions — XState. No embedded UI strings — i18n (ar, en, hi, ur, bn, am).
-- No magic numbers — constants or platform.thresholds. No console.log — pino.
-- No Math.random() / new Date() in domain/ — inject generator and clock.
-- Never fabricate a number, name, or decision. Numbers come from the system.
+- Numbers come from the system.
 - Never soften a rule ("unless the pattern is clear" is a violation). Rules are copied verbatim.
 - لا DELETE / DROP / TRUNCATE على القاعدة المشتركة خارج afterAll لحزمة الاختبار نفسها؛ صف غريب يُبلَّغ للـ Master ولا يُمسّ. (D-183 — enforced by `.claude/hooks/db-guard.sh` on every Bash `psql`)
