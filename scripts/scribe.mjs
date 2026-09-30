@@ -15,6 +15,9 @@
 //   --release <module> [<lane>]          remove that lock row (of that lane, when given) and regenerate
 //   --changelog-template <WBS> "<title>" print the ≤ 12-line CHANGELOG entry skeleton (CLAUDE.md · DOCUMENTS);
 //                                        with --insert, also insert it at the top of docs/CHANGELOG.md
+//
+// A commit subject quoting the placeholder (e.g. e600886, #233) must never re-introduce it into the
+// generated file, because resolve-hashes --check would call it stale: lastDone() neutralises it.
 import { execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -27,6 +30,7 @@ const LINE_MAX = 160;
 const LINES_MAX = 40;
 const DONE_COUNT = 5;
 const PLACEHOLDER = '<this commit>';
+const PLACEHOLDER_NEUTRALISED = '<this-commit>';
 const SOURCE_LIMITS = { 'docs/state/header.md': 8, 'docs/state/blockers.md': 12, 'docs/state/next.md': 3 };
 const LANE_RE = /^(1|2|3|A|B|C|M)$/;
 const CLOUD_WORKTREE_RE = /^cloud:session_[A-Za-z0-9]+$/;
@@ -106,7 +110,8 @@ function lastDone() {
   for (const line of log.split('\n')) {
     const [hash, subject] = line.split('\t');
     if (!subject || !/^(feat|fix)\([^)]+\): /.test(subject)) continue;
-    rows.push(`- \`${hash}\` ${subject.slice(0, LINE_MAX - 12)}`);
+    const safe = subject.split(PLACEHOLDER).join(PLACEHOLDER_NEUTRALISED);
+    rows.push(`- \`${hash}\` ${safe.slice(0, LINE_MAX - 12)}`);
     if (rows.length === DONE_COUNT) break;
   }
   return rows;
