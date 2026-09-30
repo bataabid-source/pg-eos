@@ -1,13 +1,16 @@
 # Handover — integration lane 3 (live packet; history is in docs/CHANGELOG.md)
 
-Read with CLAUDE.md and docs/PROJECT_STATE.md. Session session_014KgrtfNdrtkkD5ZYQWSge7, 2026-09-29.
+Read with CLAUDE.md and docs/PROJECT_STATE.md. Session session_014KgrtfNdrtkkD5ZYQWSge7, 2026-09-30.
 
 ## State
-- PR #204 (lane/3-s7p2, S7 part 2): close-review FAIL(3) fixed on the same PR. S7.spec.ts is unchanged. Only the
-  alert step fails (NOT BUILT, owner row 6.7 → 6.3 → 0.19, 5.13 part 2). Round 2 PASS(3 findings, 2 rounds) is local, the claude[bot] READ is pending.
-- `pnpm guards:run` (pgeos_lane3) prints G1–G15, G18, G-SEED green, then does not exit within 580 s.
-- Unmerged R2 branches (Master queue): `lane/3-x5d` @ 00feb4e and `lane/3-s5` @ 0a56bdb. Merge x5d first.
+- 2.18 (branch `lane/3-2.18-s1`, on main 5ab04e6 = 2.9 part 3): S1's expiry and FEFO steps are green. Still
+  RED: QRT routing and quarantine_decision (backlog rows "S1 QRT routing" / "S1 quarantine_decision", owner
+  2.9 part 3, second step, to be briefed), OF-01/02/06/07 billable events (4.3), PDL delivery task (3.4).
+- S2 (VAS / Lost Revenue) and S18 (row 4.15) wait on stream B; nothing in tests/ turns them green.
+- The PDA screens (2.16 part 2) use mock clients; driving them from Playwright needs a real client + webServer.
+- Full pre-commit (G16 unscoped) takes about 1 h. Apply new migrations to pgeos_lane3 before running it
+  (lane-db.sh never re-applies).
 
 ## Next
-2.18 (brief docs/notes/slice-briefs/_slice-2.18-s1-green.brief.md): run S1 against main, green the steps the 2.16
-PDA screens back, then S2 and S18. S9 part 2 waits. Lane DB: `bash scripts/lane-db.sh 3`, PGDATABASE=pgeos_lane3 PG_LANE=3.
+2.18: re-run S1 as each owner row lands; the Master adds S1 to tests/scenarios/green.json when it is fully green.
+Lane DB: `bash scripts/lane-db.sh 3`, PGDATABASE=pgeos_lane3 PG_LANE=3.
