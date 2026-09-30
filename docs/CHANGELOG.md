@@ -9,6 +9,7 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 - **Why:** lane 2 (4.3 part 1) stopped 11:26Z on a real G-01 blocker — no identity satisfies `entity_scope`/`audit_append` for an outbox subscriber; Advisory 11:52Z proposed option (أ); GM standing order DEFAULT, RECORD, PROCEED.
 - **Decision (default, recorded):** `docs/notes/SCR-BILLING-SYSTEM-ACTOR-01.md` — one `identity.users` service row with the documented all-zero id, `user_type 'internal'` (no new enum value), `user_entities` rows for every entity; data-only migration `0048_2_system-actor-identity.sql` (lane 2 may write it; pre-migration review identity/RLS → opus). Rejected: SECURITY DEFINER insert, system GUC.
 - **Files:** `database/migrations/README.md` (0048 line, next free 0049) · `tasks/LANE_LOCKS.md` +`worker | M | X` (scribe) · `tasks/MASTER_BACKLOG.md` rows `X part 24` (registerBillingSubscribers in apps/worker, M-core), `4.3 part 1c` (new entities → system actor scope) · docs/state header/next/blockers (≤160 chars; the "Master batch" blocker line moved to new row `X part 25`) · PROJECT_STATE (40 lines).
+- **Lock scope:** `worker | M | X` extends lane M to `apps/worker` on the precedent of `api | M | X` (apps/api, on main since 2026-09-29); apps/* is frozen for lanes, so M-core is its only writer.
 - **Review:** lock PR, manual squash on ①–⑥ green; bot verdict report-only (D-206). Model: Master M15 · Delegated: none · tokens ≈ 25k.
 
 ## X — D-208 test-scope rule in the pg-tester and pg-reviewer agent files (M-core, 2026-09-30)
