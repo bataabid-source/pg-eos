@@ -14,6 +14,35 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 - **Review record (one version — #209 round-2 finding 3):** pre-build 2 rounds (FAIL(11) → PASS(4)) + close 1 round (PASS(1)) = 3 rounds, 16 findings, all fixed → `Review: PASS(16 findings, 3 rounds)` in the commit trailer (4b17ae3), the PR body, this entry and the Master's squash trailer; the PR-level rounds (round 1 FAIL(2) → fix → round 2 FAIL(4), REVIEW CAP) are recorded above and are not counted in the slice trailer; open items → row `X part 16 part 2`.
 - **Verified:** CI unset: tests/ops x-part-16 + x-part-6 14/14, tests/hooks 202/202; CI=true 14/14; fresh `pgeos_x16` local `pnpm guards:run` exit 0 in 39 s, no Stryker, G1–G15/G18 green, G16 SKIPPED, G17 not runnable.
 - Model: M-core session (opus) · Delegated: pg-tester (sonnet), pg-builder-core (opus), pg-reviewer (opus) · Review: PASS(16 findings, 3 rounds) — slice; PR #209 round 2 FAIL(4) → PASS subset (REVIEW CAP) · tokens: pg-tester ≈ 78k · pg-builder-core ≈ 45k · pg-reviewer ≈ 110k
+## X — M15 handover packet; SCR-RLS-NULL-ENTITY-01 filed; row 2.16 part 2f (Master M15, 2026-09-30)
+
+- **Why:** Master context ≈ 510k of the 600k ceiling (D-210) — handover at a clean point (no Master PR open); M-core's #246 finding (NULL-entity rows admitted by `entity_scope`) is a security question for the GM; Advisory 17:30Z PDA styling gap.
+- **Files:** `docs/notes/handover-master.md` (M15 packet replaces M14's) · `docs/notes/SCR-RLS-NULL-ENTITY-01.md` · MASTER_BACKLOG rows 2.16 part 2f (lane 1) and SCR-RLS-NULL-ENTITY-01 (GM). PROJECT_STATE unchanged (scribe --write produced no diff).
+- **Review:** records-only. Model: Master M15 session · Delegated: none · tokens ≈ 10k.
+
+## X — rows 3.4 part 1b, X part 26, X part 27; 4.3 part 1a grants scope; #244 hashes resolved (Master M15, 2026-09-30)
+
+- **Why:** records owed from #243/#244 and the #207 15:2xZ rulings; the two hash placeholders #244 left on main would turn gate ① red on every PR.
+- **Files:** `tasks/MASTER_BACKLOG.md` — 3.4 part 1b (lane B i18nKeys), X part 26 queued (M-core to add `tms.task.create.*` keys and set the brief prefix to `PDL-TSK-` per seed 019; no brief or locale file changes here), X part 27 (native review of five translations), 4.3 part 1a text + `pgeos_worker` minimum grants (D-212 item 2); X part 23 / X part 21 part 2 → `cee9f23` · PROJECT_STATE.
+- **Review:** records-only. Model: Master M15 session · Delegated: none · tokens ≈ 8k.
+
+## X — X part 23 — `wms.json` in the six locales: the quarantine-decision title key for 2.9 part 3 step 2 (M-core `packages/i18n`, 2026-09-30)
+
+- **Why:** the QRT slice (lane 1, brief `_slice-2.9-p3-s2-qrt-quarantine`) loads `wms.receiveInbound.quarantineDecision.title` eagerly at boot from `packages/i18n/ar/wms.json` (4.19 precedent `loadReopenDecisionTitleAr`, ece7423) and STOPs while the key is absent; `packages/i18n` is frozen for lanes → M-core row X part 23 (Master 11:32Z).
+- **Change:** `packages/i18n/{ar,en,hi,ur,bn,am}/wms.json`, flat JSON, one key. `ar` = the D-211 template verbatim («قرار حجر: الدفعة {batch} للعميل {client} — صلاحية أقل من الحد الأدنى»); en/hi/ur/bn/am = M-core translations with the `{batch}`/`{client}` placeholders untouched.
+- **Tests:** `tests/ops/i18n-wms.feature` + `tests/ops/tests/i18n-wms.test.ts` (mirror of i18n-billing: six files present, exact key set, both placeholders exactly once, `ar` byte-for-byte D-211, 2-space JSON / no BOM / one trailing newline).
+- **Defaults recorded:** only the Arabic text is decided (D-211); the five translations are M-core's and the Master/GM may replace any wording · no sha256 pin (the precedent pinned an R5-reviewed set; here only `ar` is authoritative).
+- **Review (pg-reviewer, opus, D-206):** pre-build PASS(2 nits: BOM escape, top-level contract files out of the tsconfig scan — recorded) · close FAIL(2 bookkeeping: missing `X part 21 part 2` row, X part 23 acceptance text) → fixed in the same round.
+- Model: M-core session · Delegated: pg-tester (sonnet ×2), pg-builder (sonnet), pg-reviewer (opus ×2) · Review: PASS(4 findings, 2 rounds) · tokens: ≈ 60k (shared with the tsconfig commit)
+
+## X — X part 21 part 2 — `packages/contracts/tsconfig.json` includes `tms/**/*.ts` (#232 follow-up) (M-core `packages/contracts`, 2026-09-30)
+
+- **Why:** `packages/contracts/tms/create-delivery-task.ts` (on main since #224) was neither type-checked nor emitted because the tsconfig `include` listed every module directory except `tms` (Lane B's #232 report 08:22Z; Master 11:32Z under the new `packages/contracts | M | X` lock).
+- **Change:** `"tms/**/*.ts"` added to `include`; `pnpm --filter @pg-eos/contracts build` green with it (pre-check with a temporary tsconfig: tsc exit 0).
+- **Tests:** `tests/ops/contracts-tsconfig.feature` + `tests/ops/tests/contracts-tsconfig.test.ts`: `include` lists `tms/**/*.ts`; and every directory under `packages/contracts/` holding a `.ts` file (recursive; `_harness`/`scripts`/`tests`/`openapi`/`node_modules`/`dist` excluded) has a matching `<dir>/**/*.ts` entry, so a future module cannot be forgotten. Open: top-level `routes.ts`/`vitest.config.ts` are outside `include` and outside the scan (pre-build nit, recorded).
+- **Review (pg-reviewer, opus, D-206):** shared with X part 23 — pre-build PASS(2 nits), close FAIL(2 bookkeeping) → fixed; PASS(4 findings, 2 rounds).
+- Model: M-core session · Delegated: pg-tester (sonnet), pg-builder (sonnet), pg-reviewer (opus ×2) · Review: PASS(4 findings, 2 rounds)
+
 ## 3.4 — INV-C4-1 vehicle guard + delivery_tasks.version (0046) and create-delivery-task (part 1, lane B) (2026-09-30)
 
 - **Why:** doc 40 l.273 INV-C4-1 (a vehicle with an expired document cannot be assigned) as a DB guard, and l.274 INV-C4-2; MASTER_BACKLOG row `3.4 part 1`, brief `_slice-3.4-p1-delivery-task` (D-205 C).
