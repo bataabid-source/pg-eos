@@ -10,6 +10,7 @@ History of claims and releases: `docs/CHANGELOG.md` · migration register and ne
 | api | M | X | 2026-09-29 | . |
 | pda | 1 | 2.16 | 2026-09-30 | ../pg-eos-lane-1 |
 | tms | B | 3.4 | 2026-09-30 | ../pg-eos-lane-B |
+| billing | 2 | 4.3 | 2026-09-30 | ../pg-eos-lane-2 |
 
 ## Rules (CLAUDE.md · AGENTS AND SESSIONS)
 
