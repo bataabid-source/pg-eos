@@ -511,6 +511,39 @@ expect "pg-tester.md: D-208 heading is before AGENT CONSTRAINTS" 0 "$(before "$T
 expect "pg-reviewer.md has heading PRE-BUILD BLOCKING (D-206, D-208)" 0 "$(has "$REVIEWER" 'PRE-BUILD BLOCKING (D-206, D-208)')"
 expect "pg-reviewer.md carries the whole blocking sentence verbatim" 0 "$(hasx "$REVIEWER" "$RRULE")"
 expect "pg-reviewer.md: D-206/D-208 heading is before AGENT CONSTRAINTS" 0 "$(before "$REVIEWER" 'PRE-BUILD BLOCKING (D-206, D-208)')"
+# ---- X part 19: lane-db.sh accepts the lane letters A|B|C as well as 1|2|3 (no Postgres needed:
+# PATH holds only dirname, so an accepted id fails later on "psql not found", a refused id on usage:).
+echo "lane-db.sh — lane ids (X part 19)"
+LDB="$TMP/ldbbin"; mkdir -p "$LDB"; ln -sf "$(command -v dirname)" "$LDB/dirname"
+ldb() { # ldb <id> → stderr of lane-db.sh with a psql-less PATH
+  PATH="$LDB" "$(command -v bash)" "$REPO/scripts/lane-db.sh" "$@" 2>&1 >/dev/null
+}
+ldb_usage() { local e; e="$(ldb "$@")"; case "$e" in *"psql not found on PATH"*) echo 1;; *usage:*) echo 0;; *) echo 9;; esac; }   # 1 = accepted, 0 = refused, 9 = crash/other
+expect "lane-db: B accepted"                 1 "$(ldb_usage B)"
+expect "lane-db: A accepted"                 1 "$(ldb_usage A)"
+expect "lane-db: C accepted"                 1 "$(ldb_usage C)"
+expect "lane-db: 1 accepted (regression)"    1 "$(ldb_usage 1)"
+expect "lane-db: M refused"                  0 "$(ldb_usage M)"
+expect "lane-db: 9 refused"                  0 "$(ldb_usage 9)"
+expect "lane-db: empty refused"              0 "$(ldb_usage '')"
+expect "lane-db: lowercase b refused"        0 "$(ldb_usage b)"
+ldb_refuse() { local rc e; e="$(PATH="$LDB" "$(command -v bash)" "$REPO/scripts/lane-db.sh" M 2>&1 >/dev/null)"; rc=$?; case "$e" in *usage:*) echo "$rc";; *) echo 99;; esac; }
+expect "lane-db: refusal exits 2 with usage:" 2 "$(ldb_refuse)"
+ldb_usage_line() { local e; e="$(ldb 9)"; case "$e" in *"usage: bash scripts/lane-db.sh <1|2|3|A|B|C>"*) echo 0;; *) echo 1;; esac; }
+expect "lane-db: usage line (stderr, executed) lists A|B|C" 0 "$(ldb_usage_line)"
+# name derivation, executed against a fixture root: stub psql says "exists", stub createdb must NOT be reached.
+FX="$TMP/ldbfx"; mkdir -p "$FX/scripts" "$FX/infra/docker" "$FX/bin"
+cp "$REPO/scripts/lane-db.sh" "$FX/scripts/lane-db.sh"
+for t in dirname mkdir mktemp grep mv rm cat; do ln -sf "$(command -v $t)" "$FX/bin/$t"; done
+printf '#!%s\necho 1\nexit 0\n' "$(command -v bash)" > "$FX/bin/psql"
+printf '#!%s\n: > "%s/createdb.marker"\nexit 1\n' "$(command -v bash)" "$FX" > "$FX/bin/createdb"
+chmod +x "$FX/bin/psql" "$FX/bin/createdb"
+LDB_OUT="$(PATH="$FX/bin" "$(command -v bash)" "$FX/scripts/lane-db.sh" B 2>&1)"
+has() { case "$LDB_OUT" in *"$1"*) echo 0;; *) echo 1;; esac; }
+expect "lane-db: id B → target database 'pgeos_laneB'"  0 "$(has "target database 'pgeos_laneB'")"
+expect "lane-db: existing db → 'already exists' line"   0 "$(has "already exists")"
+expect "lane-db: existing db → createdb never reached"  0 "$([ ! -e "$FX/createdb.marker" ]; echo $?)"
+expect "lane-db: .env gets PGDATABASE=pgeos_laneB"      0 "$(grep -qx 'PGDATABASE=pgeos_laneB' "$FX/infra/docker/.env"; echo $?)"
 
 echo
 echo "hooks tests: $pass passed, $failn failed"
