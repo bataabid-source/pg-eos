@@ -12,6 +12,22 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 - **Ordering (default recorded):** Lane B merges `origin/core/X-api-tms-route` into `lane/B-3.4-p1` (a git merge, not an `api` edit) so #232 goes green now; this PR carries rebase auto-merge and can only fire after #232 (migration 0046, manual, number order) and a main merge. Not in this slice: i18n keys `tms.task.create.*` (decided with #232's handler) and `packages/contracts/tsconfig.json` (`packages/contracts | M | X` lock row announced by the Master).
 - **Review (pg-reviewer, opus, D-206):** pre-build PASS(2 nits, brief wording — fixed) · close round 1 FAIL(1: Gherkin step still said 78) → fixed → round 2 PASS(0).
 - Model: M-core session · Delegated: pg-tester (sonnet), pg-builder (sonnet), pg-reviewer (opus ×2) · Review: PASS(1 findings, 2 rounds) · tokens: ≈ 60k
+## X — X part 19 part 2 — lane-db cases run the script instead of grepping its source (#225 nits) (M-core, 2026-09-30)
+
+- **Why:** claude[bot] on #225 (PASS(3 nits), D-206 report-only → backlog row): (1) two `tests/hooks` cases grepped `scripts/lane-db.sh`'s source (vacuous-test risk); (2) no blank line between the X part 19 CHANGELOG entry and the next heading; (3) the `X-p19.feature` steps did not say what the cases assert.
+- **Change:** the "usage lists A|B|C" case now runs `lane-db.sh 9` and reads the usage line from stderr; the "name derived" case runs a copy of the script in a fixture root with a stub `psql` that reports the database as existing (the script prints `target database 'pgeos_laneB'`, takes the "already exists" path, never reaches `createdb`/apply.sh, and writes the fixture's `infra/docker/.env`); the feature steps restated to match; the blank line added. `scripts/lane-db.sh` unchanged.
+- **Review (pg-reviewer, opus, D-206):** pre-build = the #225 bot verdict PASS(3 nits) that defines this slice (D-206 report-only → row); close PASS(2 nits: feature wording, this line — fixed in the same round).
+- **Verified:** `pnpm test:hooks` green (see the commit).
+- Model: M-core session · Delegated: pg-tester (sonnet ×2), pg-reviewer (opus ×1) · Review: PASS(5 findings, 2 rounds) · tokens: ≈ 45k
+
+## X — X part 19 — lane-db.sh accepts the lane letters A/B/C (M-core, 2026-09-30)
+
+- **Why:** row 382 (D-205 C, #222 review finding 2) — `scripts/lane-db.sh` accepted only `1|2|3`, so lane B (3.4 part 1) would have needed a hand-typed `createdb` instead of the required script.
+- **Change:** the `case` accepts `1|2|3|A|B|C` (the lane ids D-205 C and `scripts/check-locks.sh` admit); usage line and header updated; `LANE_DB="pgeos_lane${ID}"` unchanged, so lane B gets `pgeos_laneB`. Four lines; lane-guard.sh and scribe.mjs already accepted B.
+- **Tests:** `tests/hooks/X-p19.feature` + 11 `lane-db:` cases in `tests/hooks/run.sh` (CI gate ①), run with a PATH that has no `psql`: accepted ids (1, A, B, C) reach the "psql not found" check, refused ids (M, 9, empty, lowercase b) exit 2 with `usage:`; the usage line lists the letters; the name is derived as `pgeos_lane<id>`.
+- **Verified live:** `bash scripts/lane-db.sh B` on the session's Postgres created and applied `pgeos_laneB` (CREATE only, never dropped); `pnpm test:hooks` 210/210 · `bash -n` clean. Side effect of the live run: `infra/docker/.env` (git-ignored) now names `pgeos_laneB` in this worktree only.
+- **Review (pg-reviewer, opus, D-206 two reviews):** pre-build PASS(3 nits: positive "accepted" check, exit-2-with-usage, feature wording — fixed in the same round) · close PASS(2 nits: header wording/wrap — fixed in the same round).
+- Model: M-core session · Delegated: pg-tester (sonnet ×2), pg-builder (sonnet), pg-reviewer (opus ×2) · Review: PASS(5 findings, 2 rounds) · tokens: pg-tester ≈ 40k · pg-builder ≈ 20k · pg-reviewer ≈ 35k
 
 ## 2.16 part 2e — PDA visual layer: Tailwind on the shell + receive, put-away, login, home (lane 1, 2026-09-30)
 
