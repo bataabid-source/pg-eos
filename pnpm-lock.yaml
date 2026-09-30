@@ -963,6 +963,9 @@ importers:
 
   tests/scenarios:
     dependencies:
+      '@pg-eos/api':
+        specifier: workspace:*
+        version: link:../../apps/api
       '@pg-eos/api-kit':
         specifier: workspace:*
         version: link:../../packages/api-kit
@@ -972,6 +975,9 @@ importers:
       '@pg-eos/domain-kit':
         specifier: workspace:*
         version: link:../../packages/domain-kit
+      '@pg-eos/identity-mechanisms':
+        specifier: workspace:*
+        version: link:../../packages/identity
       '@pg-eos/wms':
         specifier: workspace:*
         version: link:../../modules/wms

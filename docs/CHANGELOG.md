@@ -12,6 +12,15 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 - **Brief:** none filed — one-constant tooling change on a verbatim GM directive relayed on #207; recorded here instead (DEFAULT, RECORD).
 - Model: opus (M-core session) · Delegated: pg-tester (sonnet), pg-builder (sonnet), pg-reviewer (opus) · Review: PASS(3 findings, 1 round) — close FAIL(3 nits: directive timestamps, D-205 log row, tests wording) fixed in the same round · tokens: ≈ 40k
 
+## X — X part 5d part 2 — S1/S2 over the HTTP host from @pg-eos/api, session lifetime seed 0045 (integration lane 3, #175)
+
+- **What:** S1/S2 call the real Fastify host (inject) with real sessions, a Bearer token, `X-Entity-Id` and an Idempotency-Key on writes. `tests/scenarios/fixtures/host.ts` builds the host only from `@pg-eos/api` (#216). Migration `0045_3_identity-session-lifetime.sql` seeds `identity.session.lifetime_minutes` = 720 minutes (D-203). `fixtures/actors.ts` no longer seeds its fabricated '43' row; it requires the row. RED/green check: `tests/scenarios/migration-0045.spec.ts` (testMatch widened; the verdict ignores non-S specs).
+- **Why:** PR #175 round-2 FAIL(4): fabricated lifetime, relative import into apps/api/src, S1.spec.ts:191 nit, trailer. Row X part 5d part 2.
+- **Verified:** tsc/eslint clean; migration-0045.spec 1/1; S1/S2 fail only the named NOT BUILT steps. The FEFO soft assertion "0 units from the 200-day batch" is intermittent (random location ids while expiries are null), which is pre-existing and ends with 2.9 p3. The full pre-commit ran on pgeos_lane3. `migration-0045.spec.ts` gates nothing (CI ④ ignores the runner exit code and the verdict ignores non-S specs), so it is a manual seed check.
+- **Files:** tests/scenarios/{S1.spec.ts, fixtures/host.ts, fixtures/actors.ts, migration-0045.spec.ts, playwright.config.ts, package.json} · database/migrations/{0045_3_identity-session-lifetime.sql, README.md} · tasks/backlog/MIGRATION-REQUEST-3.md · pnpm-lock.yaml (+3)
+- **Review:** pre-migration pg-reviewer PASS(3 nits: stale-row note, README in place, stale "no seed" comments in packages/* → Master row for M-core). Close review: Master M13 pg-reviewer (manual, opus) on b9e170f PASS(5 nits, 0 blocking); nits 1–4 fixed in the same round, nit 5 = the Master's squash message.
+- Model: integration lane 3 session · Delegated: pg-tester (sonnet), pg-builder-core (opus), pg-reviewer (opus) · tokens (reported subagent usage): pg-tester ≈ 146k, pg-builder-core ≈ 31k, pg-reviewer ≈ 46k
+
 ## X — X part 5d part 2 (1) — apps/api public entry: hostRoutesFrom, isHostResult, package exports (2026-09-29)
 
 - **Why:** backlog row X part 5d part 2, item (1): PR #175's scenario fixture reached into `apps/api/src` and copied the host's `isHostResult` and table→HostRoute map.
