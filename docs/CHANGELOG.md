@@ -4,6 +4,15 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — X part 23 — `wms.json` in the six locales: the quarantine-decision title key for 2.9 part 3 step 2 (M-core `packages/i18n`, 2026-09-30)
+
+- **Why:** the QRT slice (lane 1, brief `_slice-2.9-p3-s2-qrt-quarantine`) loads `wms.receiveInbound.quarantineDecision.title` eagerly at boot from `packages/i18n/ar/wms.json` (4.19 precedent `loadReopenDecisionTitleAr`, ece7423) and STOPs while the key is absent; `packages/i18n` is frozen for lanes → M-core row X part 23 (Master 11:32Z).
+- **Change:** `packages/i18n/{ar,en,hi,ur,bn,am}/wms.json`, flat JSON, one key. `ar` = the D-211 template verbatim («قرار حجر: الدفعة {batch} للعميل {client} — صلاحية أقل من الحد الأدنى»); en/hi/ur/bn/am = M-core translations with the `{batch}`/`{client}` placeholders untouched.
+- **Tests:** `tests/ops/i18n-wms.feature` + `tests/ops/tests/i18n-wms.test.ts` (mirror of i18n-billing: six files present, exact key set, both placeholders exactly once, `ar` byte-for-byte D-211, 2-space JSON / no BOM / one trailing newline).
+- **Defaults recorded:** only the Arabic text is decided (D-211); the five translations are M-core's and the Master/GM may replace any wording · no sha256 pin (the precedent pinned an R5-reviewed set; here only `ar` is authoritative).
+- **Review (pg-reviewer, opus, D-206):** pre-build PASS(2 nits: BOM escape, top-level contract files out of the tsconfig scan — recorded) · close FAIL(2 bookkeeping: missing `X part 21 part 2` row, X part 23 acceptance text) → fixed in the same round.
+- Model: M-core session · Delegated: pg-tester (sonnet ×2), pg-builder (sonnet), pg-reviewer (opus ×2) · Review: PASS(4 findings, 2 rounds) · tokens: ≈ 60k (shared with the tsconfig commit)
+
 ## X — lock `wms | 1 | 2.9` (pda released) + QRT brief with D-211, migration 0047 issued, lock `packages/contracts | M | X`, D-208..D-211 recorded, CLAUDE.md lines pending (Master M15, 2026-09-30)
 
 - **Why:** GM first-hand in-session order (~10:40Z): second lock PR after #228 — lane 1's next slice (QRT) briefed and locked with the D-211 values, the D-208..D-211 rows from the #207 Advisory comments, the CLAUDE.md lines the GM will place.
