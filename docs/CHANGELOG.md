@@ -14,6 +14,16 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 - **Review record (one version — #209 round-2 finding 3):** pre-build 2 rounds (FAIL(11) → PASS(4)) + close 1 round (PASS(1)) = 3 rounds, 16 findings, all fixed → `Review: PASS(16 findings, 3 rounds)` in the commit trailer (4b17ae3), the PR body, this entry and the Master's squash trailer; the PR-level rounds (round 1 FAIL(2) → fix → round 2 FAIL(4), REVIEW CAP) are recorded above and are not counted in the slice trailer; open items → row `X part 16 part 2`.
 - **Verified:** CI unset: tests/ops x-part-16 + x-part-6 14/14, tests/hooks 202/202; CI=true 14/14; fresh `pgeos_x16` local `pnpm guards:run` exit 0 in 39 s, no Stryker, G1–G15/G18 green, G16 SKIPPED, G17 not runnable.
 - Model: M-core session (opus) · Delegated: pg-tester (sonnet), pg-builder-core (opus), pg-reviewer (opus) · Review: PASS(16 findings, 3 rounds) — slice; PR #209 round 2 FAIL(4) → PASS subset (REVIEW CAP) · tokens: pg-tester ≈ 78k · pg-builder-core ≈ 45k · pg-reviewer ≈ 110k
+## X — lock `wms | 1 | 2.9` (pda released) + QRT brief with D-211, migration 0047 issued, lock `packages/contracts | M | X`, D-208..D-211 recorded, CLAUDE.md lines pending (Master M15, 2026-09-30)
+
+- **Why:** GM first-hand in-session order (~10:40Z): second lock PR after #228 — lane 1's next slice (QRT) briefed and locked with the D-211 values, the D-208..D-211 rows from the #207 Advisory comments, the CLAUDE.md lines the GM will place.
+- **Locks (scribe):** `pda | 1 | 2.16` released (parts 2e/3 on main) · `wms | 1 | 2.9` claimed · `packages/contracts | M | X` claimed (M-core: `tms/**` in packages/contracts/tsconfig.json, #232 follow-up).
+- **Brief:** `docs/notes/slice-briefs/_slice-2.9-p3-s2-qrt-quarantine.brief.md` (pg-builder-core; D-211: `SALES_MGR` via `platform.approval_chains`, `wms.quarantine.decision_due_hours` = 48 in `platform.thresholds`, title template, hold until decided, SKU-level minimum); brief-check OK (8 files / 761 lines).
+- **Migration 0047** issued to lane 1 (`0047_1_quarantine-decision-chain-threshold.sql`, data only): `tasks/backlog/MIGRATION-REQUEST-1.md` + register line; next free 0048. `docs/notes/SCR-WMS-QRT-01.md` closed by D-211 (deleted).
+- **Decisions:** D-208, D-209, D-210, D-211 rows (verbatim GM text + the approved proposal texts) · `docs/notes/claude-md-pending.md` (REVIEW, TESTING, Merge queue, D-210 §1–3, D-205 C/D-207 wording, X part 17 lines).
+- **State:** docs/state header/next refreshed, INV-C4-1 blocker line dropped (→ 3.4 part 1) and the identity-test line folded into MASTER_BACKLOG, PROJECT_STATE regenerated (40 lines). Backlog rows added here: 4.3 part 1/1b/2, X part 20 part 2, X part 21, 2.9 part 3 step 3, SCR-WMS-QRT-02, X part 23 (i18n key, M-core); X part 19 part 2 and X part 22 keep M-core's rows (hashes added). Lock `packages/i18n | M | X` claimed for X part 23.
+- Model: Master M15 session · Delegated: none · tokens ≈ 60k.
+
 ## X — lock `billing | 2 | 4.3` claimed; brief 4.3 part 1 (WMS billable subscriber); SCR-WMS-QRT-01 filed (Master M15, 2026-09-30)
 
 - **Why:** GM in-session directive («موافق: نفّذ commit + push للـPR التنظيمي … لا تسألني مجددًا»): lane 2's next row locked and briefed on main (brief-ahead).
