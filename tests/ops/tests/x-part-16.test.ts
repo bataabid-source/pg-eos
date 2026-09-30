@@ -1,4 +1,4 @@
-// tests/ops/tests/x-part-16.test.ts — X part 16 (pg-tester), RED fix round.
+// tests/ops/tests/x-part-16.test.ts — X part 16 (pg-tester).
 //
 // Proves D-198 (أ) against tests/ops/x-part-16.feature: G16/Stryker leaves the local guards
 // (CI unset, empty, "false" or "0"), stays in CI (scoped) and deploy (PG_GUARDS_STRICT=1). The
