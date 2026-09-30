@@ -15,7 +15,7 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ## X — rows 3.4 part 1b, X part 26, X part 27; 4.3 part 1a grants scope; #244 hashes resolved (Master M15, 2026-09-30)
 
-- **Why:** records owed from #243/#244 and the #207 15:2xZ rulings; the two `<this commit>` placeholders #244 left on main would turn gate ① red on every PR.
+- **Why:** records owed from #243/#244 and the #207 15:2xZ rulings; the two unresolved commit-hash placeholders #244 left on main would turn gate ① red on every PR.
 - **Files:** `tasks/MASTER_BACKLOG.md` — 3.4 part 1b (lane B i18nKeys), X part 26 queued (M-core to add `tms.task.create.*` keys and set the brief prefix to `PDL-TSK-` per seed 019; no brief or locale file changes here), X part 27 (native review of five translations), 4.3 part 1a text + `pgeos_worker` minimum grants (D-212 item 2); X part 23 / X part 21 part 2 → `cee9f23` · PROJECT_STATE.
 - **Review:** records-only. Model: Master M15 session · Delegated: none · tokens ≈ 8k.
 
