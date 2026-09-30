@@ -13,6 +13,12 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 - **Review (pg-reviewer):** pre-build round 1 FAIL(6) → fix → round 2 FAIL(5: four on the RED files as they stood before pg-tester's update landed — review/update race —, one brief list) — REVIEW CAP; open RED items handed to pg-tester before close; close review round 1 FAIL(4 nits: stale cast/comment in the test, usage assertion, CHANGELOG placeholders, brief deletion) → fix round → round 2 PASS · escalation round 1 (GM 2026-09-30, self-edit never shown as PASS): close FAIL(3 nits) → fixed · escalation round 2 (D-206): pg-tester RED → pg-builder → close FAIL(3 nits: tag anchored to the line start, property table covers the tag count, this entry) → fixed in the same round.
 - **Verified:** `pnpm -s test:ops` 36/36 (x-part-18 13/13; D-206 round) · ops typecheck + `eslint scripts tests/ops` clean · `node --check` OK · YAML parses · check-locks OK · `review-verdict.mjs /nonexistent --since …` exits 2 with the usage line.
 - Model: opus (M-core session) · Delegated: pg-tester (sonnet ×6), pg-reviewer (opus ×5), pg-builder (sonnet ×2) · Review: PASS(4 findings, 2 rounds) + two escalation rounds FAIL(3 nits) each → fixed · tokens: pg-tester ≈ 200k · pg-reviewer ≈ 165k · pg-builder ≈ 110k
+## X — D-212 recorded (system actor identity); SCR-BILLING-SYSTEM-ACTOR-01 closed; 0048 issued to M-core (Master M15, 2026-09-30)
+
+- **Why:** GM directive 13:35Z (#207, «موافق administration»): the SCR's three items approved, M-core writes 0048, the Master records D-212 and closes the SCR in one commit.
+- **Files:** `docs/DECISION_LOG.md` D-212 (verbatim items + execution) · `docs/notes/SCR-BILLING-SYSTEM-ACTOR-01.md` deleted · migrations README (0048 issued to M-core) · MASTER_BACKLOG 4.3 part 1a TODO (priority), 1c TODO, 4.3 part 1 waits on 1a · docs/state + PROJECT_STATE.
+- **Review:** records-only PR, squash on ①–⑥ green. Model: Master M15 session · Delegated: none · tokens ≈ 10k.
+
 ## X — X part 17 — ADR-0007 addendum gates: agent-constraints copy check, auto-archive constant, strict merge step (M-core, 2026-09-30)
 
 - **Why:** row 372 — the "copied verbatim into every agent file — gate ①" claim had no enforcing script (the four agent files carried an older 9-bullet block); D-198 (ب) auto-archive had no named constant/gate; the Master's merge step ran a non-strict `guards:run` since X part 16 (#209 finding 2, item 15).
