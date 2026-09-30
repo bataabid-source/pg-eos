@@ -1,0 +1,3 @@
+{
+  "wms.receiveInbound.quarantineDecision.title": "Quarantine decision: batch {batch} for client {client} — remaining shelf life below the minimum"
+}
