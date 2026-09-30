@@ -4,6 +4,15 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — X part 22 — a commit subject quoting `<this-commit>` no longer turns gate ① red through PROJECT_STATE (M-core, 2026-09-30)
+
+- **Why (Master M15 10:27Z, urgent):** commit `e600886` (#233) has a subject that quotes the angle-bracket placeholder token (the one with a space) verbatim; `scripts/scribe.mjs` copies the last five feat/fix subjects into `docs/PROJECT_STATE.md`, and `scripts/resolve-hashes.mjs --check` counts every line carrying that token as a placeholder, stale when its introducing commit is on the base ref and not HEAD → ① red on #228 (PROJECT_STATE:22), on every PR regenerating PROJECT_STATE, and on main at the next merge.
+- **Change (belt and braces):** scribe renders `<this-commit>` inside a copied subject as `<this-commit>` (named constants, before truncation) · resolve-hashes skips the generated section of PROJECT_STATE from a `## Last ` heading to the next `## ` heading for `--check` and `--write` (files already on main or lane branches stop failing too); a literal in any other section is still caught. PROJECT_STATE regenerated here (the e600886 line reads `<this-commit>`).
+- **Tests:** `tests/hooks/run.sh` — SC fixture commit with the space-form token in its subject → rendered as `<this-commit>`, space form absent, `--check` OK; RH fixtures in scribe's section order: space-form token inside "Last 5" (ancestor of base) → `--check` 0 and `--write` leaves it; space-form token under `## Blockers` after the Last section → `--check` 1 (pin).
+- **Review (pg-reviewer, opus, D-206):** pre-build FAIL(2: fixture section order — the negative case must sit after the exempt section; a cannot-fail case folded) → fixed · close PASS(2 nits: duplicate constant, this entry's wording — fixed in the same round).
+- **Verified:** `pnpm test:hooks` green · `node scripts/resolve-hashes.mjs --check` clean on the branch · eslint scripts.
+- Model: M-core session · Delegated: pg-tester (sonnet ×2), pg-builder (sonnet), pg-reviewer (opus ×2) · Review: PASS(2 findings, 2 rounds) · tokens: ≈ 70k
+
 ## X — X part 19 part 2 — lane-db cases run the script instead of grepping its source (#225 nits) (M-core, 2026-09-30)
 
 - **Why:** claude[bot] on #225 (PASS(3 nits), D-206 report-only → backlog row): (1) two `tests/hooks` cases grepped `scripts/lane-db.sh`'s source (vacuous-test risk); (2) no blank line between the X part 19 CHANGELOG entry and the next heading; (3) the `X-p19.feature` steps did not say what the cases assert.
