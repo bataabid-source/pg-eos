@@ -55,12 +55,16 @@ const PR_FILES_CALL = 'gh api "repos/$REPO/pulls/$PR/files?per_page=100" --pagin
 const PR_FILES_PATH = 'pulls/$PR/files';
 const COMMENTS_PATH = 'issues/$PR/comments';
 const SELF_WORKFLOW_PATH = '.github/workflows/claude-review.yml';
-const EXIT_ZERO_CALL = 'exit 0';
+const EXIT_ONE_RE = /^\s*exit 1\s*$/m;
+const HEAD_SHA_RE = /head \$SHA/;
+const WARNING_ANNOTATION = '::warning';
 const SKIP_TITLE =
-  'the verdict gate is skipped on a PR that edits claude-review.yml itself: ::warning + step summary + a `review: MANUAL` PR comment, exit 0 (the action does not run on such a PR — manual review by the Master)';
+  'the verdict gate is skipped on a PR that edits claude-review.yml itself: ::error + step summary + a `review: MANUAL` PR comment naming the head SHA, exit 1 (the review check is red on purpose — the action does not run on such a PR, manual review by the Master)';
 const MANUAL_TEXT = 'review: MANUAL';
 const MANUAL_WINDOW = 300;
-const WARNING_RE = /::warning[^\n]*review: MANUAL/;
+const ERROR_RE = /::error[^\n]*review: MANUAL/;
+const RED_WORD_RE = /\bred\b/i;
+const MANUAL_REVIEW_RE = /manual review/i;
 const SUMMARY_RE = new RegExp(
   `review: MANUAL[\\s\\S]{0,${MANUAL_WINDOW}}?>>\\s*"?\\$GITHUB_STEP_SUMMARY|>>\\s*"?\\$GITHUB_STEP_SUMMARY[\\s\\S]{0,${MANUAL_WINDOW}}?review: MANUAL`,
 );
@@ -258,21 +262,28 @@ it(SKIP_TITLE, () => {
   expect(runText).toContain(PR_FILES_PATH);
   expect(runText).toContain(PR_FILES_CALL);
   expect(runText).toContain(SELF_WORKFLOW_PATH);
-  expect(runText).toContain(EXIT_ZERO_CALL);
-  expect(runText).toMatch(WARNING_RE);
+  expect(runText).toMatch(EXIT_ONE_RE);
+  expect(runText).toMatch(ERROR_RE);
   expect(runText).toMatch(SUMMARY_RE);
   expect(runText).toMatch(PR_COMMENT_RE);
   expect(runText).toMatch(SELF_IF_RE);
 
   const commentsAt = runText.indexOf(COMMENTS_PATH);
   expect(commentsAt).toBeGreaterThanOrEqual(0);
-  for (const re of [WARNING_RE, SUMMARY_RE, PR_COMMENT_RE, SELF_IF_RE]) {
+  for (const re of [ERROR_RE, SUMMARY_RE, PR_COMMENT_RE, SELF_IF_RE]) {
     expect(runText.search(re)).toBeLessThan(commentsAt);
   }
   expect(runText.indexOf(MANUAL_TEXT)).toBeLessThan(commentsAt);
   expect(runText.indexOf(PR_FILES_PATH)).toBeLessThan(commentsAt);
   expect(runText.indexOf(SELF_WORKFLOW_PATH)).toBeLessThan(commentsAt);
-  expect(runText.indexOf(EXIT_ZERO_CALL)).toBeLessThan(commentsAt);
+  expect(runText.search(EXIT_ONE_RE)).toBeLessThan(commentsAt);
+
+  // a self-edit is never downgraded to a warning, and the comment says the check is red on purpose
+  const selfEditBlock = runText.slice(0, commentsAt);
+  expect(selfEditBlock).not.toContain(WARNING_ANNOTATION);
+  expect(selfEditBlock).toMatch(RED_WORD_RE);
+  expect(selfEditBlock).toMatch(MANUAL_REVIEW_RE);
+  expect(selfEditBlock).toMatch(HEAD_SHA_RE);
 });
 
 // ---- generated case table for pickVerdict -----------------------------------------------------
