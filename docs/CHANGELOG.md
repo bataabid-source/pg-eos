@@ -4,6 +4,12 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — M15 handover packet; SCR-RLS-NULL-ENTITY-01 filed; row 2.16 part 2f (Master M15, 2026-09-30)
+
+- **Why:** Master context ≈ 510k of the 600k ceiling (D-210) — handover at a clean point (no Master PR open); M-core's #246 finding (NULL-entity rows admitted by `entity_scope`) is a security question for the GM; Advisory 17:30Z PDA styling gap.
+- **Files:** `docs/notes/handover-master.md` (M15 packet replaces M14's) · `docs/notes/SCR-RLS-NULL-ENTITY-01.md` · MASTER_BACKLOG rows 2.16 part 2f (lane 1) and SCR-RLS-NULL-ENTITY-01 (GM) · PROJECT_STATE.
+- **Review:** records-only. Model: Master M15 session · Delegated: none · tokens ≈ 10k.
+
 ## X — rows 3.4 part 1b, X part 26, X part 27; 4.3 part 1a grants scope; #244 hashes resolved (Master M15, 2026-09-30)
 
 - **Why:** records owed from #243/#244 and the #207 15:2xZ rulings; the two `<this commit>` placeholders #244 left on main would turn gate ① red on every PR.
