@@ -117,6 +117,15 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 - **Review (pg-reviewer, opus, D-206 two reviews):** pre-build PASS(3 nits: positive "accepted" check, exit-2-with-usage, feature wording — fixed in the same round) · close PASS(2 nits: header wording/wrap — fixed in the same round).
 - Model: M-core session · Delegated: pg-tester (sonnet ×2), pg-builder (sonnet), pg-reviewer (opus ×2) · Review: PASS(5 findings, 2 rounds) · tokens: pg-tester ≈ 40k · pg-builder ≈ 20k · pg-reviewer ≈ 35k
 
+## X — route table: the tms create-delivery-task route leaves `UNIMPLEMENTED_ROUTES` (opens gate ④ for #232) (M-core `api`, 2026-09-30)
+
+- **Why:** Advisory 09:12Z item 2 / Master 09:20Z. Lane B's PR #232 (3.4 part 1) ships `modules/tms/api/create-delivery-task/{handlers,composition}.ts`, but `apps/api/src/route-table.ts` still listed the route as unimplemented, and `buildRouteTable` throws when a listed route's handler file exists — the api host could not start on that branch (④ red, 4 server tests red).
+- **Change:** the two lines leave `UNIMPLEMENTED_ROUTES` (2 entries left). `apps/api/tests/route-table.unit.test.ts`: 2 + 2 = 4 routes answer 501, 79 mounted; `toHaveLength(EXPECTED_UNIMPLEMENTED_ROUTES.length)` replaces the literal.
+- **Proof:** the patch applied to a detached checkout of `lane/B-3.4-p1` → `@pg-eos/api` tests 24/24; without it 4 red ("listed in UNIMPLEMENTED_ROUTES but … exists"). On main alone the table throws "no handlers file" at route-table.ts:204 until #232 lands — by design.
+- **Ordering (default recorded):** Lane B merges `origin/core/X-api-tms-route` into `lane/B-3.4-p1` (a git merge, not an `api` edit) so #232 goes green now; this PR carries rebase auto-merge and can only fire after #232 (migration 0046, manual, number order) and a main merge. Not in this slice: i18n keys `tms.task.create.*` (decided with #232's handler) and `packages/contracts/tsconfig.json` (`packages/contracts | M | X` lock row announced by the Master).
+- **Review (pg-reviewer, opus, D-206):** pre-build PASS(2 nits, brief wording — fixed) · close round 1 FAIL(1: Gherkin step still said 78) → fixed → round 2 PASS(0).
+- Model: M-core session · Delegated: pg-tester (sonnet), pg-builder (sonnet), pg-reviewer (opus ×2) · Review: PASS(1 findings, 2 rounds) · tokens: ≈ 60k
+
 ## 2.16 part 2e — PDA visual layer: Tailwind on the shell + receive, put-away, login, home (lane 1, 2026-09-30)
 
 - **Why:** doc 40 §D4 (one step per screen, scan is the input, error with sound+vibration and the next action) + GM «موافق» 2026-09-29 17:50Z (shadcn/Tailwind scope, touch targets ≥ 48 px); EXECUTION-MASTER-v4 L624 RTL/LTR.
