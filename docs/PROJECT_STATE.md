@@ -5,7 +5,7 @@ Phase: enablement week (Master + integration lane; build lanes frozen) → wave 
 Done so far: phase 0 closed · phase 1 done except 1.11 (BLOCKED D-178) · phase 2 warehouse 9/19 · golden slice 2.9 ACCEPTED.
 Pilot: Tier 0 = local Docker postgres:16 (D-129), seed 019 + synthetic data (D-127); doc 38 v4.7 (154 rows).
 Schema: 0001–0046 applied (0022 withdrawn; 0040/0041 lane 2; 0042–0044 lane M; 0045 lane 3, D-203; 0046 lane B, 3.4 p1); next free 0047.
-Sessions: cloud Postgres via session-start.sh; PG_APP_USER required (ADR-0005 §7) · Master M14 · cap 7 (D-205 C) · D-205 B PR review cap.
+Sessions: cloud Postgres via session-start.sh; PG_APP_USER required (ADR-0005 §7) · Master M14 · cap 7 (D-205 C) · D-206 · D-207.
 Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewer (opus); bookkeeping by scripts/scribe.mjs (state, locks, CHANGELOG template).
 
 ## Lanes (tasks/LANE_LOCKS.md)
@@ -15,11 +15,12 @@ Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewe
 - lane M · api · X · since 2026-09-29
 - lane 1 · pda · 2.16 · since 2026-09-30
 - lane B · tms · 3.4 · since 2026-09-30
+- lane 2 · billing · 4.3 · since 2026-09-30
 
 ## Last 5 feat/fix commits (git log)
 - `e4c6506` fix(3.4): create-delivery-task fails closed when the order is not in the caller's entity (PR #232 review, RLS)
 - `dbe347c` feat(X): lane-db.sh accepts the lane letters A/B/C — pgeos_laneB for lane B (X part 19, D-205 C) (#225)
-- `e600886` fix(X): resolve the stale <this commit> placeholders left by the #227 and #229 squashes (resolve-hashes --write) so gate ① passes on every PR
+- `e600886` fix(X): resolve the stale <this-commit> placeholders left by the #227 and #229 squashes (resolve-hashes --write) so gate ① passes on every PR
 - `a635bec` feat(2.16): PDA visual layer — Tailwind on the shell, receive, put-away, login and home; touch targets >= 48 px, one step per screen, autofocused sc
 - `68a8025` feat(3.4): INV-C4-1 vehicle guard + delivery_tasks.version (0046) and tms create-delivery-task (part 1, lane B)
 
@@ -32,9 +33,8 @@ Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewe
 - Lane backlog: 2.16 1a-3c/4b · 3.12 2b/2c-ii · 4.1a 2b · 4.1a p3 p2 · 4.1b p3 · 4.19 p2 · 3.12/3.13 polish · 2.9 p6 · X 5e p2 · X 18 p2 — MASTER_BACKLOG.
 - WBS 1.11 BLOCKED (D-178). close/0.6a-d166 (2 ahead/151 behind) and lane/3-3.13 (2 ahead) superseded, content on main — GM deletes them (D-193 D5).
 - Deep review (D-193): no HTTP host/worker (X part 5); G-16a lockout/IP → 2.16 1a-6 (AUTH-01); AUDIT-CHAIN-01 open; RLS-01 d1–3 G-01 → GM.
-- #217/#209/#218/#221 conflict with main after #220 (CHANGELOG/PROJECT_STATE): M-core merges main into them; the harness refuses Master pushes to core/*.
 - Master batch (frozen paths): entityId on WithContextCtx; domain-kit browser break; eslint cwd bug; new-slice.sh stale citations.
 
 ## Next
-1. Weekly goal S1+S2+S18: Lane 1: 2.16 p3b / 2.9 p6 (next brief owed, D-210 §3) · Lane B: 3.4 p2 (entity + driver) · Integration: 2.18 · Lane 2: 4.3 p1.
-2. Queue (D-205 B): #229 (lane 1, rebase) · #209 → #218 → #221 after M-core merges main · M-core: X part 19 → X 20 (1) → X 17 → X 16 p2.
+1. Weekly goal S1+S2+S18: Lane 1: 2.16 p3 (`pda`) → p2e · Lane B: 3.4 p2 (entity + driver), #232 open · Integration: 2.18 · Lane 2: 4.3 p1.
+2. Queue (D-206): #225 → #209 → #218 → #221 → #226 (M-core merges main after each) · M15: 4.3 p1 lock+brief, 2.9 p3 step-2 brief, D-199 · GM: CLAUDE.md lines.
