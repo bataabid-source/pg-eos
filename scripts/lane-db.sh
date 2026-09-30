@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 # PG-EOS · lane-db.sh — P4a: one Postgres database per lane worktree (GM 2026-09-26).
 #
-# Three lane worktrees (../pg-eos-lane-1/2/3) used to share the single database `pgeos` in the
+# Lane worktrees (../pg-eos-lane-<id>; ids 1, 2, 3, A, B, C — the ids D-205 C and
+# scripts/check-locks.sh admit) used to share the single database `pgeos` in the
 # local Docker container, so their test fixtures polluted each other. This script gives a lane
 # its own database — `pgeos_lane<id>` — in the SAME running container.
 #
-#   bash scripts/lane-db.sh <1|2|3>
+#   bash scripts/lane-db.sh <1|2|3|A|B|C>
 #
 # What it does, idempotently (safe to re-run):
 #   1. Creates database `pgeos_lane<id>` in the running container if it does not already exist.
@@ -33,9 +34,9 @@ DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 ID="${1:-}"
 case "$ID" in
-  1|2|3) ;;
+  1|2|3|A|B|C) ;;
   *)
-    echo "usage: bash scripts/lane-db.sh <1|2|3>" >&2
+    echo "usage: bash scripts/lane-db.sh <1|2|3|A|B|C>" >&2
     exit 2
     ;;
 esac
