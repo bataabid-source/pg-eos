@@ -9,9 +9,29 @@ import { randomUUID } from 'node:crypto';
 
 import type { Pool, QueryResult } from 'pg';
 
+import { issueSession, SESSION_LIFETIME_MINUTES_KEY } from '@pg-eos/identity-mechanisms';
+
+// X part 5d: issueSession needs OTP_HMAC_SECRET — set once for the whole run in
+// tests/scenarios/playwright.config.ts (the test-only value apps/api's and packages/identity's
+// vitest.config.ts already use), never here.
+
 export const WH_MGR_ROLE_CODE = 'WH_MGR';
 export const WH_SUP_ROLE_CODE = 'WH_SUP';
 export const SCENARIO_ACTOR_ROLE_CODES = [WH_MGR_ROLE_CODE, WH_SUP_ROLE_CODE] as const;
+
+// X part 5d (ADR-0006 Decision 2, GM D-203): migration 0045 seeds platform.thresholds
+// identity.session.lifetime_minutes (issueSession throws without it — packages/identity/src/
+// session.ts). This fixture NEVER writes platform.thresholds: it only reads the row and hard-fails
+// if the migration is not applied. The seeded value is asserted by migration-0045.spec.ts, not here.
+async function requireSessionLifetimeThreshold(pool: Pool): Promise<void> {
+  const result: QueryResult<{ key: string }> = await pool.query(
+    `select key from platform.thresholds where key = $1`,
+    [SESSION_LIFETIME_MINUTES_KEY],
+  );
+  if (result.rows.length === 0) {
+    throw new Error('platform.thresholds identity.session.lifetime_minutes missing — apply migration 0045 (D-203)');
+  }
+}
 
 /** Creates one identity.users row, membership on every platform.entities row (so RLS's entity
  *  scope never blocks the fixture — same "all entities" grant handlers.test.ts:156-162 uses), and
@@ -41,6 +61,15 @@ export async function createActor(
   }
 
   return userId;
+}
+
+/** Issues a real `identity.sessions` row for `userId` (X part 5d) — the Bearer token S1 now sends
+ *  to the host instead of calling the handler in-process. `identity.sessions.user_id` is `on delete
+ *  cascade` — `teardownActor` deletes the user and the session goes with it; no separate cleanup. */
+export async function issueActorSession(pool: Pool, userId: string): Promise<string> {
+  await requireSessionLifetimeThreshold(pool);
+  const session = await issueSession(userId);
+  return session.token;
 }
 
 /** FK-safe teardown for one actor: `platform.idempotency_keys` before `identity.users`

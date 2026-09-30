@@ -93,7 +93,8 @@ const e2eWebServers = [
 
 export default defineConfig({
   testDir: '.',
-  testMatch: /S\d{1,2}\.spec\.ts$/,
+  // S<n>.spec.ts = scenarios (counted by the verdict); migration-NNNN.spec.ts = migration seed checks (ignored by it).
+  testMatch: [/S\d{1,2}\.spec\.ts$/, /migration-\d{4}\.spec\.ts$/],
   fullyParallel: false,
   workers: 1,
   retries: 0,
