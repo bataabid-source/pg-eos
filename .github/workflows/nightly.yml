@@ -9,10 +9,6 @@ on:
     - cron: "17 0 * * *"   # 03:17 Asia/Kuwait
   workflow_dispatch:
 
-concurrency:
-  group: nightly
-  cancel-in-progress: true
-
 # Same token scope the image job had in ci.yml (checkout + gha cache only).
 permissions:
   contents: read
@@ -22,6 +18,11 @@ jobs:
     name: "G16 mutation on domain/ (≥ 75 %) + G15 scenarios + recreate"
     runs-on: ubuntu-24.04
     timeout-minutes: 180
+    # X part 20 part 2: own group so a workflow_dispatch of ⑦ never cancels the scheduled G16 run;
+    # a dispatch runs both jobs (no input), so a dispatched mutation job queues instead of cancelling.
+    concurrency:
+      group: nightly-mutation
+      cancel-in-progress: false
     services:
       postgres:
         image: postgres:16
@@ -84,6 +85,10 @@ jobs:
     runs-on: ubuntu-24.04
     # QEMU-emulated arm64 install + build; no CI job had a timeout before (default recorded, X part 5c).
     timeout-minutes: 45
+    # X part 20 part 2: a ⑦ re-dispatch supersedes its older ⑦ run only.
+    concurrency:
+      group: nightly-image
+      cancel-in-progress: true
     env:
       # Every `docker compose` below reads this file (no -f needed).
       COMPOSE_FILE: infra/docker/docker-compose.yml

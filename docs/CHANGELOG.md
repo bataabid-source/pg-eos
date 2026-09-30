@@ -4,6 +4,15 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — X part 20 part 2 (item a) — per-job `concurrency` groups in nightly.yml: a ⑦ dispatch never cancels the scheduled G16 run (M-core, 2026-09-30)
+
+- **Why:** #230 review (blocking regression) + Master directive #207 11:38Z: with the shared workflow-level `concurrency: nightly, cancel-in-progress: true`, a `workflow_dispatch` of ⑦ cancelled the scheduled mutation run.
+- **Change:** `.github/workflows/nightly.yml` — workflow-level block removed; job `mutation` → `group: nightly-mutation`, `cancel-in-progress: false`; job `image` → `group: nightly-image`, `cancel-in-progress: true`. Nothing else changes.
+- **Why `false` on mutation (pre-build finding 1):** nightly.yml has no dispatch input, so a dispatch runs BOTH jobs; job-level `true` on mutation would cancel the scheduled run inside its own group. With `false` the dispatched mutation job queues behind it.
+- **Tests:** `tests/ops/x-part-20.feature` third Scenario + `tests/ops/tests/x-part-20.test.ts` (no workflow-level block; per-job groups and booleans matched as separate keys, order-independent).
+- **Defaults recorded:** job-scoped `permissions` (second clause of the row) not done — top-level `contents: read` is already the minimum; stays OPEN · remedy (b) — a dispatch input + job `if:` so a ⑦ dispatch skips `mutation` (saves up to 180 min of queued mutation) — open question for the Master.
+- **Review:** pre-build FAIL(2: 1 blocking, 1 nit) → fix → PASS; close round 1 FAIL(1: guards evidence) → guards run → PASS. Files: nightly.yml, the two test files, this entry, backlog row, brief deleted. Tokens ≈ 60k.
+
 ## X — X part 20 (item 1) — gate ⑦ image build leaves per-PR CI for nightly.yml (D-210 item 5, D-197) (M-core, 2026-09-30)
 
 - **Why / measurement (D-210 item 5, #207 06:15Z):** last 10 `pull_request` runs of ci.yml — wall ①–⑥ median 4.2 min (max 4.5; critical path ②③ in 7/9, ① in 2/9, `lint:boundaries` alone 1.9–3.6 min of ①), but run wall 13.4 min (max 14.3) because job ⑦ (arm64 image via QEMU 6.5–11 min) still ran on every PR although CLAUDE.md · Merge queue / ADR-0007 D-197 (CHANGELOG 2026-09-28) say ⑦ is nightly + workflow_dispatch only; turbo cache is off (`cache: false`). Approved as a recorded default by the Advisory (06:20Z): apply the existing rule.

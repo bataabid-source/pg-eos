@@ -2,6 +2,7 @@
 //
 // Executable half of tests/ops/x-part-20.feature: gate ⑦ moves from ci.yml to nightly.yml. Workflows
 // are parsed as text (no YAML dependency), like x-part-5c. One `it` per Scenario, titled verbatim.
+// X part 20 part 2: the third `it` also pins the per-job concurrency groups of nightly.yml.
 
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
@@ -34,6 +35,28 @@ const BUILD_ACTION = 'docker/build-push-action@v6';
 const AMD64_TAG = 'pg-eos/app:local';
 const HEALTH_URL = 'http://127.0.0.1:3000/health';
 const LOG_PROBE = 'relay loop starting';
+const MUTATION_JOB_ID = 'mutation';
+const MUTATION_CONCURRENCY_GROUP = 'nightly-mutation';
+const MUTATION_CANCEL_IN_PROGRESS = false;
+const IMAGE_CONCURRENCY_GROUP = 'nightly-image';
+const IMAGE_CANCEL_IN_PROGRESS = true;
+
+// Text of the job-level (4-space) `concurrency:` block inside a job block; '' when absent.
+function jobConcurrencyBlock(job: string): string {
+  const lines = job.split('\n');
+  const start = lines.findIndex((l) => /^ {4}concurrency:/.test(l));
+  if (start < 0) return '';
+  const rest = lines.slice(start + 1);
+  const len = rest.findIndex((l) => /^ {0,4}\S/.test(l));
+  return [lines[start] ?? '', ...(len < 0 ? rest : rest.slice(0, len))].join('\n');
+}
+
+// group and cancel-in-progress are matched as two separate keys (order-independent).
+function expectJobConcurrency(job: string, group: string, cancel: boolean): void {
+  const block = jobConcurrencyBlock(job);
+  expect(block).toMatch(new RegExp(`^ {6}group:\\s*${group}\\s*$`, 'm'));
+  expect(block).toMatch(new RegExp(`^ {6}cancel-in-progress:\\s*${String(cancel)}\\s*$`, 'm'));
+}
 
 // Text of the top-level block `<key>:` (0-indent) up to the next top-level key.
 function topBlock(text: string, key: string): string {
@@ -112,17 +135,21 @@ describe('X part 20 — gate ⑦ runs nightly, not per PR', () => {
     for (const key of IMAGE_ENV_KEYS) expect(job).toMatch(new RegExp(`^ {6}${key}:`, 'm'));
   });
 
-  it('nightly.yml triggers are schedule and workflow_dispatch only', () => {
-    // Then its on block has schedule and workflow_dispatch and no pull_request
+  it('nightly.yml triggers are schedule and workflow_dispatch only, and each job has its own concurrency group', () => {
+    // When .github/workflows/nightly.yml is read / Then its on block keys are exactly the two, no pull_request
     const on = topBlock(nightlyText, 'on');
     expect(on).toMatch(/^ {2}schedule:/m);
     expect(on).toMatch(/^ {2}workflow_dispatch:/m);
     expect(on).not.toContain('pull_request');
     expect([...onKeys(nightlyText)].sort()).toEqual([...NIGHTLY_TRIGGER_KEYS].sort());
-    // And concurrency group nightly is kept and the mutation job still exists with its name
-    expect(topBlock(nightlyText, 'concurrency')).toMatch(/^ {2}group:\s*nightly\s*$/m);
-    expect(jobIds(nightlyText)).toContain('mutation');
-    const mutation = jobBlock(nightlyText, 'mutation');
+    // And there is no workflow-level concurrency block
+    expect(topBlock(nightlyText, 'concurrency')).toBe('');
+    // And mutation: nightly-mutation, cancel-in-progress false; image: nightly-image, cancel-in-progress true
+    expectJobConcurrency(jobBlock(nightlyText, MUTATION_JOB_ID), MUTATION_CONCURRENCY_GROUP, MUTATION_CANCEL_IN_PROGRESS);
+    expectJobConcurrency(jobBlock(nightlyText, IMAGE_JOB_ID), IMAGE_CONCURRENCY_GROUP, IMAGE_CANCEL_IN_PROGRESS);
+    // And the mutation job still exists with its name, timeout and command
+    expect(jobIds(nightlyText)).toContain(MUTATION_JOB_ID);
+    const mutation = jobBlock(nightlyText, MUTATION_JOB_ID);
     expect(mutation).toContain(`name: "${MUTATION_JOB_NAME}"`);
     expect(mutation).toContain(MUTATION_TIMEOUT);
     expect(mutation).toContain(MUTATION_COMMAND);

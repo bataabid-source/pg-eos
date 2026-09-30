@@ -21,8 +21,9 @@ Feature: X part 20 — gate ⑦ runs nightly, not per PR
     And it tears down with docker compose down -v under if: always()
     And its env sets COMPOSE_FILE, WORKER_LOG_RETRIES, WORKER_LOG_RETRY_SECONDS and COMPOSE_WAIT_TIMEOUT_SECONDS
 
-  Scenario: nightly.yml triggers are schedule and workflow_dispatch only
+  Scenario: nightly.yml triggers are schedule and workflow_dispatch only, and each job has its own concurrency group
     When .github/workflows/nightly.yml is read
     Then its on block keys are exactly schedule and workflow_dispatch, with no pull_request
-    And concurrency group nightly is kept
+    And there is no workflow-level concurrency block
+    And job mutation has concurrency group nightly-mutation with cancel-in-progress false, and job image has concurrency group nightly-image with cancel-in-progress true
     And the mutation job still exists with its name, timeout-minutes 180 and the command pnpm -s mutation
