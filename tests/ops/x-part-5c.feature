@@ -27,8 +27,8 @@ Feature: X part 5c — one image, api and worker services, gate ⑦
     Then .dockerignore lists .git, **/.env, **/.env.*, **/data/, **/node_modules/, **/dist/, **/coverage/, **/.turbo/, **/reports/, **/*.pem, **/*.key, **/*.dump, **/*.bak, **/*.tgz
 
   Scenario: gate ⑦ builds for linux/arm64, runs the stack once on amd64 and pushes nothing
-    When .github/workflows/ci.yml is read
-    Then a job whose name starts with "⑦" exists with timeout-minutes set, uses docker/setup-qemu-action@v3 and docker/setup-buildx-action@v3
+    When .github/workflows/nightly.yml (gate ⑦ moved out of ci.yml, X part 20) and .github/workflows/ci.yml are read
+    Then nightly.yml has a job whose name starts with "⑦" that exists with timeout-minutes set, uses docker/setup-qemu-action@v3 and docker/setup-buildx-action@v3
     And it builds apps/api/Dockerfile with platforms linux/arm64 and push: false, and once more for linux/amd64 with load: true
     And it runs docker compose config -q, starts postgres, applies the schema with docker compose run --rm -e PGUSER=postgres api bash database/schema/apply.sh, starts api with up -d --wait and then the worker without --wait, asserts GET http://127.0.0.1:3000/health is 200 and the worker log (retried, bounded) contains "relay loop starting", then compose down -v
     And the ②③ job carries a pnpm test:ops step
