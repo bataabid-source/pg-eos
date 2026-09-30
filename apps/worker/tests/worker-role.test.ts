@@ -147,7 +147,7 @@ afterAll(async () => {
 });
 
 describe('Feature: X part 5b — one worker drains the outbox as a service role', () => {
-  it("the service role is a non-superuser with the relay's privileges only", async () => {
+  it("the service role is a non-superuser with the relay's privileges plus the system-actor subscriber grants only", async () => {
     // Given migration 0039 is applied
     // Then pg_roles shows pgeos_worker with rolsuper false, rolbypassrls false, rolcanlogin true
     const roleRow: QueryResult<{
@@ -218,15 +218,17 @@ describe('Feature: X part 5b — one worker drains the outbox as a service role'
       ).rejects.toMatchObject({ code: PG_INSUFFICIENT_PRIVILEGE });
       await client.query('rollback to savepoint probe_payload_update');
 
+      // Migration 0048 (D-212 + Master ruling #207 15:26Z item 2) grants pgeos_worker INSERT on
+      // platform.outbox: the outbox-subscriber path writes outbox events as the system actor. The
+      // insert therefore SUCCEEDS here (entity_id null, platform.* aggregate), and is rolled back.
       await client.query('savepoint probe_insert');
-      await expect(
-        client.query(
-          `insert into platform.outbox
-             (entity_id, aggregate_type, aggregate_id, event_type, payload, correlation_id, causation_id, actor_id)
-           values (null, $1, $2, $3, '{}'::jsonb, $4, null, null)`,
-          [NULL_ROW_AGGREGATE_TYPE, randomUUID(), FIXTURE_EVENT_TYPE, FIXTURE_CORRELATION_ID],
-        ),
-      ).rejects.toMatchObject({ code: PG_INSUFFICIENT_PRIVILEGE });
+      const insertResult = await client.query(
+        `insert into platform.outbox
+           (entity_id, aggregate_type, aggregate_id, event_type, payload, correlation_id, causation_id, actor_id)
+         values (null, $1, $2, $3, '{}'::jsonb, $4, null, null)`,
+        [NULL_ROW_AGGREGATE_TYPE, randomUUID(), FIXTURE_EVENT_TYPE, FIXTURE_CORRELATION_ID],
+      );
+      expect(insertResult.rowCount).toBe(1);
       await client.query('rollback to savepoint probe_insert');
 
       await client.query('savepoint probe_delete');
@@ -259,6 +261,28 @@ describe('Feature: X part 5b — one worker drains the outbox as a service role'
     await expect(workerPool.query('select 1 from platform.audit_log limit 1')).rejects.toMatchObject({
       code: PG_INSUFFICIENT_PRIVILEGE,
     });
+
+    // And (0048 grants) select on wms.outbound_orders and catalog.services resolves
+    await expect(workerPool.query('select 1 from wms.outbound_orders limit 1')).resolves.toBeDefined();
+    await expect(workerPool.query('select 1 from catalog.services limit 1')).resolves.toBeDefined();
+
+    // And insert on platform.audit_log WITHOUT the system-actor GUCs is rejected by RLS
+    // audit_append (user_id null) with 42501 — INSERT is granted only usefully for the system actor
+    const auditClient: PoolClient = await workerPool.connect();
+    try {
+      await auditClient.query('begin');
+      await auditClient.query('savepoint probe_audit_insert');
+      await expect(
+        auditClient.query(
+          `insert into platform.audit_log (schema_name, table_name, operation, chain_seq)
+           values ('platform', 'x_part_5b_probe', 'insert', 0)`,
+        ),
+      ).rejects.toMatchObject({ code: PG_INSUFFICIENT_PRIVILEGE });
+      await auditClient.query('rollback to savepoint probe_audit_insert');
+    } finally {
+      await auditClient.query('rollback');
+      auditClient.release();
+    }
 
     // And select platform.purge_idempotency_keys() fails with 42501
     await expect(workerPool.query('select platform.purge_idempotency_keys()')).rejects.toMatchObject({
