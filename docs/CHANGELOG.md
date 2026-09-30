@@ -12,6 +12,31 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 - **Ordering (default recorded):** Lane B merges `origin/core/X-api-tms-route` into `lane/B-3.4-p1` (a git merge, not an `api` edit) so #232 goes green now; this PR carries rebase auto-merge and can only fire after #232 (migration 0046, manual, number order) and a main merge. Not in this slice: i18n keys `tms.task.create.*` (decided with #232's handler) and `packages/contracts/tsconfig.json` (`packages/contracts | M | X` lock row announced by the Master).
 - **Review (pg-reviewer, opus, D-206):** pre-build PASS(2 nits, brief wording — fixed) · close round 1 FAIL(1: Gherkin step still said 78) → fixed → round 2 PASS(0).
 - Model: M-core session · Delegated: pg-tester (sonnet), pg-builder (sonnet), pg-reviewer (opus ×2) · Review: PASS(1 findings, 2 rounds) · tokens: ≈ 60k
+## X — lock `billing | 2 | 4.3` claimed; brief 4.3 part 1 (WMS billable subscriber); SCR-WMS-QRT-01 filed (Master M15, 2026-09-30)
+
+- **Why:** GM in-session directive («موافق: نفّذ commit + push للـPR التنظيمي … لا تسألني مجددًا»): lane 2's next row locked and briefed on main (brief-ahead).
+- **Change:** `tasks/LANE_LOCKS.md` +1 row (scribe --claim) · `docs/notes/slice-briefs/_slice-4.3-p1-wms-billable-subscriber.brief.md` (pg-builder-core, no migration: `registerSubscriber` on `wms.outbound.checked` → four pending `billing.billable_events` rows through the 4.2 port; brief-check 8 files / 608 lines).
+- **SCR:** `docs/notes/SCR-WMS-QRT-01.md` — the 2.9 part 3 step 2 brief was withdrawn (`wms | 1 | 2.9` released): decision role/title and the hold rule have no source in 01 / 13 / 13B / 019 / 40 → G-01 questions for the GM.
+- **Review:** claude[bot] on #228 rounds 2–4 — fixed: decision ids, CHANGELOG, boundary (contract_id via the 4.2 port), duplicate handling; open for the GM: D-206/D-207 (ADR vs row), state/backlog bookkeeping (writes refused in-session).
+- Model: Master M15 session · Delegated: none · tokens ≈ 110k.
+
+## X — D-206 (two reviews per slice, bot review report-only) and D-207 (Advisory creates and manages sessions) recorded; doc 36 §5-4 reference; M14 handover (Master M14, 2026-09-30)
+
+- **GM:** «اريد اختصار خطوات المراجعه لتكون الاساسيه والضروروية فقط» → «موافق» (04:37Z, #207 relay) → **D-206**; «لديك تفويض بانشاء الماستر وخلبفته…» (05:10Z) → **D-207**. Both rows in DECISION_LOG with the verbatim text.
+- **CLAUDE.md · REVIEW line NOT changed here:** the harness refused the Master's edit (`Permission for this action was denied by the Claude Code auto mode classifier. Reason: [Self-Modification].`, reported #207 05:30Z) — the GM places the D-206 text (verbatim in DECISION_LOG); doc 36 §5-4 gains the reference note.
+- **Applied under D-205 B / D-206:** #217 → 750d8f3, #223 → 0fbd2f9, #224 → c0a59b5 on ①–⑥ + close PASS; bot findings past the cap are rows. #225 (X part 19) and #226 (X part 17) opened for M-core.
+- **Files:** docs/DECISION_LOG.md, docs/package/36-Technical-Architecture-Audit.md, docs/state/{header,next}.md, docs/notes/handover-master.md (M14 → M15), PROJECT_STATE (scribe).
+- **Review (claude[bot] on #228, round 1 FAIL(2) → fix round):** doc 36 note reworded "pending GM placement" (CLAUDE.md as written governs until the GM edit lands); handover wording neutral + the same governance note.
+- Model: Master M14 session · Delegated: none · Review: claude[bot] round 1 FAIL(2), fix round (this commit) · tokens ≈ 20k.
+## X — X part 22 — a commit subject quoting `<this-commit>` no longer turns gate ① red through PROJECT_STATE (M-core, 2026-09-30)
+
+- **Why (Master M15 10:27Z, urgent):** commit `e600886` (#233) has a subject that quotes the angle-bracket placeholder token (the one with a space) verbatim; `scripts/scribe.mjs` copies the last five feat/fix subjects into `docs/PROJECT_STATE.md`, and `scripts/resolve-hashes.mjs --check` counts every line carrying that token as a placeholder, stale when its introducing commit is on the base ref and not HEAD → ① red on #228 (PROJECT_STATE:22), on every PR regenerating PROJECT_STATE, and on main at the next merge.
+- **Change (belt and braces):** scribe renders `<this-commit>` inside a copied subject as `<this-commit>` (named constants, before truncation) · resolve-hashes skips the generated section of PROJECT_STATE from a `## Last ` heading to the next `## ` heading for `--check` and `--write` (files already on main or lane branches stop failing too); a literal in any other section is still caught. PROJECT_STATE regenerated here (the e600886 line reads `<this-commit>`).
+- **Tests:** `tests/hooks/run.sh` — SC fixture commit with the space-form token in its subject → rendered as `<this-commit>`, space form absent, `--check` OK; RH fixtures in scribe's section order: space-form token inside "Last 5" (ancestor of base) → `--check` 0 and `--write` leaves it; space-form token under `## Blockers` after the Last section → `--check` 1 (pin).
+- **Review (pg-reviewer, opus, D-206):** pre-build FAIL(2: fixture section order — the negative case must sit after the exempt section; a cannot-fail case folded) → fixed · close PASS(2 nits: duplicate constant, this entry's wording — fixed in the same round).
+- **Verified:** `pnpm test:hooks` green · `node scripts/resolve-hashes.mjs --check` clean on the branch · eslint scripts.
+- Model: M-core session · Delegated: pg-tester (sonnet ×2), pg-builder (sonnet), pg-reviewer (opus ×2) · Review: PASS(2 findings, 2 rounds) · tokens: ≈ 70k
+
 ## X — X part 19 part 2 — lane-db cases run the script instead of grepping its source (#225 nits) (M-core, 2026-09-30)
 
 - **Why:** claude[bot] on #225 (PASS(3 nits), D-206 report-only → backlog row): (1) two `tests/hooks` cases grepped `scripts/lane-db.sh`'s source (vacuous-test risk); (2) no blank line between the X part 19 CHANGELOG entry and the next heading; (3) the `X-p19.feature` steps did not say what the cases assert.
