@@ -35,10 +35,35 @@ const BEFORE = '2026-09-29T09:00:00Z';
 const AFTER_1 = '2026-09-29T10:05:00Z';
 const AFTER_2 = '2026-09-29T10:30:00Z';
 const PASS_BODY = '**PASS(0 findings)**';
-const FAIL_BODY = '**FAIL(4 findings)** — pg-reviewer, round 2 — 1. file:1 breaks a rule';
+const FAIL_PLAIN_BODY = '**FAIL(4 findings)** — pg-reviewer, round 2 — 1. file:1 breaks a rule';
+const FAIL_SECURITY_BODY = [
+  '**FAIL(4 findings)** — pg-reviewer, round 2',
+  '1. [security: RLS] table has no policy',
+  '2. **[Security — audit chain]** hash skipped',
+  '3. file:1 breaks a rule',
+  '4. file:2 nit',
+  'Checked and clean: no `[security]` finding elsewhere',
+].join('\n');
+const FAIL_MIDLINE_BODY = [
+  '**FAIL(2 findings)** — pg-reviewer, round 2',
+  '1. file:1 breaks a rule, not a [security] one',
+  '2. `[security]` is only quoted in a code span here',
+].join('\n');
+const FAIL_PROSE_WORDS_BODY =
+  '**FAIL(2 findings)** — pg-reviewer — 1. file:1 breaks a rule 2. file:2 nit. Checked and clean: RLS policies, permissions, audit chain, no secrets.';
+const SECURITY_TAG_RE = /^\s*(?:\d+[.)]|[-*])?\s*\**\[security\b[^\]\n]*\]/gim;
+const SECURITY_COUNT = (FAIL_SECURITY_BODY.match(SECURITY_TAG_RE) ?? []).length;
+const RED_SECURITY_PREFIX = `red:FAIL(4 findings, ${SECURITY_COUNT} security)`;
+const REPORT_PREFIX = 'report:FAIL(4 findings)';
+const WARNING_LINE_HEAD = '::warning title=review: FAIL(4 findings) report-only (D-206)::';
+const PROSE_FAIL_PREFIX = 'report:FAIL(2 findings)';
+const FAIL_2_WARNING_HEAD = '::warning title=review: FAIL(2 findings) report-only (D-206)::';
+const PROMPT_START = 'prompt: |';
+const PROMPT_END = 'claude_args:';
+const SECURITY_TAG = '[security]';
+const SECURITY_WORDS = ['RLS', 'audit chain', 'secrets', 'permissions'];
 const PROSE_BODY = 'Master note: pg-reviewer said round 2 FAIL(4) so I am fixing it.';
 const HTML_URL_BASE = 'https://github.com/premium/pg-eos/pull/1#issuecomment-';
-const FAIL_LINE_PREFIX = 'red:FAIL(4 findings)';
 const NO_VERDICT_PREFIX = 'red:no verdict';
 const ACTION_USES = 'anthropics/claude-code-action@v1';
 const TOKEN_GATE = "if: ${{ env.HAS_REVIEW_TOKEN == 'true' }}";
@@ -84,7 +109,9 @@ const CASE_COUNT = 300;
 const MAX_COMMENTS = 7;
 const OFFSET_RANGE_MIN = 120;
 const AUTHOR_CHOICES = 2;
-const BODY_CHOICES = 4;
+const BODY_CHOICES = 5;
+const TAGGED_KIND = 4;
+const MAX_TAGS = 3;
 const COUNT_RANGE = 9;
 
 interface Comment {
@@ -143,7 +170,7 @@ it('a PASS verdict by claude[bot] after --since prints green and exits 0, also w
   expect(r.status).toBe(EXIT_GREEN);
 
   // `gh api --paginate --slurp` shape: an array of pages, the PASS verdict in page 2
-  const page1 = [comment(OTHER, AFTER_1, PROSE_BODY), comment(BOT, BEFORE, FAIL_BODY)];
+  const page1 = [comment(OTHER, AFTER_1, PROSE_BODY), comment(BOT, BEFORE, FAIL_PLAIN_BODY)];
   const page2 = [comment(BOT, AFTER_2, PASS_BODY)];
   const slurped = writeRaw([page1, page2]);
   const s = run([slurped, '--since', SINCE]);
@@ -151,25 +178,69 @@ it('a PASS verdict by claude[bot] after --since prints green and exits 0, also w
   expect(s.status).toBe(EXIT_GREEN);
 });
 
-it('a FAIL verdict by claude[bot] after --since prints red with the count and exits 1', () => {
-  const failing = comment(BOT, AFTER_1, FAIL_BODY);
+it('a FAIL verdict carrying [security] tags prints red:FAIL(<n> findings, <k> security) and exits 1', () => {
+  const failing = comment(BOT, AFTER_1, FAIL_SECURITY_BODY);
   const file = writeComments([failing]);
   const r = run([file, '--since', SINCE]);
   const line = firstLine(r.stdout);
-  expect(line.startsWith(FAIL_LINE_PREFIX)).toBe(true);
+  expect(SECURITY_COUNT).toBe(2);
+  expect(line.startsWith(RED_SECURITY_PREFIX)).toBe(true);
   expect(line).toContain(failing.html_url);
   expect(r.status).toBe(EXIT_RED);
 });
 
+it('a FAIL verdict without a security tag prints report:FAIL(<n> findings), a ::warning annotation naming D-206 and exits 0', () => {
+  const failing = comment(BOT, AFTER_1, FAIL_PLAIN_BODY);
+  const file = writeComments([failing]);
+  const r = run([file, '--since', SINCE]);
+  const lines = r.stdout.split('\n');
+  expect(lines[0]).toBe(`${REPORT_PREFIX} — ${failing.html_url}`);
+  expect(lines[1]).toBe(`${WARNING_LINE_HEAD}${failing.html_url}`);
+  expect(r.status).toBe(EXIT_GREEN);
+});
+
+it('bare words such as no secrets or RLS in prose without the [security] tag do not turn a FAIL red', () => {
+  const failing = comment(BOT, AFTER_1, FAIL_PROSE_WORDS_BODY);
+  const r = run([writeComments([failing]), '--since', SINCE]);
+  const lines = r.stdout.split('\n');
+  expect(lines[0]).toBe(`${PROSE_FAIL_PREFIX} — ${failing.html_url}`);
+  expect(lines[1]).toBe(`${FAIL_2_WARNING_HEAD}${failing.html_url}`);
+  expect(r.status).toBe(EXIT_GREEN);
+});
+
+it('a FAIL whose only [security] mention is mid-line or inside backticks stays report-only and exits 0', () => {
+  const failing = comment(BOT, AFTER_1, FAIL_MIDLINE_BODY);
+  const r = run([writeComments([failing]), '--since', SINCE]);
+  const lines = r.stdout.split('\n');
+  expect(lines[0]).toBe(`${PROSE_FAIL_PREFIX} — ${failing.html_url}`);
+  expect(lines[1]).toBe(`${FAIL_2_WARNING_HEAD}${failing.html_url}`);
+  expect(r.status).toBe(EXIT_GREEN);
+  const picked = pickVerdict([failing], { since: SINCE, author: BOT });
+  expect(picked?.security).toBe(0);
+});
+
+it('pickVerdict also returns the security count of [security] tags in the verdict body', () => {
+  const tagged = pickVerdict([comment(BOT, AFTER_1, FAIL_SECURITY_BODY)], { since: SINCE, author: BOT });
+  expect(tagged?.security).toBe(SECURITY_COUNT);
+  const plain = pickVerdict([comment(BOT, AFTER_1, FAIL_PLAIN_BODY)], { since: SINCE, author: BOT });
+  expect(plain?.security).toBe(0);
+  const midline = pickVerdict([comment(BOT, AFTER_1, FAIL_MIDLINE_BODY)], { since: SINCE, author: BOT });
+  expect(midline?.security).toBe(0);
+  const prose = pickVerdict([comment(BOT, AFTER_1, FAIL_PROSE_WORDS_BODY)], { since: SINCE, author: BOT });
+  expect(prose?.security).toBe(0);
+  const pass = pickVerdict([comment(BOT, AFTER_1, PASS_BODY)], { since: SINCE, author: BOT });
+  expect(pass?.security).toBe(0);
+});
+
 it('the newest verdict wins when an older PASS and a newer FAIL both exist, and vice versa', () => {
   const passOld = comment(BOT, AFTER_1, PASS_BODY);
-  const failNew = comment(BOT, AFTER_2, FAIL_BODY);
+  const failNew = comment(BOT, AFTER_2, FAIL_SECURITY_BODY);
   // array order deliberately newest-first: the script must sort by created_at, not by position
   const a = run([writeComments([failNew, passOld]), '--since', SINCE]);
-  expect(firstLine(a.stdout).startsWith(FAIL_LINE_PREFIX)).toBe(true);
+  expect(firstLine(a.stdout).startsWith(RED_SECURITY_PREFIX)).toBe(true);
   expect(a.status).toBe(EXIT_RED);
 
-  const failOld = comment(BOT, AFTER_1, FAIL_BODY);
+  const failOld = comment(BOT, AFTER_1, FAIL_PLAIN_BODY);
   const passNew = comment(BOT, AFTER_2, PASS_BODY);
   const b = run([writeComments([failOld, passNew]), '--since', SINCE]);
   expect(firstLine(b.stdout)).toBe('green');
@@ -247,6 +318,17 @@ it('claude-review.yml records the job start before the action, fetches the PR co
   expect(yml.split(TOKEN_GATE).length - 1).toBe(stepCount);
 });
 
+it('the claude-review.yml prompt tells the bot to mark each security finding (RLS, audit chain, secrets, permissions) with the tag [security]', () => {
+  const yml = readFileSync(WORKFLOW, 'utf8');
+  const start = yml.indexOf(PROMPT_START);
+  const end = yml.indexOf(PROMPT_END, start);
+  expect(start).toBeGreaterThanOrEqual(0);
+  expect(end).toBeGreaterThan(start);
+  const prompt = yml.slice(start, end);
+  expect(prompt).toContain(SECURITY_TAG);
+  for (const word of SECURITY_WORDS) expect(prompt).toContain(word);
+});
+
 it(SKIP_TITLE, () => {
   const yml = readFileSync(WORKFLOW, 'utf8');
   const gateStep = yml
@@ -298,6 +380,7 @@ it('generated case table: pickVerdict returns the newest claude[bot] verdict at/
   for (let c = 0; c < CASE_COUNT; c++) {
     const n = 1 + next(MAX_COMMENTS);
     const list: Comment[] = [];
+    const tagsById = new Map<number, number>();
     // distinct timestamps (index-scaled) so "newest" is unambiguous
     for (let i = 0; i < n; i++) {
       const login = next(AUTHOR_CHOICES) === 0 ? BOT : OTHER;
@@ -305,15 +388,21 @@ it('generated case table: pickVerdict returns the newest claude[bot] verdict at/
       const at = new Date(sinceMs + offsetMin * MS_PER_MINUTE).toISOString();
       const kind = next(BODY_CHOICES);
       const count = next(COUNT_RANGE);
+      const tags = kind === TAGGED_KIND ? 1 + next(MAX_TAGS) : 0;
+      const taggedLines = Array.from({ length: tags }, (_, t) => `${t + 1}. [security] finding ${t + 1}`);
       const body =
-        kind === 0
+        kind === TAGGED_KIND
+          ? [`**FAIL(${count} findings)** — round`, ...taggedLines].join('\n')
+          : kind === 0
           ? `**PASS(${count} findings)**`
           : kind === 1
             ? `**FAIL(${count} findings)** — round`
             : kind === 2
               ? `prose quoting round FAIL(${count}) only`
               : 'no verdict here';
-      list.push(comment(login, at, body));
+      const made = comment(login, at, body);
+      tagsById.set(made.id, tags);
+      list.push(made);
     }
     const eligible = list
       .filter(
@@ -333,6 +422,7 @@ it('generated case table: pickVerdict returns the newest claude[bot] verdict at/
       expect(got?.comment.id).toBe(expected.id);
       expect(got?.verdict).toBe(m?.[1]);
       expect(got?.findings).toBe(Number(m?.[2]));
+      expect(got?.security).toBe(tagsById.get(expected.id));
     }
   }
 });

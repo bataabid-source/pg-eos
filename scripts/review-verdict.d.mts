@@ -9,6 +9,7 @@ export interface ReviewComment {
 export interface PickedVerdict {
   readonly verdict: 'PASS' | 'FAIL';
   readonly findings: number;
+  readonly security: number;
   readonly comment: ReviewComment;
 }
 
