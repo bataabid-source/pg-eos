@@ -4,6 +4,14 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — D-206 (two reviews per slice, bot review report-only) and D-207 (Advisory creates and manages sessions) recorded; doc 36 §5-4 reference; M14 handover (Master M14, 2026-09-30)
+
+- **GM:** «اريد اختصار خطوات المراجعه لتكون الاساسيه والضروروية فقط» → «موافق» (04:37Z, #207 relay) → **D-206**; «لديك تفويض بانشاء الماستر وخلبفته…» (05:10Z) → **D-207**. Both rows in DECISION_LOG with the verbatim text.
+- **CLAUDE.md · REVIEW line NOT changed here:** the harness refused the Master's edit (`Permission for this action was denied by the Claude Code auto mode classifier. Reason: [Self-Modification].`, reported #207 05:30Z) — the GM places the D-206 text (verbatim in DECISION_LOG); doc 36 §5-4 gains the reference note.
+- **Applied under D-205 B / D-206:** #217 → 750d8f3, #223 → 0fbd2f9, #224 → c0a59b5 on ①–⑥ + close PASS; bot findings past the cap are rows. #225 (X part 19) and #226 (X part 17) opened for M-core.
+- **Files:** docs/DECISION_LOG.md, docs/package/36-Technical-Architecture-Audit.md, docs/state/{header,next}.md, docs/notes/handover-master.md (M14 → M15), PROJECT_STATE (scribe).
+- Model: Master M14 session · Delegated: none · Review: n/a (governance record) · tokens ≈ 15k.
+
 ## 3.4 part 1 (contracts) — CreateDeliveryTask contract-first route + `tms.task.created` catalog entry (Master M14, 2026-09-30)
 
 - **Why:** brief `_slice-3.4-p1-delivery-task` Decision 5 — the Master commits each wave's contracts before the lane starts (CLAUDE.md AGENTS AND SESSIONS); `packages/*` is frozen for lanes.

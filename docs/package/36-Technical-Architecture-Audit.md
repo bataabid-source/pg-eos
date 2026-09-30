@@ -410,6 +410,8 @@ create table platform.feature_flags (
 
 ## 5-4 قائمة المراجعة البشرية — لكل شريحة
 
+> **D-206 (2026-09-30):** two reviews per slice — PRE-BUILD (brief + RED tests + migration) and CLOSE — with one fix round each; the claude[bot] PR review is report-only and blocks a merge only on a security finding. The binding text is CLAUDE.md · REVIEW (placed by the GM); this checklist is what each pass checks.
+
 | # | يُفحص | الرافض |
 |---|---|---|
 | 1 | الاختبارات تُغطّي السيناريو **كاملاً** لا جزءاً منه | مراجع |

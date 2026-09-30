@@ -5,7 +5,7 @@ Phase: enablement week (Master + integration lane; build lanes frozen) → wave 
 Done so far: phase 0 closed · phase 1 done except 1.11 (BLOCKED D-178) · phase 2 warehouse 9/19 · golden slice 2.9 ACCEPTED.
 Pilot: Tier 0 = local Docker postgres:16 (D-129), seed 019 + synthetic data (D-127); doc 38 v4.7 (154 rows).
 Schema: 0001–0045 applied (0022 withdrawn; 0040/0041 lane 2; 0042–0044 lane M; 0045 lane 3, D-203); issued: 0046 (lane B, 3.4 part 1); next free 0047.
-Sessions: cloud Postgres via session-start.sh; PG_APP_USER required (ADR-0005 §7) · Master M14 · cap 7 (D-205 C) · D-205 B PR review cap.
+Sessions: cloud Postgres via session-start.sh; PG_APP_USER required (ADR-0005 §7) · Master M14 · cap 7 (D-205 C) · D-206 · D-207.
 Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewer (opus); bookkeeping by scripts/scribe.mjs (state, locks, CHANGELOG template).
 
 ## Lanes (tasks/LANE_LOCKS.md)
@@ -17,8 +17,8 @@ Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewe
 - lane B · tms · 3.4 · since 2026-09-30
 
 ## Last 5 feat/fix commits (git log)
+- `c0a59b5` feat(3.4): CreateDeliveryTask contract-first route + tms.task.created catalog entry (part 1 contracts, Master) (#224)
 - `750d8f3` feat(X): Playwright webServer — apps/api host over TCP + PDA dev server, host/pda projects behind PG_EOS_E2E, CI ④ e2e step (X part 5e) (#217)
-- `d64138b` feat(3.4): CreateDeliveryTask contract-first route + tms.task.created catalog entry (part 1 contracts, Master)
 - `5ab04e6` feat(2.9): ledger writes the batch expiry, one expiry per batch at any location (D-204), S1 FEFO step (part 3) (#220)
 - `3be6d97` feat(X): S1/S2 call the host over HTTP — @pg-eos/api host, real sessions, X-Entity-Id, lifetime seed 0045 (X part 5d + part 2) (#175)
 - `6ad098a` feat(X): apps/api public entry — hostRoutesFrom, isHostResult, package exports (X part 5d part 2, item 1) (#216)
@@ -36,5 +36,5 @@ Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewe
 - Master batch (frozen paths): entityId on WithContextCtx; domain-kit browser break; eslint cwd bug; new-slice.sh stale citations.
 
 ## Next
-1. Weekly goal S1+S2+S18: Lane 1: 2.16 p3 (`pda`) → p2e · Lane B (D-205 C): 3.4 p1 (`tms`, 0046, contract on main) after X 19 · Integration: 2.18 · Lane 2: 4.3 p1.
-2. Queue (D-205 B): #217 → #209 → #218 → #221 after M-core merges main (99018e6+) · M-core: X part 19 (lane-db.sh B) → X 17 → X 16 p2.
+1. Weekly goal S1+S2+S18: Lane 1: 2.16 p3 (`pda`) → p2e · Lane B (D-205 C): 3.4 p1 (`tms`, 0046, contract c0a59b5) after #225 · Integration: 2.18 · Lane 2: 4.3 p1.
+2. Queue (D-206): #225 → #209 → #218 → #221 → #226 (M-core merges main after each) · M15: 4.3 p1 lock+brief, 2.9 p3 step-2 brief, D-199 · GM: CLAUDE.md lines.
