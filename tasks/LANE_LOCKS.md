@@ -13,6 +13,7 @@ History of claims and releases: `docs/CHANGELOG.md` · migration register and ne
 | wms | 1 | 2.9 | 2026-09-30 | ../pg-eos-lane-1 |
 | packages/contracts | M | X | 2026-09-30 | . |
 | packages/i18n | M | X | 2026-09-30 | . |
+| worker | M | X | 2026-09-30 | . |
 
 ## Rules (CLAUDE.md · AGENTS AND SESSIONS)
 
