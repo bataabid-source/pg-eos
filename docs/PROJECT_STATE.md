@@ -15,13 +15,14 @@ Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewe
 - lane M · api · X · since 2026-09-29
 - lane 1 · pda · 2.16 · since 2026-09-30
 - lane B · tms · 3.4 · since 2026-09-30
+- lane 2 · billing · 4.3 · since 2026-09-30
 
 ## Last 5 feat/fix commits (git log)
+- `7c43f0c` feat(2.16): PDA pick, check and load screens on XState v5, checker != picker refused on the screen, S1 scenario 2 PDA steps (part 3) (#227)
 - `c0a59b5` feat(3.4): CreateDeliveryTask contract-first route + tms.task.created catalog entry (part 1 contracts, Master) (#224)
 - `750d8f3` feat(X): Playwright webServer — apps/api host over TCP + PDA dev server, host/pda projects behind PG_EOS_E2E, CI ④ e2e step (X part 5e) (#217)
 - `5ab04e6` feat(2.9): ledger writes the batch expiry, one expiry per batch at any location (D-204), S1 FEFO step (part 3) (#220)
 - `3be6d97` feat(X): S1/S2 call the host over HTTP — @pg-eos/api host, real sessions, X-Entity-Id, lifetime seed 0045 (X part 5d + part 2) (#175)
-- `6ad098a` feat(X): apps/api public entry — hostRoutesFrom, isHostResult, package exports (X part 5d part 2, item 1) (#216)
 
 ## Blockers
 - G16: changed domain/ per PR, every module nightly (X part 6); G15 per STREAMS §G15 (green.json); G17 NOT RUNNABLE; deploy.sh waits on 0.6b.
@@ -32,7 +33,6 @@ Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewe
 - Lane backlog: 2.16 1a-3c/4b · 3.12 2b/2c-ii · 4.1a 2b · 4.1a p3 p2 · 4.1b p3 · 4.19 p2 · 3.12/3.13 polish · 2.9 p6 · X 5e p2 · X 18 p2 — MASTER_BACKLOG.
 - WBS 1.11 BLOCKED (D-178). close/0.6a-d166 (2 ahead/151 behind) and lane/3-3.13 (2 ahead) superseded, content on main — GM deletes them (D-193 D5).
 - Deep review (D-193): no HTTP host/worker (X part 5); G-16a lockout/IP → 2.16 1a-6 (AUTH-01); AUDIT-CHAIN-01 open; RLS-01 d1–3 G-01 → GM.
-- #217/#209/#218/#221 conflict with main after #220 (CHANGELOG/PROJECT_STATE): M-core merges main into them; the harness refuses Master pushes to core/*.
 - Master batch (frozen paths): entityId on WithContextCtx; domain-kit browser break; eslint cwd bug; new-slice.sh stale citations.
 
 ## Next

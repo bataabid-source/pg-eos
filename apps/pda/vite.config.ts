@@ -35,6 +35,8 @@ export default defineConfig({
   test: {
     include: ['tests/**/*.test.tsx', 'tests/**/*.test.ts'],
     environment: 'jsdom',
+    // WBS 2.16 part 2e — vitest replaces CSS imports with empty strings unless matched by test.css.include; tests/visual reads tokens.css with ?raw.
+    css: { include: [/tokens\.css/] },
     setupFiles: ['./src/test-setup.ts'],
   },
 });
