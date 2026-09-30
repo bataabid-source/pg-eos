@@ -4,14 +4,14 @@
 // (GM value D-203, verbatim «١٢» hours), same form as 0042 (`on conflict (key) do nothing`,
 // changed_by = the all-zero system user). This spec only READS; it never seeds or deletes the row.
 //
-// Deliberately NOT matched by playwright.config.ts testMatch (/S\d{1,2}\.spec\.ts$/), so the
-// scenarios verdict (scripts/scenarios-verdict.mjs, S1..S20) never sees it. Run with a config whose
-// testMatch names this file, e.g. `playwright test --config <cfg> migration-0045`.
+// Matched by playwright.config.ts testMatch (/migration-\d{4}\.spec\.ts$/). scenarios-verdict
+// ignores non-S specs, so this file gates nothing in CI ④ / G15; it is a manual / seed check.
+// Run: `playwright test migration-0045.spec.ts`.
+import { SESSION_LIFETIME_MINUTES_KEY } from '@pg-eos/identity-mechanisms';
 import { expect, test } from '@playwright/test';
 import type { Pool } from 'pg';
 import { createPool } from './fixtures/pool.js';
 
-const SESSION_LIFETIME_MINUTES_KEY = 'identity.session.lifetime_minutes';
 const EXPECTED_LIFETIME_MINUTES = 720; // D-203: 12 hours
 const EXPECTED_UNIT = 'minutes';
 const SYSTEM_SEED_CHANGED_BY = '00000000-0000-0000-0000-000000000000';
