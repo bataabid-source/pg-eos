@@ -17,11 +17,11 @@ Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewe
 - lane B · tms · 3.4 · since 2026-09-30
 
 ## Last 5 feat/fix commits (git log)
+- `d64138b` feat(3.4): CreateDeliveryTask contract-first route + tms.task.created catalog entry (part 1 contracts, Master)
 - `5ab04e6` feat(2.9): ledger writes the batch expiry, one expiry per batch at any location (D-204), S1 FEFO step (part 3) (#220)
 - `3be6d97` feat(X): S1/S2 call the host over HTTP — @pg-eos/api host, real sessions, X-Entity-Id, lifetime seed 0045 (X part 5d + part 2) (#175)
 - `6ad098a` feat(X): apps/api public entry — hostRoutesFrom, isHostResult, package exports (X part 5d part 2, item 1) (#216)
 - `aed737c` feat(4.20): posting engine — entry types, reversal/adjustment, balance at commit, posted immutable, migration 0041 (#214)
-- `66cfccc` feat(2.16): PDA receive + put-away screens on XState v5, S1's D4 steps (part 2) (#211)
 
 ## Blockers
 - G16: changed domain/ per PR, every module nightly (X part 6); G15 per STREAMS §G15 (green.json); G17 NOT RUNNABLE; deploy.sh waits on 0.6b.
