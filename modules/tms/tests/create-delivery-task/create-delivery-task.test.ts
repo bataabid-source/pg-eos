@@ -20,6 +20,7 @@
 //     StaleVersionError, OrderNotFoundError, AddressIncompleteError, OrderNotReadyError,
 //     DeliveryTaskAlreadyExistsError  (each `(message: string)`; the last three carry `i18nKey`).
 
+import { randomUUID } from 'node:crypto';
 import type { QueryResult } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -28,6 +29,7 @@ import { EntityScopeRequiredError } from '@pg-eos/db';
 import { CreateDeliveryTaskInputSchema } from '@pg-eos/contracts/tms/create-delivery-task';
 
 import { createDeliveryTask } from '../../application/create-delivery-task/index.js';
+import type { CreateDeliveryTaskDeps } from '../../application/create-delivery-task/ports.js';
 import { createCreateDeliveryTaskDeps } from '../../api/create-delivery-task/composition.js';
 import {
   AddressIncompleteError,
@@ -249,6 +251,63 @@ describe('optimistic lock and unknown order', () => {
       outboundOrderId: '00000000-0000-4000-8000-000000000000',
     });
     await expect(createDeliveryTask(fx.ctx(), input, deps)).rejects.toBeInstanceOf(OrderNotFoundError);
+  });
+});
+
+describe('cross-entity order fails closed', () => {
+  // Why a stubbed repository and not a DB path: through RLS an internal caller can never SEE another
+  // entity's order, so the real repo cannot reach `order.entityId !== callerEntityId`. The stub
+  // returns a ready, version-matching order of entity A while the caller resolves to entity B;
+  // withContext still opens a real transaction, but the stub issues no SQL and records every write call.
+  it('order.entityId differs from the caller entity -> OrderNotFoundError before any write (no doc_no, insert, link, audit)', async () => {
+    const orderEntityId = randomUUID();
+    const callerEntityId = randomUUID();
+    const orderId = randomUUID();
+    const expectedVersion = 1;
+    const calls: string[] = [];
+    const repo: CreateDeliveryTaskDeps['repo'] = {
+      getOrderForUpdate: async () => ({
+        id: orderId,
+        entityId: orderEntityId,
+        clientId: randomUUID(),
+        contractId: null,
+        status: 'checked',
+        version: expectedVersion,
+        deliveryTaskId: null,
+      }),
+      resolveCallerEntityId: async () => callerEntityId,
+      nextDocNo: async () => {
+        calls.push('nextDocNo');
+        return 'X';
+      },
+      insertDeliveryTask: async () => {
+        calls.push('insertDeliveryTask');
+        return { id: randomUUID() };
+      },
+      linkOrderToTask: async () => {
+        calls.push('linkOrderToTask');
+        return expectedVersion;
+      },
+      writeAuditRow: async () => {
+        calls.push('writeAuditRow');
+      },
+    };
+    const order = await fx.insertOrder('checked');
+    const correlationId = fx.nextCorrelationId();
+    const input = CreateDeliveryTaskInputSchema.parse(fx.body(order, { correlationId }));
+
+    await expect(
+      createDeliveryTask(fx.ctx(), { ...input, outboundOrderId: orderId, expectedVersion }, { ...deps, repo }),
+    ).rejects.toBeInstanceOf(OrderNotFoundError);
+
+    expect(calls).toEqual([]);
+    const outbox: QueryResult<{ n: string }> = await pool.query(
+      `select count(*)::text as n from platform.outbox where correlation_id = $1`,
+      [correlationId],
+    );
+    expect(Number((outbox.rows[0] as { n: string }).n)).toBe(0);
+    expect(await tasksOf(order.id)).toHaveLength(0);
+    expect((await orderRow(order.id)).delivery_task_id).toBeNull();
   });
 });
 

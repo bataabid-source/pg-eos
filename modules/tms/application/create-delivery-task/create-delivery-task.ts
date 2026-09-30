@@ -15,7 +15,12 @@
 import { withIdempotentContext, type IdempotencyInput, type WithContextCtx } from '@pg-eos/db';
 import { writeOutboxEvent, type CatalogedEventType } from '@pg-eos/events';
 
-import { MissingActorError, DeliveryTaskAlreadyExistsError, StaleVersionError } from '../../domain/create-delivery-task/errors.js';
+import {
+  MissingActorError,
+  DeliveryTaskAlreadyExistsError,
+  OrderNotFoundError,
+  StaleVersionError,
+} from '../../domain/create-delivery-task/errors.js';
 import { assertAddressComplete, assertOrderReadyForTask } from '../../domain/create-delivery-task/invariants.js';
 import { INITIAL_DELIVERY_TASK_STATUS, type DeliveryTaskStatus } from '../../domain/create-delivery-task/machine.js';
 import type { CreateDeliveryTaskDeps } from './ports.js';
@@ -77,6 +82,14 @@ export async function createDeliveryTask(
     }
 
     const entityId = await deps.repo.resolveCallerEntityId(tx);
+    // Fail closed: entity_scope RLS already limits internal callers to their one entity, but
+    // client_portal_scope lets a non-internal caller see an order in another entity; the task, its
+    // audit rows and the outbox event must never straddle two entities. Checked before any write.
+    if (order.entityId !== entityId) {
+      throw new OrderNotFoundError(
+        `outbound order ${order.id} is not in the caller's entity (allowed: an outbound order id visible in the caller's entity)`,
+      );
+    }
     const docNo = await deps.repo.nextDocNo(tx, entityId, TASK_DOC_TYPE);
 
     const columns = {
