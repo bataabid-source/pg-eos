@@ -21,11 +21,11 @@ Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewe
 - lane M · worker · X · since 2026-09-30
 
 ## Last 5 feat/fix commits (git log)
+- `550f75a` fix(X): nightly.yml per-job concurrency groups — a ⑦ workflow_dispatch never cancels the scheduled G16 mutation run (X part 20 part 2 item a)
 - `33e00e4` feat(X): check-master-reads — the Master's inline reads reported from the session transcript (X part 17 parts 2+3, D-210 item 4) (#231)
 - `e71d629` fix(X): scribe neutralizes the placeholder token quoted in a commit subject; resolve-hashes skips the generated commit list — gate ① green again (X 
 - `dbe347c` feat(X): lane-db.sh accepts the lane letters A/B/C — pgeos_laneB for lane B (X part 19, D-205 C) (#225)
 - `e600886` fix(X): resolve the stale <this-commit> placeholders left by the #227 and #229 squashes (resolve-hashes --write) so gate ① passes on every PR
-- `a635bec` feat(2.16): PDA visual layer — Tailwind on the shell, receive, put-away, login and home; touch targets >= 48 px, one step per screen, autofocused sc
 
 ## Blockers
 - G16: changed domain/ per PR, every module nightly (X part 6); G15 per STREAMS §G15 (green.json); G17 NOT RUNNABLE; deploy.sh waits on 0.6b.
