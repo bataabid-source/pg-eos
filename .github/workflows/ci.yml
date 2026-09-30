@@ -166,12 +166,12 @@ jobs:
         run: psql -v ON_ERROR_STOP=1 -c "alter system set log_min_messages = 'fatal'" -c "alter system set log_min_error_statement = 'panic'" -c "select pg_reload_conf()"
       # doc 40 Part E: "All 20 (S1-S20) must pass before any production deploy" — a gate on the
       # deploy pipeline, not on every commit; each S# spans modules that are built lane by lane.
-      # tests/scenarios' specs call the modules/wms (etc.) handlers in-process — no browser fixture
-      # yet, so no Chrome/Puppeteer step here (added with the first PDA screen's browser leg).
+      # S1-S20 call the handlers in-process until X part 5d lands (#175); the separate e2e step
+      # below boots the apps/api host and the PDA dev server and runs the host + pda projects.
       # Build @pg-eos/scenarios and its dependencies (modules/wms and the packages it needs) before
       # running it — the package itself has no `build` script, only its `dependencies` do.
       - name: Build @pg-eos/scenarios and its dependencies
-        run: pnpm exec turbo run build --filter=@pg-eos/scenarios... --output-logs=errors-only
+        run: pnpm exec turbo run build --filter=@pg-eos/scenarios... --filter=@pg-eos/api^... --filter=@pg-eos/pda^... --output-logs=errors-only
       # Playwright's own exit is not the gate: a scenario RED because its doc-38 rows are not built
       # yet is the build plan (docs/STREAMS.md §G15). scripts/scenarios-verdict.mjs fails the job only
       # when a scenario listed in tests/scenarios/green.json fails or goes missing (a regression);
@@ -181,6 +181,10 @@ jobs:
           pnpm -s test:scenarios --reporter=list || true
           pnpm -s test:scenarios --reporter=json > "$RUNNER_TEMP/scenarios-report.json" 2>/dev/null || true
           node scripts/scenarios-verdict.mjs "$RUNNER_TEMP/scenarios-report.json"
+      - name: Host + PDA over the wire (X part 5e — host and pda projects, blocking)
+        run: |
+          pnpm --filter @pg-eos/scenarios exec playwright install --with-deps chromium
+          PG_EOS_E2E=1 pnpm -s --filter @pg-eos/scenarios exec playwright test --project host --project pda --reporter=list
 
   guards:
     name: "⑤ guards (G1-G18)"
