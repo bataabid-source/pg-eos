@@ -13,6 +13,14 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 - **Review (pg-reviewer):** pre-build round 1 FAIL(6) → fix → round 2 FAIL(5: four on the RED files as they stood before pg-tester's update landed — review/update race —, one brief list) — REVIEW CAP; open RED items handed to pg-tester before close; close review round 1 FAIL(4 nits: stale cast/comment in the test, usage assertion, CHANGELOG placeholders, brief deletion) → fix round → round 2 PASS · escalation round 1 (GM 2026-09-30, self-edit never shown as PASS): close FAIL(3 nits) → fixed · escalation round 2 (D-206): pg-tester RED → pg-builder → close FAIL(3 nits: tag anchored to the line start, property table covers the tag count, this entry) → fixed in the same round.
 - **Verified:** `pnpm -s test:ops` 36/36 (x-part-18 13/13; D-206 round) · ops typecheck + `eslint scripts tests/ops` clean · `node --check` OK · YAML parses · check-locks OK · `review-verdict.mjs /nonexistent --since …` exits 2 with the usage line.
 - Model: opus (M-core session) · Delegated: pg-tester (sonnet ×6), pg-reviewer (opus ×5), pg-builder (sonnet ×2) · Review: PASS(4 findings, 2 rounds) + two escalation rounds FAIL(3 nits) each → fixed · tokens: pg-tester ≈ 200k · pg-reviewer ≈ 165k · pg-builder ≈ 110k
+## X — X part 19 part 2 — lane-db cases run the script instead of grepping its source (#225 nits) (M-core, 2026-09-30)
+
+- **Why:** claude[bot] on #225 (PASS(3 nits), D-206 report-only → backlog row): (1) two `tests/hooks` cases grepped `scripts/lane-db.sh`'s source (vacuous-test risk); (2) no blank line between the X part 19 CHANGELOG entry and the next heading; (3) the `X-p19.feature` steps did not say what the cases assert.
+- **Change:** the "usage lists A|B|C" case now runs `lane-db.sh 9` and reads the usage line from stderr; the "name derived" case runs a copy of the script in a fixture root with a stub `psql` that reports the database as existing (the script prints `target database 'pgeos_laneB'`, takes the "already exists" path, never reaches `createdb`/apply.sh, and writes the fixture's `infra/docker/.env`); the feature steps restated to match; the blank line added. `scripts/lane-db.sh` unchanged.
+- **Review (pg-reviewer, opus, D-206):** pre-build = the #225 bot verdict PASS(3 nits) that defines this slice (D-206 report-only → row); close PASS(2 nits: feature wording, this line — fixed in the same round).
+- **Verified:** `pnpm test:hooks` green (see the commit).
+- Model: M-core session · Delegated: pg-tester (sonnet ×2), pg-reviewer (opus ×1) · Review: PASS(5 findings, 2 rounds) · tokens: ≈ 45k
+
 ## X — X part 19 — lane-db.sh accepts the lane letters A/B/C (M-core, 2026-09-30)
 
 - **Why:** row 382 (D-205 C, #222 review finding 2) — `scripts/lane-db.sh` accepted only `1|2|3`, so lane B (3.4 part 1) would have needed a hand-typed `createdb` instead of the required script.
@@ -21,6 +29,7 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 - **Verified live:** `bash scripts/lane-db.sh B` on the session's Postgres created and applied `pgeos_laneB` (CREATE only, never dropped); `pnpm test:hooks` 210/210 · `bash -n` clean. Side effect of the live run: `infra/docker/.env` (git-ignored) now names `pgeos_laneB` in this worktree only.
 - **Review (pg-reviewer, opus, D-206 two reviews):** pre-build PASS(3 nits: positive "accepted" check, exit-2-with-usage, feature wording — fixed in the same round) · close PASS(2 nits: header wording/wrap — fixed in the same round).
 - Model: M-core session · Delegated: pg-tester (sonnet ×2), pg-builder (sonnet), pg-reviewer (opus ×2) · Review: PASS(5 findings, 2 rounds) · tokens: pg-tester ≈ 40k · pg-builder ≈ 20k · pg-reviewer ≈ 35k
+
 ## 2.16 part 2e — PDA visual layer: Tailwind on the shell + receive, put-away, login, home (lane 1, 2026-09-30)
 
 - **Why:** doc 40 §D4 (one step per screen, scan is the input, error with sound+vibration and the next action) + GM «موافق» 2026-09-29 17:50Z (shadcn/Tailwind scope, touch targets ≥ 48 px); EXECUTION-MASTER-v4 L624 RTL/LTR.
