@@ -4,6 +4,12 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — rows 3.4 part 1b, X part 26, X part 27; 4.3 part 1a grants scope; #244 hashes resolved (Master M15, 2026-09-30)
+
+- **Why:** records owed from #243/#244 and the #207 15:2xZ rulings; the two `<this commit>` placeholders #244 left on main would turn gate ① red on every PR.
+- **Files:** `tasks/MASTER_BACKLOG.md` — 3.4 part 1b (lane B i18nKeys), X part 26 (M-core `tms.task.create.*` keys + brief prefix `PDL-TSK-` per seed 019), X part 27 (native review of five translations), 4.3 part 1a text + `pgeos_worker` minimum grants (D-212 item 2); X part 23 / X part 21 part 2 → `cee9f23` · PROJECT_STATE.
+- **Review:** records-only. Model: Master M15 session · Delegated: none · tokens ≈ 8k.
+
 ## X — X part 23 — `wms.json` in the six locales: the quarantine-decision title key for 2.9 part 3 step 2 (M-core `packages/i18n`, 2026-09-30)
 
 - **Why:** the QRT slice (lane 1, brief `_slice-2.9-p3-s2-qrt-quarantine`) loads `wms.receiveInbound.quarantineDecision.title` eagerly at boot from `packages/i18n/ar/wms.json` (4.19 precedent `loadReopenDecisionTitleAr`, ece7423) and STOPs while the key is absent; `packages/i18n` is frozen for lanes → M-core row X part 23 (Master 11:32Z).
