@@ -13,6 +13,24 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 - **Review (pg-reviewer, opus, D-206):** pre-build + close — see the trailer.
 - **Verified:** `pnpm test:hooks` 205/205 · check-setup: 4 agents, no `inherit`.
 - Model: M-core session · Delegated: pg-tester (sonnet), pg-builder (sonnet), pg-reviewer (opus ×2) · Review: PASS(2 findings, 2 rounds) · tokens: pg-tester ≈ 18k · pg-builder ≈ 12k · pg-reviewer ≈ 30k
+## 3.4 part 1 (contracts) — CreateDeliveryTask contract-first route + `tms.task.created` catalog entry (Master M14, 2026-09-30)
+
+- **Why:** brief `_slice-3.4-p1-delivery-task` Decision 5 — the Master commits each wave's contracts before the lane starts (CLAUDE.md AGENTS AND SESSIONS); `packages/*` is frozen for lanes.
+- **Change:** `packages/contracts/tms/create-delivery-task.ts` (`CreateDeliveryTaskInputSchema` per Decision 4: outboundOrderId, expectedVersion, recipientName/Phone, area, block, street required non-empty — INV-C4-2 doc 40 l.274 —, optional building/addressText/governorate, correlationId; `POST /tms/create-delivery-task/create-delivery-task`, Idempotency-Key, `contractFirst: true`, 200 + write errors) · registered in `routes.ts` + `package.json` exports · `tms.task.created` in `packages/events/catalog.ts` · listed in `apps/api/src/route-table.ts` UNIMPLEMENTED_ROUTES (501 until lane B mounts it) · `openapi.json` regenerated (`generate:openapi`).
+- **Tests (pg-tester, census only):** contracts `routes.test.ts` 79 POST / 83 total; api `route-table.unit.test.ts` 83 total, 5 unimplemented. contracts 239/239 · events 29/29 · api 24/24 · typecheck + eslint clean.
+- **Review:** pg-reviewer PASS(0 findings, 1 round); claude[bot] on #224 round 1 FAIL(2 nits) → fix round: required strings `.trim().min(1)` (whitespace-only refused at the contract) and `tests/tms-create-delivery-task.test.ts` (pg-tester: schema cases + fast-check property on INV-C4-2, contracts 265/265).
+- **Defaults:** `contractFirst: true` (billing/post-journal precedent) · no result schema (the wms create routes return 200 with no body) · `route-table.ts` entry is the Master's ≤ 30-line direct edit under `api | M | X` (M-core informed on #207).
+- Model: Master M14 session · Delegated: pg-builder-core (opus), pg-tester (sonnet ×2), pg-reviewer (opus) · tokens ≈ 120k (subagents).
+
+## 2.18 — S1 expiry + FEFO steps green on 2.9 part 3 (integration lane 3)
+
+- **What:** `tests/scenarios/S1.spec.ts` compares `stock_balance.expiry_date::text` with the exact scenario-clock date (it compared a JS Date with a string). The 90-day and 200-day expiry steps and the FEFO step now pass on real values. QRT routing / quarantine_decision messages name their backlog rows; stale "deterministic via the expiry defect" text removed.
+- **Still RED (named):** S1 QRT routing, S1 quarantine_decision (owner 2.9 part 3, second step, to be briefed), OF-01/02/06/07 (4.3), PDL task (3.4).
+- **Defaults:** brief Decision 1 — each step turns green only on real values (exact `toBe` on the ISO date); no assertion weakened.
+- **Verified:** tsc/eslint clean; S1 twice on pgeos_lane3, identical, failing set = the named steps only.
+- **Files:** tests/scenarios/S1.spec.ts · docs/notes/handover-integration.md (live packet refreshed).
+- **Review:** close review pg-reviewer FAIL(1 blocking, 2 nits) → one fix round (owner wording, these fields, packet trimmed) → round 2 PASS(3 findings, 2 rounds).
+- Model: integration lane 3 session · Delegated: pg-tester (sonnet), pg-reviewer (opus) · tokens (reported subagent usage): pg-tester ≈ 27k, pg-reviewer ≈ 26k
 
 ## X — X part 5e — Playwright webServer (apps/api host over TCP + PDA dev server) and the first browser project (M-core, 2026-09-29)
 
