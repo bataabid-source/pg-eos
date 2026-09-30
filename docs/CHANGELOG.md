@@ -14,6 +14,22 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 - **Review record (one version — #209 round-2 finding 3):** pre-build 2 rounds (FAIL(11) → PASS(4)) + close 1 round (PASS(1)) = 3 rounds, 16 findings, all fixed → `Review: PASS(16 findings, 3 rounds)` in the commit trailer (4b17ae3), the PR body, this entry and the Master's squash trailer; the PR-level rounds (round 1 FAIL(2) → fix → round 2 FAIL(4), REVIEW CAP) are recorded above and are not counted in the slice trailer; open items → row `X part 16 part 2`.
 - **Verified:** CI unset: tests/ops x-part-16 + x-part-6 14/14, tests/hooks 202/202; CI=true 14/14; fresh `pgeos_x16` local `pnpm guards:run` exit 0 in 39 s, no Stryker, G1–G15/G18 green, G16 SKIPPED, G17 not runnable.
 - Model: M-core session (opus) · Delegated: pg-tester (sonnet), pg-builder-core (opus), pg-reviewer (opus) · Review: PASS(16 findings, 3 rounds) — slice; PR #209 round 2 FAIL(4) → PASS subset (REVIEW CAP) · tokens: pg-tester ≈ 78k · pg-builder-core ≈ 45k · pg-reviewer ≈ 110k
+## X — lock `billing | 2 | 4.3` claimed; brief 4.3 part 1 (WMS billable subscriber); SCR-WMS-QRT-01 filed (Master M15, 2026-09-30)
+
+- **Why:** GM in-session directive («موافق: نفّذ commit + push للـPR التنظيمي … لا تسألني مجددًا»): lane 2's next row locked and briefed on main (brief-ahead).
+- **Change:** `tasks/LANE_LOCKS.md` +1 row (scribe --claim) · `docs/notes/slice-briefs/_slice-4.3-p1-wms-billable-subscriber.brief.md` (pg-builder-core, no migration: `registerSubscriber` on `wms.outbound.checked` → four pending `billing.billable_events` rows through the 4.2 port; brief-check 8 files / 608 lines).
+- **SCR:** `docs/notes/SCR-WMS-QRT-01.md` — the 2.9 part 3 step 2 brief was withdrawn (`wms | 1 | 2.9` released): decision role/title and the hold rule have no source in 01 / 13 / 13B / 019 / 40 → G-01 questions for the GM.
+- **Review:** claude[bot] on #228 rounds 2–4 — fixed: decision ids, CHANGELOG, boundary (contract_id via the 4.2 port), duplicate handling; open for the GM: D-206/D-207 (ADR vs row), state/backlog bookkeeping (writes refused in-session).
+- Model: Master M15 session · Delegated: none · tokens ≈ 110k.
+
+## X — D-206 (two reviews per slice, bot review report-only) and D-207 (Advisory creates and manages sessions) recorded; doc 36 §5-4 reference; M14 handover (Master M14, 2026-09-30)
+
+- **GM:** «اريد اختصار خطوات المراجعه لتكون الاساسيه والضروروية فقط» → «موافق» (04:37Z, #207 relay) → **D-206**; «لديك تفويض بانشاء الماستر وخلبفته…» (05:10Z) → **D-207**. Both rows in DECISION_LOG with the verbatim text.
+- **CLAUDE.md · REVIEW line NOT changed here:** the harness refused the Master's edit (`Permission for this action was denied by the Claude Code auto mode classifier. Reason: [Self-Modification].`, reported #207 05:30Z) — the GM places the D-206 text (verbatim in DECISION_LOG); doc 36 §5-4 gains the reference note.
+- **Applied under D-205 B / D-206:** #217 → 750d8f3, #223 → 0fbd2f9, #224 → c0a59b5 on ①–⑥ + close PASS; bot findings past the cap are rows. #225 (X part 19) and #226 (X part 17) opened for M-core.
+- **Files:** docs/DECISION_LOG.md, docs/package/36-Technical-Architecture-Audit.md, docs/state/{header,next}.md, docs/notes/handover-master.md (M14 → M15), PROJECT_STATE (scribe).
+- **Review (claude[bot] on #228, round 1 FAIL(2) → fix round):** doc 36 note reworded "pending GM placement" (CLAUDE.md as written governs until the GM edit lands); handover wording neutral + the same governance note.
+- Model: Master M14 session · Delegated: none · Review: claude[bot] round 1 FAIL(2), fix round (this commit) · tokens ≈ 20k.
 ## X — X part 22 — a commit subject quoting `<this-commit>` no longer turns gate ① red through PROJECT_STATE (M-core, 2026-09-30)
 
 - **Why (Master M15 10:27Z, urgent):** commit `e600886` (#233) has a subject that quotes the angle-bracket placeholder token (the one with a space) verbatim; `scripts/scribe.mjs` copies the last five feat/fix subjects into `docs/PROJECT_STATE.md`, and `scripts/resolve-hashes.mjs --check` counts every line carrying that token as a placeholder, stale when its introducing commit is on the base ref and not HEAD → ① red on #228 (PROJECT_STATE:22), on every PR regenerating PROJECT_STATE, and on main at the next merge.

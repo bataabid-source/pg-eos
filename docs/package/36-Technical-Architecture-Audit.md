@@ -410,6 +410,8 @@ create table platform.feature_flags (
 
 ## 5-4 قائمة المراجعة البشرية — لكل شريحة
 
+> **D-206 (2026-09-30, pending GM placement in CLAUDE.md):** the GM decided two reviews per slice — PRE-BUILD (brief + RED tests + migration) and CLOSE — with one fix round each, the claude[bot] PR review report-only, a merge blocked only on a security finding (docs/DECISION_LOG.md D-206, verbatim). The binding text stays CLAUDE.md · REVIEW as written until the GM places the D-206 line there (the Master's edit was refused by the harness); this checklist is what each pass checks under either wording.
+
 | # | يُفحص | الرافض |
 |---|---|---|
 | 1 | الاختبارات تُغطّي السيناريو **كاملاً** لا جزءاً منه | مراجع |
