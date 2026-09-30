@@ -4,8 +4,8 @@ Plan: docs/STREAMS.md (ADR-0005, D-192) — scenario-driven streams A–F; DONE 
 Phase: enablement week (Master + integration lane; build lanes frozen) → wave 1 (A: 2.16→2.18 · B: 4.1b p2→4.19→4.20).
 Done so far: phase 0 closed · phase 1 done except 1.11 (BLOCKED D-178) · phase 2 warehouse 9/19 · golden slice 2.9 ACCEPTED.
 Pilot: Tier 0 = local Docker postgres:16 (D-129), seed 019 + synthetic data (D-127); doc 38 v4.7 (154 rows).
-Schema: 0001–0044 applied (0022 withdrawn; 0040/0041 lane 2, 4.19/4.20; 0042–0044 lane M); issued: 0045 (lane 3, D-203); next free 0046.
-Sessions: cloud Postgres from .claude/hooks/session-start.sh; PG_APP_USER required (ADR-0005 §7) · Master: M12, cap 5 (CLAUDE.md).
+Schema: 0001–0045 applied (0022 withdrawn; 0040/0041 lane 2; 0042–0044 lane M; 0045 lane 3, D-203); issued: 0046 (lane B, 3.4 part 1); next free 0047.
+Sessions: cloud Postgres via session-start.sh; PG_APP_USER required (ADR-0005 §7) · Master M14 · cap 7 (D-205 C) · D-205 B PR review cap.
 Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewer (opus); bookkeeping by scripts/scribe.mjs (state, locks, CHANGELOG template).
 
 ## Lanes (tasks/LANE_LOCKS.md)
@@ -13,26 +13,28 @@ Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewe
 - lane M · identity · 2.16 · since 2026-09-28
 - lane M · tooling · X · since 2026-09-29
 - lane M · api · X · since 2026-09-29
-- lane 1 · wms · 2.9 · since 2026-09-29
+- lane 1 · pda · 2.16 · since 2026-09-30
+- lane B · tms · 3.4 · since 2026-09-30
 
 ## Last 5 feat/fix commits (git log)
+- `5ab04e6` feat(2.9): ledger writes the batch expiry, one expiry per batch at any location (D-204), S1 FEFO step (part 3) (#220)
 - `3be6d97` feat(X): S1/S2 call the host over HTTP — @pg-eos/api host, real sessions, X-Entity-Id, lifetime seed 0045 (X part 5d + part 2) (#175)
 - `6ad098a` feat(X): apps/api public entry — hostRoutesFrom, isHostResult, package exports (X part 5d part 2, item 1) (#216)
 - `aed737c` feat(4.20): posting engine — entry types, reversal/adjustment, balance at commit, posted immutable, migration 0041 (#214)
 - `66cfccc` feat(2.16): PDA receive + put-away screens on XState v5, S1's D4 steps (part 2) (#211)
-- `3d32d63` feat(X): Playwright webServer — apps/api host over TCP + PDA dev server, host/pda projects behind PG_EOS_E2E, CI ④ e2e step (X part 5e)
 
 ## Blockers
 - G16: changed domain/ per PR, every module nightly (X part 6); G15 per STREAMS §G15 (green.json); G17 NOT RUNNABLE; deploy.sh waits on 0.6b.
 - S1–S20 2/20 present, 0/20 passed (S1/S2 RED on unbuilt rows); previous integration lane silent since 06:32Z — replaced after 5a merges (S18 + 5d).
 - Identity threshold test race under turbo (X part 3); superuser-role catalog test deferred (X part 2) — MASTER_BACKLOG.
 - Open G-01: G8 anchor (approved doc 31 v4.2/D-194, deferrable); imile entity_id/CHECKs/outbox; 2.15 space_reservations.qty CHECK; 3.1 shift_groups.vehicle_id.
-- INV-C4-1 DB-level enforcement on tms.delivery_tasks / tms.routes.vehicle_id required before 3.4 (stream B).
-- Lane backlog: 2.16 1a-3c/1a-4b (process) · 3.12 2b/2c-ii · 4.1a 2b · 4.1a p3 p2 · 4.1b p3 · 4.19 p2 · 3.12/3.13 polish · 2.9 part 2 (fix) — see MASTER_BACKLOG.
+- INV-C4-1 DB-level enforcement on tms.delivery_tasks / tms.routes.vehicle_id → 3.4 part 1 (lane B, migration 0046, D-205 C).
+- Lane backlog: 2.16 1a-3c/4b · 3.12 2b/2c-ii · 4.1a 2b · 4.1a p3 p2 · 4.1b p3 · 4.19 p2 · 3.12/3.13 polish · 2.9 p6 · X 5e p2 · X 18 p2 — MASTER_BACKLOG.
 - WBS 1.11 BLOCKED (D-178). close/0.6a-d166 (2 ahead/151 behind) and lane/3-3.13 (2 ahead) superseded, content on main — GM deletes them (D-193 D5).
 - Deep review (D-193): no HTTP host/worker (X part 5); G-16a lockout/IP → 2.16 1a-6 (AUTH-01); AUDIT-CHAIN-01 open; RLS-01 d1–3 G-01 → GM.
+- #217/#209/#218/#221 conflict with main after #220 (CHANGELOG/PROJECT_STATE): M-core merges main into them; the harness refuses Master pushes to core/*.
 - Master batch (frozen paths): entityId on WithContextCtx; domain-kit browser break; eslint cwd bug; new-slice.sh stale citations.
 
 ## Next
-1. Weekly goal S1+S2+S18 (GM 07:20Z): Lane 1: 2.9 p3 (lock `wms`) → 2.16 p3 → 2.16 p2e (`pda`) · Integration: X part 5d part 2 (#175, 0045), S1 to green.
-2. Lane 2: 4.20 PR open → 4.20 part 2 · M-core: X part 16 (#209) → X part 5 (api) → X part 17 → X part 18 · waiting: S9 p2, 1a-4c · 1a-9 BLOCKED → AUDIT-CHAIN-01.
+1. Weekly goal S1+S2+S18: Lane 1: 2.16 p3 (`pda`) → 2.16 p2e · Lane B (D-205 C): 3.4 p1 (`tms`, 0046) · Integration: 2.18 (S1) · Lane 2 successor: 4.3 p1.
+2. Master: 3.4 p1 contract + catalog entry (brief Decision 5) · queue (D-205 B): #217 → #209 → #218 → #221 after M-core merges main · M-core: X 17 → X 16 p2.
