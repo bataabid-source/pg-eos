@@ -83,7 +83,12 @@ import {
   VarianceReasonRequiredError,
   VariancePhotoWithoutVarianceError,
 } from '../../domain/receive-inbound/errors.js';
-import { InvalidQuantityError, LocationBlockedError, LocationLimitExceededError } from '../../src/stock-ledger/errors.js';
+import {
+  InvalidLedgerEntryError,
+  InvalidQuantityError,
+  LocationBlockedError,
+  LocationLimitExceededError,
+} from '../../src/stock-ledger/errors.js';
 // WBS 2.9b round-1 review finding 1: thrown by the extended approveInbound (D2's optional slot)
 // and cancelInbound (D3's mandatory cancelReason) — mapped alongside every other 422 below, same
 // as ../../api/schedule-inbound/handlers.ts's own error map.
@@ -133,6 +138,7 @@ function errorToApiFailure(error: unknown): ApiFailure {
     error instanceof RcvBalanceMissingError ||
     error instanceof MissingActorError ||
     error instanceof InvalidQuantityError ||
+    error instanceof InvalidLedgerEntryError ||
     error instanceof LocationLimitExceededError ||
     error instanceof LocationBlockedError ||
     // WBS 2.9b round-1 review finding 1.

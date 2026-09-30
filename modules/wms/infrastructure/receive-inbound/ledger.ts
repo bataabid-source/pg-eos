@@ -35,6 +35,7 @@ export const inboundLedgerPort: LedgerPort = {
         performedBy: actorId,
         refTable: REF_TABLE_INBOUND_ORDERS,
         refId: params.refId,
+        expiryDate: params.expiryDate ?? null,
       },
       actorId,
       deps,
