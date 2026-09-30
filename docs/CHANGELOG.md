@@ -4,6 +4,18 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — D-205 recorded (A/B/C), #220 merged under B, Lane 3 opened as lane B on 3.4 part 1 (migration 0046), lane 1 → `pda`, packets merged (Master M14, 2026-09-30)
+
+- **GM:** «موافق A.B.C» (20:31Z, #207, relayed) confirmed first-hand in the M14 session on 2026-09-30 («D-205 B مؤكَّد هنا … لا تسأل مجددًا — DEFAULT, RECORD, PROCEED») → **D-205** in DECISION_LOG (A permissions · B PR-level review cap · C third build lane, cap 7).
+- **Merges (B):** #220 → 5ab04e6 (2.9 part 3; claude[bot] rounds past the cap were process-only; budget ≈ 2.2× acknowledged, M13 21:05Z); #185 closed. #217/#209/#218/#221 conflict with main after #220 — M-core merges main into its branches (the harness refuses Master pushes to `core/*`), then squash in that order.
+- **Locks (scribe):** `wms | 1` released; `pda | 1 | 2.16` claimed (2.16 part 3 ACTIVE); `tms | B | 3.4` claimed — Lane 3 = lane letter **B** (default: 2.16 part 2e cannot leave `pda`; the only weekly-goal row outside `wms`/`billing` with deps done is 3.4 part 1, M13 21:30Z).
+- **Migration 0046** issued to lane B (3.4 part 1: INV-C4-1 DB guard on `tms.delivery_tasks`/`tms.routes.vehicle_id` + S1 delivery-task step), register + `tasks/backlog/MIGRATION-REQUEST-B.md`; next free 0047. Brief `_slice-3.4-p1-delivery-task.brief.md` (builder: pg-builder-core, brief-check OK).
+- **Rows:** 2.9 part 6 (#220 open items; 2.9 part 5 closed by 2f64a28) · 3.4 part 1 ACTIVE · X part 5e part 2 · X part 18 part 2 · X part 5d part 3 (thresholds.ts comments) · 4.3 status names it as the lane-2 successor's next row (default, WMS subscriber first).
+- **Packets:** `handover-lane-1.md` (dfb348f), `handover-lane-2.md` (4be9401), `handover-core.md` (d8ba710) added; `handover-master.md` rewritten for M14 (harness refusals recorded: push to another session's branch, hook bypass, merge-on-FAIL watchdog).
+- **Defaults recorded:** lane letter B for the third build lane (check-locks/scribe accept 1 2 3 A B C M; doc 38 lane column stays 1 for 3.4 — reassigned by D-205 C); the Master resolved #217's conflict locally but did not push it; #221 opened for M-core's `core/X-lanes-cap-4` at its request.
+- Files: DECISION_LOG, LANE_LOCKS, MASTER_BACKLOG, database/migrations/README.md, tasks/backlog/MIGRATION-REQUEST-B.md, docs/state/*, PROJECT_STATE (scribe), docs/notes/handover-*.md, docs/notes/slice-briefs/_slice-3.4-p1-delivery-task.brief.md.
+- Model: Master M14 session · Delegated: general-purpose subagent (brief draft) · Review: n/a (bookkeeping; claude[bot] on the PR) · tokens ≈ 60k.
+
 ## 2.9 part 3 — the ledger writes the batch expiry; one expiry per batch at any location (D-204), FEFO step of S1 (lane 1, 2026-09-29)
 
 - **What:** `post-movement.ts` writes `expiry_date` on `stock_movements` and `stock_balance` (insert; UPDATE `coalesce` keeps a recorded expiry, fills a null one); a different non-null expiry for the same (client, SKU, batch) at ANY location → `InvalidLedgerEntryError`, whole transaction rolled back (`lockBatchExpiry` + `assertBatchExpiryConsistent`, plain SELECT); put-away destination inherits the source expiry (2(d)); `expiryDate` through `ports.ts`/`ledger.ts`/`receive-line.ts`; handlers map the refusal to 422. Allocation untouched. Supersedes #185.
