@@ -528,6 +528,110 @@ expect "gitleaks clean → docs-only commit accepted"   0 "$(pcg 0)"
 expect "gitleaks finds a secret → refused"            1 "$(pcg 1)"
 expect "gitleaks not installed → warn, not refused"   0 "$(pcg none)"
 
+# ---- X-p17 (ADR-0007 addendum gates): agent-constraints copy · check-locks cap · auto-archive · strict merge step
+echo "X-p17 — agent-constraints copy"
+AC_BLOCK='AGENT CONSTRAINTS (copied verbatim into every agent file — gate ①)
+- No `any`, `@ts-ignore`, `eslint-disable`. Never weaken a test to pass it.
+- No if/switch for state transitions — XState. No magic numbers — constants.
+- No Math.random() / new Date() in domain/ — inject generator and clock.
+- Never fabricate a number, name or decision. Never soften a rule.'
+AC_D199='- No embedded UI strings — i18n (ar, en, hi, ur, bn, am); exception (D-199): the language selector box in apps/<app>/src/i18n/languages.ts.'
+AC_AGENTS="pg-tester pg-builder pg-builder-core pg-reviewer"
+ac_root() { # ac_root <name> <claude-block> <block for every agent>  → creates $TMP/<name>
+  local r="$TMP/$1" a; rm -rf "$r"; mkdir -p "$r/.claude/agents"
+  printf '# CLAUDE.md\n\nintro line\n\n%s\n\nafter the block\n' "$2" > "$r/CLAUDE.md"
+  for a in $AC_AGENTS; do printf -- '---\nname: %s\n---\n\nbody\n\n%s\n\ntail\n' "$a" "$3" > "$r/.claude/agents/$a.md"; done
+}
+ac() { bash "$REPO/scripts/check-agent-constraints.sh" --root "$TMP/$1" >/dev/null 2>&1; echo $?; }
+ac_root ac1 "$AC_BLOCK" "$AC_BLOCK"
+expect "X-p17: identical AGENT CONSTRAINTS blocks → 0"                    0 "$(ac ac1)"
+ac_root ac2 "$AC_BLOCK" "$AC_BLOCK"
+sed -i 's/Never soften a rule\./Never soften a rulf./' "$TMP/ac2/.claude/agents/pg-builder.md"
+expect "X-p17: one copy with one changed character → 1"                   1 "$(ac ac2)"
+ac_err() { bash "$REPO/scripts/check-agent-constraints.sh" --root "$TMP/$1" 2>&1 >/dev/null || true; }   # stderr only
+expect "X-p17: differing copy is named on stderr (pg-builder.md)"         0 "$(ac_err ac2 | grep 'pg-builder\.md' >/dev/null; echo $?)"
+ac_root ac3 "$AC_BLOCK" "$AC_BLOCK"
+printf -- '---\nname: pg-reviewer\n---\n\nbody without the block\n' > "$TMP/ac3/.claude/agents/pg-reviewer.md"
+expect "X-p17: one copy missing the block → 1"                            1 "$(ac ac3)"
+expect "X-p17: missing block: stderr names pg-reviewer.md"                0 "$(ac_err ac3 | grep 'pg-reviewer\.md' >/dev/null; echo $?)"
+ac_root ac4 "$AC_BLOCK" "$AC_BLOCK"
+printf '# CLAUDE.md\n\nno constraints here\n' > "$TMP/ac4/CLAUDE.md"
+expect "X-p17: CLAUDE.md without the block → 1"                           1 "$(ac ac4)"
+AC_BLOCK_D="$AC_BLOCK
+$AC_D199"
+ac_root ac5 "$AC_BLOCK_D" "$AC_BLOCK_D"
+expect "X-p17: D-199 exception line in CLAUDE.md and all four copies → 0" 0 "$(ac ac5)"
+ac_root ac6 "$AC_BLOCK_D" "$AC_BLOCK_D"
+printf -- '---\nname: pg-tester\n---\n\nbody\n\n%s\n\ntail\n' "$AC_BLOCK" > "$TMP/ac6/.claude/agents/pg-tester.md"
+expect "X-p17: D-199 line in CLAUDE.md, one copy without it → 1"          1 "$(ac ac6)"
+expect "X-p17: real repo: CLAUDE.md and the four agent copies identical"  0 "$(bash "$REPO/scripts/check-agent-constraints.sh" >/dev/null 2>&1; echo $?)"
+
+echo "X-p17 — check-locks max three lanes"
+printf '| module | lane | task | claimed_at | worktree |\n|---|---|---|---|---|\n| a | 1 | 2.11 | d | ../pg-eos-lane-1 |\n| b | 2 | 2.13 | d | ../pg-eos-lane-2 |\n| c | 3 | 3.14 | d | ../pg-eos-lane-3 |\n| e | A | 2.7 | d | ../pg-eos-lane-A |\n' > "$TMP/locks4.md"
+bash "$REPO/scripts/check-locks.sh" "$TMP/locks4.md" >/dev/null 2>"$TMP/locks4.err"; lk4=$?
+expect "X-p17: lanes 1,2,3 and A refused with 'max three lanes' on stderr" 0 "$([ "$lk4" = 1 ] && grep -q 'max three lanes' "$TMP/locks4.err"; echo $?)"
+expect "X-p17: lanes 1,2,3 plus a Master row accepted (M not counted)"    0 "$(cl '| a | 1 | 2.11 | d | ../pg-eos-lane-1 |\n| b | 2 | 2.13 | d | ../pg-eos-lane-2 |\n| c | 3 | 3.14 | d | ../pg-eos-lane-3 |\n| packages/db | M | 0.6a | d | claude-kit |')"
+
+echo "X-p17 — session-archive.sh"
+SA="$REPO/scripts/lib/session-archive.sh"
+sa() { ( . "$SA" 2>/dev/null && archive_decide "$@" 2>/dev/null ); }   # → prints archive|keep
+sa_code() { ( . "$SA" >/dev/null 2>&1 && archive_decide "$@" >/dev/null 2>&1 ); echo $?; }
+# archive_decide <acked> <merged> <open_pr> <idle_minutes> <tree_clean> <commits_ahead> <stash_count>
+expect "X-p17: constant ARCHIVE_IDLE_MINUTES=120 declared"                0 "$(grep -q '^ARCHIVE_IDLE_MINUTES=120$' "$SA" 2>/dev/null; echo $?)"
+expect "X-p17: acked → archive"                                           0 "$([ "$(sa 1 0 0 0 0 5 2)" = archive ]; echo $?)"
+expect "X-p17: merged → archive"                                          0 "$([ "$(sa 0 1 0 0 0 5 2)" = archive ]; echo $?)"
+expect "X-p17: acked with an open PR → archive"                           0 "$([ "$(sa 1 0 1 0 0 5 2)" = archive ]; echo $?)"
+expect "X-p17: idle 121, no PR, clean, pushed, nothing stashed → archive" 0 "$([ "$(sa 0 0 0 121 1 0 0)" = archive ]; echo $?)"
+expect "X-p17: idle 120 (not over the constant) → keep"                   0 "$([ "$(sa 0 0 0 120 1 0 0)" = keep ]; echo $?)"
+expect "X-p17: idle 121 clean pushed nothing stashed but an open PR → keep" 0 "$([ "$(sa 0 0 1 121 1 0 0)" = keep ]; echo $?)"
+expect "X-p17: idle 121 with a dirty tree → keep"                         0 "$([ "$(sa 0 0 0 121 0 0 0)" = keep ]; echo $?)"
+expect "X-p17: idle 121 with a commit ahead → keep"                       0 "$([ "$(sa 0 0 0 121 1 1 0)" = keep ]; echo $?)"
+expect "X-p17: idle 121 with a stash → keep"                              0 "$([ "$(sa 0 0 0 121 1 0 1)" = keep ]; echo $?)"
+expect "X-p17: non-numeric argument → exit 2"                             2 "$(sa_code 0 0 0 abc 1 0 0)"
+expect "X-p17: flag not 0|1 (acked=2) → exit 2"                          2 "$(sa_code 2 0 0 121 1 0 0)"
+expect "X-p17: missing argument → exit 2"                                 2 "$(sa_code 0 0 0 121)"
+# generated property table: seeded LCG, oracle computed inline from the stated rule
+LCG_SEED=20260930; LCG_A=1103515245; LCG_C=12345; LCG_M=2147483648; LCG_CASES=1000
+LCG_IDLE_RANGE=301; LCG_AHEAD_RANGE=4; LCG_STASH_RANGE=3; ORACLE_IDLE_LIMIT=120
+BOUND_LO=100; BOUND_SPAN=41          # every other case draws idle in 100..140 so 120/121 appear
+MIN_BRANCH_HITS=5; LCG_RARE=8        # acked/merged 1 in 8; tree clean 7 in 8 (bias toward the idle branches)
+sa_out="$( ( . "$SA" >/dev/null 2>&1 || { echo "MM=$LCG_CASES H_ACK=0 H_IDLE=0 H_PR=0 H_DIRTY=0 H_AHEAD=0 H_STASH=0 H_SHORT=0"; exit 0; }
+  s=$LCG_SEED; mm=0; hack=0; hidle=0; hpr=0; hdirty=0; hahead=0; hstash=0; hshort=0
+  next() { s=$(( (s * LCG_A + LCG_C) % LCG_M )); R=$(( s >> 8 )); }
+  for n in $(seq 1 "$LCG_CASES"); do
+    next; ak=$(( R % LCG_RARE == 0 )); next; mg=$(( R % LCG_RARE == 0 )); next; op=$(( R % 2 )); next; id=$(( R % LCG_IDLE_RANGE ))
+    [ $(( n % 2 )) = 0 ] && id=$(( BOUND_LO + R % BOUND_SPAN ))
+    next; cn=$(( R % LCG_RARE != 0 )); next; ah=$(( R % LCG_AHEAD_RANGE )); next; st=$(( R % LCG_STASH_RANGE ))
+    if [ "$ak" = 1 ] || [ "$mg" = 1 ]; then want=archive; hack=$((hack+1))
+    elif [ "$op" = 1 ]; then want=keep; hpr=$((hpr+1))
+    elif [ "$id" -le "$ORACLE_IDLE_LIMIT" ]; then want=keep; hshort=$((hshort+1))
+    elif [ "$cn" != 1 ]; then want=keep; hdirty=$((hdirty+1))
+    elif [ "$ah" != 0 ]; then want=keep; hahead=$((hahead+1))
+    elif [ "$st" != 0 ]; then want=keep; hstash=$((hstash+1))
+    else want=archive; hidle=$((hidle+1)); fi
+    got="$(archive_decide "$ak" "$mg" "$op" "$id" "$cn" "$ah" "$st" 2>/dev/null)"
+    [ "$got" = "$want" ] || mm=$((mm+1))
+  done
+  echo "MM=$mm H_ACK=$hack H_IDLE=$hidle H_PR=$hpr H_DIRTY=$hdirty H_AHEAD=$hahead H_STASH=$hstash H_SHORT=$hshort" ) )"
+sa_field() { printf '%s\n' "$sa_out" | tr ' ' '\n' | sed -n "s/^$1=//p"; }
+expect "X-p17: property table, $LCG_CASES seeded cases, 0 mismatches vs oracle" 0 "$([ "$(sa_field MM)" = 0 ]; echo $?)"
+for br in H_ACK H_IDLE H_PR H_DIRTY H_AHEAD H_STASH H_SHORT; do
+  expect "X-p17: property table drew branch $br at least $MIN_BRANCH_HITS times" 0 "$([ "$(sa_field $br)" -ge "$MIN_BRANCH_HITS" ] 2>/dev/null; echo $?)"
+done
+
+echo "X-p17 — merge-step.sh strict guards"
+MS="$TMP/ms"; mkdir -p "$MS/scripts"
+cp "$REPO/scripts/merge-step.sh" "$MS/scripts/merge-step.sh" 2>/dev/null
+printf '#!/usr/bin/env bash\nprintf "%%s" "${PG_GUARDS_STRICT:-unset}" > "%s/seen"\nexit "${STUB_EXIT:-0}"\n' "$MS" > "$MS/scripts/guards-run.sh"
+# scripts/guards-run.sh is what `pnpm guards:run` runs (package.json:18)
+ms_code() { rm -f "$MS/seen"; ( cd "$MS" && env -u PG_GUARDS_STRICT STUB_EXIT="$1" bash "$MS/scripts/merge-step.sh" >/dev/null 2>&1 ); echo $?; }
+ms_code 0 >/dev/null
+expect "X-p17: merge step runs guards-run.sh with PG_GUARDS_STRICT=1"     0 "$([ "$(cat "$MS/seen" 2>/dev/null)" = 1 ]; echo $?)"
+expect "X-p17: guards-run exit 0 → merge step exit 0"                     0 "$(ms_code 0)"
+expect "X-p17: guards-run exit 3 → merge step exits exactly 3 (stub ran)" 0 "$(c="$(ms_code 3)"; [ "$c" -eq 3 ] && [ -f "$MS/seen" ]; echo $?)"
+rm -f "$MS/seen"; ( cd "$MS" && PG_GUARDS_STRICT=0 STUB_EXIT=0 bash "$MS/scripts/merge-step.sh" >/dev/null 2>&1 )
+expect "X-p17: caller exporting PG_GUARDS_STRICT=0 → stub still sees 1"   0 "$([ "$(cat "$MS/seen" 2>/dev/null)" = 1 ]; echo $?)"
+expect "X-p17: merge-step.sh text carries PG_GUARDS_STRICT=1"             0 "$(grep -q 'PG_GUARDS_STRICT=1' "$REPO/scripts/merge-step.sh" 2>/dev/null; echo $?)"
 # ---- X-d208 (GM 2026-09-30): test scope rule in the agent files (M-core, tooling) -------------
 echo "agent files — TEST SCOPE (D-208)"
 TESTER="$REPO/.claude/agents/pg-tester.md"; REVIEWER="$REPO/.claude/agents/pg-reviewer.md"
