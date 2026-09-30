@@ -11,6 +11,40 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 - **Tests:** `tests/hooks/run.sh` — four distinct lanes accepted, five refused (new, pg-tester; RED first: the four-lane table exits 1 on main's script); three-lane acceptance is the existing "valid table OK" case (run.sh:166); the old "four lanes refused" case is replaced, being the opposite of D-205 C.
 - **Brief:** none filed — one-constant tooling change on a verbatim GM directive relayed on #207; recorded here instead (DEFAULT, RECORD).
 - Model: opus (M-core session) · Delegated: pg-tester (sonnet), pg-builder (sonnet), pg-reviewer (opus) · Review: PASS(3 findings, 1 round) — close FAIL(3 nits: directive timestamps, D-205 log row, tests wording) fixed in the same round · tokens: ≈ 40k
+## X — X part 20 part 2 (item a) — per-job `concurrency` groups in nightly.yml: a ⑦ dispatch never cancels the scheduled G16 run (M-core, 2026-09-30)
+
+- **Why:** #230 review (blocking regression) + Master directive #207 11:38Z: with the shared workflow-level `concurrency: nightly, cancel-in-progress: true`, a `workflow_dispatch` of ⑦ cancelled the scheduled mutation run.
+- **Change:** `.github/workflows/nightly.yml` — workflow-level block removed; job `mutation` → `group: nightly-mutation`, `cancel-in-progress: false`; job `image` → `group: nightly-image`, `cancel-in-progress: true`. Nothing else changes.
+- **Why `false` on mutation (pre-build finding 1):** nightly.yml has no dispatch input, so a dispatch runs BOTH jobs; job-level `true` on mutation would cancel the scheduled run inside its own group. With `false` the dispatched mutation job queues behind it.
+- **Tests:** `tests/ops/x-part-20.feature` third Scenario + `tests/ops/tests/x-part-20.test.ts` (no workflow-level block; per-job groups and booleans matched as separate keys, order-independent).
+- **Defaults recorded:** job-scoped `permissions` (second clause of the row) not done — top-level `contents: read` is already the minimum; stays OPEN · remedy (b) — a dispatch input + job `if:` so a ⑦ dispatch skips `mutation` (saves up to 180 min of queued mutation) — open question for the Master.
+- **Review:** pre-build FAIL(2: 1 blocking, 1 nit) → fix → PASS; close round 1 FAIL(1: guards evidence) → guards run → PASS. Files: nightly.yml, the two test files, this entry, backlog row, brief deleted. Tokens ≈ 60k.
+
+## X — X part 20 (item 1) — gate ⑦ image build leaves per-PR CI for nightly.yml (D-210 item 5, D-197) (M-core, 2026-09-30)
+
+- **Why / measurement (D-210 item 5, #207 06:15Z):** last 10 `pull_request` runs of ci.yml — wall ①–⑥ median 4.2 min (max 4.5; critical path ②③ in 7/9, ① in 2/9, `lint:boundaries` alone 1.9–3.6 min of ①), but run wall 13.4 min (max 14.3) because job ⑦ (arm64 image via QEMU 6.5–11 min) still ran on every PR although CLAUDE.md · Merge queue / ADR-0007 D-197 (CHANGELOG 2026-09-28) say ⑦ is nightly + workflow_dispatch only; turbo cache is off (`cache: false`). Approved as a recorded default by the Advisory (06:20Z): apply the existing rule.
+- **Change:** the `image` job moves verbatim (steps, env, `timeout-minutes: 45`, no `needs`) from `.github/workflows/ci.yml` to `.github/workflows/nightly.yml` (existing `schedule` + `workflow_dispatch`, `concurrency: nightly`); both headers updated. Expected per-PR wall ≈ 4.2 min (−69%); to be re-measured before items (2)–(4) (boundaries once per tree, ②③ concurrency / remote cache for build+typecheck only, shared Postgres image).
+- **Tests:** `tests/ops/x-part-20.feature` + `tests/ops/tests/x-part-20.test.ts` (ci.yml jobs = ①–⑥ only, no build-push/QEMU actions; nightly.yml carries ⑦ with its steps and env; triggers exactly schedule + workflow_dispatch; `mutation` pinned) · x-part-5c ⑦ scenario retargeted to nightly.yml, header assertion pins "⑦ … nightly" and no "live here".
+- **Defaults recorded:** the byte-identity check via `git show <SHA>` dropped (CI shallow checkout) — the step-level pins cover the move · PR opened by M-core (the Master is blocked by the permission classifier, #207 06:11Z; Advisory: non-draft, auto-merge D-209) · CLAUDE.md untouched (already states the rule).
+- **Review (pg-reviewer, opus, D-206):** pre-build PASS(5 nits: QEMU/build-push absence, exact trigger set, header pin, mutation pins, stale comment — fixed in the same round) · close FAIL(1 nit: `permissions: contents: read` carried over to nightly.yml) → fixed in the same round.
+- **Verified:** `pnpm -s test:ops` green · both workflows parse · pre-commit ①②.
+- Model: M-core session · Delegated: general-purpose measurer (opus), pg-tester (sonnet ×3), pg-builder (sonnet), pg-reviewer (opus ×2) · Review: PASS(6 findings, 2 rounds) · tokens: measurer ≈ 165k · pg-tester ≈ 75k · pg-builder ≈ 15k · pg-reviewer ≈ 55k
+## X — SCR-BILLING-SYSTEM-ACTOR-01 filed (pending GM); 0048 reserved for M-core; lock `worker | M | X`; rows 4.3 part 1a/1c, X part 24/25 (Master M15, 2026-09-30)
+
+- **Why:** lane 2 (4.3 part 1) stopped 11:26Z: no identity satisfies `entity_scope`/`audit_append` for an outbox subscriber. A privileged identity is not a slice-level default (#241 security findings), so the SCR is filed, not decided.
+- **SCR** `docs/notes/SCR-BILLING-SYSTEM-ACTOR-01.md`: service row + `user_entities` + a worker-role binding (the id resolves to no entities under `pgeos_app`); `user_type` is the GM's call. **0048** reserved for M-core under `identity` (0044 precedent), written after ratification.
+- **Files:** migrations README (0048 reserved, next free 0049) · LANE_LOCKS +`worker | M | X` (precedent `api | M | X`; apps/* frozen for lanes) · MASTER_BACKLOG rows 4.3 part 1a/1c (BLOCKED — GM), X part 24 (registerBillingSubscribers), X part 25 (frozen-path defects moved from the blockers line) · docs/state + PROJECT_STATE (40 lines).
+- **Review:** bot rounds 1–2; security findings fixed by withdrawing the default. Model: Master M15 session · Delegated: none · tokens ≈ 40k.
+
+## X — D-208 test-scope rule in the pg-tester and pg-reviewer agent files (M-core, 2026-09-30)
+
+- **Why:** GM directive 2026-09-30 05:22Z «موافق نفذ بشكل صارم» → D-208 (test scope, strict): property tests only on stock / money / security invariants, one assertion per rule at the lowest layer, scenarios assert only the doc 40 Part E step text. The GM named the pg-tester agent file (M-core, `tooling`) as the carrier and pg-reviewer as the enforcer.
+- **Change:** `.claude/agents/pg-tester.md` gains `TEST SCOPE (D-208)` with the rule verbatim (outside the AGENT CONSTRAINTS block, which stays byte-identical to CLAUDE.md — #226) · `.claude/agents/pg-reviewer.md` gains `PRE-BUILD BLOCKING (D-206, D-208)`: a duplicated test across layers or a property test outside the three scopes is a blocking pre-build finding.
+- **Tests:** `tests/hooks/X-d208.feature` + 6 pinning cases in `tests/hooks/run.sh` (CI gate ①, `grep -F` on the verbatim phrases and headings).
+- **Not here (Master/GM):** the CLAUDE.md TESTING line replacing "property tests on every invariant (fast-check)", the DECISION_LOG rows D-206/D-207/D-208 and doc 36 §5-4 (M14's docs(X)).
+- **Review (pg-reviewer, opus, D-206):** pre-build + close — see the trailer.
+- **Verified:** `pnpm test:hooks` 205/205 · check-setup: 4 agents, no `inherit`.
+- Model: M-core session · Delegated: pg-tester (sonnet), pg-builder (sonnet), pg-reviewer (opus ×2) · Review: PASS(2 findings, 2 rounds) · tokens: pg-tester ≈ 18k · pg-builder ≈ 12k · pg-reviewer ≈ 30k
 ## X — X part 17 part 2 + part 3 — `scripts/check-master-reads.sh`: the Master's inline reads reported from the session transcript (D-210 item 4) (M-core, 2026-09-30)
 
 - **Why:** D-210 item 4 (GM 05:41Z «موافق — نفذ بعمق وصرامه»): "Master reads nothing inline (D-201 enforced): PR bodies, packets, backlog and CHANGELOG are read only through subagents with ≤ 20-line returns; M-core adds `scripts/check-master-reads.sh`". A PreToolUse hook cannot tell the Master's own read from its subagent's read (same session, same hooks), so the check is a transcript-based report (design default posted on #207 06:57Z, unchallenged for an hour).
