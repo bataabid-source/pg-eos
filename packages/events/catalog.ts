@@ -134,5 +134,9 @@ export const EVENT_CATALOG = [
   'billing.journal_entry.posted',
   'billing.journal_entry.reversed',
   'billing.journal_entry.adjusted',
+  // WBS 3.4 part 1 (lane B, D-205 C): written once per CreateDeliveryTask, same transaction as the
+  // `tms.delivery_tasks` insert. Aggregate `tms.delivery_tasks`; name per doc 03 line 132 / doc 40 §B3.
+  // Added by the Master ahead of the publisher (packages/* is frozen).
+  'tms.task.created',
 ] as const;
 export type CatalogedEventType = (typeof EVENT_CATALOG)[number];
