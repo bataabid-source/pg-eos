@@ -4,7 +4,7 @@ Plan: docs/STREAMS.md (ADR-0005, D-192) — scenario-driven streams A–F; DONE 
 Phase: enablement week (Master + integration lane; build lanes frozen) → wave 1 (A: 2.16→2.18 · B: 4.1b p2→4.19→4.20).
 Done so far: phase 0 closed · phase 1 done except 1.11 (BLOCKED D-178) · phase 2 warehouse 9/19 · golden slice 2.9 ACCEPTED.
 Pilot: Tier 0 = local Docker postgres:16 (D-129), seed 019 + synthetic data (D-127); doc 38 v4.7 (154 rows).
-Schema: 0001–0046 applied (0022 withdrawn; 0046 lane B, 3.4 p1); issued 0047 (lane 1, D-211), 0048 reserved (M-core, GM ratification); next free 0049.
+Schema: 0001–0046 applied (0022 withdrawn; 0046 lane B, 3.4 p1); issued 0047 (lane 1, D-211), 0048 (M-core, D-212); next free 0049.
 Sessions: cloud Postgres via session-start.sh; PG_APP_USER required (ADR-0005 §7) · Master M15 · cap 7 (D-205 C) · D-206..D-211 (CLAUDE.md lines pending).
 Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewer (opus); bookkeeping by scripts/scribe.mjs (state, locks, CHANGELOG template).
 
@@ -21,20 +21,20 @@ Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewe
 - lane M · worker · X · since 2026-09-30
 
 ## Last 5 feat/fix commits (git log)
+- `d3241d5` feat(X): route table — the tms create-delivery-task route leaves UNIMPLEMENTED_ROUTES, opening gate ④ for #232 (X part 21, api)
 - `13a5ac0` feat(X): ADR-0007 addendum gates — agent-constraints copy check, auto-archive constant, strict merge step (X part 17) (#226)
 - `a4dbdda` feat(X): gate ⑦ image build leaves per-PR CI for nightly.yml + workflow_dispatch, per-job concurrency groups (X part 20 item 1 + part 2) (#230)
 - `391598d` fix(3.4): the cross-entity refusal runs first, so no other refusal reveals another entity's order (PR #232 review, RLS)
 - `33e00e4` feat(X): check-master-reads — the Master's inline reads reported from the session transcript (X part 17 parts 2+3, D-210 item 4) (#231)
-- `e71d629` fix(X): scribe neutralizes the placeholder token quoted in a commit subject; resolve-hashes skips the generated commit list — gate ① green again (X 
 
 ## Blockers
 - G16: changed domain/ per PR, every module nightly (X part 6); G15 per STREAMS §G15 (green.json); G17 NOT RUNNABLE; deploy.sh waits on 0.6b.
 - S1–S20 2/20 present, 0/20 passed (S1/S2 RED on unbuilt rows); previous integration lane silent since 06:32Z — replaced after 5a merges (S18 + 5d).
-- Open G-01: SCR-BILLING-SYSTEM-ACTOR-01 (lane 2 blocked, GM); G8 anchor (D-194); imile entity_id/CHECKs/outbox; 2.15 reservations.qty CHECK; 3.1 vehicle_id.
+- Open G-01: G8 anchor (D-194); imile entity_id/CHECKs/outbox; 2.15 reservations.qty CHECK; 3.1 vehicle_id.
 - Lane backlog: 2.16 1a-3c/4b · 3.12 2b/2c-ii · 4.1a 2b/p3 p2 · 4.1b p3 · 4.19 p2 · 3.12/3.13 polish · 2.9 p6 · X 5e p2 · X 18 p2 — MASTER_BACKLOG.
 - WBS 1.11 BLOCKED (D-178). close/0.6a-d166 (2 ahead/151 behind) and lane/3-3.13 (2 ahead) superseded, content on main — GM deletes them (D-193 D5).
 - Deep review (D-193): no HTTP host/worker (X part 5); G-16a lockout/IP → 2.16 1a-6 (AUTH-01); AUDIT-CHAIN-01 open; RLS-01 d1–3 G-01 → GM.
 
 ## Next
-1. Weekly goal S1+S2+S18: Lane 1: 2.9 p3 s2 (QRT, 0047) → 2.9 p6 · Lane 2: 4.3 p1 (blocked: SCR-BILLING-SYSTEM-ACTOR-01, GM) · Lane B: 3.4 p1 · Int: 2.18.
+1. Weekly goal S1+S2+S18: Lane 1: 2.9 p3 s2 (QRT, 0047) → 2.9 p6 · Lane 2: 4.3 p1 (after 0048, M-core, D-212) · Lane B: 3.4 p1 · Int: 2.18.
 2. Queue: #240 → #230 → #232 (0046, after #234's commit on lane B) → #226 → #221 → #209 → #218 · GM: CLAUDE.md lines (claude-md-pending.md).

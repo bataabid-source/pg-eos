@@ -13,6 +13,12 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 - **Review (pg-reviewer):** pre-build round 1 FAIL(9) → fix → round 2 PASS(2 nits, fixed); close round 1 FAIL(7: 2 blocking) → fix → round 2 PASS, R1-1 and R1-2 (DB CHECK) split to `3.4 part 2`; G16 tms 86.96%.
 - Model: lane B session · Delegated: pg-tester (sonnet), pg-builder-core (opus), pg-reviewer (opus) · Review: PASS(7 findings, 2 rounds) · tokens: pg-tester ≈ 247k, pg-builder-core ≈ 170k, pg-reviewer ≈ 222k (over the 300k D-210 budget: two review fix rounds).
 
+## X — D-212 recorded (system actor identity); SCR-BILLING-SYSTEM-ACTOR-01 closed; 0048 issued to M-core (Master M15, 2026-09-30)
+
+- **Why:** GM directive 13:35Z (#207, «موافق administration»): the SCR's three items approved, M-core writes 0048, the Master records D-212 and closes the SCR in one commit.
+- **Files:** `docs/DECISION_LOG.md` D-212 (verbatim items + execution) · `docs/notes/SCR-BILLING-SYSTEM-ACTOR-01.md` deleted · migrations README (0048 issued to M-core) · MASTER_BACKLOG 4.3 part 1a TODO (priority), 1c TODO, 4.3 part 1 waits on 1a · docs/state + PROJECT_STATE.
+- **Review:** records-only PR, squash on ①–⑥ green. Model: Master M15 session · Delegated: none · tokens ≈ 10k.
+
 ## X — X part 17 — ADR-0007 addendum gates: agent-constraints copy check, auto-archive constant, strict merge step (M-core, 2026-09-30)
 
 - **Why:** row 372 — the "copied verbatim into every agent file — gate ①" claim had no enforcing script (the four agent files carried an older 9-bullet block); D-198 (ب) auto-archive had no named constant/gate; the Master's merge step ran a non-strict `guards:run` since X part 16 (#209 finding 2, item 15).
