@@ -122,6 +122,34 @@ export interface OrderScheduleAndTermsUpdateResult {
   readonly labourCount: number | null;
 }
 
+/** WBS 2.9 part 3 step 2: wms.skus' shelf-life receipt columns (01:674, :677). */
+export interface SkuShelfLifeRule {
+  readonly trackExpiry: boolean;
+  readonly minRemainingLifeReceiptDays: number | null;
+}
+
+/** The computed facts a quarantine decision carries (platform.decisions.context — "الوقائع
+ *  المحسوبة — لا نص حر", 13B:445). */
+export interface QuarantineDecisionContext {
+  readonly orderId: string;
+  readonly lineId: string;
+  readonly skuId: string;
+  readonly batchNo: string;
+  readonly expiryDate: string;
+  readonly minRemainingLifeReceiptDays: number;
+  readonly remainingDays: number;
+  readonly qty: string;
+}
+
+export interface QuarantineDecisionInsert {
+  readonly entityId: string;
+  /** The order's client — the adapter reads its sales.accounts.name_ar for the title. */
+  readonly clientId: string;
+  readonly assignedRole: string;
+  readonly dueAt: Date;
+  readonly context: QuarantineDecisionContext;
+}
+
 /** Every DB statement the receive-inbound use case needs, as an interface — the port the
  *  application layer programs against. Implemented by
  *  ../../infrastructure/receive-inbound/repository.ts. */
@@ -192,6 +220,27 @@ export interface InboundOrderRepository {
     params: { readonly skuId: string; readonly qty: string; readonly warehouseId: string; readonly clientId: string },
   ): Promise<readonly SuggestLocationCandidateRow[]>;
   getSkuClientId(tx: NodePgDatabase, skuId: string): Promise<string>;
+  /** WBS 2.9 part 3 step 2 (D-211, Decision 1): the SKU's shelf-life receipt rule —
+   *  wms.skus.track_expiry and min_remaining_life_receipt_days (null = no minimum). */
+  getSkuShelfLifeRule(tx: NodePgDatabase, skuId: string): Promise<SkuShelfLifeRule>;
+  /** Decision 2: the first unblocked operational location of a quarantine zone of the warehouse —
+   *  the exact mirror of pickRcvLocation. */
+  pickQrtLocation(tx: NodePgDatabase, warehouseId: string): Promise<{ readonly id: string }>;
+  /** Decision 3: the step-1 approver role of the active 'quarantine_decision' approval chain
+   *  (seeded by migration 0047) — read as data, never a literal. Throws when the row is missing. */
+  getQuarantineChainRole(tx: NodePgDatabase): Promise<string>;
+  /** Decision 3: platform.thresholds 'wms.quarantine.decision_due_hours' — no default; throws when
+   *  the row is missing. */
+  getQuarantineDueHours(tx: NodePgDatabase): Promise<number>;
+  /** Decision 3: one open platform.decisions row (kind 'quarantine_decision', source
+   *  wms.inbound_orders / orderId). The adapter fills the i18n title template with the batch number
+   *  and the client's Arabic name. */
+  insertQuarantineDecision(tx: NodePgDatabase, params: QuarantineDecisionInsert): Promise<{ readonly id: string }>;
+  /** Decision 4a: true iff an OPEN quarantine decision exists for this order line. */
+  hasOpenQuarantineDecision(
+    tx: NodePgDatabase,
+    params: { readonly orderId: string; readonly lineId: string },
+  ): Promise<boolean>;
   hasRole(tx: NodePgDatabase, roleCode: string): Promise<boolean>;
   getDocumentTemplateId(tx: NodePgDatabase, templateCode: string): Promise<string>;
   nextDocNo(tx: NodePgDatabase, entityId: string, docType: string): Promise<string>;

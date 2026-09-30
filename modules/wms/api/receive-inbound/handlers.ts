@@ -76,6 +76,7 @@ import {
   LineNotFoundError,
   OrderNotFoundError,
   MissingActorError,
+  QuarantineDecisionOpenError,
   RcvBalanceMissingError,
   RoleRequiredError,
   SkuClientMismatchError,
@@ -149,7 +150,9 @@ function errorToApiFailure(error: unknown): ApiFailure {
     error instanceof InvalidLabourByError ||
     error instanceof InvalidLabourCountError ||
     error instanceof LogisticsTermsRequireExpectedAtError ||
-    error instanceof CancelReasonRequiredError
+    error instanceof CancelReasonRequiredError ||
+    // WBS 2.9 part 3 step 2 (D-211 §4): put-away of a batch held in quarantine.
+    error instanceof QuarantineDecisionOpenError
   ) {
     return problem(PROBLEM_STATUS.UNPROCESSABLE_ENTITY, error.name, error.message);
   }

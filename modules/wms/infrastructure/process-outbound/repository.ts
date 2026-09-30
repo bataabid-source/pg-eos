@@ -443,6 +443,7 @@ async function getSkuPickingPolicy(tx: NodePgDatabase, skuId: string): Promise<s
 
 const PICKING_POLICY_FEFO = 'FEFO';
 const PICKING_POLICY_LIFO = 'LIFO';
+const QUARANTINE_ZONE_TYPE = 'quarantine'; // WBS 2.9 part 3 step 2 (Decision 4b) — wms.zones.zone_type held out of allocation.
 
 async function getCandidateLots(
   tx: NodePgDatabase,
@@ -464,12 +465,16 @@ async function getCandidateLots(
   // query so the lock is scoped to `sb` alone, never the joined `wms.locations` rows. A second,
   // concurrent Allocate on the same lot(s) now blocks here until the first transaction commits,
   // instead of both reading the same stale `qty_available` and both reserving it.
+  // WBS 2.9 part 3 step 2 (D-211 §4, Decision 4b): a lot held on a quarantine-zone location is
+  // never a candidate (so never allocated, never picked).
   const result = await tx.execute<{ location_id: string; batch_no: string; qty_available: string }>(sql`
     select sb.location_id, sb.batch_no, sb.qty_available::text as qty_available
       from wms.stock_balance sb
       join wms.locations l on l.id = sb.location_id
+      join wms.zones z on z.id = l.zone_id
      where sb.client_id = ${params.clientId}::uuid and sb.sku_id = ${params.skuId}::uuid
        and l.warehouse_id = ${params.warehouseId}::uuid and sb.qty_available > 0
+       and z.zone_type <> ${QUARANTINE_ZONE_TYPE}
      order by ${orderBy}
      for update of sb
   `);
