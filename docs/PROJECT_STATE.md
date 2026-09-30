@@ -21,11 +21,11 @@ Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewe
 - lane M · worker · X · since 2026-09-30
 
 ## Last 5 feat/fix commits (git log)
+- `a4dbdda` feat(X): gate ⑦ image build leaves per-PR CI for nightly.yml + workflow_dispatch, per-job concurrency groups (X part 20 item 1 + part 2) (#230)
 - `391598d` fix(3.4): the cross-entity refusal runs first, so no other refusal reveals another entity's order (PR #232 review, RLS)
 - `33e00e4` feat(X): check-master-reads — the Master's inline reads reported from the session transcript (X part 17 parts 2+3, D-210 item 4) (#231)
 - `e71d629` fix(X): scribe neutralizes the placeholder token quoted in a commit subject; resolve-hashes skips the generated commit list — gate ① green again (X 
 - `e4c6506` fix(3.4): create-delivery-task fails closed when the order is not in the caller's entity (PR #232 review, RLS)
-- `dbe347c` feat(X): lane-db.sh accepts the lane letters A/B/C — pgeos_laneB for lane B (X part 19, D-205 C) (#225)
 
 ## Blockers
 - G16: changed domain/ per PR, every module nightly (X part 6); G15 per STREAMS §G15 (green.json); G17 NOT RUNNABLE; deploy.sh waits on 0.6b.
