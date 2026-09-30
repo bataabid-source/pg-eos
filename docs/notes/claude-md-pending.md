@@ -28,3 +28,6 @@ Property tests (fast-check) ONLY on invariants of stock (wms ledger/balances), m
 
 ## 6. From X part 17 (#226, M-core 04:57Z) — lines 19 and 28, TESTING append, Session-limits append
 See the #226 body / #207 04:57Z: the D-199 language-box exception on line 19 (same edit in the four agent files, one commit), `bash scripts/merge-step.sh` in the Merge-queue step, the local `guards:run` G16 note, and the auto-archive rule (`scripts/lib/session-archive.sh`, `ARCHIVE_IDLE_MINUTES = 120`).
+
+## 7. Lane-M lock scope (#241 review, Master M15 13:30Z)
+AGENTS AND SESSIONS, the M-core sentence: "built by M-core under its lane-M lock rows (`packages/<name>`, `tooling`)" → "(`packages/<name>`, `tooling`, and `apps/<name>` — `api`, `worker` — since apps/* is written by no lane)".

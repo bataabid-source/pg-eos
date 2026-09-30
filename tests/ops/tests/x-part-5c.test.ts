@@ -37,6 +37,8 @@ const DOCKERFILE = path.join(ROOT, 'apps', 'api', 'Dockerfile');
 const APPS_DIR = path.join(ROOT, 'apps');
 const DOCKERIGNORE = path.join(ROOT, '.dockerignore');
 const CI_WORKFLOW = path.join(ROOT, '.github', 'workflows', 'ci.yml');
+// X part 20: gate ⑦ moved from ci.yml to nightly.yml (CLAUDE.md · Merge queue).
+const NIGHTLY_WORKFLOW = path.join(ROOT, '.github', 'workflows', 'nightly.yml');
 const SET_ROLE_PASSWORDS_SCRIPT = path.join(ROOT, 'scripts', 'set-role-passwords.sh');
 
 // ---- named constants (CLAUDE.md: no magic numbers) --------------------------------------------
@@ -281,15 +283,17 @@ it('the build context leaves secrets and data out', () => {
 });
 
 it('gate ⑦ builds for linux/arm64, runs the stack once on amd64 and pushes nothing', () => {
-  // When .github/workflows/ci.yml is read
+  // When .github/workflows/nightly.yml is read
   expect(existsSync(CI_WORKFLOW)).toBe(true);
+  expect(existsSync(NIGHTLY_WORKFLOW)).toBe(true);
   const ciText = readFileSync(CI_WORKFLOW, 'utf8');
+  const nightlyText = readFileSync(NIGHTLY_WORKFLOW, 'utf8');
 
   // Then a job whose name starts with "⑦" exists with timeout-minutes set, uses
   // docker/setup-qemu-action@v3 and docker/setup-buildx-action@v3
   const sevenNameRegex = /name:\s*"⑦[^"]*"/;
-  expect(ciText.match(sevenNameRegex), 'a job name starting with "⑦" must exist').not.toBeNull();
-  const sevenJobText = extractJobText(ciText, sevenNameRegex);
+  expect(nightlyText.match(sevenNameRegex), 'a job name starting with "⑦" must exist in nightly.yml').not.toBeNull();
+  const sevenJobText = extractJobText(nightlyText, sevenNameRegex);
   expect(sevenJobText).toMatch(/timeout-minutes:\s*\d+/);
   expect(sevenJobText).toMatch(/docker\/setup-qemu-action@v3/);
   expect(sevenJobText).toMatch(/docker\/setup-buildx-action@v3/);
@@ -351,6 +355,9 @@ it('gate ⑦ builds for linux/arm64, runs the stack once on amd64 and pushes not
   const header = ciText.split('\njobs:')[0] ?? '';
   expect(header).not.toMatch(/gate ⑦[^\n]*(is not part of CI|not part of CI)/);
   expect(header).not.toMatch(/is the deploy pipeline, not CI/);
+  // And the ci.yml header says gate ⑦ runs nightly and no longer lives in ci.yml
+  expect(header).toMatch(/⑦[^\n]*nightly/);
+  expect(header).not.toMatch(/live here/);
 });
 
 describe('role passwords come from the host, never from the repository or a process list', () => {
