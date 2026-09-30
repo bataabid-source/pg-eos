@@ -4,8 +4,8 @@ Plan: docs/STREAMS.md (ADR-0005, D-192) — scenario-driven streams A–F; DONE 
 Phase: enablement week (Master + integration lane; build lanes frozen) → wave 1 (A: 2.16→2.18 · B: 4.1b p2→4.19→4.20).
 Done so far: phase 0 closed · phase 1 done except 1.11 (BLOCKED D-178) · phase 2 warehouse 9/19 · golden slice 2.9 ACCEPTED.
 Pilot: Tier 0 = local Docker postgres:16 (D-129), seed 019 + synthetic data (D-127); doc 38 v4.7 (154 rows).
-Schema: 0001–0045 applied (0022 withdrawn; 0040/0041 lane 2; 0042–0044 lane M; 0045 lane 3, D-203); issued: 0046 (lane B, 3.4 part 1); next free 0047.
-Sessions: cloud Postgres via session-start.sh; PG_APP_USER required (ADR-0005 §7) · Master M14 · cap 7 (D-205 C) · D-206 · D-207.
+Schema: 0001–0045 applied (0022 withdrawn); issued 0046 (lane B, 3.4 p1) and 0047 (lane 1, 2.9 p3 s2, D-211); next free 0048 (register: migrations/README).
+Sessions: cloud Postgres via session-start.sh; PG_APP_USER required (ADR-0005 §7) · Master M15 · cap 7 (D-205 C) · D-206..D-211 (CLAUDE.md lines pending).
 Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewer (opus); bookkeeping by scripts/scribe.mjs (state, locks, CHANGELOG template).
 
 ## Lanes (tasks/LANE_LOCKS.md)
@@ -13,28 +13,28 @@ Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewe
 - lane M · identity · 2.16 · since 2026-09-28
 - lane M · tooling · X · since 2026-09-29
 - lane M · api · X · since 2026-09-29
-- lane 1 · pda · 2.16 · since 2026-09-30
 - lane B · tms · 3.4 · since 2026-09-30
 - lane 2 · billing · 4.3 · since 2026-09-30
+- lane 1 · wms · 2.9 · since 2026-09-30
+- lane M · packages/contracts · X · since 2026-09-30
+- lane M · packages/i18n · X · since 2026-09-30
 
 ## Last 5 feat/fix commits (git log)
+- `e71d629` fix(X): scribe neutralizes the placeholder token quoted in a commit subject; resolve-hashes skips the generated commit list — gate ① green again (X 
 - `dbe347c` feat(X): lane-db.sh accepts the lane letters A/B/C — pgeos_laneB for lane B (X part 19, D-205 C) (#225)
 - `a76aad6` feat(X): route table — the tms create-delivery-task route leaves UNIMPLEMENTED_ROUTES, opening gate ④ for #232 (X part 21, api)
 - `e600886` fix(X): resolve the stale <this-commit> placeholders left by the #227 and #229 squashes (resolve-hashes --write) so gate ① passes on every PR
 - `a635bec` feat(2.16): PDA visual layer — Tailwind on the shell, receive, put-away, login and home; touch targets >= 48 px, one step per screen, autofocused sc
-- `7c43f0c` feat(2.16): PDA pick, check and load screens on XState v5, checker != picker refused on the screen, S1 scenario 2 PDA steps (part 3) (#227)
 
 ## Blockers
 - G16: changed domain/ per PR, every module nightly (X part 6); G15 per STREAMS §G15 (green.json); G17 NOT RUNNABLE; deploy.sh waits on 0.6b.
 - S1–S20 2/20 present, 0/20 passed (S1/S2 RED on unbuilt rows); previous integration lane silent since 06:32Z — replaced after 5a merges (S18 + 5d).
-- Identity threshold test race under turbo (X part 3); superuser-role catalog test deferred (X part 2) — MASTER_BACKLOG.
 - Open G-01: G8 anchor (approved doc 31 v4.2/D-194, deferrable); imile entity_id/CHECKs/outbox; 2.15 space_reservations.qty CHECK; 3.1 shift_groups.vehicle_id.
-- INV-C4-1 DB-level enforcement on tms.delivery_tasks / tms.routes.vehicle_id → 3.4 part 1 (lane B, migration 0046, D-205 C).
 - Lane backlog: 2.16 1a-3c/4b · 3.12 2b/2c-ii · 4.1a 2b · 4.1a p3 p2 · 4.1b p3 · 4.19 p2 · 3.12/3.13 polish · 2.9 p6 · X 5e p2 · X 18 p2 — MASTER_BACKLOG.
 - WBS 1.11 BLOCKED (D-178). close/0.6a-d166 (2 ahead/151 behind) and lane/3-3.13 (2 ahead) superseded, content on main — GM deletes them (D-193 D5).
 - Deep review (D-193): no HTTP host/worker (X part 5); G-16a lockout/IP → 2.16 1a-6 (AUTH-01); AUDIT-CHAIN-01 open; RLS-01 d1–3 G-01 → GM.
 - Master batch (frozen paths): entityId on WithContextCtx; domain-kit browser break; eslint cwd bug; new-slice.sh stale citations.
 
 ## Next
-1. Weekly goal S1+S2+S18: Lane 1: 2.16 p3 (`pda`) → p2e · Lane B (D-205 C): 3.4 p1 (`tms`, 0046, contract c0a59b5) after #225 · Integration: 2.18 · Lane 2: 4.3 p1.
-2. Queue (D-206): #225 → #209 → #218 → #221 → #226 (M-core merges main after each) · M15: 4.3 p1 lock+brief, 2.9 p3 step-2 brief, D-199 · GM: CLAUDE.md lines.
+1. Weekly goal S1+S2+S18: Lane 1: 2.9 p3 s2 (QRT, `wms`, 0047, D-211) → 2.9 p6 · Lane 2: 4.3 p1 (`billing`) · Lane B: 3.4 p1 (#232) → p2 · Integration: 2.18.
+2. Queue: tooling hotfix (PROJECT_STATE placeholder text) → #230 → #231 → #232 → #234 → #209 → #218 → #221 → #226 · GM: CLAUDE.md lines (claude-md-pending.md).
