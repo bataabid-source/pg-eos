@@ -1,0 +1,27 @@
+{
+  "$schema": "../../node_modules/@stryker-mutator/core/schema/stryker-schema.json",
+  "_comment": "Doc 40 Part F G16 / CLAUDE.md \u00b7 TESTING: mutation score on domain/ >= 75 %, run nightly (.github/workflows/nightly.yml) and by scripts/guards-run.sh via `pnpm mutation`. `plugins` is explicit: under pnpm, core's default `@stryker-mutator/*` glob only sees its own .pnpm siblings, never the runner. `concurrency: 1`: every module's tests share one database (ci.yml documents the 40P01 deadlock of parallel audit writes).",
+  "mutate": [
+    "domain/**/*.ts"
+  ],
+  "testRunner": "vitest",
+  "vitest": {
+    "configFile": "vitest.config.ts"
+  },
+  "coverageAnalysis": "perTest",
+  "reporters": [
+    "clear-text",
+    "progress"
+  ],
+  "thresholds": {
+    "high": 90,
+    "low": 75,
+    "break": 75
+  },
+  "tempDirName": ".stryker-tmp",
+  "incremental": false,
+  "plugins": [
+    "@stryker-mutator/vitest-runner"
+  ],
+  "concurrency": 1
+}

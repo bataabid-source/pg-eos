@@ -4,6 +4,15 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## 3.4 — INV-C4-1 vehicle guard + delivery_tasks.version (0046) and create-delivery-task (part 1, lane B) (2026-09-30)
+
+- **Why:** doc 40 l.273 INV-C4-1 (a vehicle with an expired document cannot be assigned) as a DB guard, and l.274 INV-C4-2; MASTER_BACKLOG row `3.4 part 1`, brief `_slice-3.4-p1-delivery-task` (D-205 C).
+- **Change:** migration `0046_B_delivery-tasks-version-vehicle-guard.sql`: security-definer `tms.guard_vehicle_assignable()` + `trg_guard_vehicle_assignable` on `tms.delivery_tasks`/`tms.routes` (23514 `inv_c4_1_vehicle_assignable`), `delivery_tasks.version` + G6 row · `modules/tms` from `new-slice.sh tms create-delivery-task` (domain errors/invariants/XState machine, application use case with outbox `tms.task.created` in the same tx, repository, handlers/composition) · README register · 96 tests (unit + integration), 100% domain coverage.
+- **Defaults recorded:** D-208 (GM, #207 05:22Z, verbatim): "Property tests (fast-check) ONLY on invariants of stock (wms ledger/balances), money (billing journals/amounts) and security (RLS, permissions, audit chain); every other rule gets an ordinary unit test." → `invariants.unit.test.ts` replaces the brief's (L28/L46) property test · check order in tx: INV-C4-2 → lock order → alreadyExists 409 → status ∉ {checked, packed, loaded} 422 → stale 409 · task entity = `platform.allowed_entities()` (exactly one, else `EntityScopeRequiredError` 422) · task id = DB `gen_random_uuid()` · `new-slice.sh` refused the existing Master contract: it ran with the contract moved aside and restored byte-identical; its `packages/contracts/tsconfig.json` edit reverted (frozen; dist still emitted via routes.ts).
+- **Routed (frozen paths / Master):** INV-C4-2 DB CHECK (close R1-2; added, then pulled: G14 red — address-less task fixtures in tests/isolation, tests/scenarios/fixtures/delivery.ts, modules/platform evaluate-alerts) → `3.4 part 2` · S1 cross-entity (PST order, PDL task; RLS hides the order) → `3.4 part 2` · `tms.task.create.*` locale entries (packages/i18n) · contracts tsconfig `tms/**` · contract comment "200 carries no body" · eslint.config.mjs cwd bug · counter prefix PDL-TSK- vs brief PCC-TSK-.
+- **Review (pg-reviewer):** pre-build round 1 FAIL(9) → fix → round 2 PASS(2 nits, fixed); close round 1 FAIL(7: 2 blocking) → fix → round 2 PASS, R1-1 and R1-2 (DB CHECK) split to `3.4 part 2`; G16 tms 86.96%.
+- Model: lane B session · Delegated: pg-tester (sonnet), pg-builder-core (opus), pg-reviewer (opus) · Review: PASS(7 findings, 2 rounds) · tokens: pg-tester ≈ 247k, pg-builder-core ≈ 170k, pg-reviewer ≈ 222k (over the 300k D-210 budget: two review fix rounds).
+
 ## X — D-212 recorded (system actor identity); SCR-BILLING-SYSTEM-ACTOR-01 closed; 0048 issued to M-core (Master M15, 2026-09-30)
 
 - **Why:** GM directive 13:35Z (#207, «موافق administration»): the SCR's three items approved, M-core writes 0048, the Master records D-212 and closes the SCR in one commit.
@@ -113,6 +122,15 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 - **Verified live:** `bash scripts/lane-db.sh B` on the session's Postgres created and applied `pgeos_laneB` (CREATE only, never dropped); `pnpm test:hooks` 210/210 · `bash -n` clean. Side effect of the live run: `infra/docker/.env` (git-ignored) now names `pgeos_laneB` in this worktree only.
 - **Review (pg-reviewer, opus, D-206 two reviews):** pre-build PASS(3 nits: positive "accepted" check, exit-2-with-usage, feature wording — fixed in the same round) · close PASS(2 nits: header wording/wrap — fixed in the same round).
 - Model: M-core session · Delegated: pg-tester (sonnet ×2), pg-builder (sonnet), pg-reviewer (opus ×2) · Review: PASS(5 findings, 2 rounds) · tokens: pg-tester ≈ 40k · pg-builder ≈ 20k · pg-reviewer ≈ 35k
+
+## X — route table: the tms create-delivery-task route leaves `UNIMPLEMENTED_ROUTES` (opens gate ④ for #232) (M-core `api`, 2026-09-30)
+
+- **Why:** Advisory 09:12Z item 2 / Master 09:20Z. Lane B's PR #232 (3.4 part 1) ships `modules/tms/api/create-delivery-task/{handlers,composition}.ts`, but `apps/api/src/route-table.ts` still listed the route as unimplemented, and `buildRouteTable` throws when a listed route's handler file exists — the api host could not start on that branch (④ red, 4 server tests red).
+- **Change:** the two lines leave `UNIMPLEMENTED_ROUTES` (2 entries left). `apps/api/tests/route-table.unit.test.ts`: 2 + 2 = 4 routes answer 501, 79 mounted; `toHaveLength(EXPECTED_UNIMPLEMENTED_ROUTES.length)` replaces the literal.
+- **Proof:** the patch applied to a detached checkout of `lane/B-3.4-p1` → `@pg-eos/api` tests 24/24; without it 4 red ("listed in UNIMPLEMENTED_ROUTES but … exists"). On main alone the table throws "no handlers file" at route-table.ts:204 until #232 lands — by design.
+- **Ordering (default recorded):** Lane B merges `origin/core/X-api-tms-route` into `lane/B-3.4-p1` (a git merge, not an `api` edit) so #232 goes green now; this PR carries rebase auto-merge and can only fire after #232 (migration 0046, manual, number order) and a main merge. Not in this slice: i18n keys `tms.task.create.*` (decided with #232's handler) and `packages/contracts/tsconfig.json` (`packages/contracts | M | X` lock row announced by the Master).
+- **Review (pg-reviewer, opus, D-206):** pre-build PASS(2 nits, brief wording — fixed) · close round 1 FAIL(1: Gherkin step still said 78) → fixed → round 2 PASS(0).
+- Model: M-core session · Delegated: pg-tester (sonnet), pg-builder (sonnet), pg-reviewer (opus ×2) · Review: PASS(1 findings, 2 rounds) · tokens: ≈ 60k
 
 ## 2.16 part 2e — PDA visual layer: Tailwind on the shell + receive, put-away, login, home (lane 1, 2026-09-30)
 
