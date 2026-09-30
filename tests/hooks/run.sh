@@ -369,6 +369,7 @@ expect "scribe: lanes + last commit rendered"        0 "$(cd "$SC" && grep -q 'l
 expect "scribe: hand edit refused"                   1 "$(cd "$SC" && echo 'manual' >> docs/PROJECT_STATE.md; sc_run --check)"
 expect "scribe: over-long source line refused"       1 "$(cd "$SC" && printf '%0200d\n' 0 > docs/state/next.md; sc_run --write)"
 expect "scribe: placeholder in source refused"       1 "$(cd "$SC" && printf 'n <this commit>\n' > docs/state/next.md; sc_run --write)"
+expect "scribe: placeholder text in a commit subject is escaped" 0 "$(cd "$SC" && printf 'n1\n' > docs/state/next.md && git commit -q --allow-empty -m 'fix(X): resolve the stale <this commit> placeholders' && node "$REPO/scripts/scribe.mjs" --write >/dev/null 2>&1 && grep -q 'stale <this-commit> placeholders' docs/PROJECT_STATE.md && ! grep -q '<this commit>' docs/PROJECT_STATE.md; echo $?)"
 
 echo "gov-ratio.sh"
 GR="$TMP/gr"; mkdir -p "$GR/scripts/lib"
