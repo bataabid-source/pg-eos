@@ -13,6 +13,8 @@
 // `login.code.submit`, `login.requestSent` (`{minutes}` param), `login.error.invalidCode`,
 // `login.error.requestFailed`, `login.success` — twenty-eight keys total.
 //
+// WBS 2.16 part 3 adds THIRTY keys (14 pick + 8 check + 8 load) — seventy-eight keys total.
+//
 // Fix round 2, finding 5: the "non-empty in every locale" check below now asserts directly
 // against each locale's own raw JSON module (never through `t()`, which silently falls back to
 // `ar` on a missing key and therefore cannot detect a key missing from a non-ar file), and the
@@ -87,12 +89,42 @@ const EXPECTED_KEYS = [
   'putaway.error.wrongLocation',
   'putaway.suggestion.unavailable',
   'putaway.retry',
+  'pick.line',
+  'pick.location.label',
+  'pick.qty.label',
+  'pick.reason.label',
+  'pick.submit',
+  'pick.picked',
+  'pick.refused.lineNotFound',
+  'pick.refused.lineAlreadyPicked',
+  'pick.refused.qtyExceedsReserved',
+  'pick.refused.lineNotReserved',
+  'pick.refused.varianceReasonRequired',
+  'pick.refused.invalidInput',
+  'pick.offline.retry',
+  'pick.error.unexpected',
+  'check.scan.label',
+  'check.submit',
+  'check.checked',
+  'check.refused.selfCheckNotAllowed',
+  'check.refused.orderNotFound',
+  'check.refused.invalidInput',
+  'check.offline.retry',
+  'check.error.unexpected',
+  'load.scan.label',
+  'load.submit',
+  'load.loaded',
+  'load.refused.orderNotPacked',
+  'load.refused.orderNotFound',
+  'load.refused.invalidInput',
+  'load.offline.retry',
+  'load.error.unexpected',
 ] as const;
 
-describe('PDA i18n — key set (Master decision 3, round-1 fix + part 1a-2 + part 1a-4 + part 2: forty-eight keys)', () => {
+describe('PDA i18n — key set (Master decision 3, round-1 fix + part 1a-2 + part 1a-4 + part 2 + part 3: seventy-eight keys)', () => {
   it('the ar.json fallback file declares exactly these keys (order-independent)', () => {
     expect(Object.keys(ar).sort()).toEqual([...EXPECTED_KEYS].sort());
-    expect(Object.keys(ar)).toHaveLength(48);
+    expect(Object.keys(ar)).toHaveLength(78);
   });
 
   it.each(SUPPORTED_LOCALES.filter((locale) => locale !== 'ar'))(
