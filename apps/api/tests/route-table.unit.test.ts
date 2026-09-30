@@ -36,6 +36,7 @@ const DEFAULT_MODULES_ROOT = new URL('../../../modules/', import.meta.url);
 const EXPECTED_UNIMPLEMENTED_ROUTES = [
   '/billing/dimensions/create-dimension-value',
   '/billing/dimensions/deactivate-dimension-value',
+  '/tms/create-delivery-task/create-delivery-task',
 ] as const;
 
 const EXPECTED_NOT_MOUNTED_ROUTES = [
@@ -43,10 +44,10 @@ const EXPECTED_NOT_MOUNTED_ROUTES = [
   '/identity/otp-login/verify-otp-code',
 ] as const;
 
-// Route counts fixed by the brief's "Facts the Master verified": 82 total (78 POST + 4 GET), 2 +
-// 2 = 4 answer 501, so 78 are mounted on a real handler (4.19 mounted its five routes, 4.20 its three).
-const EXPECTED_TOTAL_ROUTE_COUNT = 82;
-const EXPECTED_UNIMPLEMENTED_COUNT = 4;
+// Route counts fixed by the brief's "Facts the Master verified": 83 total (79 POST + 4 GET), 3 +
+// 2 = 5 answer 501, so 78 are mounted on a real handler (4.19 mounted its five routes, 4.20 its three).
+const EXPECTED_TOTAL_ROUTE_COUNT = 83;
+const EXPECTED_UNIMPLEMENTED_COUNT = 5;
 const EXPECTED_MOUNTED_COUNT = 78;
 
 // The GET route the HEAD-route assertion below probes (apps/api/features/x-part-5a.feature,
@@ -88,9 +89,9 @@ describe('Feature: X part 5a — one host serves every registered operation', ()
       expect(typeof entry.handler).toBe('function');
     }
 
-    // "the 501 entries are exactly the 2 UNIMPLEMENTED_ROUTES plus the 2
+    // "the 501 entries are exactly the 3 UNIMPLEMENTED_ROUTES plus the 2
     // NOT_MOUNTED_UNTIL_2_16_PART_1A_5 routes"
-    expect(UNIMPLEMENTED_ROUTES).toHaveLength(2);
+    expect(UNIMPLEMENTED_ROUTES).toHaveLength(3);
     expect([...UNIMPLEMENTED_ROUTES].sort()).toEqual([...EXPECTED_UNIMPLEMENTED_ROUTES].sort());
     expect(NOT_MOUNTED_UNTIL_2_16_PART_1A_5).toHaveLength(2);
     expect([...NOT_MOUNTED_UNTIL_2_16_PART_1A_5].sort()).toEqual([...EXPECTED_NOT_MOUNTED_ROUTES].sort());

@@ -94,6 +94,10 @@
       "types": "./dist/fleet/assert-vehicle-assignable.d.ts",
       "default": "./dist/fleet/assert-vehicle-assignable.js"
     },
+    "./tms/create-delivery-task": {
+      "types": "./dist/tms/create-delivery-task.d.ts",
+      "default": "./dist/tms/create-delivery-task.js"
+    },
     "./imile/assign-driver-id": {
       "types": "./dist/imile/assign-driver-id.d.ts",
       "default": "./dist/imile/assign-driver-id.js"

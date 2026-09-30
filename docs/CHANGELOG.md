@@ -4,6 +4,15 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## 3.4 part 1 (contracts) — CreateDeliveryTask contract-first route + `tms.task.created` catalog entry (Master M14, 2026-09-30)
+
+- **Why:** brief `_slice-3.4-p1-delivery-task` Decision 5 — the Master commits each wave's contracts before the lane starts (CLAUDE.md AGENTS AND SESSIONS); `packages/*` is frozen for lanes.
+- **Change:** `packages/contracts/tms/create-delivery-task.ts` (`CreateDeliveryTaskInputSchema` per Decision 4: outboundOrderId, expectedVersion, recipientName/Phone, area, block, street required non-empty — INV-C4-2 doc 40 l.274 —, optional building/addressText/governorate, correlationId; `POST /tms/create-delivery-task/create-delivery-task`, Idempotency-Key, `contractFirst: true`, 200 + write errors) · registered in `routes.ts` + `package.json` exports · `tms.task.created` in `packages/events/catalog.ts` · listed in `apps/api/src/route-table.ts` UNIMPLEMENTED_ROUTES (501 until lane B mounts it) · `openapi.json` regenerated (`generate:openapi`).
+- **Tests (pg-tester, census only):** contracts `routes.test.ts` 79 POST / 83 total; api `route-table.unit.test.ts` 83 total, 5 unimplemented. contracts 239/239 · events 29/29 · api 24/24 · typecheck + eslint clean.
+- **Review:** pg-reviewer PASS(0 findings, 1 round). Note for lane B: `min(1)` accepts whitespace — INV-C4-2's domain check and its property test must cover whitespace-only input.
+- **Defaults:** `contractFirst: true` (billing/post-journal precedent) · no result schema (the wms create routes return 200 with no body) · `route-table.ts` entry is the Master's ≤ 30-line direct edit under `api | M | X` (M-core informed on #207).
+- Model: Master M14 session · Delegated: pg-builder-core (opus), pg-tester (sonnet ×2), pg-reviewer (opus) · tokens ≈ 120k (subagents).
+
 ## X — D-205 recorded (A/B/C), #220 merged under B, Lane 3 opened as lane B on 3.4 part 1 (migration 0046), lane 1 → `pda`, packets merged (Master M14, 2026-09-30)
 
 - **GM:** «موافق A.B.C» (20:31Z, #207, relayed) confirmed first-hand in the M14 session on 2026-09-30 («D-205 B مؤكَّد هنا … لا تسأل مجددًا — DEFAULT, RECORD, PROCEED») → **D-205** in DECISION_LOG (A permissions · B PR-level review cap · C third build lane, cap 7).
