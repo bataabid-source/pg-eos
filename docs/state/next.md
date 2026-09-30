@@ -1,2 +1,2 @@
-Weekly goal S1+S2+S18 (GM 07:20Z): Lane 1: 2.9 p3 (lock `wms`) → 2.16 p3 → 2.16 p2e (`pda`) · Integration: X part 5d part 2 (#175, 0045), S1 to green.
-Lane 2: 4.20 PR open → 4.20 part 2 · M-core: X part 16 (#209) → X part 5 (api) → X part 17 → X part 18 · waiting: S9 p2, 1a-4c · 1a-9 BLOCKED → AUDIT-CHAIN-01.
+Weekly goal S1+S2+S18: Lane 1: 2.16 p3 (`pda`) → 2.16 p2e · Lane B (D-205 C): 3.4 p1 (`tms`, 0046) · Integration: 2.18 (S1) · Lane 2 successor: 4.3 p1.
+Master: 3.4 p1 contract + catalog entry (brief Decision 5) · queue (D-205 B): #217 → #209 → #218 → #221 after M-core merges main · M-core: X 17 → X 16 p2.
