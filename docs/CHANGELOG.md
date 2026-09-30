@@ -4,6 +4,16 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## 2.18 — S1 expiry + FEFO steps green on 2.9 part 3 (integration lane 3)
+
+- **What:** `tests/scenarios/S1.spec.ts` compares `stock_balance.expiry_date::text` with the exact scenario-clock date (it compared a JS Date with a string). The 90-day and 200-day expiry steps and the FEFO step now pass on real values. QRT routing / quarantine_decision messages name their backlog rows; stale "deterministic via the expiry defect" text removed.
+- **Still RED (named):** S1 QRT routing, S1 quarantine_decision (owner 2.9 part 3, second step, to be briefed), OF-01/02/06/07 (4.3), PDL task (3.4).
+- **Defaults:** brief Decision 1 — each step turns green only on real values (exact `toBe` on the ISO date); no assertion weakened.
+- **Verified:** tsc/eslint clean; S1 twice on pgeos_lane3, identical, failing set = the named steps only.
+- **Files:** tests/scenarios/S1.spec.ts · docs/notes/handover-integration.md (live packet refreshed).
+- **Review:** close review pg-reviewer FAIL(1 blocking, 2 nits) → one fix round (owner wording, these fields, packet trimmed) → round 2 PASS(3 findings, 2 rounds).
+- Model: integration lane 3 session · Delegated: pg-tester (sonnet), pg-reviewer (opus) · tokens (reported subagent usage): pg-tester ≈ 27k, pg-reviewer ≈ 26k
+
 ## 2.9 part 3 — the ledger writes the batch expiry; one expiry per batch at any location (D-204), FEFO step of S1 (lane 1, 2026-09-29)
 
 - **What:** `post-movement.ts` writes `expiry_date` on `stock_movements` and `stock_balance` (insert; UPDATE `coalesce` keeps a recorded expiry, fills a null one); a different non-null expiry for the same (client, SKU, batch) at ANY location → `InvalidLedgerEntryError`, whole transaction rolled back (`lockBatchExpiry` + `assertBatchExpiryConsistent`, plain SELECT); put-away destination inherits the source expiry (2(d)); `expiryDate` through `ports.ts`/`ledger.ts`/`receive-line.ts`; handlers map the refusal to 422. Allocation untouched. Supersedes #185.
