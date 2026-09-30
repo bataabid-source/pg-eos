@@ -6,5 +6,4 @@ INV-C4-1 DB-level enforcement on tms.delivery_tasks / tms.routes.vehicle_id → 
 Lane backlog: 2.16 1a-3c/4b · 3.12 2b/2c-ii · 4.1a 2b · 4.1a p3 p2 · 4.1b p3 · 4.19 p2 · 3.12/3.13 polish · 2.9 p6 · X 5e p2 · X 18 p2 — MASTER_BACKLOG.
 WBS 1.11 BLOCKED (D-178). close/0.6a-d166 (2 ahead/151 behind) and lane/3-3.13 (2 ahead) superseded, content on main — GM deletes them (D-193 D5).
 Deep review (D-193): no HTTP host/worker (X part 5); G-16a lockout/IP → 2.16 1a-6 (AUTH-01); AUDIT-CHAIN-01 open; RLS-01 d1–3 G-01 → GM.
-#217/#209/#218/#221 conflict with main after #220 (CHANGELOG/PROJECT_STATE): M-core merges main into them; the harness refuses Master pushes to core/*.
 Master batch (frozen paths): entityId on WithContextCtx; domain-kit browser break; eslint cwd bug; new-slice.sh stale citations.
