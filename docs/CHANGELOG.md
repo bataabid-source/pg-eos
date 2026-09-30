@@ -4,6 +4,15 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## 3.4 — INV-C4-1 vehicle guard + INV-C4-2 CHECK (0046) and create-delivery-task (part 1, lane B) (2026-09-30)
+
+- **Why:** doc 40 l.273 INV-C4-1 (a vehicle with an expired document cannot be assigned) as a DB guard, and l.274 INV-C4-2; MASTER_BACKLOG row `3.4 part 1`, brief `_slice-3.4-p1-delivery-task` (D-205 C).
+- **Change:** migration `0046_B_delivery-tasks-version-vehicle-guard.sql`: security-definer `tms.guard_vehicle_assignable()` + `trg_guard_vehicle_assignable` on `tms.delivery_tasks`/`tms.routes` (23514 `inv_c4_1_vehicle_assignable`), `delivery_tasks.version` + G6 row · `modules/tms` from `new-slice.sh tms create-delivery-task` (domain errors/invariants/XState machine, application use case with outbox `tms.task.created` in the same tx, repository, handlers/composition) · README register · 96 tests (unit + integration), 100% domain coverage.
+- **Defaults recorded:** D-208 (GM, #207 05:22Z, verbatim): "Property tests (fast-check) ONLY on invariants of stock (wms ledger/balances), money (billing journals/amounts) and security (RLS, permissions, audit chain); every other rule gets an ordinary unit test." → `invariants.unit.test.ts` replaces the brief's (L28/L46) property test · check order in tx: INV-C4-2 → lock order → alreadyExists 409 → status ∉ {checked, packed, loaded} 422 → stale 409 · task entity = `platform.allowed_entities()` (exactly one, else `EntityScopeRequiredError` 422) · task id = DB `gen_random_uuid()` · `new-slice.sh` refused the existing Master contract: it ran with the contract moved aside and restored byte-identical; its `packages/contracts/tsconfig.json` edit reverted (frozen; dist still emitted via routes.ts).
+- **Routed (frozen paths / Master):** INV-C4-2 DB CHECK (close R1-2; added, then pulled: G14 red — address-less task fixtures in tests/isolation, tests/scenarios/fixtures/delivery.ts, modules/platform evaluate-alerts) → `3.4 part 2` · S1 cross-entity (PST order, PDL task; RLS hides the order) → `3.4 part 2` · `tms.task.create.*` locale entries (packages/i18n) · contracts tsconfig `tms/**` · contract comment "200 carries no body" · eslint.config.mjs cwd bug · counter prefix PDL-TSK- vs brief PCC-TSK-.
+- **Review (pg-reviewer):** pre-build round 1 FAIL(9) → fix → round 2 PASS(2 nits, fixed); close round 1 FAIL(7: 2 blocking) → fix → round 2 PASS, R1-1 and R1-2 (DB CHECK) split to `3.4 part 2`; G16 tms 86.96%.
+- Model: lane B session · Delegated: pg-tester (sonnet), pg-builder-core (opus), pg-reviewer (opus) · Review: PASS(7 findings, 2 rounds) · tokens: pg-tester ≈ 247k, pg-builder-core ≈ 170k, pg-reviewer ≈ 222k (over the 300k D-210 budget: two review fix rounds).
+
 ## 3.4 part 1 (contracts) — CreateDeliveryTask contract-first route + `tms.task.created` catalog entry (Master M14, 2026-09-30)
 
 - **Why:** brief `_slice-3.4-p1-delivery-task` Decision 5 — the Master commits each wave's contracts before the lane starts (CLAUDE.md AGENTS AND SESSIONS); `packages/*` is frozen for lanes.
