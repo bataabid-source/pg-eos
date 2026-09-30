@@ -10,7 +10,8 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 - **CLAUDE.md · REVIEW line NOT changed here:** the harness refused the Master's edit (`Permission for this action was denied by the Claude Code auto mode classifier. Reason: [Self-Modification].`, reported #207 05:30Z) — the GM places the D-206 text (verbatim in DECISION_LOG); doc 36 §5-4 gains the reference note.
 - **Applied under D-205 B / D-206:** #217 → 750d8f3, #223 → 0fbd2f9, #224 → c0a59b5 on ①–⑥ + close PASS; bot findings past the cap are rows. #225 (X part 19) and #226 (X part 17) opened for M-core.
 - **Files:** docs/DECISION_LOG.md, docs/package/36-Technical-Architecture-Audit.md, docs/state/{header,next}.md, docs/notes/handover-master.md (M14 → M15), PROJECT_STATE (scribe).
-- Model: Master M14 session · Delegated: none · Review: n/a (governance record) · tokens ≈ 15k.
+- **Review (claude[bot] on #228, round 1 FAIL(2) → fix round):** doc 36 note reworded "pending GM placement" (CLAUDE.md as written governs until the GM edit lands); handover wording neutral + the same governance note.
+- Model: Master M14 session · Delegated: none · Review: claude[bot] round 1 FAIL(2), fix round (this commit) · tokens ≈ 20k.
 
 ## 3.4 part 1 (contracts) — CreateDeliveryTask contract-first route + `tms.task.created` catalog entry (Master M14, 2026-09-30)
 
