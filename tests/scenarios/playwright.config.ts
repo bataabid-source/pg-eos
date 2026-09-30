@@ -23,9 +23,19 @@ import { defineConfig } from '@playwright/test';
 const TEST_TIMEOUT_MS = 30_000;
 const EXPECT_TIMEOUT_MS = 5_000;
 
+// X part 5d: issueSession (mint, fixtures/actors.ts) and the host's own auth hook (apps/api/src/
+// auth.ts) hash the session token with keyedHash (packages/identity/src/hmac.ts), which throws
+// without OTP_HMAC_SECRET. The same test-only value apps/api's and packages/identity's own
+// vitest.config.ts set (never a real secret); set here, before workers fork, so they inherit it.
+// An environment that already provides the variable keeps its own value.
+const OTP_HMAC_SECRET_ENV_VAR = 'OTP_HMAC_SECRET';
+const TEST_ONLY_OTP_HMAC_SECRET = 'test-only-not-a-secret-pg-eos-identity-suite';
+process.env[OTP_HMAC_SECRET_ENV_VAR] ??= TEST_ONLY_OTP_HMAC_SECRET;
+
 export default defineConfig({
   testDir: '.',
-  testMatch: /S\d{1,2}\.spec\.ts$/,
+  // S<n>.spec.ts = scenarios (counted by the verdict); migration-NNNN.spec.ts = migration seed checks (ignored by it).
+  testMatch: [/S\d{1,2}\.spec\.ts$/, /migration-\d{4}\.spec\.ts$/],
   fullyParallel: false,
   workers: 1,
   retries: 0,
