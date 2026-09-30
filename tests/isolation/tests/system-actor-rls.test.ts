@@ -28,7 +28,7 @@
 // The worker-side positive half of the idem_own predicate stays unprovable by a real INSERT: pgeos_worker
 // has no grant on platform.idempotency_keys; the policy TEXT is asserted via pg_policies instead.
 
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -767,5 +767,100 @@ describe('4.3 part 1a — the system actor identity works only under pgeos_worke
     }
     expect(refused).not.toBeNull();
     expect(sqlStateOf(refused)).toBe(INSUFFICIENT_PRIVILEGE_SQLSTATE);
+  });
+});
+
+// D-213 fail-open window: a lone re-apply of 0007, 0010 or 0031 after 0048 drops the binding until
+// 0048 runs again. Documented here, then closed by re-applying 0048.
+const REAPPLY_MIGRATIONS = [
+  '0007_M_pgeos-app-role-entity-scope.sql',
+  '0010_M_idempotency-keys-variance-photo.sql',
+  '0031_M_active-entity-rls.sql',
+] as const;
+const ALLOWED_ENTITIES_REGPROC = 'platform.allowed_entities()';
+const AUDIT_LOG_TABLE = 'audit_log';
+const IDEMPOTENCY_KEYS_TABLE = 'idempotency_keys';
+const PLATFORM_SCHEMA = 'platform';
+const FIRST_REAPPLIED_MIGRATION_NUMBER = 7;
+const MIGRATION_NUMBER_RE = /^(\d{4})_/;
+const CONVERGENCE_TABLE = 'identity.sessions';
+const CONVERGENCE_PRIVILEGE = 'INSERT';
+
+/** Every migration file numbered >= minNumber, in numeric order (mirrors apply.sh's sort -V). */
+function migrationFilesFrom(minNumber: number): string[] {
+  return readdirSync(path.join(ROOT, 'database', 'migrations'))
+    .flatMap((name) => {
+      const match = MIGRATION_NUMBER_RE.exec(name);
+      return match && Number(match[1]) >= minNumber ? [{ name, number: Number(match[1]) }] : [];
+    })
+    .sort((a, b) => a.number - b.number || a.name.localeCompare(b.name))
+    .map((entry) => path.join(ROOT, 'database', 'migrations', entry.name));
+}
+
+describe('4.3 part 1a — re-application window (D-213)', () => {
+  it('re-applying 0007, 0010 and 0031 alone and then 0048 restores every binding, and pgeos_app still resolves the system id to no entities', async () => {
+    requireMigration();
+
+    const readBindings = async (): Promise<{
+      fn: string;
+      auditCheck: string;
+      idemQual: string;
+      idemCheck: string;
+    }> => {
+      const fn = await admin.query<{ def: string }>('select pg_get_functiondef($1::regprocedure) as def', [
+        ALLOWED_ENTITIES_REGPROC,
+      ]);
+      const policy = async (table: string, name: string) =>
+        firstRow(
+          await admin.query<{ qual: string | null; with_check: string | null }>(
+            'select qual, with_check from pg_policies where schemaname = $1 and tablename = $2 and policyname = $3',
+            [PLATFORM_SCHEMA, table, name],
+          ),
+          `pg_policies ${name}`,
+        );
+      const audit = await policy(AUDIT_LOG_TABLE, POLICY_AUDIT_APPEND);
+      const idem = await policy(IDEMPOTENCY_KEYS_TABLE, POLICY_IDEM_OWN);
+      return {
+        fn: firstRow(fn, 'functiondef allowed_entities').def,
+        auditCheck: audit.with_check ?? '',
+        idemQual: idem.qual ?? '',
+        idemCheck: idem.with_check ?? '',
+      };
+    };
+
+    try {
+      for (const file of REAPPLY_MIGRATIONS) {
+        await admin.query(readFileSync(path.join(ROOT, 'database', 'migrations', file), 'utf8'));
+      }
+      const dropped = await readBindings();
+      expect(dropped.fn).not.toContain(PERMITTED_FN_MARKER);
+      expect(dropped.auditCheck).not.toContain(PERMITTED_FN_MARKER);
+      expect(dropped.idemQual).not.toContain(PERMITTED_FN_MARKER);
+      expect(dropped.idemCheck).not.toContain(PERMITTED_FN_MARKER);
+    } finally {
+      // 0007 re-grants broadly; converge exactly like a full apply.sh run — every migration from
+      // 0007 onward in numeric (sort -V) order, which ends with 0048.
+      for (const file of migrationFilesFrom(FIRST_REAPPLIED_MIGRATION_NUMBER)) {
+        await admin.query(readFileSync(file, 'utf8'));
+      }
+    }
+
+    const restored = await readBindings();
+    expect(restored.fn).toContain(PERMITTED_FN_MARKER);
+    expect(restored.auditCheck).toContain(PERMITTED_FN_MARKER);
+    expect(restored.idemQual).toContain(PERMITTED_FN_MARKER);
+    expect(restored.idemCheck).toContain(PERMITTED_FN_MARKER);
+
+    const allowed = await inRolledBackTx(appClient, SYSTEM_CTX, () =>
+      appClient.query<{ ids: string[] }>('select platform.allowed_entities()::text[] as ids'),
+    );
+    expect(firstRow(allowed, 'allowed_entities under app after re-apply').ids).toEqual([]);
+
+    // Privileges converged: a later revoke (0044) on identity.sessions must still hold.
+    const priv = await admin.query<{ has_priv: boolean }>(
+      'select has_table_privilege($1, $2, $3) as has_priv',
+      [APP_ROLE, CONVERGENCE_TABLE, CONVERGENCE_PRIVILEGE],
+    );
+    expect(firstRow(priv, 'has_table_privilege identity.sessions INSERT').has_priv).toBe(false);
   });
 });

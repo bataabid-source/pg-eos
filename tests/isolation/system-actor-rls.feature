@@ -19,3 +19,5 @@ Feature: 4.3 part 1a — the system actor identity works only under pgeos_worker
   Scenario: applying the migration twice changes nothing (idempotent) and keeps the binding on audit_append (parent only), allowed_entities and idem_own
   Scenario: pgeos_worker holds exactly the ruled minimum grants and nothing more, still without BYPASSRLS
   Scenario: under pgeos_worker the system actor can read wms.outbound_orders and catalog.services, insert a billing.billable_events row, an audit_log row with actor_type system and an outbox row inside its entity scope, and a row outside the scope is refused
+  Scenario: the 0048 binding holds when the active-entity suite runs (guard against a stale shared DB) — allowed_entities, audit_append and idem_own all contain system_actor_permitted
+  Scenario: re-applying 0007, 0010 and 0031 alone and then 0048 restores every binding, privileges converge like a full apply, and pgeos_app still resolves the system id to no entities
