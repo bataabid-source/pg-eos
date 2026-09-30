@@ -3,6 +3,7 @@
 // part; a later slice replaces one route's own component at a time with the real feature.
 import type { Locale, TranslationKey } from '../../i18n/t';
 import { t } from '../../i18n/t';
+import { Screen } from '../../ui/Screen';
 
 interface PlaceholderScreenProps {
   titleKey: TranslationKey;
@@ -10,5 +11,5 @@ interface PlaceholderScreenProps {
 }
 
 export function PlaceholderScreen({ titleKey, locale }: PlaceholderScreenProps) {
-  return <h1>{t(locale, titleKey)}</h1>;
+  return <Screen title={t(locale, titleKey)} />;
 }
