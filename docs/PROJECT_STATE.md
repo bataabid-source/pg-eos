@@ -17,11 +17,11 @@ Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewe
 - lane B · tms · 3.4 · since 2026-09-30
 
 ## Last 5 feat/fix commits (git log)
+- `7c43f0c` feat(2.16): PDA pick, check and load screens on XState v5, checker != picker refused on the screen, S1 scenario 2 PDA steps (part 3) (#227)
 - `f257915` feat(X): gate ⑦ image build leaves per-PR CI for nightly.yml + workflow_dispatch — per-PR wall 13.4 → ≈4.2 min (X part 20 item 1, D-210 item 5, D-19
 - `c0a59b5` feat(3.4): CreateDeliveryTask contract-first route + tms.task.created catalog entry (part 1 contracts, Master) (#224)
 - `750d8f3` feat(X): Playwright webServer — apps/api host over TCP + PDA dev server, host/pda projects behind PG_EOS_E2E, CI ④ e2e step (X part 5e) (#217)
 - `5ab04e6` feat(2.9): ledger writes the batch expiry, one expiry per batch at any location (D-204), S1 FEFO step (part 3) (#220)
-- `3be6d97` feat(X): S1/S2 call the host over HTTP — @pg-eos/api host, real sessions, X-Entity-Id, lifetime seed 0045 (X part 5d + part 2) (#175)
 
 ## Blockers
 - G16: changed domain/ per PR, every module nightly (X part 6); G15 per STREAMS §G15 (green.json); G17 NOT RUNNABLE; deploy.sh waits on 0.6b.
@@ -36,5 +36,5 @@ Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewe
 - Master batch (frozen paths): entityId on WithContextCtx; domain-kit browser break; eslint cwd bug; new-slice.sh stale citations.
 
 ## Next
-1. Weekly goal S1+S2+S18: Lane 1: 2.16 p2e (`pda`; p3 on #227) → 2.9 p6 · Lane B (D-205 C): 3.4 p1 (`tms`, 0046) after X 19 · Integration: 2.18 · Lane 2: 4.3 p1.
-2. Queue (D-205 B): #217 → #209 → #218 → #221 after M-core merges main (99018e6+) · M-core: X part 19 (lane-db.sh B) → X 17 → X 16 p2.
+1. Weekly goal S1+S2+S18: Lane 1: 2.16 p3b / 2.9 p6 (next brief owed, D-210 §3) · Lane B: 3.4 p1 (`tms`, 0046) after X 19 · Integration: 2.18 · Lane 2: 4.3 p1.
+2. Queue (D-205 B): #229 (lane 1, rebase) · #209 → #218 → #221 after M-core merges main · M-core: X part 19 → X 20 (1) → X 17 → X 16 p2.

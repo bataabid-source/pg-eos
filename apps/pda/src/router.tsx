@@ -13,6 +13,7 @@ import {
   useNavigate,
 } from '@tanstack/react-router';
 
+import { HomeScreen } from './features/home/home-screen';
 import { PlaceholderScreen } from './features/placeholder-screen/placeholder-screen';
 import { mockReceiveClient, MOCK_ORDER_ID } from './features/receive/mock-client';
 import { ReceiveScreen } from './features/receive/receive-screen';
@@ -39,6 +40,8 @@ import {
   registerFullscreenChange,
   requestKioskFullscreen,
 } from './kiosk';
+import { Button } from './ui/Button';
+import { TOUCH_TARGET_CLASS } from './ui/tokens';
 import { count as countQueue, queueStatus, subscribe as subscribeQueue } from './offline-queue';
 import type { Locale, TranslationKey } from './i18n/t';
 import { SUPPORTED_LOCALES, directionOf, isLocale, t } from './i18n/t';
@@ -69,11 +72,11 @@ const LOCALE_LABEL_KEY: Record<Locale, TranslationKey> = {
 // at the device — the badge needs an actual rendered colour. `'error'` (finding 2) is a fourth,
 // visually distinct state for an IndexedDB failure, never returned by the pure `queueStatus()`
 // (which only ever returns green/yellow/red, per its own doc 40 §D4 contract).
-const QUEUE_STATUS_COLOR: Record<ReturnType<typeof queueStatus> | 'error', string> = {
-  green: '#0a0',
-  yellow: '#c90',
-  red: '#c00',
-  error: '#666',
+const QUEUE_STATUS_CLASS: Record<ReturnType<typeof queueStatus> | 'error', string> = {
+  green: 'text-green-700',
+  yellow: 'text-yellow-600',
+  red: 'text-red-700',
+  error: 'text-muted-foreground',
 };
 
 function AppShell() {
@@ -139,12 +142,13 @@ function AppShell() {
 
   return (
     <LocaleContext.Provider value={shellLocale}>
-      <div>
-        <header>
-          <span>{t(locale, 'app.name')}</span>
+      <div className="min-h-screen bg-background text-foreground">
+        <header className="flex flex-wrap items-center gap-3 border-b border-border p-3">
+          <span className="font-bold">{t(locale, 'app.name')}</span>
           <label>
             <span className="sr-only">{t(locale, 'locale.select.label')}</span>
             <select
+              className={`${TOUCH_TARGET_CLASS} rounded-md border border-border bg-background px-2`}
               data-testid="locale-select"
               value={locale}
               onChange={(event) => {
@@ -162,14 +166,12 @@ function AppShell() {
             </select>
           </label>
           {fullscreenActive ? null : (
-            <button type="button" onClick={requestKioskFullscreen}>
-              {t(locale, 'kiosk.enter')}
-            </button>
+            <Button onClick={requestKioskFullscreen}>{t(locale, 'kiosk.enter')}</Button>
           )}
           <span
             data-testid="unsynced-queue-badge"
             data-queue-status={queueReadFailed ? 'error' : queueStatus(unsyncedCount)}
-            style={{ color: QUEUE_STATUS_COLOR[queueReadFailed ? 'error' : queueStatus(unsyncedCount)] }}
+            className={`ms-auto font-semibold ${QUEUE_STATUS_CLASS[queueReadFailed ? 'error' : queueStatus(unsyncedCount)]}`}
           >
             {t(locale, 'queue.unsynced', { count: unsyncedCount })}
           </span>
@@ -230,10 +232,15 @@ const loginRoute = createRoute({
   component: LoginRouteComponent,
 });
 
+function HomeRouteComponent() {
+  const { locale } = useContext(LocaleContext);
+  return <HomeScreen locale={locale} />;
+}
+
 const homeRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/home',
-  component: makePlaceholderRouteComponent('screen.home'),
+  component: HomeRouteComponent,
 });
 
 // WBS 2.16 part 2 — receive and put-away, wired with the mock clients until the host serves the

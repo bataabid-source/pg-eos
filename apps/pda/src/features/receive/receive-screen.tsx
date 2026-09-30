@@ -1,6 +1,6 @@
 // WBS 2.16 part 2 — PDA receive screen (doc 40 §D4): scan SKU, batch, expiry, qty; one step per
 // screen; error signalled by sound+vibration and a message stating the next action.
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useMachine } from '@xstate/react';
 import { fromPromise } from 'xstate';
 
@@ -10,6 +10,12 @@ import type { ReceiveClient, ReceiveScan } from './client';
 import type { ScanSignal } from './scan-signal';
 import { submitReceiveScan } from './scan-queue';
 import { receiveMachine, type ReceiveFieldName } from './receive-machine';
+import { Alert } from '../../ui/Alert';
+import { Button } from '../../ui/Button';
+import { Input } from '../../ui/Input';
+import { ScanField, type ScanFieldHandle } from '../../ui/ScanField';
+import { Screen } from '../../ui/Screen';
+import { Status } from '../../ui/Status';
 
 export interface ReceiveScreenProps {
   client: ReceiveClient;
@@ -53,49 +59,41 @@ export function ReceiveScreen({
     onChange: (e: React.ChangeEvent<HTMLInputElement>) => send({ type: 'FIELD', name, value: e.target.value }),
   });
 
+  const skuRef = useRef<ScanFieldHandle>(null);
+  const accepted = state.matches('accepted');
+  useEffect(() => {
+    if (accepted) {
+      skuRef.current?.refocus();
+    }
+  }, [accepted]);
+
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     send({ type: 'SUBMIT' });
   }
 
   return (
-    <div data-testid="receive-screen">
-      <h1>{t(locale, 'screen.receive')}</h1>
-      <form onSubmit={handleSubmit}>
-        <label>
-          {t(locale, 'receive.sku.label')}
-          <input data-testid="receive-sku" type="text" {...field('skuCode')} />
-        </label>
-        <label>
+    <Screen data-testid="receive-screen" title={t(locale, 'screen.receive')}>
+      <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+        <ScanField ref={skuRef} label={t(locale, 'receive.sku.label')} data-testid="receive-sku" type="text" {...field('skuCode')} />
+        <label className="flex flex-col gap-1 text-start">
           {t(locale, 'receive.batch.label')}
-          <input data-testid="receive-batch" type="text" {...field('batchNo')} />
+          <Input data-testid="receive-batch" type="text" {...field('batchNo')} />
         </label>
-        <label>
+        <label className="flex flex-col gap-1 text-start">
           {t(locale, 'receive.expiry.label')}
-          <input
-            data-testid="receive-expiry"
-            type="text"
-            {...field('expiryDate')}
-          />
+          <Input data-testid="receive-expiry" type="text" {...field('expiryDate')} />
         </label>
-        <label>
+        <label className="flex flex-col gap-1 text-start">
           {t(locale, 'receive.qty.label')}
-          <input data-testid="receive-qty" type="text" inputMode="decimal" {...field('qty')} />
+          <Input data-testid="receive-qty" type="text" inputMode="decimal" {...field('qty')} />
         </label>
-        <button data-testid="receive-submit" type="submit">
+        <Button data-testid="receive-submit" type="submit">
           {t(locale, 'receive.submit')}
-        </button>
+        </Button>
       </form>
-      {state.matches('accepted') ? (
-        <p data-testid="receive-status" role="status">
-          {t(locale, 'receive.accepted')}
-        </p>
-      ) : null}
-      {errorKey !== null ? (
-        <p data-testid="receive-error" role="alert">
-          {t(locale, errorKey)}
-        </p>
-      ) : null}
-    </div>
+      {accepted ? <Status data-testid="receive-status">{t(locale, 'receive.accepted')}</Status> : null}
+      {errorKey !== null ? <Alert data-testid="receive-error">{t(locale, errorKey)}</Alert> : null}
+    </Screen>
   );
 }
