@@ -106,7 +106,10 @@ function lastDone() {
   for (const line of log.split('\n')) {
     const [hash, subject] = line.split('\t');
     if (!subject || !/^(feat|fix)\([^)]+\): /.test(subject)) continue;
-    rows.push(`- \`${hash}\` ${subject.slice(0, LINE_MAX - 12)}`);
+    // A subject that quotes the literal placeholder text (e.g. the #233 fix title) must not re-create a
+    // placeholder line here — resolve-hashes --check would call it stale on every later commit.
+    const safeSubject = subject.split('<this commit>').join('<this-commit>');
+    rows.push(`- \`${hash}\` ${safeSubject.slice(0, LINE_MAX - 12)}`);
     if (rows.length === DONE_COUNT) break;
   }
   return rows;
