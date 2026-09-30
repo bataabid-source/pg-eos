@@ -266,16 +266,21 @@ describe('Feature: X part 5b — one worker drains the outbox as a service role'
     await expect(workerPool.query('select 1 from wms.outbound_orders limit 1')).resolves.toBeDefined();
     await expect(workerPool.query('select 1 from catalog.services limit 1')).resolves.toBeDefined();
 
-    // And insert on platform.audit_log WITHOUT the system-actor GUCs is rejected by RLS
-    // audit_append (user_id null) with 42501 — INSERT is granted only usefully for the system actor
+    // And insert on platform.audit_log WITHOUT the system-actor GUCs is rejected by RLS with 42501
+    // — INSERT is granted only usefully for the system actor. The row carries an existing entity_id:
+    // entity_scope (allowed_entities '{}' without GUCs) and audit_append (user_id null) both refuse.
+    // GAP for the Master: a NULL-entity, NULL-user audit row is ADMITTED by entity_scope's
+    // `entity_id IS NULL` branch (OR-ed with audit_append) for any role holding INSERT — pre-existing
+    // for pgeos_app, not this slice's to change.
     const auditClient: PoolClient = await workerPool.connect();
     try {
       await auditClient.query('begin');
       await auditClient.query('savepoint probe_audit_insert');
       await expect(
         auditClient.query(
-          `insert into platform.audit_log (schema_name, table_name, operation, chain_seq)
-           values ('platform', 'x_part_5b_probe', 'insert', 0)`,
+          `insert into platform.audit_log (entity_id, schema_name, table_name, operation, chain_seq)
+           values ($1, 'platform', 'x_part_5b_probe', 'insert', 0)`,
+          [existingEntityId],
         ),
       ).rejects.toMatchObject({ code: PG_INSUFFICIENT_PRIVILEGE });
       await auditClient.query('rollback to savepoint probe_audit_insert');
