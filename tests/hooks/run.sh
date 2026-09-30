@@ -500,6 +500,27 @@ expect "gitleaks clean → docs-only commit accepted"   0 "$(pcg 0)"
 expect "gitleaks finds a secret → refused"            1 "$(pcg 1)"
 expect "gitleaks not installed → warn, not refused"   0 "$(pcg none)"
 
+# ---- X part 19: lane-db.sh accepts the lane letters A|B|C as well as 1|2|3 (no Postgres needed:
+# PATH holds only dirname, so an accepted id fails later on "psql not found", a refused id on usage:).
+echo "lane-db.sh — lane ids (X part 19)"
+LDB="$TMP/ldbbin"; mkdir -p "$LDB"; ln -sf "$(command -v dirname)" "$LDB/dirname"
+ldb() { # ldb <id> → stderr of lane-db.sh with a psql-less PATH
+  PATH="$LDB" "$(command -v bash)" "$REPO/scripts/lane-db.sh" "$@" 2>&1 >/dev/null
+}
+ldb_usage() { local e; e="$(ldb "$@")"; case "$e" in *"psql not found on PATH"*) echo 1;; *usage:*) echo 0;; *) echo 9;; esac; }   # 1 = accepted, 0 = refused, 9 = crash/other
+expect "lane-db: B accepted"                 1 "$(ldb_usage B)"
+expect "lane-db: A accepted"                 1 "$(ldb_usage A)"
+expect "lane-db: C accepted"                 1 "$(ldb_usage C)"
+expect "lane-db: 1 accepted (regression)"    1 "$(ldb_usage 1)"
+expect "lane-db: M refused"                  0 "$(ldb_usage M)"
+expect "lane-db: 9 refused"                  0 "$(ldb_usage 9)"
+expect "lane-db: empty refused"              0 "$(ldb_usage '')"
+expect "lane-db: lowercase b refused"        0 "$(ldb_usage b)"
+ldb_refuse() { local rc e; e="$(PATH="$LDB" "$(command -v bash)" "$REPO/scripts/lane-db.sh" M 2>&1 >/dev/null)"; rc=$?; case "$e" in *usage:*) echo "$rc";; *) echo 99;; esac; }
+expect "lane-db: refusal exits 2 with usage:" 2 "$(ldb_refuse)"
+expect "lane-db: usage line lists A|B|C"     0 "$(grep -q 'usage:.*<1|2|3|A|B|C>' "$REPO/scripts/lane-db.sh"; echo $?)"
+expect "lane-db: name derived from the id"   0 "$(grep -q 'LANE_DB="pgeos_lane${ID}"' "$REPO/scripts/lane-db.sh"; echo $?)"
+
 echo
 echo "hooks tests: $pass passed, $failn failed"
 [ "$failn" -eq 0 ]
