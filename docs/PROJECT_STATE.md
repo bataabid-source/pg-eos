@@ -18,7 +18,7 @@ Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewe
 
 ## Last 5 feat/fix commits (git log)
 - `dbe347c` feat(X): lane-db.sh accepts the lane letters A/B/C — pgeos_laneB for lane B (X part 19, D-205 C) (#225)
-- `e600886` fix(X): resolve the stale <this commit> placeholders left by the #227 and #229 squashes (resolve-hashes --write) so gate ① passes on every PR
+- `e600886` fix(X): resolve the stale <this-commit> placeholders left by the #227 and #229 squashes (resolve-hashes --write) so gate ① passes on every PR
 - `a635bec` feat(2.16): PDA visual layer — Tailwind on the shell, receive, put-away, login and home; touch targets >= 48 px, one step per screen, autofocused sc
 - `7c43f0c` feat(2.16): PDA pick, check and load screens on XState v5, checker != picker refused on the screen, S1 scenario 2 PDA steps (part 3) (#227)
 - `f257915` feat(X): gate ⑦ image build leaves per-PR CI for nightly.yml + workflow_dispatch — per-PR wall 13.4 → ≈4.2 min (X part 20 item 1, D-210 item 5, D-19
