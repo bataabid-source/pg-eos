@@ -11,10 +11,15 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 - **Tests:** `tests/ops/i18n-tms.feature` + `tests/ops/tests/i18n-tms.test.ts` (six files exist; exactly the six keys in order, non-empty, no placeholder; `ar` byte-for-byte; the errors.ts `i18nKey`s ⊆ the six; UTF-8 no BOM, 2-space, newline-terminated; brief row `PDL-TSK-` present, `PCC-TSK-` gone, RTE row kept). test:ops 73/73.
 - **Defaults recorded:** `ar` strings authored by M-core (no GM text exists for these); en/hi/ur/bn/am are M-core translations → native review (X part 27-style row, the Master adds; reviewer notes for am: `staleVersion` mixes registers — «እንደገና ይጫኑና ይሞክሩ» keeps one; «የወጪ ትዕዛዝ» can read as "expense order"). Key names for the three 1b errors are M-core's default; lane B pins them in 3.4 part 1b. **Open for the Master:** the RTE row `PCC-RT-` in tms.brief.md is the same wrong-entity pattern (seed gives `PDL-RT-`) — outside the ruling, untouched.
 - **Review:** pre-build round 1 FAIL(1 blocking: brief named a scribe as writer; 5 nits) → round 2 FAIL(1 nit, feature/test agreement, fixed in the build); close round 1 PASS(0). Guards local: G1–G15/G18/G-SEED green, G16/G17 unobserved (no domain/ change; CI ⑤ decides). Files: the six tms.json, tms.brief.md (one cell), the two tests, this entry, backlog row X part 26 → DONE, brief deleted. Tokens ≈ 90k.
+## X — M15 handover packet; SCR-RLS-NULL-ENTITY-01 filed; row 2.16 part 2f (Master M15, 2026-09-30)
+
+- **Why:** Master context ≈ 510k of the 600k ceiling (D-210) — handover at a clean point (no Master PR open); M-core's #246 finding (NULL-entity rows admitted by `entity_scope`) is a security question for the GM; Advisory 17:30Z PDA styling gap.
+- **Files:** `docs/notes/handover-master.md` (M15 packet replaces M14's) · `docs/notes/SCR-RLS-NULL-ENTITY-01.md` · MASTER_BACKLOG rows 2.16 part 2f (lane 1) and SCR-RLS-NULL-ENTITY-01 (GM). PROJECT_STATE unchanged (scribe --write produced no diff).
+- **Review:** records-only. Model: Master M15 session · Delegated: none · tokens ≈ 10k.
 
 ## X — rows 3.4 part 1b, X part 26, X part 27; 4.3 part 1a grants scope; #244 hashes resolved (Master M15, 2026-09-30)
 
-- **Why:** records owed from #243/#244 and the #207 15:2xZ rulings; the two `<this commit>` placeholders #244 left on main would turn gate ① red on every PR.
+- **Why:** records owed from #243/#244 and the #207 15:2xZ rulings; the two hash placeholders #244 left on main would turn gate ① red on every PR.
 - **Files:** `tasks/MASTER_BACKLOG.md` — 3.4 part 1b (lane B i18nKeys), X part 26 queued (M-core to add `tms.task.create.*` keys and set the brief prefix to `PDL-TSK-` per seed 019; no brief or locale file changes here), X part 27 (native review of five translations), 4.3 part 1a text + `pgeos_worker` minimum grants (D-212 item 2); X part 23 / X part 21 part 2 → `cee9f23` · PROJECT_STATE.
 - **Review:** records-only. Model: Master M15 session · Delegated: none · tokens ≈ 8k.
 
