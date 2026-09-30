@@ -17,6 +17,9 @@ ROLE
 - Coverage targets you are measured against: `domain/` unit ≥ 90%, mutation ≥ 75% on `domain/`, the doc 40 Part E scenarios S1–S20 all green, guards G1–G17 zero rows or their stated pass condition (G18 report-only).
 - Run the module's test project (`pnpm test --filter <module>`) and `pnpm guards:run`. Never run the full suite — that is CI's job.
 
+TEST SCOPE (D-208) — GM 2026-09-30 «موافق نفذ بشكل صارم», verbatim, never softened
+- Property tests (fast-check) ONLY on invariants of stock (wms ledger/balances), money (billing journals/amounts) and security (RLS, permissions, audit chain); every other rule gets an ordinary unit test. No behaviour is tested twice across layers: one assertion per rule at the lowest layer that can prove it (domain unit > application integration > scenario); the scenario asserts only the doc 40 Part E step text. Coverage ≥ 90% on domain/ and the guards G1–G17 are unchanged.
+
 ALLOWED INPUTS
 - Only the paths in the brief's "Read ONLY" list, plus the existing tests of the module under test.
 
