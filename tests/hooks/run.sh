@@ -354,17 +354,47 @@ rh3_check() { ( cd "$RH3" && node "$REPO/scripts/resolve-hashes.mjs" --check >/d
 # build, not a PR) -> clean
 expect "check: placeholder introduced by HEAD on the base is clean" 0 "$(rh3_check)"
 
+# ---- resolve-hashes.mjs: the generated "Last 5 feat/fix commits" section may quote a commit subject
+# that mentions the placeholder; only that section is exempt (X-scribe-placeholder).
+echo "resolve-hashes.mjs — generated commit-list section exemption"
+rh_mk() { # rh_mk <dir> <section heading the literal sits under>
+  mkdir -p "$1/docs"
+  (
+    cd "$1" && git init -q -b main .
+    { printf '# state\n\n## Lanes (tasks/LANE_LOCKS.md)\n- none\n\n## Last 5 feat/fix commits (git log)\n'
+      if [ "$2" = commits ]; then printf -- '- `abc1234` fix(X): resolve the stale <this commit> placeholders\n'; else printf -- '- `abc1234` fix(X): clean\n'; fi
+      printf '\n## Blockers\n'
+      if [ "$2" = blockers ]; then printf -- '- stale <this commit> placeholder\n'; else printf -- '- none\n'; fi
+      printf '\n## Next\n1. go\n'; } > docs/PROJECT_STATE.md
+    git add docs/PROJECT_STATE.md
+    git -c user.email=t@t -c user.name=t commit -q -m 'feat(2.9): state with quoted subject'
+    printf 'other\n' > other.txt
+    git add other.txt
+    git -c user.email=t@t -c user.name=t commit -q -m 'feat(2.9): unrelated, HEAD moves past the state commit'
+  ) >/dev/null 2>&1
+}
+RH4="$TMP/rh4"; rh_mk "$RH4" commits
+RH5="$TMP/rh5"; rh_mk "$RH5" blockers
+rh4_run() { ( cd "$RH4" && node "$REPO/scripts/resolve-hashes.mjs" "$1" >/dev/null 2>&1 ); echo $?; }
+rh5_run() { ( cd "$RH5" && node "$REPO/scripts/resolve-hashes.mjs" "$1" >/dev/null 2>&1 ); echo $?; }
+expect "check: placeholder quoted in the commit-list section (ancestor of base) is clean" 0 "$(rh4_run --check)"
+expect "write: commit-list section exits 0 and literal left untouched"                  0 "$(rc=$(rh4_run --write); grep -qF 'stale <this commit> placeholders' "$RH4/docs/PROJECT_STATE.md" || rc=9; echo $rc)"
+expect "check: placeholder in the Blockers section (ancestor of base) still refused"    1 "$(rh5_run --check)"
+
 # ---- gov-ratio.sh (P3): 7-day feat/fix(<WBS>) ratio + average review rounds --------------------
 echo "scribe.mjs"
 SC="$TMP/scribe"; mkdir -p "$SC/docs/state" "$SC/tasks"
 ( cd "$SC" && git init -q -b main && git config user.email t@t && git config user.name t
   printf 'Plan: x\n' > docs/state/header.md; printf 'b1\n' > docs/state/blockers.md; printf 'n1\n' > docs/state/next.md
   printf '| module | lane | task | claimed_at | worktree |\n|---|---|---|---|---|\n| wms | 1 | 2.10 | 2026-09-25 | ../pg-eos-lane-1 |\n' > tasks/LANE_LOCKS.md
-  git add -A && git commit -qm 'feat(2.10): first' && git commit -q --allow-empty -m 'chore(X): bookkeeping' )
+  git add -A && git commit -qm 'feat(2.10): first' && git commit -q --allow-empty -m 'chore(X): bookkeeping' \
+  && git commit -q --allow-empty -m 'feat(2.10): second, closes <this commit> placeholders' )
 sc_run() { ( cd "$SC" && node "$REPO/scripts/scribe.mjs" "$1" >/dev/null 2>&1 ); echo $?; }
 expect "scribe: --check before --write refused"      1 "$(sc_run --check)"
 expect "scribe: --write generates"                   0 "$(sc_run --write)"
 expect "scribe: --check after --write OK"            0 "$(sc_run --check)"
+expect "scribe: commit-subject placeholder rewritten to <this-commit>" 0 "$(cd "$SC" && grep -qF '<this-commit>' docs/PROJECT_STATE.md; echo $?)"
+expect "scribe: literal <this commit> absent from PROJECT_STATE"      1 "$(cd "$SC" && grep -qF '<this commit>' docs/PROJECT_STATE.md; echo $?)"
 expect "scribe: lanes + last commit rendered"        0 "$(cd "$SC" && grep -q 'lane 1 · wms · 2.10' docs/PROJECT_STATE.md && grep -q 'feat(2.10): first' docs/PROJECT_STATE.md && ! grep -q 'chore(X)' docs/PROJECT_STATE.md; echo $?)"
 expect "scribe: hand edit refused"                   1 "$(cd "$SC" && echo 'manual' >> docs/PROJECT_STATE.md; sc_run --check)"
 expect "scribe: over-long source line refused"       1 "$(cd "$SC" && printf '%0200d\n' 0 > docs/state/next.md; sc_run --write)"
