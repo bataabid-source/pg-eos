@@ -16,9 +16,9 @@ Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewe
 - lane 1 · wms · 2.9 · since 2026-09-29
 
 ## Last 5 feat/fix commits (git log)
+- `6ad098a` feat(X): apps/api public entry — hostRoutesFrom, isHostResult, package exports (X part 5d part 2, item 1) (#216)
 - `aed737c` feat(4.20): posting engine — entry types, reversal/adjustment, balance at commit, posted immutable, migration 0041 (#214)
 - `66cfccc` feat(2.16): PDA receive + put-away screens on XState v5, S1's D4 steps (part 2) (#211)
-- `03e071e` feat(X): apps/api public entry — hostRoutesFrom, isHostResult, package exports (X part 5d part 2, item 1)
 - `9897a01` feat(4.19): fiscal years + accounting periods (open/closed/locked), DB refuses posting into closed/locked periods, migration 0040
 - `a885a99` feat(2.16): sessions/otp_codes writes behind six identity definers, migration 0044 (part 1a-8)
 
