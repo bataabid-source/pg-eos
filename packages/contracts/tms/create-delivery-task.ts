@@ -23,7 +23,8 @@ import { OK_RESPONSE, writeErrorResponses } from '../_shared/route-responses.js'
 const UUID_ID = z.string().uuid();
 const MIN_VERSION = 1;
 const EXPECTED_VERSION = z.number().int().min(MIN_VERSION);
-const NON_EMPTY_STRING = z.string().min(1);
+// INV-C4-2: trimmed, so a whitespace-only value is refused at the contract, not only in domain/.
+const NON_EMPTY_STRING = z.string().trim().min(1);
 
 export const CreateDeliveryTaskInputSchema = z
   .object({
