@@ -10,6 +10,11 @@ import { t, type Locale } from '../../i18n/t';
 import type { ScanSignal } from '../receive/scan-signal';
 import type { PutawayClient } from './client';
 import { putawayMachine } from './put-away-machine';
+import { Alert } from '../../ui/Alert';
+import { Button } from '../../ui/Button';
+import { ScanField, type ScanFieldHandle } from '../../ui/ScanField';
+import { Screen } from '../../ui/Screen';
+import { Status } from '../../ui/Status';
 
 export interface ConfirmPutawayCommand {
   kind: 'confirm-putaway';
@@ -85,35 +90,46 @@ export function PutawayScreen({
     send({ type: 'SUGGEST_CHANGED', suggest: { skuId, qty, warehouseId } });
   }, [send, skuId, qty, warehouseId]);
 
+  const locationRef = useRef<ScanFieldHandle>(null);
+  const hasSuggestion = suggestion !== null;
+  useEffect(() => {
+    if (hasSuggestion) {
+      locationRef.current?.refocus();
+    }
+  }, [hasSuggestion]);
+
   function handleConfirm(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     send({ type: 'CONFIRM' });
   }
 
   return (
-    <div data-testid="putaway-screen">
-      <h1>{t(locale, 'screen.putAway')}</h1>
+    <Screen data-testid="putaway-screen" title={t(locale, 'screen.putAway')}>
       {suggestion === null ? null : (
-        <p data-testid="putaway-suggested">{t(locale, 'putaway.suggested', { location: suggestion.locationCode })}</p>
+        <p data-testid="putaway-suggested" className="text-xl font-semibold">
+          {t(locale, 'putaway.suggested', { location: suggestion.locationCode })}
+        </p>
       )}
-      <form onSubmit={handleConfirm}>
-        <label>
-          {t(locale, 'putaway.scan.label')}
-          <input data-testid="putaway-location" type="text" value={scanned} onChange={(e) => send({ type: 'SCAN', value: e.target.value })} />
-        </label>
-        <button type="submit" disabled={suggestion === null}>
+      <form onSubmit={handleConfirm} className="flex flex-col gap-3">
+        <ScanField
+          ref={locationRef}
+          label={t(locale, 'putaway.scan.label')}
+          data-testid="putaway-location"
+          type="text"
+          value={scanned}
+          onChange={(e) => send({ type: 'SCAN', value: e.target.value })}
+        />
+        <Button type="submit" disabled={suggestion === null}>
           {t(locale, 'putaway.confirm')}
-        </button>
+        </Button>
       </form>
-      {state.matches('confirmed') ? <p role="status">{t(locale, 'putaway.confirmed')}</p> : null}
-      {errorKey === null ? null : (
-        <p role="alert">{t(locale, errorKey, { location: suggestion?.locationCode ?? '' })}</p>
-      )}
+      {state.matches('confirmed') ? <Status>{t(locale, 'putaway.confirmed')}</Status> : null}
+      {errorKey === null ? null : <Alert>{t(locale, errorKey, { location: suggestion?.locationCode ?? '' })}</Alert>}
       {state.matches('unavailable') ? (
-        <button type="button" data-testid="putaway-retry" onClick={() => send({ type: 'RETRY' })}>
+        <Button data-testid="putaway-retry" onClick={() => send({ type: 'RETRY' })}>
           {t(locale, 'putaway.retry')}
-        </button>
+        </Button>
       ) : null}
-    </div>
+    </Screen>
   );
 }
