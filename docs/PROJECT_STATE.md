@@ -17,11 +17,11 @@ Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewe
 - lane B · tms · 3.4 · since 2026-09-30
 
 ## Last 5 feat/fix commits (git log)
+- `5ab04e6` feat(2.9): ledger writes the batch expiry, one expiry per batch at any location (D-204), S1 FEFO step (part 3) (#220)
 - `3be6d97` feat(X): S1/S2 call the host over HTTP — @pg-eos/api host, real sessions, X-Entity-Id, lifetime seed 0045 (X part 5d + part 2) (#175)
 - `0a76ae0` feat(X): check-locks.sh lane cap 3 → 4 (MAX_LANES, D-205 C: three build lanes + integration)
 - `6ad098a` feat(X): apps/api public entry — hostRoutesFrom, isHostResult, package exports (X part 5d part 2, item 1) (#216)
 - `aed737c` feat(4.20): posting engine — entry types, reversal/adjustment, balance at commit, posted immutable, migration 0041 (#214)
-- `66cfccc` feat(2.16): PDA receive + put-away screens on XState v5, S1's D4 steps (part 2) (#211)
 
 ## Blockers
 - G16: changed domain/ per PR, every module nightly (X part 6); G15 per STREAMS §G15 (green.json); G17 NOT RUNNABLE; deploy.sh waits on 0.6b.
@@ -36,5 +36,5 @@ Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewe
 - Master batch (frozen paths): entityId on WithContextCtx; domain-kit browser break; eslint cwd bug; new-slice.sh stale citations.
 
 ## Next
-1. Weekly goal S1+S2+S18: Lane 1: 2.16 p3 (`pda`) → 2.16 p2e · Lane B (D-205 C): 3.4 p1 (`tms`, 0046) · Integration: 2.18 (S1) · Lane 2 successor: 4.3 p1.
-2. Master: 3.4 p1 contract + catalog entry (brief Decision 5) · queue (D-205 B): #217 → #209 → #218 → #221 after M-core merges main · M-core: X 17 → X 16 p2.
+1. Weekly goal S1+S2+S18: Lane 1: 2.16 p3 (`pda`) → p2e · Lane B (D-205 C): 3.4 p1 (`tms`, 0046, contract on main) after X 19 · Integration: 2.18 · Lane 2: 4.3 p1.
+2. Queue (D-205 B): #217 → #209 → #218 → #221 after M-core merges main (99018e6+) · M-core: X part 19 (lane-db.sh B) → X 17 → X 16 p2.

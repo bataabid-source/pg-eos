@@ -382,7 +382,7 @@ test.describe('S1 Full 3PL client (Segment A, PST + PDL)', () => {
       );
       expect.soft(
         balanceResult.rows[0]?.zoneCode,
-        'NOT BUILT: receive-inbound has no shelf-life -> quarantine routing yet (stream A, row 2.16/2.18) — ' +
+        'NOT BUILT: receive-inbound has no shelf-life -> quarantine routing yet (backlog row "S1 QRT routing", owner 2.9 part 3) — ' +
           'the batch landed on a non-QRT zone instead',
       ).toBe(QUARANTINE_ZONE_CODE);
     });
@@ -397,7 +397,7 @@ test.describe('S1 Full 3PL client (Segment A, PST + PDL)', () => {
       expect.soft(
         decisionRow,
         'NOT BUILT: no quarantine_decision item exists for platform.decisions (source_table=wms.inbound_orders, ' +
-          `source_id=${orderId}) — the short-shelf-life-receipt decision workflow is not built yet`,
+          `source_id=${orderId}) — the short-shelf-life-receipt decision workflow is not built yet (backlog row "S1 quarantine_decision", owner 2.9 part 3)`,
       ).toBeDefined();
       if (decisionRow) {
         const dueBoundMs = new Date(decisionRow.created_at).getTime() + DECISION_DUE_WITHIN_HOURS * MS_PER_HOUR;
@@ -526,20 +526,19 @@ test.describe('S1 Full 3PL client (Segment A, PST + PDL)', () => {
       );
       expect(putaway200.status).toBe(HTTP_STATUS_OK);
 
-      // pre-build finding 1: post-movement.ts / receive-line.ts never carry expiryDate into the
-      // ledger — both stock_balance rows land with expiry_date = null. NOT BUILT, deterministic RED.
+      // expiry_date is read as text (yyyy-mm-dd) so it compares exactly with daysAfterClock's ISO date.
       const expiryResult: QueryResult<{ batch_no: string; expiry_date: string | null }> = await pool.query(
-        `select batch_no, expiry_date from wms.stock_balance where sku_id = $1 and batch_no = any($2::text[])`,
+        `select batch_no, expiry_date::text as expiry_date from wms.stock_balance where sku_id = $1 and batch_no = any($2::text[])`,
         [skuTwoId, [S1_2_BATCH_90_NO, S1_2_BATCH_200_NO]],
       );
       const expiryByBatch = new Map(expiryResult.rows.map((row) => [row.batch_no, row.expiry_date]));
       expect.soft(
         expiryByBatch.get(S1_2_BATCH_90_NO),
-        'NOT BUILT: wms.stock_balance.expiry_date is never populated by receive-line.ts/post-movement.ts (fix backlog row against 2.8/2.9) — expected the 90-day batch expiry',
+        'wms.stock_balance.expiry_date must equal the 90-day batch expiry (scenario clock date + 90 days)',
       ).toBe(daysAfterClock(S1_2_BATCH_90_EXPIRY_DAYS));
       expect.soft(
         expiryByBatch.get(S1_2_BATCH_200_NO),
-        'NOT BUILT: wms.stock_balance.expiry_date is never populated by receive-line.ts/post-movement.ts (fix backlog row against 2.8/2.9) — expected the 200-day batch expiry',
+        'wms.stock_balance.expiry_date must equal the 200-day batch expiry (scenario clock date + 200 days)',
       ).toBe(daysAfterClock(S1_2_BATCH_200_EXPIRY_DAYS));
     });
 
@@ -623,8 +622,7 @@ test.describe('S1 Full 3PL client (Segment A, PST + PDL)', () => {
       const allocatedByBatch = new Map(allocationResult.rows.map((row) => [row.batch_no, Number(row.qty_allocated)]));
       expect.soft(
         allocatedByBatch.get(S1_2_BATCH_90_NO),
-        'NOT BUILT (deterministic via the expiry defect above): with null expiries, allocateFromSingleLot orders lots ' +
-          'by location_id, not FEFO — expected 12 units allocated from the 90-day batch',
+        'expected 12 units allocated from the 90-day batch (FEFO: earliest expiry first)',
       ).toBe(S1_2_OUTBOUND_ALLOCATED_ON_90_DAY_BATCH);
       expect.soft(allocatedByBatch.get(S1_2_BATCH_200_NO), 'expected 0 units allocated from the 200-day batch').toBe(
         S1_2_OUTBOUND_ALLOCATED_ON_200_DAY_BATCH,

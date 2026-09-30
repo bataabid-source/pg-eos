@@ -8,7 +8,7 @@
 //     check-driver-assignable, wms/process-outbound's generate-pick-list, wms/receive-inbound's
 //     suggest-location) plus the 10 contract-first POST routes of billing/accounting-periods (5),
 //     billing/dimensions part 2 (2) and billing/post-journal (3) — registered ahead of their own
-//     handlers.ts (ADR-0005 §3), for a fixture total of 78 POST + 4 GET = 82;
+//     handlers.ts (ADR-0005 §3), plus the 1 contract-first POST route of tms/create-delivery-task, for a fixture total of 79 POST + 4 GET = 83;
 //   - every POST route declares the Idempotency-Key header (doc 40 §A4 — also covered structurally
 //     by registry-invariants.test.ts's own checkInvariants() property test; this file additionally
 //     proves it for the REAL production routes, not just fixtures);
@@ -55,6 +55,7 @@ const ROUTE_COUNTS_BY_USE_CASE: ReadonlyArray<{
   { usecase: 'sales/manage-account-credit', post: 3, get: 0 },
   { usecase: 'sales/manage-contract', post: 8, get: 0 },
   { usecase: 'sales/manage-quote', post: 9, get: 0 },
+  { usecase: 'tms/create-delivery-task', post: 1, get: 0 },
   { usecase: 'wms/count-inventory', post: 4, get: 0 },
   { usecase: 'wms/manage-space', post: 2, get: 0 },
   { usecase: 'wms/process-outbound', post: 9, get: 1 },
@@ -68,8 +69,8 @@ const EXPECTED_GET_COUNT = ROUTE_COUNTS_BY_USE_CASE.reduce((sum, row) => sum + r
 const EXPECTED_TOTAL_COUNT = EXPECTED_POST_COUNT + EXPECTED_GET_COUNT;
 
 describe('Scenario: every module use case with a handlers.ts registers its own routes', () => {
-  it('registers exactly 78 POST routes (68 IDEMPOTENCY_ENDPOINT_* identifiers + 10 contract-first billing routes) and 4 GET routes', () => {
-    expect(EXPECTED_POST_COUNT).toBe(78);
+  it('registers exactly 79 POST routes (68 IDEMPOTENCY_ENDPOINT_* identifiers + 10 contract-first billing routes + 1 contract-first tms route) and 4 GET routes', () => {
+    expect(EXPECTED_POST_COUNT).toBe(79);
     expect(EXPECTED_GET_COUNT).toBe(4);
     expect(ALL_ROUTES.filter((route) => route.method === 'POST').length).toBe(EXPECTED_POST_COUNT);
     expect(ALL_ROUTES.filter((route) => route.method === 'GET').length).toBe(EXPECTED_GET_COUNT);
