@@ -497,6 +497,21 @@ expect "gitleaks clean → docs-only commit accepted"   0 "$(pcg 0)"
 expect "gitleaks finds a secret → refused"            1 "$(pcg 1)"
 expect "gitleaks not installed → warn, not refused"   0 "$(pcg none)"
 
+# ---- X-d208 (GM 2026-09-30): test scope rule in the agent files (M-core, tooling) -------------
+echo "agent files — TEST SCOPE (D-208)"
+TESTER="$REPO/.claude/agents/pg-tester.md"; REVIEWER="$REPO/.claude/agents/pg-reviewer.md"
+has() { grep -qF -- "$2" "$1" 2>/dev/null; echo $?; }
+hasx() { grep -qxF -- "$2" "$1" 2>/dev/null; echo $?; }
+TRULE='- Property tests (fast-check) ONLY on invariants of stock (wms ledger/balances), money (billing journals/amounts) and security (RLS, permissions, audit chain); every other rule gets an ordinary unit test. No behaviour is tested twice across layers: one assertion per rule at the lowest layer that can prove it (domain unit > application integration > scenario); the scenario asserts only the doc 40 Part E step text. Coverage ≥ 90% on domain/ and the guards G1–G17 are unchanged.'
+RRULE='- A duplicated test across layers, or a property test outside the three D-208 scopes (stock, money, security), is a blocking finding in the pre-build review.'
+before() { a=$(grep -nF -- "$2" "$1" | head -1 | cut -d: -f1); b=$(grep -n '^AGENT CONSTRAINTS' "$1" | head -1 | cut -d: -f1); if [ -n "$a" ] && [ -n "$b" ] && [ "$a" -lt "$b" ]; then echo 0; else echo 1; fi; }
+expect "pg-tester.md has heading TEST SCOPE (D-208)"          0 "$(has "$TESTER" 'TEST SCOPE (D-208)')"
+expect "pg-tester.md carries the whole rule line verbatim"    0 "$(hasx "$TESTER" "$TRULE")"
+expect "pg-tester.md: D-208 heading is before AGENT CONSTRAINTS" 0 "$(before "$TESTER" 'TEST SCOPE (D-208)')"
+expect "pg-reviewer.md has heading PRE-BUILD BLOCKING (D-206, D-208)" 0 "$(has "$REVIEWER" 'PRE-BUILD BLOCKING (D-206, D-208)')"
+expect "pg-reviewer.md carries the whole blocking sentence verbatim" 0 "$(hasx "$REVIEWER" "$RRULE")"
+expect "pg-reviewer.md: D-206/D-208 heading is before AGENT CONSTRAINTS" 0 "$(before "$REVIEWER" 'PRE-BUILD BLOCKING (D-206, D-208)')"
+
 echo
 echo "hooks tests: $pass passed, $failn failed"
 [ "$failn" -eq 0 ]
