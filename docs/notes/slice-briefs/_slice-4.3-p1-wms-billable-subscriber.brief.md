@@ -1,0 +1,57 @@
+# SLICE BRIEF — WBS 4.3 part 1 · WMS subscriber: `wms.outbound.checked` → billable events OF-01/OF-02/OF-06/OF-07 (S1 "billable events … exist with status pending")
+
+Task: 4.3 part 1 (MASTER_BACKLOG row 4.3: "Billing subscribers: WMS, TMS, CC, iMile events → billable events" — doc 38 lane M, reassigned to lane 2 by the Master M14/M15 default under D-205, Advisory recommendation 2026-09-30 04:52Z on #207)      Lane: 2      Lock: `billing | 2 | 4.3` (whole module → `modules/billing/**`; tasks/LANE_LOCKS.md, claimed 2026-09-30)
+builder: pg-builder-core
+Session: lane 2 — branch `lane/2-4.3-p1` (first command: `git fetch origin && git checkout -B lane/2-4.3-p1 origin/main`); lane DB `bash scripts/lane-db.sh 2` (PGDATABASE=pgeos_lane2; re-apply 0040/0041 by hand after `pnpm guards:run` re-runs 0007 — handover-lane-2.md). Commit with `G16_MODULES=billing`. No migration: every table and column below exists (01 / 13B).
+Model routing (ADR-0005 §5, D-206): pg-tester sonnet (RED) → pg-reviewer opus (ONE pre-build pass: brief + RED; RLS, SoD, secrets checked here) → pg-builder-core opus (billing core) → pg-tester verify → pg-reviewer opus (ONE close pass). Budget ≤ 8 files / 1,000 lines read, ≤ 150k tokens (D-210 §2 raises it to 300k / 16 files / 2,000 lines once brief-check.sh carries the numbers — the smaller figure governs until then); REVIEW CAP 2 rounds per review. Test scope D-208: property tests ONLY on the money invariant (one row per (source, service), qty/amount) — everything else an ordinary unit test; no rule asserted twice across layers.
+Module `billing` exists (`modules/billing/{domain,infrastructure,tests}/record-billable-event`, WBS 4.2 @ 4ba65a4 — no application/ or api/ layer yet: `modules/billing/index.ts` header). This slice adds the `application/` and `api/` layers of the use case with `scripts/new-slice.sh billing record-billable-event` semantics: copy the golden layout (`modules/wms/{application,api}/receive-inbound`), keep the existing domain/ and infrastructure/ files. A hand-made tree is a review FAIL.
+
+## Acceptance
+doc 40 line 444 (verbatim S1 step, tests/scenarios/S1.spec.ts:632): "And after checked, billable events OF-01×1, OF-02×1, OF-06×1, OF-07×1 exist with status pending" — S1.spec.ts:673-690 counts, per code, the `billing.billable_events` rows with `source_table = 'wms.outbound_orders' and source_id = <order id>` joined to `catalog.services` by code, expects exactly ONE row per code and `status = 'pending'`; today: `NOT BUILT: billing.billable_events row for OF-xx does not exist (WBS 4.3 subscriber, stream B)`.
+MASTER_BACKLOG row 4.2 (verbatim): `insertBillableEvent` is "the port WBS 4.3's future system-actor subscribers will call". 01-Data-Model.sql:1079 unique index `(source_table, source_id, service_id)` — "يمنع الفوترة المزدوجة لنفس الحدث نهائياً" — is the idempotency of the subscriber (doc 40 §B3 "subscribers are idempotent").
+
+## Facts (verified by the Master on main c0a59b5, 2026-09-30; re-verify at slice start)
+- Event: `modules/wms/application/process-outbound/check-order.ts:22,80-88` writes `wms.outbound.checked` (catalog packages/events/catalog.ts:84) with `aggregateType` outbound orders, `aggregateId = orderId`, `payload = { orderId, status }`, `entityId`, `correlationId`, `actorId`. No OF-* code is written by wms (check-order.ts:10 says so).
+- Relay: `packages/events/src/relay.ts` `relayOnce(pool, { limit, eventType? })` invokes every `registerSubscriber(name, handler)` (`packages/events/src/registry.ts:38`) sequentially per unpublished `platform.outbox` row and marks the row published only when all subscribers succeed; a throwing subscriber leaves the row for redelivery (at-least-once). `OutboxEvent` shape registry.ts:14-25 (`payload: unknown`, `createdAt: Date`, `entityId`, `correlationId`). NO host process calls `relayOnce` today (only packages/events tests) — see Decision 4.
+- Port: `insertBillableEvent(tx, params)` modules/billing/infrastructure/record-billable-event/repository.ts:175 with `InsertBillableEventParams` :145-166 (`occurredAt`, `clientId`, `contractId?`, `serviceId`, `qty` as exact decimal TEXT, `uom`, `sourceModule`, `sourceTable`, `sourceId`, `correlationId`, `actorId?` — null = system actor, audit `actor_type 'system'`); it validates the closed list `BILLABLE_SOURCE_TABLES` (domain invariants.ts:20-26, includes `'wms.outbound_orders'`), resolves `entity_id`/`client_id` THROUGH the source row (:193) and refuses a duplicate (source_table, source_id, service_id) with a typed error (:215). It runs inside a `withContext(ctx, fn)` the caller opened.
+- Services: `catalog.services` 01:347-362 (`code` unique, `uom`, `billing_basis`, `is_active`); seed 13B:2566-2572 — OF-01 uom `طلب` per_event · OF-02 `بند` per_unit · OF-06 `طلب` per_event · OF-07 `طلب / كرتون` per_unit (doc 04 §ج). Service ids are read by code at run time, never hard-coded.
+- Source row: `wms.outbound_orders` 01:754-776 — `entity_id`, `client_id`, `contract_id` (nullable), `status` (… checked …), `version`. RLS `entity_scope`.
+- System-actor precedent: `modules/platform/application/evaluate-alerts/evaluate-alert-rules.ts:33,110` — a pg-boss job body opens ONE `withContext(ctx, tx => …)` with a `WithContextCtx` (`userId: null`, `clientId: null`, `isInternal: true`, `entityId` = the event's entity; packages/db/src/with-context.ts:34-45).
+- Billing has no `packages/contracts/billing/record-billable-event.ts` and needs none: the subscriber has no HTTP route (Decision 1). Catalog entry `billing.billable_event.recorded` (packages/events/catalog.ts:105) already exists.
+
+## Decisions (defaults — one CHANGELOG line each)
+1. ONE subscriber `billing.wms-outbound-checked` (`modules/billing/api/record-billable-event/subscriber.ts` exports `registerBillingSubscribers()` which calls `registerSubscriber(...)` once; idempotent to call twice). No HTTP route, no Idempotency-Key: the unique index + `insertBillableEvent`'s duplicate refusal make a redelivery a no-op — the handler catches ONLY the duplicate error class and returns; any other error rethrows so the relay retries.
+2. Domain: `modules/billing/domain/record-billable-event/outbound-checked-services.ts` — the pure mapping `wms.outbound.checked` → `[OF-01, OF-02, OF-06, OF-07]` each qty `'1'` (doc 40 line 444 verbatim: ×1 each), as a named constant list with the doc-40 citation; `uom` comes from the `catalog.services` row (never from the domain). No if/switch on event type strings beyond the registry filter: the subscriber ignores every `eventType !== 'wms.outbound.checked'` by an early return (that guard is the registry's dispatch, not a state transition).
+3. Application: `modules/billing/application/record-billable-event/record-outbound-checked.ts` — `withContext({ userId: null, clientId: null, isInternal: true, entityId: event.entityId }, tx => …)`: read the four service rows by code (`is_active`), read `contract_id` of the source order (billing-side SQL on `wms.outbound_orders`, read-only — a cross-schema READ, not a cross-module import), then `insertBillableEvent` ×4 in the SAME tx; `occurredAt = event.createdAt` (ISO), `sourceModule 'wms'`, `sourceTable 'wms.outbound_orders'`, `sourceId = payload.orderId` (Zod-parsed payload `{ orderId: uuid, status: string }`; a malformed payload throws → relay records `last_error`), `correlationId = event.correlationId`, `actorId: null`. Each insert emits `billing.billable_event.recorded` through the port as 4.2 already does.
+4. Wiring the relay tick (pg-boss recurring job calling `relayOnce` in `apps/api`, lock `api | M`) is NOT this slice: row `X part 21` (M-core). Until it lands, `tests/scenarios/S1.spec.ts` turns the step green by calling `relayOnce(pool, { eventType: 'wms.outbound.checked' })` after `handleCheckOrder` — the integration lane's change (2.18), reported to it in the closing report. Part 1's own tests prove the step's query verbatim on the lane DB after one `relayOnce`.
+5. TMS / CC / iMile subscribers follow their producers (3.4 part 2+, 2.14): rows `4.3 part 2..4`. Pricing stays `pending` (doc 40 §C6: priced at aggregation, `unit_price`/`amount` NULL here).
+
+## Read ONLY (workers)
+- `CLAUDE.md`
+- `.claude/briefs/billing.brief.md`
+- `modules/billing/infrastructure/record-billable-event/repository.ts` lines 1-60, 140-260
+- `modules/billing/domain/record-billable-event/invariants.ts` lines 1-60
+- `packages/events/src/registry.ts`
+- `packages/events/src/relay.ts` lines 80-140
+- `modules/platform/application/evaluate-alerts/evaluate-alert-rules.ts` lines 100-140
+- `tests/scenarios/S1.spec.ts` lines 630-692
+
+Write ONLY: `modules/billing/**` (pg-tester only under `modules/billing/tests/**`) · `modules/billing/index.ts` (barrel re-exports `registerBillingSubscribers`). Never `packages/*`, `apps/*`, `tests/scenarios/*`.
+Contract: none (no HTTP route — Decision 1); payload schema `OutboundCheckedPayloadSchema` (Zod) lives in `modules/billing/application/record-billable-event/`. Screen/Board spec: none (server slice).
+
+## RED tests
+`modules/billing/tests/record-billable-event/outbound-checked.feature` · `outbound-checked-services.unit.test.ts` (the mapping, ordinary unit tests — D-208) · `record-outbound-checked.test.ts` (integration, lane DB: outbox row → `relayOnce` → four rows, S1 query verbatim; redelivery → still four rows; other event type → zero rows; malformed payload → row unpublished with `last_error`) · `billable-idempotency.property.test.ts` (fast-check, money invariant: for any sequence of deliveries of the same event, exactly one row per (source, service) and qty `1.000`).
+
+```gherkin
+Feature: WMS subscriber records the fulfilment billable events at checked (WBS 4.3 part 1)
+  Scenario: A wms.outbound.checked outbox row relayed once yields exactly one pending billing.billable_events row for each of OF-01, OF-02, OF-06, OF-07 on wms.outbound_orders/<order>, qty 1, uom of the catalog row, client and contract of the order, in one transaction
+  Scenario: Redelivery of the same outbox row (at-least-once relay) leaves exactly one row per service and the row published
+  Scenario: An outbox row of any other event type produces no billable event
+  Scenario: A wms.outbound.checked row whose payload has no orderId is left unpublished with last_error naming the subscriber
+  Scenario: A checked order of another entity is written under that entity (RLS: entity_id follows the source row)
+```
+
+Deliver: `modules/billing/domain/record-billable-event/outbound-checked-services.ts` · `modules/billing/application/record-billable-event/{record-outbound-checked.ts,ports.ts,index.ts}` · `modules/billing/api/record-billable-event/subscriber.ts` · `modules/billing/index.ts` re-export · the RED files above green · CHANGELOG entry (scribe template) · this brief deleted in the commit · closing report to the Master on #207 naming the S1 `relayOnce` step for 2.18 and row `X part 21` for M-core.
+Migration number: none.
+
+Stop-and-ask if: any table/column/rule not in 01 / 13 / 13B / 019 / 40 — STOP and report (G-01); a needed file outside `modules/billing` — STOP and report (the relay tick and the S1 step are other lanes', Decision 4); the four OF codes are not all seeded `is_active` on the lane DB — STOP and report (seed 13B:2566-2572, never insert a service).
