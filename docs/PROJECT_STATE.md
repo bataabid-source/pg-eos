@@ -21,11 +21,11 @@ Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewe
 - lane M · worker · X · since 2026-09-30
 
 ## Last 5 feat/fix commits (git log)
+- `1679bfc` fix(X): neutralize the placeholder token quoted in the #245 CHANGELOG entry so gate ① passes on PRs
+- `ad1fe07` feat(2.9): short-shelf-life receipt routed to zone QRT with one open quarantine_decision (part 3 step 2, S1 scenario 1, migration 0047)
 - `cee9f23` feat(X): packages/i18n wms.json quarantine-decision title in six locales (X part 23) + packages/contracts tsconfig includes tms/**/*.ts (X part 21 p
 - `f8e5286` feat(3.4): INV-C4-1 vehicle guard + delivery_tasks.version (0046) and tms create-delivery-task, with the route-table change (#232 + #234) (#243)
 - `13a5ac0` feat(X): ADR-0007 addendum gates — agent-constraints copy check, auto-archive constant, strict merge step (X part 17) (#226)
-- `a4dbdda` feat(X): gate ⑦ image build leaves per-PR CI for nightly.yml + workflow_dispatch, per-job concurrency groups (X part 20 item 1 + part 2) (#230)
-- `33e00e4` feat(X): check-master-reads — the Master's inline reads reported from the session transcript (X part 17 parts 2+3, D-210 item 4) (#231)
 
 ## Blockers
 - G16: changed domain/ per PR, every module nightly (X part 6); G15 per STREAMS §G15 (green.json); G17 NOT RUNNABLE; deploy.sh waits on 0.6b.

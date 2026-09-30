@@ -13,9 +13,15 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 - **Review (pg-reviewer, D-206):** pre-build FAIL(2 blocking + 6 nits) → one fix round (tests) · close round 1 FAIL(1 evidence + 2 nits) → round 2 PASS(1 nit, brief Read ONLY list incomplete — builder read cited precedents); pgeos_app UPDATE on `platform.decisions` (hold could be lifted) → row 2.9 part 3 step 3.
 - Model: lane 1 session · Delegated: pg-tester (sonnet), pg-builder-core (opus), pg-reviewer (opus ×2) · Review: PASS(12 findings, 2 rounds) · tokens: tester ≈125k, builder ≈131k, reviewer ≈68k + ≈78k — ≈402k, over the 300k budget, under the 500k ceiling (D-210); ≈5 h wait on X part 23 (#240/#244).
 
+## X — M15 handover packet; SCR-RLS-NULL-ENTITY-01 filed; row 2.16 part 2f (Master M15, 2026-09-30)
+
+- **Why:** Master context ≈ 510k of the 600k ceiling (D-210) — handover at a clean point (no Master PR open); M-core's #246 finding (NULL-entity rows admitted by `entity_scope`) is a security question for the GM; Advisory 17:30Z PDA styling gap.
+- **Files:** `docs/notes/handover-master.md` (M15 packet replaces M14's) · `docs/notes/SCR-RLS-NULL-ENTITY-01.md` · MASTER_BACKLOG rows 2.16 part 2f (lane 1) and SCR-RLS-NULL-ENTITY-01 (GM). PROJECT_STATE unchanged (scribe --write produced no diff).
+- **Review:** records-only. Model: Master M15 session · Delegated: none · tokens ≈ 10k.
+
 ## X — rows 3.4 part 1b, X part 26, X part 27; 4.3 part 1a grants scope; #244 hashes resolved (Master M15, 2026-09-30)
 
-- **Why:** records owed from #243/#244 and the #207 15:2xZ rulings; the two unresolved commit-hash placeholders #244 left on main would turn gate ① red on every PR.
+- **Why:** records owed from #243/#244 and the #207 15:2xZ rulings; the two hash placeholders #244 left on main would turn gate ① red on every PR.
 - **Files:** `tasks/MASTER_BACKLOG.md` — 3.4 part 1b (lane B i18nKeys), X part 26 queued (M-core to add `tms.task.create.*` keys and set the brief prefix to `PDL-TSK-` per seed 019; no brief or locale file changes here), X part 27 (native review of five translations), 4.3 part 1a text + `pgeos_worker` minimum grants (D-212 item 2); X part 23 / X part 21 part 2 → `cee9f23` · PROJECT_STATE.
 - **Review:** records-only. Model: Master M15 session · Delegated: none · tokens ≈ 8k.
 
