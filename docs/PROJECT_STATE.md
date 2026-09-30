@@ -17,11 +17,11 @@ Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewe
 - lane B · tms · 3.4 · since 2026-09-30
 
 ## Last 5 feat/fix commits (git log)
+- `a635bec` feat(2.16): PDA visual layer — Tailwind on the shell, receive, put-away, login and home; touch targets >= 48 px, one step per screen, autofocused sc
+- `7c43f0c` feat(2.16): PDA pick, check and load screens on XState v5, checker != picker refused on the screen, S1 scenario 2 PDA steps (part 3) (#227)
 - `c0a59b5` feat(3.4): CreateDeliveryTask contract-first route + tms.task.created catalog entry (part 1 contracts, Master) (#224)
 - `750d8f3` feat(X): Playwright webServer — apps/api host over TCP + PDA dev server, host/pda projects behind PG_EOS_E2E, CI ④ e2e step (X part 5e) (#217)
 - `5ab04e6` feat(2.9): ledger writes the batch expiry, one expiry per batch at any location (D-204), S1 FEFO step (part 3) (#220)
-- `3be6d97` feat(X): S1/S2 call the host over HTTP — @pg-eos/api host, real sessions, X-Entity-Id, lifetime seed 0045 (X part 5d + part 2) (#175)
-- `0a76ae0` feat(X): check-locks.sh lane cap 3 → 4 (MAX_LANES, D-205 C: three build lanes + integration)
 
 ## Blockers
 - G16: changed domain/ per PR, every module nightly (X part 6); G15 per STREAMS §G15 (green.json); G17 NOT RUNNABLE; deploy.sh waits on 0.6b.
