@@ -4,6 +4,13 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — SCR-BILLING-SYSTEM-ACTOR-01 filed (pending GM); 0048 reserved for M-core; lock `worker | M | X`; rows 4.3 part 1a/1c, X part 24/25 (Master M15, 2026-09-30)
+
+- **Why:** lane 2 (4.3 part 1) stopped 11:26Z: no identity satisfies `entity_scope`/`audit_append` for an outbox subscriber. A privileged identity is not a slice-level default (#241 security findings), so the SCR is filed, not decided.
+- **SCR** `docs/notes/SCR-BILLING-SYSTEM-ACTOR-01.md`: service row + `user_entities` + a worker-role binding (the id resolves to no entities under `pgeos_app`); `user_type` is the GM's call. **0048** reserved for M-core under `identity` (0044 precedent), written after ratification.
+- **Files:** migrations README (0048 reserved, next free 0049) · LANE_LOCKS +`worker | M | X` (precedent `api | M | X`; apps/* frozen for lanes) · MASTER_BACKLOG rows 4.3 part 1a/1c (BLOCKED — GM), X part 24 (registerBillingSubscribers), X part 25 (frozen-path defects moved from the blockers line) · docs/state + PROJECT_STATE (40 lines).
+- **Review:** bot rounds 1–2; security findings fixed by withdrawing the default. Model: Master M15 session · Delegated: none · tokens ≈ 40k.
+
 ## X — D-208 test-scope rule in the pg-tester and pg-reviewer agent files (M-core, 2026-09-30)
 
 - **Why:** GM directive 2026-09-30 05:22Z «موافق نفذ بشكل صارم» → D-208 (test scope, strict): property tests only on stock / money / security invariants, one assertion per rule at the lowest layer, scenarios assert only the doc 40 Part E step text. The GM named the pg-tester agent file (M-core, `tooling`) as the carrier and pg-reviewer as the enforcer.
