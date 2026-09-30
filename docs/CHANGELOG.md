@@ -11,7 +11,7 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 - **Brief:** `docs/notes/slice-briefs/_slice-2.9-p3-s2-qrt-quarantine.brief.md` (pg-builder-core; D-211: `SALES_MGR` via `platform.approval_chains`, `wms.quarantine.decision_due_hours` = 48 in `platform.thresholds`, title template, hold until decided, SKU-level minimum); brief-check OK (8 files / 761 lines).
 - **Migration 0047** issued to lane 1 (`0047_1_quarantine-decision-chain-threshold.sql`, data only): `tasks/backlog/MIGRATION-REQUEST-1.md` + register line; next free 0048. `docs/notes/SCR-WMS-QRT-01.md` closed by D-211 (deleted).
 - **Decisions:** D-208, D-209, D-210, D-211 rows (verbatim GM text + the approved proposal texts) · `docs/notes/claude-md-pending.md` (REVIEW, TESTING, Merge queue, D-210 §1–3, D-205 C/D-207 wording, X part 17 lines).
-- **State:** docs/state header/next refreshed, two obsolete blocker lines dropped, PROJECT_STATE regenerated (40 lines). Backlog rows for the open review findings (4.3 part 1b, X part 19 part 2, X part 20 part 2, 2.9 part 3 step 3, SCR-WMS-QRT-02) → next Master commit.
+- **State:** docs/state header/next refreshed, INV-C4-1 blocker line dropped (→ 3.4 part 1) and the identity-test line folded into MASTER_BACKLOG, PROJECT_STATE regenerated (40 lines). Backlog rows added here: 4.3 part 1/1b/2, X part 20 part 2, X part 21, 2.9 part 3 step 3, SCR-WMS-QRT-02, X part 23 (i18n key, M-core); X part 19 part 2 and X part 22 keep M-core's rows (hashes added). Lock `packages/i18n | M | X` claimed for X part 23.
 - Model: Master M15 session · Delegated: none · tokens ≈ 60k.
 
 ## X — lock `billing | 2 | 4.3` claimed; brief 4.3 part 1 (WMS billable subscriber); SCR-WMS-QRT-01 filed (Master M15, 2026-09-30)
