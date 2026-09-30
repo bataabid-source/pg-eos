@@ -22,6 +22,22 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 - **Review (pg-reviewer, opus, D-206):** pre-build PASS(5 nits: QEMU/build-push absence, exact trigger set, header pin, mutation pins, stale comment — fixed in the same round) · close FAIL(1 nit: `permissions: contents: read` carried over to nightly.yml) → fixed in the same round.
 - **Verified:** `pnpm -s test:ops` green · both workflows parse · pre-commit ①②.
 - Model: M-core session · Delegated: general-purpose measurer (opus), pg-tester (sonnet ×3), pg-builder (sonnet), pg-reviewer (opus ×2) · Review: PASS(6 findings, 2 rounds) · tokens: measurer ≈ 165k · pg-tester ≈ 75k · pg-builder ≈ 15k · pg-reviewer ≈ 55k
+## X — SCR-BILLING-SYSTEM-ACTOR-01 filed (pending GM); 0048 reserved for M-core; lock `worker | M | X`; rows 4.3 part 1a/1c, X part 24/25 (Master M15, 2026-09-30)
+
+- **Why:** lane 2 (4.3 part 1) stopped 11:26Z: no identity satisfies `entity_scope`/`audit_append` for an outbox subscriber. A privileged identity is not a slice-level default (#241 security findings), so the SCR is filed, not decided.
+- **SCR** `docs/notes/SCR-BILLING-SYSTEM-ACTOR-01.md`: service row + `user_entities` + a worker-role binding (the id resolves to no entities under `pgeos_app`); `user_type` is the GM's call. **0048** reserved for M-core under `identity` (0044 precedent), written after ratification.
+- **Files:** migrations README (0048 reserved, next free 0049) · LANE_LOCKS +`worker | M | X` (precedent `api | M | X`; apps/* frozen for lanes) · MASTER_BACKLOG rows 4.3 part 1a/1c (BLOCKED — GM), X part 24 (registerBillingSubscribers), X part 25 (frozen-path defects moved from the blockers line) · docs/state + PROJECT_STATE (40 lines).
+- **Review:** bot rounds 1–2; security findings fixed by withdrawing the default. Model: Master M15 session · Delegated: none · tokens ≈ 40k.
+
+## X — D-208 test-scope rule in the pg-tester and pg-reviewer agent files (M-core, 2026-09-30)
+
+- **Why:** GM directive 2026-09-30 05:22Z «موافق نفذ بشكل صارم» → D-208 (test scope, strict): property tests only on stock / money / security invariants, one assertion per rule at the lowest layer, scenarios assert only the doc 40 Part E step text. The GM named the pg-tester agent file (M-core, `tooling`) as the carrier and pg-reviewer as the enforcer.
+- **Change:** `.claude/agents/pg-tester.md` gains `TEST SCOPE (D-208)` with the rule verbatim (outside the AGENT CONSTRAINTS block, which stays byte-identical to CLAUDE.md — #226) · `.claude/agents/pg-reviewer.md` gains `PRE-BUILD BLOCKING (D-206, D-208)`: a duplicated test across layers or a property test outside the three scopes is a blocking pre-build finding.
+- **Tests:** `tests/hooks/X-d208.feature` + 6 pinning cases in `tests/hooks/run.sh` (CI gate ①, `grep -F` on the verbatim phrases and headings).
+- **Not here (Master/GM):** the CLAUDE.md TESTING line replacing "property tests on every invariant (fast-check)", the DECISION_LOG rows D-206/D-207/D-208 and doc 36 §5-4 (M14's docs(X)).
+- **Review (pg-reviewer, opus, D-206):** pre-build + close — see the trailer.
+- **Verified:** `pnpm test:hooks` 205/205 · check-setup: 4 agents, no `inherit`.
+- Model: M-core session · Delegated: pg-tester (sonnet), pg-builder (sonnet), pg-reviewer (opus ×2) · Review: PASS(2 findings, 2 rounds) · tokens: pg-tester ≈ 18k · pg-builder ≈ 12k · pg-reviewer ≈ 30k
 ## X — X part 17 part 2 + part 3 — `scripts/check-master-reads.sh`: the Master's inline reads reported from the session transcript (D-210 item 4) (M-core, 2026-09-30)
 
 - **Why:** D-210 item 4 (GM 05:41Z «موافق — نفذ بعمق وصرامه»): "Master reads nothing inline (D-201 enforced): PR bodies, packets, backlog and CHANGELOG are read only through subagents with ≤ 20-line returns; M-core adds `scripts/check-master-reads.sh`". A PreToolUse hook cannot tell the Master's own read from its subagent's read (same session, same hooks), so the check is a transcript-based report (design default posted on #207 06:57Z, unchallenged for an hour).
