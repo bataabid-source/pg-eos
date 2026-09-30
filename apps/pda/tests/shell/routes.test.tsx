@@ -15,7 +15,7 @@
 //     direction on mount (Master decision 4: `ar` default -> 'rtl').
 
 import { describe, it, expect } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider } from '@tanstack/react-router';
 
@@ -23,13 +23,11 @@ import { createRouter } from '../../src/router';
 import { t, SUPPORTED_LOCALES, directionOf, type Locale } from '../../src/i18n/t';
 
 // One row per D4 screen (brief Master decision 1) — path segment + its own i18n title key.
+// /pick, /check, /load are real screens since 2.16 part 3 (asserted in their own describe below).
 const ROUTES: ReadonlyArray<{ path: string; key: Parameters<typeof t>[1] }> = [
   { path: '/home', key: 'screen.home' },
   { path: '/receive', key: 'screen.receive' },
   { path: '/put-away', key: 'screen.putAway' },
-  { path: '/pick', key: 'screen.pick' },
-  { path: '/check', key: 'screen.check' },
-  { path: '/load', key: 'screen.load' },
   { path: '/count', key: 'screen.count' },
   { path: '/transfer-return', key: 'screen.transferReturn' },
   { path: '/lookup', key: 'screen.lookup' },
@@ -44,6 +42,17 @@ describe('PDA shell routing — nine D4 screens', () => {
       expect(await screen.findByText(t('ar', key))).toBeVisible();
     });
   }
+
+  it.each([
+    { path: '/pick', testId: 'pick-screen', key: 'screen.pick' },
+    { path: '/check', testId: 'check-screen', key: 'screen.check' },
+    { path: '/load', testId: 'load-screen', key: 'screen.load' },
+  ] as const)('"$path" renders the real screen root $testId with its own <h1>', async ({ path, testId, key }) => {
+    render(<RouterProvider router={createRouter(path)} />);
+    const root = await screen.findByTestId(testId);
+    expect(root).toBeInTheDocument();
+    expect(within(root).getByRole('heading', { level: 1 })).toHaveTextContent(t('ar', key));
+  });
 
   it('every route renders a DIFFERENT title from every other route (no accidental sharing of one key)', async () => {
     const renderedTitles = new Set<string>();

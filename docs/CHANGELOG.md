@@ -20,6 +20,15 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 - **Files:** docs/DECISION_LOG.md, docs/package/36-Technical-Architecture-Audit.md, docs/state/{header,next}.md, docs/notes/handover-master.md (M14 → M15), PROJECT_STATE (scribe).
 - **Review (claude[bot] on #228, round 1 FAIL(2) → fix round):** doc 36 note reworded "pending GM placement" (CLAUDE.md as written governs until the GM edit lands); handover wording neutral + the same governance note.
 - Model: Master M14 session · Delegated: none · Review: claude[bot] round 1 FAIL(2), fix round (this commit) · tokens ≈ 20k.
+## 2.16 part 3 — PDA pick → check → load screens (the PDA steps of S1's second scenario) (lane 1, 2026-09-30)
+
+- **Why:** doc 40 §D4 (scan is the input, one step per screen, error with sound+vibration and the next action, checker ≠ picker); S1 scenario 2 "after checked, billable events …"; weekly goal S1+S2+S18 (GM 07:20Z, #207).
+- **Change:** `apps/pda/src/features/{pick,check,load}/` each `client.ts` port · `mock-client.ts` · `<f>-queue.ts` (contract-validated submit, one Idempotency-Key + correlationId per accepted scan, enqueue once) · `<f>-machine.ts` (XState v5, `submitScan` actor, `REFUSAL_KEY`/`STATUS_KEY` records) · `<f>-screen.tsx`; `router.tsx` `/pick` `/check` `/load` replace their placeholders (generators/clock injected there); 30 i18n keys × 6 locales (78). Tests: `tests/outbound/pick-check-load.feature`, `tests/{pick,check,load}/*`, keys/routes tests extended. Brief deleted.
+- **Defaults recorded:** brief 1–4 (part-2 pattern, mock transport; refusal shown from the server's `wms.outbound.check.selfCheckNotAllowed` mapped to `check.refused.selfCheckNotAllowed`, the screen re-implements no rule; no pack screen, the load mock starts from a `packed` order; six locales) · pick mock refuses `lineNotFound` for another line, `qtyExceedsReserved` above reserved, `varianceReasonRequired` below reserved with a blank-after-trim reason · doc numbers `PCC-OUT-0000n` (counter padding 5) · load machine input `{ unused?: never }` · `varianceReason` sent only when non-empty · package `lint` script fails on the root config cwd bug (Master batch) — eslint run from the root, clean.
+- **Open (closing report):** who packs on the floor (no pack screen in D4's nine); real transport + "scan response ≤ 1.0 s" stay with the 2.16 row (IN PROGRESS).
+- **Review (pg-reviewer, D-206):** pre-build round 1 FAIL(8: 2 blocking — invented location rule in the pick mock header, 6-digit doc numbers) → fix round (tests only) → round 2 PASS(1 nit, closed at build); close round 1 PASS(0).
+- Tests: pda 241/241 (18 files) · tsc clean · eslint clean · `pnpm guards:run` G1–G14, G18, G-SEED 0 rows, G15 green (pgeos_lane1).
+- Model: lane 1 successor 3 session · Delegated: pg-tester (sonnet), pg-builder (sonnet), pg-reviewer (opus) · Review: PASS(9 findings, 3 rounds) · tokens: tester ≈ 110k · builder ≈ 90k · reviewer ≈ 100k (≈ 300k, 2× the 150k budget, recorded).
 
 ## 3.4 part 1 (contracts) — CreateDeliveryTask contract-first route + `tms.task.created` catalog entry (Master M14, 2026-09-30)
 
@@ -49,6 +58,7 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 - **Review (pg-reviewer):** pre-build round 1 FAIL(12) → fix round → round 2 FAIL(4, all brief text: child-process probe, no `projects` key flag-off, manifest/prefix checks, concrete route) — REVIEW CAP, no round 3; the four applied as DEFAULT/RECORD before build; close review PASS(4 nits: verdict exit status asserted, CHANGELOG placeholders/spacing, brief deleted in-commit) — all fixed in the same round.
 - **Verified:** flag on, `pgeos_x5`: host+pda 4/4 twice (both webServers boot each run, no leaked listener on 3901/5901) · flag off: `--list` = 11 tests / 8 S-files, no server; JSON report → `scenarios-verdict.mjs` `green` (8/20 present, 0/20 passed, expected 0/0) · scenarios typecheck + `eslint tests/scenarios` clean · check-locks OK · ci.yml parses.
 - Model: M-core session · Delegated: pg-tester (sonnet ×4), pg-reviewer (opus ×3), pg-builder (sonnet) · Review: PASS(4 findings, 1 round) · tokens: pg-tester ≈ 140k · pg-reviewer ≈ 130k (pre-build) · pg-builder ≈ 40k
+
 ## X — D-205 recorded (A/B/C), #220 merged under B, Lane 3 opened as lane B on 3.4 part 1 (migration 0046), lane 1 → `pda`, packets merged (Master M14, 2026-09-30)
 
 - **GM:** «موافق A.B.C» (20:31Z, #207, relayed) confirmed first-hand in the M14 session on 2026-09-30 («D-205 B مؤكَّد هنا … لا تسأل مجددًا — DEFAULT, RECORD, PROCEED») → **D-205** in DECISION_LOG (A permissions · B PR-level review cap · C third build lane, cap 7).
