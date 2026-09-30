@@ -4,6 +4,16 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## 2.16 part 2e — PDA visual layer: Tailwind on the shell + receive, put-away, login, home (lane 1, 2026-09-30)
+
+- **Why:** doc 40 §D4 (one step per screen, scan is the input, error with sound+vibration and the next action) + GM «موافق» 2026-09-29 17:50Z (shadcn/Tailwind scope, touch targets ≥ 48 px); EXECUTION-MASTER-v4 L624 RTL/LTR.
+- **Change:** `apps/pda/tailwind.config.ts`, `postcss.config.js`, `src/styles/tokens.css` (@tailwind + hsl tokens), `src/ui/{tokens,Button,Input,ScanField,Screen,Alert,Status}` (template-string classes, no cva/clsx/radix), `src/features/home/home-screen.tsx` (one Link per D4 route), restyled `router.tsx`, receive / put-away / otp-login / placeholder screens; logical properties only. Tests: `tests/visual/{pda-visual.feature,touch-targets,direction,scan-field}` (+ a postcss compile test tying 48/64 px to real CSS). No machine, client, mock, queue or i18n key changed (decision 1); 14 existing test files unchanged.
+- **Dependencies (Master M15 grant, #207 05:59Z):** `apps/pda` devDependencies tailwindcss ^3.4.19 · postcss ^8.5.28 · autoprefixer ^10.6.1 (admin's versions); `pnpm-lock.yaml` updated by `pnpm install` only.
+- **Defaults recorded:** `SCAN_FIELD_MIN_HEIGHT_PX = 64` (tests assert only ≥ 48) · login request form unmounts at step verify (one form at a time), verify form stays at success with the code input disabled · every placeholder route wrapped in `Screen` · queue badge hex → Tailwind text classes (same four states) · `vite.config.ts` `test.css.include [/tokens\.css/]` so tests/visual can read tokens.css ?raw (inside lock `pda`, outside the brief Write ONLY — Master-granted) · `/// <reference types="vite/client" />` in the visual tests · no "part 2e" header added to modified files · round-2 pre-build one-liners applied as pre-build finishing, no round 3.
+- **Review (pg-reviewer, D-206):** pre-build round 1 FAIL(11: 3 blocking — nominal 48 px link, shadcn deps unstated, login one-form vs existing tests) → fix round → round 2 FAIL(2 separable one-liners, applied); close round 1 FAIL(3: guard/e2e evidence, vite.config comment, dummy span) → fix round → round 2 PASS(0).
+- Tests: pda 196/196 (17 files) · tsc both tsconfigs · eslint clean · guards pgeos_lane1 G1–G14/G18/G-SEED 0 rows, G15 green (G16 local skip D-198, G17 not runnable) · PDA Playwright (`PG_EOS_E2E=1`, project pda) 1/1.
+- Model: lane 1 successor 3 session · Delegated: pg-tester (sonnet), pg-builder (sonnet), pg-reviewer (opus) · Review: PASS(16 findings, 4 rounds) · tokens: tester ≈ 80k · builder ≈ 85k · reviewer ≈ 105k (≈ 270k, within the D-210 300k budget).
+
 ## 3.4 part 1 (contracts) — CreateDeliveryTask contract-first route + `tms.task.created` catalog entry (Master M14, 2026-09-30)
 
 - **Why:** brief `_slice-3.4-p1-delivery-task` Decision 5 — the Master commits each wave's contracts before the lane starts (CLAUDE.md AGENTS AND SESSIONS); `packages/*` is frozen for lanes.

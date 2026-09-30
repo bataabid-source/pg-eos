@@ -14,6 +14,11 @@ import { useState } from 'react';
 
 import type { OtpLoginClient } from './client';
 import { t, type Locale } from '../../i18n/t';
+import { Alert } from '../../ui/Alert';
+import { Button } from '../../ui/Button';
+import { Input } from '../../ui/Input';
+import { Screen } from '../../ui/Screen';
+import { Status } from '../../ui/Status';
 
 export interface OtpLoginScreenProps {
   client: OtpLoginClient;
@@ -77,51 +82,40 @@ export function OtpLoginScreen({
   }
 
   return (
-    <div>
-      <h1>{t(locale, 'login.title')}</h1>
-
-      <form onSubmit={handleRequestSubmit}>
-        <label>
-          {t(locale, 'login.email.label')}
-          <input
-            type="email"
-            value={email}
-            disabled={step !== 'request'}
-            onChange={(event) => setEmail(event.target.value)}
-          />
-        </label>
-        <button type="submit" disabled={requestPending}>
-          {t(locale, 'login.email.submit')}
-        </button>
-      </form>
-
-      {requestError ? <p>{t(locale, 'login.error.requestFailed')}</p> : null}
-
-      {step === 'verify' || step === 'success' ? (
+    <Screen title={t(locale, 'login.title')}>
+      {step === 'request' ? (
+        <form onSubmit={handleRequestSubmit} className="flex flex-col gap-3">
+          <label className="flex flex-col gap-1 text-start">
+            {t(locale, 'login.email.label')}
+            <Input type="email" value={email} onChange={(event) => setEmail(event.target.value)} />
+          </label>
+          <Button type="submit" disabled={requestPending}>
+            {t(locale, 'login.email.submit')}
+          </Button>
+        </form>
+      ) : (
         <>
-          {expiresInMinutes !== null ? (
-            <p>{t(locale, 'login.requestSent', { minutes: expiresInMinutes })}</p>
-          ) : null}
-
-          <form onSubmit={handleVerifySubmit}>
-            <label>
+          {expiresInMinutes !== null ? <p>{t(locale, 'login.requestSent', { minutes: expiresInMinutes })}</p> : null}
+          <form onSubmit={handleVerifySubmit} className="flex flex-col gap-3">
+            <label className="flex flex-col gap-1 text-start">
               {t(locale, 'login.code.label')}
-              <input
+              <Input
                 type="text"
                 value={code}
                 disabled={step !== 'verify'}
                 onChange={(event) => setCode(event.target.value)}
               />
             </label>
-            <button type="submit" disabled={verifyPending || step !== 'verify'}>
+            <Button type="submit" disabled={verifyPending || step !== 'verify'}>
               {t(locale, 'login.code.submit')}
-            </button>
+            </Button>
           </form>
-
-          {verifyError ? <p>{t(locale, 'login.error.invalidCode')}</p> : null}
-          {step === 'success' ? <p>{t(locale, 'login.success')}</p> : null}
         </>
-      ) : null}
-    </div>
+      )}
+
+      {requestError ? <Alert>{t(locale, 'login.error.requestFailed')}</Alert> : null}
+      {verifyError ? <Alert>{t(locale, 'login.error.invalidCode')}</Alert> : null}
+      {step === 'success' ? <Status>{t(locale, 'login.success')}</Status> : null}
+    </Screen>
   );
 }
