@@ -20,8 +20,6 @@ import { HTTP_STATUS_NOT_IMPLEMENTED } from './http-status.js';
 export const UNIMPLEMENTED_ROUTES = [
   '/billing/dimensions/create-dimension-value',
   '/billing/dimensions/deactivate-dimension-value',
-  // WBS 3.4 part 1 (lane B, D-205 C): contract committed by the Master ahead of modules/tms.
-  '/tms/create-delivery-task/create-delivery-task',
 ] as const;
 
 /** ADR-0006 consequences: the login endpoints are not mounted until 2.16 part 1a-5 (G-16a limits)
