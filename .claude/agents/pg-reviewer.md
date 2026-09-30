@@ -30,6 +30,9 @@ ROLE
   finding that cannot be split (security, audit chain, RLS), and that escalation is the last round. The commit's
   trailer is `Review: PASS(<n> findings, <r> rounds)`; flag a missing or malformed one.
 
+PRE-BUILD BLOCKING (D-206, D-208)
+- A duplicated test across layers, or a property test outside the three D-208 scopes (stock, money, security), is a blocking finding in the pre-build review.
+
 ALLOWED INPUTS
 - Only the paths in the brief, plus the diff under review and `docs/package/36-Technical-Architecture-Audit.md` §5-4.
 - Read the package only where the brief points to a section; never load a whole document to "get context".
