@@ -1,7 +1,7 @@
-# PG-EOS · CI — gates ①–⑥ and gate ⑦'s image build (CLAUDE.md · DEPLOYMENT PIPELINE). Gate ⑦'s
-# linux/arm64 image build and one amd64 compose smoke run live here (ADR-0006 consequence 1, X part
-# 5c); applying migrations to a real environment and the deploy stay in the deploy pipeline
-# (doc 42 §8.1). WBS 0.6a part 2/2: CI and integration tests connect as
+# PG-EOS · CI — per-PR CI runs gates ①–⑥ only (CLAUDE.md · DEPLOYMENT PIPELINE).
+# Gate ⑦ (linux/arm64 image build + amd64 compose smoke) runs in nightly.yml on schedule and
+# workflow_dispatch (CLAUDE.md · Merge queue, D-197; X part 20); applying migrations to a real environment and the deploy stay in the
+# deploy pipeline (doc 42 §8.1). WBS 0.6a part 2/2: CI and integration tests connect as
 # pgeos_app (D-133, migration 0007), never as the postgres superuser, so RLS actually applies.
 name: CI
 
@@ -288,75 +288,3 @@ jobs:
         with:
           name: sbom
           path: sbom.spdx.json
-
-  image:
-    name: "⑦ build images (linux/arm64) + compose smoke"
-    runs-on: ubuntu-24.04
-    # QEMU-emulated arm64 install + build; no CI job had a timeout before (default recorded, X part 5c).
-    timeout-minutes: 45
-    env:
-      # Every `docker compose` below reads this file (no -f needed).
-      COMPOSE_FILE: infra/docker/docker-compose.yml
-      # Worker log probe: WORKER_LOG_RETRIES attempts, WORKER_LOG_RETRY_SECONDS apart.
-      WORKER_LOG_RETRIES: 30
-      WORKER_LOG_RETRY_SECONDS: 2
-      # Upper bound for `up --wait` on the api HEALTHCHECK.
-      COMPOSE_WAIT_TIMEOUT_SECONDS: 180
-    steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-qemu-action@v3
-      - uses: docker/setup-buildx-action@v3
-      # doc 36 §4-3 ⑦: the images are built for linux/arm64 (Tier 0). Pushed nowhere; no registry login.
-      - name: Build the image for linux/arm64 (push false)
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: apps/api/Dockerfile
-          platforms: linux/arm64
-          push: false
-          cache-from: type=gha,scope=arm64
-          cache-to: type=gha,scope=arm64,mode=max
-      - name: Build the image for linux/amd64 and load it for the smoke run
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: apps/api/Dockerfile
-          platforms: linux/amd64
-          load: true
-          tags: pg-eos/app:local
-          cache-from: type=gha,scope=amd64
-          cache-to: type=gha,scope=amd64,mode=max
-      # X part 6: the multi-stage image's size, printed so a later PR can compare (no earlier figure exists).
-      - name: Image size (recorded)
-        run: docker image inspect pg-eos/app:local --format '{{.Size}}' | numfmt --to=iec --suffix=B
-      - name: Compose file is valid
-        run: docker compose config -q
-      - name: Start postgres
-        run: docker compose up -d postgres
-      - name: Apply the schema inside the image (doc 42 §8.1 shape, never --recreate)
-        run: docker compose run --rm -e PGUSER=postgres api bash database/schema/apply.sh
-      - name: Start api (waits on the api HEALTHCHECK)
-        run: docker compose up -d --wait --wait-timeout "$COMPOSE_WAIT_TIMEOUT_SECONDS" --no-build api
-      # Compose refuses --wait on a service without a healthcheck (worker: disable: true); the worker's
-      # liveness is proven by the log grep and the `docker inspect … true 0` step below.
-      - name: Start worker
-        run: docker compose up -d --no-build worker
-      - name: GET /health answers 200
-        run: curl -fsS http://127.0.0.1:3000/health
-      - name: The worker's relay loop started (bounded retry)
-        run: |
-          for _ in $(seq 1 "$WORKER_LOG_RETRIES"); do
-            if docker compose logs worker | grep -q "relay loop starting"; then exit 0; fi
-            sleep "$WORKER_LOG_RETRY_SECONDS"
-          done
-          docker compose logs worker
-          exit 1
-      # A crash-looping worker under restart: unless-stopped must fail here.
-      - name: The worker is running and has not restarted
-        run: test "$(docker inspect -f '{{.State.Running}} {{.RestartCount}}' pg-eos-worker)" = "true 0"
-      - name: Compose logs (on failure)
-        if: failure()
-        run: docker compose logs
-      - name: Tear down
-        if: always()
-        run: docker compose down -v

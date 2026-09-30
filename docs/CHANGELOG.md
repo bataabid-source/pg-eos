@@ -4,6 +4,16 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — X part 20 (item 1) — gate ⑦ image build leaves per-PR CI for nightly.yml (D-210 item 5, D-197) (M-core, 2026-09-30)
+
+- **Why / measurement (D-210 item 5, #207 06:15Z):** last 10 `pull_request` runs of ci.yml — wall ①–⑥ median 4.2 min (max 4.5; critical path ②③ in 7/9, ① in 2/9, `lint:boundaries` alone 1.9–3.6 min of ①), but run wall 13.4 min (max 14.3) because job ⑦ (arm64 image via QEMU 6.5–11 min) still ran on every PR although CLAUDE.md · Merge queue / ADR-0007 D-197 (CHANGELOG 2026-09-28) say ⑦ is nightly + workflow_dispatch only; turbo cache is off (`cache: false`). Approved as a recorded default by the Advisory (06:20Z): apply the existing rule.
+- **Change:** the `image` job moves verbatim (steps, env, `timeout-minutes: 45`, no `needs`) from `.github/workflows/ci.yml` to `.github/workflows/nightly.yml` (existing `schedule` + `workflow_dispatch`, `concurrency: nightly`); both headers updated. Expected per-PR wall ≈ 4.2 min (−69%); to be re-measured before items (2)–(4) (boundaries once per tree, ②③ concurrency / remote cache for build+typecheck only, shared Postgres image).
+- **Tests:** `tests/ops/x-part-20.feature` + `tests/ops/tests/x-part-20.test.ts` (ci.yml jobs = ①–⑥ only, no build-push/QEMU actions; nightly.yml carries ⑦ with its steps and env; triggers exactly schedule + workflow_dispatch; `mutation` pinned) · x-part-5c ⑦ scenario retargeted to nightly.yml, header assertion pins "⑦ … nightly" and no "live here".
+- **Defaults recorded:** the byte-identity check via `git show <SHA>` dropped (CI shallow checkout) — the step-level pins cover the move · PR opened by M-core (the Master is blocked by the permission classifier, #207 06:11Z; Advisory: non-draft, auto-merge D-209) · CLAUDE.md untouched (already states the rule).
+- **Review (pg-reviewer, opus, D-206):** pre-build PASS(5 nits: QEMU/build-push absence, exact trigger set, header pin, mutation pins, stale comment — fixed in the same round) · close FAIL(1 nit: `permissions: contents: read` carried over to nightly.yml) → fixed in the same round.
+- **Verified:** `pnpm -s test:ops` green · both workflows parse · pre-commit ①②.
+- Model: M-core session · Delegated: general-purpose measurer (opus), pg-tester (sonnet ×3), pg-builder (sonnet), pg-reviewer (opus ×2) · Review: PASS(6 findings, 2 rounds) · tokens: measurer ≈ 165k · pg-tester ≈ 75k · pg-builder ≈ 15k · pg-reviewer ≈ 55k
+
 ## 3.4 part 1 (contracts) — CreateDeliveryTask contract-first route + `tms.task.created` catalog entry (Master M14, 2026-09-30)
 
 - **Why:** brief `_slice-3.4-p1-delivery-task` Decision 5 — the Master commits each wave's contracts before the lane starts (CLAUDE.md AGENTS AND SESSIONS); `packages/*` is frozen for lanes.
