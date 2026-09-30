@@ -1,0 +1,8 @@
+{
+  "tms.task.create.addressIncomplete": "لا يمكن إنشاء مهمة التوصيل: العنوان ناقص (المنطقة، القطعة، الشارع، هاتف المستلم مطلوبة)",
+  "tms.task.create.orderNotReady": "لا يمكن إنشاء مهمة التوصيل: حالة أمر الصرف لا تسمح بذلك",
+  "tms.task.create.alreadyExists": "لهذا الأمر مهمة توصيل بالفعل (مهمة واحدة لكل أمر)",
+  "tms.task.create.orderNotFound": "أمر الصرف غير موجود في كيانك",
+  "tms.task.create.staleVersion": "تغيّر أمر الصرف منذ قراءته — أعد التحميل ثم حاول مجددًا",
+  "tms.task.create.missingActor": "إنشاء مهمة التوصيل يتطلب مستخدمًا مسجَّل الدخول"
+}

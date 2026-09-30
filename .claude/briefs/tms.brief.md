@@ -34,7 +34,7 @@ Schema `tms` · tables in this module: 7 · default lane: 2 (doc 38 `Lane` colum
 
 | doc_type | prefix (per entity) |
 |---|---|
-| `TSK` | `PCC-TSK-` |
+| `TSK` | `PDL-TSK-` |
 | `RTE` | `PCC-RT-` |
 
 Allocation is `platform.next_doc_no(entity_id, doc_type)` only — it is the atomic allocator guard G13 measures. Never format a document number in application code.

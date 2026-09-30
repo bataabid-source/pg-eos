@@ -4,6 +4,14 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — X part 26 — `tms.task.create.*` keys in six locales; tms.brief.md TSK prefix `PDL-TSK-` (M-core, 2026-09-30)
+
+- **What:** new `packages/i18n/{ar,en,hi,ur,bn,am}/tms.json` with exactly six keys: `tms.task.create.{addressIncomplete,orderNotReady,alreadyExists}` (the `i18nKey`s modules/tms create-delivery-task errors carry) + `{orderNotFound,staleVersion,missingActor}` (M-core default names for lane B's 3.4 part 1b errors, camelCase of the error name). `.claude/briefs/tms.brief.md:37` TSK prefix `PCC-TSK-` → `PDL-TSK-`.
+- **Why:** Master ruling #207 15:26Z item 3 (row X part 26): keys under `packages/i18n | M | X`; the seed governs over a brief — `database/schema/01-Data-Model.sql:1592-1600` seeds `platform.counters` as `<entity code>-TSK-`, so PDL's series is `PDL-TSK-` (doc 10:111, create-delivery-task.ts:29 agree).
+- **Tests:** `tests/ops/i18n-tms.feature` + `tests/ops/tests/i18n-tms.test.ts` (six files exist; exactly the six keys in order, non-empty, no placeholder; `ar` byte-for-byte; the errors.ts `i18nKey`s ⊆ the six; UTF-8 no BOM, 2-space, newline-terminated; brief row `PDL-TSK-` present, `PCC-TSK-` gone, RTE row kept). test:ops 73/73.
+- **Defaults recorded:** `ar` strings authored by M-core (no GM text exists for these); en/hi/ur/bn/am are M-core translations → native review (X part 27-style row, the Master adds; reviewer notes for am: `staleVersion` mixes registers — «እንደገና ይጫኑና ይሞክሩ» keeps one; «የወጪ ትዕዛዝ» can read as "expense order"). Key names for the three 1b errors are M-core's default; lane B pins them in 3.4 part 1b. **Open for the Master:** the RTE row `PCC-RT-` in tms.brief.md is the same wrong-entity pattern (seed gives `PDL-RT-`) — outside the ruling, untouched.
+- **Review:** pre-build round 1 FAIL(1 blocking: brief named a scribe as writer; 5 nits) → round 2 FAIL(1 nit, feature/test agreement, fixed in the build); close round 1 PASS(0). Guards local: G1–G15/G18/G-SEED green, G16/G17 unobserved (no domain/ change; CI ⑤ decides). Files: the six tms.json, tms.brief.md (one cell), the two tests, this entry, backlog row X part 26 → DONE, brief deleted. Tokens ≈ 90k.
+
 ## X — rows 3.4 part 1b, X part 26, X part 27; 4.3 part 1a grants scope; #244 hashes resolved (Master M15, 2026-09-30)
 
 - **Why:** records owed from #243/#244 and the #207 15:2xZ rulings; the two `<this commit>` placeholders #244 left on main would turn gate ① red on every PR.
