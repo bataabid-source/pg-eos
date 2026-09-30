@@ -14,7 +14,8 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 - **Packets:** `handover-lane-1.md` (dfb348f), `handover-lane-2.md` (4be9401), `handover-core.md` (d8ba710) added; `handover-master.md` rewritten for M14 (harness refusals recorded: push to another session's branch, hook bypass, merge-on-FAIL watchdog).
 - **Defaults recorded:** lane letter B for the third build lane (check-locks/scribe accept 1 2 3 A B C M; doc 38 lane column stays 1 for 3.4 — reassigned by D-205 C); the Master resolved #217's conflict locally but did not push it; #221 opened for M-core's `core/X-lanes-cap-4` at its request.
 - Files: DECISION_LOG, LANE_LOCKS, MASTER_BACKLOG, database/migrations/README.md, tasks/backlog/MIGRATION-REQUEST-B.md, docs/state/*, PROJECT_STATE (scribe), docs/notes/handover-*.md, docs/notes/slice-briefs/_slice-3.4-p1-delivery-task.brief.md.
-- Model: Master M14 session · Delegated: general-purpose subagent (brief draft) · Review: n/a (bookkeeping; claude[bot] on the PR) · tokens ≈ 60k.
+- **Review (claude[bot] on #222, round 1 FAIL(4) → fix round):** (3) `SCR-TMS-DRIVER-01` filed (driver_id has no FK — GM decision); (2) row `X part 19` (lane-db.sh accepts B) + brief Session line: lane B starts after the contract commit and X part 19; (1) CLAUDE.md "two build lanes / cap 5" vs D-205 C — GM-only file, owed to the GM (X part 17 carries the line), lock kept on the GM's in-session order; (4) trailers recorded as-is (the Master runs the session model; the brief draft was Master planning work, ADR-0005 routes slices).
+- Model: Master M14 session · Delegated: general-purpose subagent (brief draft) · Review: claude[bot] round 1 FAIL(4), fix round (this commit) · tokens ≈ 80k.
 
 ## 2.9 part 3 — the ledger writes the batch expiry; one expiry per batch at any location (D-204), FEFO step of S1 (lane 1, 2026-09-29)
 
