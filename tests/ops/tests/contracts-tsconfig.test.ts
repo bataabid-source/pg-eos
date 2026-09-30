@@ -1,4 +1,4 @@
-// tests/ops/tests/contracts-tsconfig.test.ts — WBS X part 23 (pg-tester).
+// tests/ops/tests/contracts-tsconfig.test.ts — WBS X part 21 part 2 (pg-tester).
 //
 // Proves packages/contracts/tsconfig.json includes every contract module, against
 // tests/ops/contracts-tsconfig.feature. One `it` per Gherkin Scenario, titled verbatim. Read-only.

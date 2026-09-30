@@ -1,8 +1,8 @@
-# tests/ops/contracts-tsconfig.feature — WBS X part 23 (pg-tester).
+# tests/ops/contracts-tsconfig.feature — WBS X part 21 part 2 (pg-tester).
 #
 # Executable spec behind tests/ops/tests/contracts-tsconfig.test.ts.
 
-Feature: packages/contracts/tsconfig.json type-checks every contract module (WBS X part 23)
+Feature: packages/contracts/tsconfig.json type-checks every contract module (WBS X part 21 part 2)
 
   Scenario: The include list contains tms/**/*.ts
     Given packages/contracts/tsconfig.json
