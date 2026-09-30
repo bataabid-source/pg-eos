@@ -13,6 +13,14 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 - **Review (pg-reviewer, opus, D-206):** pre-build PASS(2 nits: BOM escape, top-level contract files out of the tsconfig scan — recorded) · close FAIL(2 bookkeeping: missing `X part 21 part 2` row, X part 23 acceptance text) → fixed in the same round.
 - Model: M-core session · Delegated: pg-tester (sonnet ×2), pg-builder (sonnet), pg-reviewer (opus ×2) · Review: PASS(4 findings, 2 rounds) · tokens: ≈ 60k (shared with the tsconfig commit)
 
+## X — X part 21 part 2 — `packages/contracts/tsconfig.json` includes `tms/**/*.ts` (#232 follow-up) (M-core `packages/contracts`, 2026-09-30)
+
+- **Why:** `packages/contracts/tms/create-delivery-task.ts` (on main since #224) was neither type-checked nor emitted because the tsconfig `include` listed every module directory except `tms` (Lane B's #232 report 08:22Z; Master 11:32Z under the new `packages/contracts | M | X` lock).
+- **Change:** `"tms/**/*.ts"` added to `include`; `pnpm --filter @pg-eos/contracts build` green with it (pre-check with a temporary tsconfig: tsc exit 0).
+- **Tests:** `tests/ops/contracts-tsconfig.feature` + `tests/ops/tests/contracts-tsconfig.test.ts`: `include` lists `tms/**/*.ts`; and every directory under `packages/contracts/` holding a `.ts` file (recursive; `_harness`/`scripts`/`tests`/`openapi`/`node_modules`/`dist` excluded) has a matching `<dir>/**/*.ts` entry, so a future module cannot be forgotten. Open: top-level `routes.ts`/`vitest.config.ts` are outside `include` and outside the scan (pre-build nit, recorded).
+- **Review (pg-reviewer, opus, D-206):** shared with X part 23 — pre-build PASS(2 nits), close FAIL(2 bookkeeping) → fixed; PASS(4 findings, 2 rounds).
+- Model: M-core session · Delegated: pg-tester (sonnet), pg-builder (sonnet), pg-reviewer (opus ×2) · Review: PASS(4 findings, 2 rounds)
+
 ## X — lock `wms | 1 | 2.9` (pda released) + QRT brief with D-211, migration 0047 issued, lock `packages/contracts | M | X`, D-208..D-211 recorded, CLAUDE.md lines pending (Master M15, 2026-09-30)
 
 - **Why:** GM first-hand in-session order (~10:40Z): second lock PR after #228 — lane 1's next slice (QRT) briefed and locked with the D-211 values, the D-208..D-211 rows from the #207 Advisory comments, the CLAUDE.md lines the GM will place.
