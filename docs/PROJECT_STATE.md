@@ -17,11 +17,11 @@ Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewe
 - lane B · tms · 3.4 · since 2026-09-30
 
 ## Last 5 feat/fix commits (git log)
+- `6f33606` fix(X): review check blocks only on a tagged security finding — non-security FAIL is report-only (D-206, X part 18)
 - `a194c69` fix(X): review check is red on a self-edit of claude-review.yml — ::error + exit 1, never a green MANUAL (X part 18 escalation, GM ruling)
 - `5ab04e6` feat(2.9): ledger writes the batch expiry, one expiry per batch at any location (D-204), S1 FEFO step (part 3) (#220)
 - `3be6d97` feat(X): S1/S2 call the host over HTTP — @pg-eos/api host, real sessions, X-Entity-Id, lifetime seed 0045 (X part 5d + part 2) (#175)
 - `db40382` fix(X): review gate marks a self-editing PR `review: MANUAL` — ::warning, step summary, PR comment (X part 18, #218 escalation round)
-- `6ad098a` feat(X): apps/api public entry — hostRoutesFrom, isHostResult, package exports (X part 5d part 2, item 1) (#216)
 
 ## Blockers
 - G16: changed domain/ per PR, every module nightly (X part 6); G15 per STREAMS §G15 (green.json); G17 NOT RUNNABLE; deploy.sh waits on 0.6b.
@@ -36,5 +36,5 @@ Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewe
 - Master batch (frozen paths): entityId on WithContextCtx; domain-kit browser break; eslint cwd bug; new-slice.sh stale citations.
 
 ## Next
-1. Weekly goal S1+S2+S18: Lane 1: 2.16 p3 (`pda`) → 2.16 p2e · Lane B (D-205 C): 3.4 p1 (`tms`, 0046) · Integration: 2.18 (S1) · Lane 2 successor: 4.3 p1.
-2. Master: 3.4 p1 contract + catalog entry (brief Decision 5) · queue (D-205 B): #217 → #209 → #218 → #221 after M-core merges main · M-core: X 17 → X 16 p2.
+1. Weekly goal S1+S2+S18: Lane 1: 2.16 p3 (`pda`) → p2e · Lane B (D-205 C): 3.4 p1 (`tms`, 0046, contract on main) after X 19 · Integration: 2.18 · Lane 2: 4.3 p1.
+2. Queue (D-205 B): #217 → #209 → #218 → #221 after M-core merges main (99018e6+) · M-core: X part 19 (lane-db.sh B) → X 17 → X 16 p2.
