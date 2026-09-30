@@ -21,6 +21,24 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 - **Review (pg-reviewer, opus, D-206):** shared with X part 23 — pre-build PASS(2 nits), close FAIL(2 bookkeeping) → fixed; PASS(4 findings, 2 rounds).
 - Model: M-core session · Delegated: pg-tester (sonnet), pg-builder (sonnet), pg-reviewer (opus ×2) · Review: PASS(4 findings, 2 rounds)
 
+## X — X part 20 part 2 (item a) — per-job `concurrency` groups in nightly.yml: a ⑦ dispatch never cancels the scheduled G16 run (M-core, 2026-09-30)
+
+- **Why:** #230 review (blocking regression) + Master directive #207 11:38Z: with the shared workflow-level `concurrency: nightly, cancel-in-progress: true`, a `workflow_dispatch` of ⑦ cancelled the scheduled mutation run.
+- **Change:** `.github/workflows/nightly.yml` — workflow-level block removed; job `mutation` → `group: nightly-mutation`, `cancel-in-progress: false`; job `image` → `group: nightly-image`, `cancel-in-progress: true`. Nothing else changes.
+- **Why `false` on mutation (pre-build finding 1):** nightly.yml has no dispatch input, so a dispatch runs BOTH jobs; job-level `true` on mutation would cancel the scheduled run inside its own group. With `false` the dispatched mutation job queues behind it.
+- **Tests:** `tests/ops/x-part-20.feature` third Scenario + `tests/ops/tests/x-part-20.test.ts` (no workflow-level block; per-job groups and booleans matched as separate keys, order-independent).
+- **Defaults recorded:** job-scoped `permissions` (second clause of the row) not done — top-level `contents: read` is already the minimum; stays OPEN · remedy (b) — a dispatch input + job `if:` so a ⑦ dispatch skips `mutation` (saves up to 180 min of queued mutation) — open question for the Master.
+- **Review:** pre-build FAIL(2: 1 blocking, 1 nit) → fix → PASS; close round 1 FAIL(1: guards evidence) → guards run → PASS. Files: nightly.yml, the two test files, this entry, backlog row, brief deleted. Tokens ≈ 60k.
+
+## X — X part 20 (item 1) — gate ⑦ image build leaves per-PR CI for nightly.yml (D-210 item 5, D-197) (M-core, 2026-09-30)
+
+- **Why / measurement (D-210 item 5, #207 06:15Z):** last 10 `pull_request` runs of ci.yml — wall ①–⑥ median 4.2 min (max 4.5; critical path ②③ in 7/9, ① in 2/9, `lint:boundaries` alone 1.9–3.6 min of ①), but run wall 13.4 min (max 14.3) because job ⑦ (arm64 image via QEMU 6.5–11 min) still ran on every PR although CLAUDE.md · Merge queue / ADR-0007 D-197 (CHANGELOG 2026-09-28) say ⑦ is nightly + workflow_dispatch only; turbo cache is off (`cache: false`). Approved as a recorded default by the Advisory (06:20Z): apply the existing rule.
+- **Change:** the `image` job moves verbatim (steps, env, `timeout-minutes: 45`, no `needs`) from `.github/workflows/ci.yml` to `.github/workflows/nightly.yml` (existing `schedule` + `workflow_dispatch`, `concurrency: nightly`); both headers updated. Expected per-PR wall ≈ 4.2 min (−69%); to be re-measured before items (2)–(4) (boundaries once per tree, ②③ concurrency / remote cache for build+typecheck only, shared Postgres image).
+- **Tests:** `tests/ops/x-part-20.feature` + `tests/ops/tests/x-part-20.test.ts` (ci.yml jobs = ①–⑥ only, no build-push/QEMU actions; nightly.yml carries ⑦ with its steps and env; triggers exactly schedule + workflow_dispatch; `mutation` pinned) · x-part-5c ⑦ scenario retargeted to nightly.yml, header assertion pins "⑦ … nightly" and no "live here".
+- **Defaults recorded:** the byte-identity check via `git show <SHA>` dropped (CI shallow checkout) — the step-level pins cover the move · PR opened by M-core (the Master is blocked by the permission classifier, #207 06:11Z; Advisory: non-draft, auto-merge D-209) · CLAUDE.md untouched (already states the rule).
+- **Review (pg-reviewer, opus, D-206):** pre-build PASS(5 nits: QEMU/build-push absence, exact trigger set, header pin, mutation pins, stale comment — fixed in the same round) · close FAIL(1 nit: `permissions: contents: read` carried over to nightly.yml) → fixed in the same round.
+- **Verified:** `pnpm -s test:ops` green · both workflows parse · pre-commit ①②.
+- Model: M-core session · Delegated: general-purpose measurer (opus), pg-tester (sonnet ×3), pg-builder (sonnet), pg-reviewer (opus ×2) · Review: PASS(6 findings, 2 rounds) · tokens: measurer ≈ 165k · pg-tester ≈ 75k · pg-builder ≈ 15k · pg-reviewer ≈ 55k
 ## X — SCR-BILLING-SYSTEM-ACTOR-01 filed (pending GM); 0048 reserved for M-core; lock `worker | M | X`; rows 4.3 part 1a/1c, X part 24/25 (Master M15, 2026-09-30)
 
 - **Why:** lane 2 (4.3 part 1) stopped 11:26Z: no identity satisfies `entity_scope`/`audit_append` for an outbox subscriber. A privileged identity is not a slice-level default (#241 security findings), so the SCR is filed, not decided.
