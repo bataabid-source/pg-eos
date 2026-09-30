@@ -4,6 +4,15 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — X part 19 — lane-db.sh accepts the lane letters A/B/C (M-core, 2026-09-30)
+
+- **Why:** row 382 (D-205 C, #222 review finding 2) — `scripts/lane-db.sh` accepted only `1|2|3`, so lane B (3.4 part 1) would have needed a hand-typed `createdb` instead of the required script.
+- **Change:** the `case` accepts `1|2|3|A|B|C` (the lane ids D-205 C and `scripts/check-locks.sh` admit); usage line and header updated; `LANE_DB="pgeos_lane${ID}"` unchanged, so lane B gets `pgeos_laneB`. Four lines; lane-guard.sh and scribe.mjs already accepted B.
+- **Tests:** `tests/hooks/X-p19.feature` + 11 `lane-db:` cases in `tests/hooks/run.sh` (CI gate ①), run with a PATH that has no `psql`: accepted ids (1, A, B, C) reach the "psql not found" check, refused ids (M, 9, empty, lowercase b) exit 2 with `usage:`; the usage line lists the letters; the name is derived as `pgeos_lane<id>`.
+- **Verified live:** `bash scripts/lane-db.sh B` on the session's Postgres created and applied `pgeos_laneB` (CREATE only, never dropped); `pnpm test:hooks` 210/210 · `bash -n` clean. Side effect of the live run: `infra/docker/.env` (git-ignored) now names `pgeos_laneB` in this worktree only.
+- **Review (pg-reviewer, opus, D-206 two reviews):** pre-build PASS(3 nits: positive "accepted" check, exit-2-with-usage, feature wording — fixed in the same round) · close PASS(2 nits: header wording/wrap — fixed in the same round).
+- Model: M-core session · Delegated: pg-tester (sonnet ×2), pg-builder (sonnet), pg-reviewer (opus ×2) · Review: PASS(5 findings, 2 rounds) · tokens: pg-tester ≈ 40k · pg-builder ≈ 20k · pg-reviewer ≈ 35k
+
 ## X — D-205 recorded (A/B/C), #220 merged under B, Lane 3 opened as lane B on 3.4 part 1 (migration 0046), lane 1 → `pda`, packets merged (Master M14, 2026-09-30)
 
 - **GM:** «موافق A.B.C» (20:31Z, #207, relayed) confirmed first-hand in the M14 session on 2026-09-30 («D-205 B مؤكَّد هنا … لا تسأل مجددًا — DEFAULT, RECORD, PROCEED») → **D-205** in DECISION_LOG (A permissions · B PR-level review cap · C third build lane, cap 7).
