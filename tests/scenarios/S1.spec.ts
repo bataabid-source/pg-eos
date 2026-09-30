@@ -11,16 +11,23 @@
 // x2), then drives process-outbound's own chain: handleCreateOutbound -> handleRunOutboundChecks ->
 // handleApproveOutbound -> handleAllocate -> handleGeneratePickList -> handlePickLine ->
 // handleCheckOrder (by a SECOND actor — checker != picker, SelfCheckNotAllowedError otherwise).
+//
+// X part 5d (ADR-0006 Decision 2): every command below is now a REAL HTTP call — `app.inject(...)`
+// against the Fastify host built by fixtures/host.ts, authenticated by a real `identity.sessions`
+// Bearer token (fixtures/actors.ts's `issueActorSession`), scoped by `X-Entity-Id`. The host itself
+// resolves the handler, runs authentication + entity scope, and returns the handler's own
+// `{ status, body }` — this file no longer builds an `ApiRequest` or calls a handler in-process.
+
+import { randomUUID } from 'node:crypto';
 
 import { expect, test } from '@playwright/test';
 import type { QueryResult } from 'pg';
 import type { Pool } from 'pg';
 
 import { HTTP_STATUS_OK } from '@pg-eos/api-kit';
+import { IDEMPOTENCY_KEY_HEADER_NAME } from '@pg-eos/contracts';
 
-import { createReceiveInboundDeps } from '../../modules/wms/api/receive-inbound/composition.js';
 import { handleApproveInbound, handleConfirmPutaway, handleReceiveLine } from '../../modules/wms/api/receive-inbound/handlers.js';
-import { createProcessOutboundDeps } from '../../modules/wms/api/process-outbound/composition.js';
 import {
   handleAllocate,
   handleApproveOutbound,
@@ -31,8 +38,9 @@ import {
   handleRunOutboundChecks,
 } from '../../modules/wms/api/process-outbound/handlers.js';
 
-import { SCENARIO_ACTOR_ROLE_CODES, createActor, teardownActor } from './fixtures/actors.js';
+import { SCENARIO_ACTOR_ROLE_CODES, createActor, issueActorSession, teardownActor } from './fixtures/actors.js';
 import { MS_PER_HOUR, clock, createIds, daysAfterClock } from './fixtures/clock.js';
+import { buildScenarioHost, type NamedHandler, type ScenarioHost } from './fixtures/host.js';
 import {
   PDL_ENTITY_CODE,
   SCENARIO_ENTITY_CODE,
@@ -44,7 +52,7 @@ import {
 } from './fixtures/lookups.js';
 import { runCleanupSteps } from './fixtures/cleanup.js';
 import { createPool } from './fixtures/pool.js';
-import { createCorrelationTracker, ctxFor, requestWithKey } from './fixtures/request.js';
+import { createCorrelationTracker } from './fixtures/request.js';
 import {
   deleteClient,
   deleteContract,
@@ -96,17 +104,22 @@ const OF_07_SERVICE_CODE = 'OF-07';
 const S1_2_BILLABLE_SERVICE_CODES = [OF_01_SERVICE_CODE, OF_02_SERVICE_CODE, OF_06_SERVICE_CODE, OF_07_SERVICE_CODE] as const;
 const S1_2_BILLABLE_EVENT_EXPECTED_COUNT = 1; // fix round finding 3: exactly one row per code.
 
-const RECEIVE_INBOUND_IDS_SEED = 91011;
-const PROCESS_OUTBOUND_IDS_SEED = 91012;
+// X part 5d: the host builds ALL_ROUTES' deps ONCE for the whole table (ADR-0006) — the two former
+// per-composition seeds (receive-inbound, process-outbound) collapse into the one id generator the
+// host is built with; same numeric seed as the former RECEIVE_INBOUND_IDS_SEED, never re-invented.
+const S1_HOST_IDS_SEED = 91011;
 const GRN_TEMPLATE_CODE = 'GRN-01';
 const STORAGE_LOCATIONS_NEEDED = 2; // one per S1/2 batch (90-day, 200-day).
 const INBOUND_LINE_NO_BATCH_90 = 1;
 const INBOUND_LINE_NO_BATCH_200 = 2;
 
+const ENTITY_ID_HEADER = 'x-entity-id';
+const CONTENT_TYPE_HEADER = 'content-type';
+const JSON_CONTENT_TYPE = 'application/json';
+const GET_METHOD = 'GET';
+
 test.describe('S1 Full 3PL client (Segment A, PST + PDL)', () => {
   const pool: Pool = createPool();
-  const receiveDeps = createReceiveInboundDeps({ clock, ids: createIds(RECEIVE_INBOUND_IDS_SEED) });
-  const outboundDeps = createProcessOutboundDeps({ clock, ids: createIds(PROCESS_OUTBOUND_IDS_SEED) });
   // fix round finding 2: every correlationId this file generates, so afterAll can delete exactly
   // (and only) the platform.outbox rows this run itself wrote.
   const correlationTracker = createCorrelationTracker();
@@ -120,6 +133,9 @@ test.describe('S1 Full 3PL client (Segment A, PST + PDL)', () => {
   let skuTwoId: string;
   let mainActorId: string;
   let checkerActorId: string;
+  let mainActorToken = '';
+  let checkerActorToken = '';
+  let host: ScenarioHost | undefined;
   // Assigned inside the two tests below — cleaned up in the describe-level afterAll, since both
   // tests share ONE beforeAll/afterAll (Master decision 5) and NOT serial mode means test 2 must
   // still be able to run (and be cleaned up) even if test 1 fails first.
@@ -129,6 +145,59 @@ test.describe('S1 Full 3PL client (Segment A, PST + PDL)', () => {
   let s1TwoPriceListId = '';
   let grnTemplateId = '';
   let grnTemplateOwned = false;
+
+  /** apps/api/src/server.ts reads a GET route's command from `request.query`, never `request.body`
+   *  (`body: method === 'GET' ? request.query : request.body`) — so a GET call's fields must travel
+   *  as a query string, never a JSON payload. */
+  function toQueryString(body: Record<string, unknown>): string {
+    const params = new URLSearchParams();
+    for (const [key, value] of Object.entries(body)) {
+      if (value !== undefined && value !== null) params.set(key, String(value));
+    }
+    return params.toString();
+  }
+
+  /** X part 5d: every in-process `handleXxx(requestWithKey(body, ctxFor(actor)), deps)` call becomes
+   *  this — an HTTP request to the real host. `handler` is the imported function itself (its `.name`
+   *  is looked up against the mounted route table — never a hand-typed path); `forEntityId` is the
+   *  entity the step acts in (PST for every warehouse step below). */
+  async function callHttp(
+    handler: NamedHandler,
+    body: Record<string, unknown>,
+    token: string,
+    forEntityId: string,
+  ): Promise<{ readonly status: number; readonly body: unknown }> {
+    if (!host) throw new Error('callHttp: host is not built yet — beforeAll must run first');
+    const route = host.routeFor(handler);
+    const isGet = route.method === GET_METHOD;
+    const query = isGet ? toQueryString(body) : '';
+    const url = query ? `${route.path}?${query}` : route.path;
+    // fix round finding 5: Idempotency-Key and content-type only apply to a command with a body —
+    // a GET carries neither (its fields travel as the query string above).
+    const headers: Record<string, string> = {
+      authorization: `Bearer ${token}`,
+      [ENTITY_ID_HEADER]: forEntityId,
+    };
+    if (!isGet) {
+      headers[IDEMPOTENCY_KEY_HEADER_NAME] = randomUUID();
+      headers[CONTENT_TYPE_HEADER] = JSON_CONTENT_TYPE;
+    }
+    const response = await host.app.inject({
+      method: route.method,
+      url,
+      headers,
+      ...(isGet ? {} : { payload: body }),
+    });
+    // A non-JSON response (by content-type) falls back to the raw body so `expect(result.status)`
+    // still reports; a JSON content-type MUST parse — its parse error surfaces, never swallowed.
+    const responseContentType = String(response.headers[CONTENT_TYPE_HEADER] ?? '');
+    const responseBody: unknown = responseContentType.includes(JSON_CONTENT_TYPE) ? response.json() : response.body;
+    return { status: response.statusCode, body: responseBody };
+  }
+
+  function isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null;
+  }
 
   test.beforeAll(async () => {
     entityId = await getEntityIdByCode(pool, SCENARIO_ENTITY_CODE);
@@ -172,6 +241,10 @@ test.describe('S1 Full 3PL client (Segment A, PST + PDL)', () => {
 
     mainActorId = await createActor(pool, { namePrefix: '_s1_main', roleCodes: SCENARIO_ACTOR_ROLE_CODES });
     checkerActorId = await createActor(pool, { namePrefix: '_s1_checker', roleCodes: SCENARIO_ACTOR_ROLE_CODES });
+    mainActorToken = await issueActorSession(pool, mainActorId);
+    checkerActorToken = await issueActorSession(pool, checkerActorId);
+
+    host = await buildScenarioHost(clock, createIds(S1_HOST_IDS_SEED));
   });
 
   test.afterAll(async () => {
@@ -220,7 +293,12 @@ test.describe('S1 Full 3PL client (Segment A, PST + PDL)', () => {
         ],
       ]);
     } finally {
-      await pool.end();
+      // fix round finding 1: pool.end() must always run even if closing the host throws.
+      try {
+        await host?.app.close();
+      } finally {
+        await pool.end();
+      }
     }
   });
 
@@ -250,9 +328,11 @@ test.describe('S1 Full 3PL client (Segment A, PST + PDL)', () => {
       orderId = draft.id;
       s1OneOrderId = draft.id;
 
-      const approveResult = await handleApproveInbound(
-        requestWithKey({ orderId, expectedVersion: draft.version, correlationId: correlationTracker.next() }, ctxFor(mainActorId)),
-        receiveDeps,
+      const approveResult = await callHttp(
+        handleApproveInbound,
+        { orderId, expectedVersion: draft.version, correlationId: correlationTracker.next() },
+        mainActorToken,
+        entityId,
       );
       expect(approveResult.status).toBe(HTTP_STATUS_OK);
 
@@ -260,7 +340,10 @@ test.describe('S1 Full 3PL client (Segment A, PST + PDL)', () => {
         `select version from wms.inbound_orders where id = $1`,
         [orderId],
       );
-      orderVersion = versionResult.rows[0]?.version ?? draft.version;
+      const approvedVersion = versionResult.rows[0]?.version;
+      expect(typeof approvedVersion, 'inbound order version must be read back as a number after approve').toBe('number');
+      if (approvedVersion === undefined) throw new Error('fixture: inbound order version missing after approve');
+      orderVersion = approvedVersion;
     });
 
     await test.step('When the PDA receives batch "B2409-7" with expiry 120 days from today', async () => {
@@ -271,20 +354,19 @@ test.describe('S1 Full 3PL client (Segment A, PST + PDL)', () => {
       const lineId = lineResult.rows[0]?.id;
       if (!lineId) throw new Error('fixture wms.order_lines row not found for the S1/1 inbound order');
 
-      const receiveResult = await handleReceiveLine(
-        requestWithKey(
-          {
-            orderId,
-            lineId,
-            qtyActual: S1_1_ORDERED_QTY,
-            batchNo: S1_1_BATCH_NO,
-            expiryDate: daysAfterClock(S1_1_BATCH_EXPIRY_DAYS_FROM_CLOCK),
-            expectedVersion: orderVersion,
-            correlationId: correlationTracker.next(),
-          },
-          ctxFor(mainActorId),
-        ),
-        receiveDeps,
+      const receiveResult = await callHttp(
+        handleReceiveLine,
+        {
+          orderId,
+          lineId,
+          qtyActual: S1_1_ORDERED_QTY,
+          batchNo: S1_1_BATCH_NO,
+          expiryDate: daysAfterClock(S1_1_BATCH_EXPIRY_DAYS_FROM_CLOCK),
+          expectedVersion: orderVersion,
+          correlationId: correlationTracker.next(),
+        },
+        mainActorToken,
+        entityId,
       );
       expect(receiveResult.status).toBe(HTTP_STATUS_OK);
     });
@@ -372,9 +454,11 @@ test.describe('S1 Full 3PL client (Segment A, PST + PDL)', () => {
         lineNo: INBOUND_LINE_NO_BATCH_200,
       });
 
-      const approveResult = await handleApproveInbound(
-        requestWithKey({ orderId: inboundOrderId, expectedVersion: draft.version, correlationId: correlationTracker.next() }, ctxFor(mainActorId)),
-        receiveDeps,
+      const approveResult = await callHttp(
+        handleApproveInbound,
+        { orderId: inboundOrderId, expectedVersion: draft.version, correlationId: correlationTracker.next() },
+        mainActorToken,
+        entityId,
       );
       expect(approveResult.status).toBe(HTTP_STATUS_OK);
       let version = (
@@ -382,20 +466,19 @@ test.describe('S1 Full 3PL client (Segment A, PST + PDL)', () => {
       ).rows[0]?.version;
       if (version === undefined) throw new Error('fixture: inbound order version missing after approve');
 
-      const receive90 = await handleReceiveLine(
-        requestWithKey(
-          {
-            orderId: inboundOrderId,
-            lineId: line90Id,
-            qtyActual: S1_2_BATCH_90_QTY,
-            batchNo: S1_2_BATCH_90_NO,
-            expiryDate: daysAfterClock(S1_2_BATCH_90_EXPIRY_DAYS),
-            expectedVersion: version,
-            correlationId: correlationTracker.next(),
-          },
-          ctxFor(mainActorId),
-        ),
-        receiveDeps,
+      const receive90 = await callHttp(
+        handleReceiveLine,
+        {
+          orderId: inboundOrderId,
+          lineId: line90Id,
+          qtyActual: S1_2_BATCH_90_QTY,
+          batchNo: S1_2_BATCH_90_NO,
+          expiryDate: daysAfterClock(S1_2_BATCH_90_EXPIRY_DAYS),
+          expectedVersion: version,
+          correlationId: correlationTracker.next(),
+        },
+        mainActorToken,
+        entityId,
       );
       expect(receive90.status).toBe(HTTP_STATUS_OK);
       version = (
@@ -403,20 +486,19 @@ test.describe('S1 Full 3PL client (Segment A, PST + PDL)', () => {
       ).rows[0]?.version;
       if (version === undefined) throw new Error('fixture: inbound order version missing after receiving the 90-day batch');
 
-      const receive200 = await handleReceiveLine(
-        requestWithKey(
-          {
-            orderId: inboundOrderId,
-            lineId: line200Id,
-            qtyActual: S1_2_BATCH_200_QTY,
-            batchNo: S1_2_BATCH_200_NO,
-            expiryDate: daysAfterClock(S1_2_BATCH_200_EXPIRY_DAYS),
-            expectedVersion: version,
-            correlationId: correlationTracker.next(),
-          },
-          ctxFor(mainActorId),
-        ),
-        receiveDeps,
+      const receive200 = await callHttp(
+        handleReceiveLine,
+        {
+          orderId: inboundOrderId,
+          lineId: line200Id,
+          qtyActual: S1_2_BATCH_200_QTY,
+          batchNo: S1_2_BATCH_200_NO,
+          expiryDate: daysAfterClock(S1_2_BATCH_200_EXPIRY_DAYS),
+          expectedVersion: version,
+          correlationId: correlationTracker.next(),
+        },
+        mainActorToken,
+        entityId,
       );
       expect(receive200.status).toBe(HTTP_STATUS_OK);
       version = (
@@ -424,12 +506,11 @@ test.describe('S1 Full 3PL client (Segment A, PST + PDL)', () => {
       ).rows[0]?.version;
       if (version === undefined) throw new Error('fixture: inbound order version missing after receiving the 200-day batch');
 
-      const putaway90 = await handleConfirmPutaway(
-        requestWithKey(
-          { orderId: inboundOrderId, lineId: line90Id, toLocationId: location90, expectedVersion: version, correlationId: correlationTracker.next() },
-          ctxFor(mainActorId),
-        ),
-        receiveDeps,
+      const putaway90 = await callHttp(
+        handleConfirmPutaway,
+        { orderId: inboundOrderId, lineId: line90Id, toLocationId: location90, expectedVersion: version, correlationId: correlationTracker.next() },
+        mainActorToken,
+        entityId,
       );
       expect(putaway90.status).toBe(HTTP_STATUS_OK);
       version = (
@@ -437,12 +518,11 @@ test.describe('S1 Full 3PL client (Segment A, PST + PDL)', () => {
       ).rows[0]?.version;
       if (version === undefined) throw new Error('fixture: inbound order version missing after putaway of the 90-day batch');
 
-      const putaway200 = await handleConfirmPutaway(
-        requestWithKey(
-          { orderId: inboundOrderId, lineId: line200Id, toLocationId: location200, expectedVersion: version, correlationId: correlationTracker.next() },
-          ctxFor(mainActorId),
-        ),
-        receiveDeps,
+      const putaway200 = await callHttp(
+        handleConfirmPutaway,
+        { orderId: inboundOrderId, lineId: line200Id, toLocationId: location200, expectedVersion: version, correlationId: correlationTracker.next() },
+        mainActorToken,
+        entityId,
       );
       expect(putaway200.status).toBe(HTTP_STATUS_OK);
 
@@ -470,36 +550,43 @@ test.describe('S1 Full 3PL client (Segment A, PST + PDL)', () => {
       await insertPriceListLine(pool, { priceListId, serviceId: of01ServiceId, price: OF_01_PRICE });
       await pool.query(`update sales.contracts set price_list_id = $1 where id = $2`, [priceListId, contractId]);
 
-      const createResult = await handleCreateOutbound(
-        requestWithKey(
-          {
-            entityId,
-            clientId,
-            warehouseId,
-            contractId,
-            orderType: OUTBOUND_ORDER_TYPE_STANDARD,
-            shipToName: SHIP_TO_NAME,
-            shipToPhone: SHIP_TO_PHONE,
-            shipToAddress: SHIP_TO_ADDRESS,
-            shipToArea: SHIP_TO_AREA,
-            correlationId: correlationTracker.next(),
-          },
-          ctxFor(mainActorId),
-        ),
-        outboundDeps,
+      const createResult = await callHttp(
+        handleCreateOutbound,
+        {
+          entityId,
+          clientId,
+          warehouseId,
+          contractId,
+          orderType: OUTBOUND_ORDER_TYPE_STANDARD,
+          shipToName: SHIP_TO_NAME,
+          shipToPhone: SHIP_TO_PHONE,
+          shipToAddress: SHIP_TO_ADDRESS,
+          shipToArea: SHIP_TO_AREA,
+          correlationId: correlationTracker.next(),
+        },
+        mainActorToken,
+        entityId,
       );
       expect(createResult.status).toBe(HTTP_STATUS_OK);
-      if (!('orderId' in createResult.body)) throw new Error(`handleCreateOutbound did not return ${HTTP_STATUS_OK}`);
-      outboundOrderId = createResult.body.orderId;
+      const createBody = createResult.body;
+      if (!isRecord(createBody) || typeof createBody['orderId'] !== 'string') {
+        throw new Error(`handleCreateOutbound did not return ${HTTP_STATUS_OK}`);
+      }
+      outboundOrderId = createBody['orderId'];
       if (!outboundOrderId) throw new Error('handleCreateOutbound did not return an order id');
       s1TwoOutboundOrderId = outboundOrderId;
-      let version: number | undefined = createResult.body.version;
+      const createdVersion = createBody['version'];
+      expect(typeof createdVersion, 'handleCreateOutbound must return a numeric version').toBe('number');
+      if (typeof createdVersion !== 'number') throw new Error('handleCreateOutbound did not return a numeric version');
+      let version: number | undefined = createdVersion;
 
       await insertOrderLine(pool, { orderTable: 'wms.outbound_orders', orderId: outboundOrderId, skuId: skuTwoId, qtyOrdered: S1_2_OUTBOUND_QTY });
 
-      const checksResult = await handleRunOutboundChecks(
-        requestWithKey({ orderId: outboundOrderId, expectedVersion: version, correlationId: correlationTracker.next() }, ctxFor(mainActorId)),
-        outboundDeps,
+      const checksResult = await callHttp(
+        handleRunOutboundChecks,
+        { orderId: outboundOrderId, expectedVersion: version, correlationId: correlationTracker.next() },
+        mainActorToken,
+        entityId,
       );
       expect(checksResult.status).toBe(HTTP_STATUS_OK);
       version = (
@@ -507,9 +594,11 @@ test.describe('S1 Full 3PL client (Segment A, PST + PDL)', () => {
       ).rows[0]?.version;
       if (version === undefined) throw new Error('fixture: outbound order version missing after RunOutboundChecks');
 
-      const approveResult = await handleApproveOutbound(
-        requestWithKey({ orderId: outboundOrderId, expectedVersion: version, correlationId: correlationTracker.next() }, ctxFor(mainActorId)),
-        outboundDeps,
+      const approveResult = await callHttp(
+        handleApproveOutbound,
+        { orderId: outboundOrderId, expectedVersion: version, correlationId: correlationTracker.next() },
+        mainActorToken,
+        entityId,
       );
       expect(approveResult.status).toBe(HTTP_STATUS_OK);
       version = (
@@ -517,9 +606,11 @@ test.describe('S1 Full 3PL client (Segment A, PST + PDL)', () => {
       ).rows[0]?.version;
       if (version === undefined) throw new Error('fixture: outbound order version missing after ApproveOutbound');
 
-      const allocateResult = await handleAllocate(
-        requestWithKey({ orderId: outboundOrderId, expectedVersion: version, correlationId: correlationTracker.next() }, ctxFor(mainActorId)),
-        outboundDeps,
+      const allocateResult = await callHttp(
+        handleAllocate,
+        { orderId: outboundOrderId, expectedVersion: version, correlationId: correlationTracker.next() },
+        mainActorToken,
+        entityId,
       );
       expect(allocateResult.status).toBe(HTTP_STATUS_OK);
     });
@@ -546,9 +637,11 @@ test.describe('S1 Full 3PL client (Segment A, PST + PDL)', () => {
       ).rows[0]?.version;
       if (version === undefined) throw new Error('fixture: outbound order version missing before GeneratePickList');
 
-      const pickListResult = await handleGeneratePickList(
-        requestWithKey({ orderId: outboundOrderId, correlationId: correlationTracker.next() }, ctxFor(mainActorId)),
-        outboundDeps,
+      const pickListResult = await callHttp(
+        handleGeneratePickList,
+        { orderId: outboundOrderId, correlationId: correlationTracker.next() },
+        mainActorToken,
+        entityId,
       );
       expect(pickListResult.status).toBe(HTTP_STATUS_OK);
 
@@ -559,12 +652,11 @@ test.describe('S1 Full 3PL client (Segment A, PST + PDL)', () => {
       const outboundLineId = lineResult.rows[0]?.id;
       if (!outboundLineId) throw new Error('fixture: outbound order line not found');
 
-      const pickResult = await handlePickLine(
-        requestWithKey(
-          { orderId: outboundOrderId, lineId: outboundLineId, expectedVersion: version, qtyActual: S1_2_OUTBOUND_QTY, correlationId: correlationTracker.next() },
-          ctxFor(mainActorId),
-        ),
-        outboundDeps,
+      const pickResult = await callHttp(
+        handlePickLine,
+        { orderId: outboundOrderId, lineId: outboundLineId, expectedVersion: version, qtyActual: S1_2_OUTBOUND_QTY, correlationId: correlationTracker.next() },
+        mainActorToken,
+        entityId,
       );
       expect(pickResult.status).toBe(HTTP_STATUS_OK);
       version = (
@@ -572,9 +664,12 @@ test.describe('S1 Full 3PL client (Segment A, PST + PDL)', () => {
       ).rows[0]?.version;
       if (version === undefined) throw new Error('fixture: outbound order version missing after PickLine');
 
-      const checkResult = await handleCheckOrder(
-        requestWithKey({ orderId: outboundOrderId, expectedVersion: version, correlationId: correlationTracker.next() }, ctxFor(checkerActorId)),
-        outboundDeps,
+      // checker != picker (SelfCheckNotAllowedError otherwise) — a SECOND actor's own Bearer token.
+      const checkResult = await callHttp(
+        handleCheckOrder,
+        { orderId: outboundOrderId, expectedVersion: version, correlationId: correlationTracker.next() },
+        checkerActorToken,
+        entityId,
       );
       expect(checkResult.status).toBe(HTTP_STATUS_OK);
 
