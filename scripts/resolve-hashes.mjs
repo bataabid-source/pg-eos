@@ -28,6 +28,10 @@
 //             doesn't exist, falls back to `main`; if neither exists, prints a note and exits 0 —
 //             there is nothing to compare against, so nothing can be called stale.
 //
+// The "## Last N feat/fix commits" section of docs/PROJECT_STATE.md is generated from git log subjects
+// and never carries a real placeholder; it is skipped (from that heading up to the next `## ` heading
+// or EOF) by both --check and --write.
+//
 // Hashes always come from whatever is currently checked out (`git blame` walks HEAD + the working
 // tree, no fixed ref): a rebase-merge rewrites lane hashes, so resolving against a fixed ref would
 // go stale the moment history is rewritten. Resolving against "whatever HEAD is" does not.
@@ -36,6 +40,9 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const PLACEHOLDER = '<this commit>';
+const GENERATED_COMMIT_LIST_HEADING = '## Last ';
+const SECTION_HEADING = '## ';
+const GENERATED_STATE_FILE = 'docs/PROJECT_STATE.md';
 const TARGET_FILES = [
   'docs/PROJECT_STATE.md',
   'tasks/MASTER_BACKLOG.md',
@@ -96,10 +103,15 @@ function introducingSha(root, relPath, lineNo) {
   return /^[0-9a-f]{40}$/.test(sha) ? sha : null;
 }
 
-function findPlaceholderLines(content) {
+function findPlaceholderLines(content, relPath) {
   const lines = content.split('\n');
   const hits = [];
+  let inGeneratedList = false;
   for (let i = 0; i < lines.length; i += 1) {
+    if (relPath === GENERATED_STATE_FILE && lines[i].startsWith(SECTION_HEADING)) {
+      inGeneratedList = lines[i].startsWith(GENERATED_COMMIT_LIST_HEADING);
+    }
+    if (inGeneratedList) continue;
     if (lines[i].includes(PLACEHOLDER)) hits.push(i + 1); // 1-based, matches git blame -L
   }
   return hits;
@@ -115,7 +127,7 @@ function allPlaceholders(root) {
     } catch {
       continue; // file not present — nothing to resolve there
     }
-    for (const lineNo of findPlaceholderLines(content)) found.push({ relPath, lineNo });
+    for (const lineNo of findPlaceholderLines(content, relPath)) found.push({ relPath, lineNo });
   }
   return found;
 }
@@ -132,7 +144,7 @@ function runWrite(root) {
     } catch {
       continue;
     }
-    const lineNumbers = findPlaceholderLines(content);
+    const lineNumbers = findPlaceholderLines(content, relPath);
     if (lineNumbers.length === 0) continue;
 
     const lines = content.split('\n');
