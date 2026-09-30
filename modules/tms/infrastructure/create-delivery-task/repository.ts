@@ -57,9 +57,11 @@ async function getOrderForUpdate(tx: NodePgDatabase, orderId: string): Promise<O
       from ${sql.raw(ORDER_TABLE)} where id = ${orderId}::uuid for update
   `);
   const row = result.rows[0];
-  if (!row) throw new OrderNotFoundError(
+  if (!row) {
+    throw new OrderNotFoundError(
       `no ${ORDER_TABLE} row visible for id ${orderId} (allowed: an outbound order id visible in the caller's entity)`,
     );
+  }
   return {
     id: row.id,
     entityId: row.entity_id,

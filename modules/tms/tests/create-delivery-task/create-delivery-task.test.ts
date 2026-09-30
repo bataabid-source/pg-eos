@@ -257,7 +257,9 @@ describe('optimistic lock and unknown order', () => {
 describe('cross-entity order fails closed', () => {
   // Why a stubbed repository and not a DB path: through RLS an internal caller can never SEE another
   // entity's order, so the real repo cannot reach `order.entityId !== callerEntityId`. The stub
-  // returns a ready, version-matching order of entity A while the caller resolves to entity B;
+  // returns an order of entity A that would ALSO trip alreadyExists (deliveryTaskId set), not-ready
+  // (draft) and stale-version (version != expectedVersion) while the caller resolves to entity B, so
+  // the cross-entity check must run first and leak nothing;
   // withContext still opens a real transaction, but the stub issues no SQL and records every write call.
   it('order.entityId differs from the caller entity -> OrderNotFoundError before any write (no doc_no, insert, link, audit)', async () => {
     const orderEntityId = randomUUID();
@@ -271,9 +273,9 @@ describe('cross-entity order fails closed', () => {
         entityId: orderEntityId,
         clientId: randomUUID(),
         contractId: null,
-        status: 'checked',
-        version: expectedVersion,
-        deliveryTaskId: null,
+        status: 'draft',
+        version: expectedVersion + STALE_VERSION_OFFSET,
+        deliveryTaskId: randomUUID(),
       }),
       resolveCallerEntityId: async () => callerEntityId,
       nextDocNo: async () => {

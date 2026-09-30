@@ -4,9 +4,10 @@
 // runs first when input.idem is set; a replay short-circuits BEFORE this callback runs). Order:
 //   (1) INV-C4-2 (domain, before any read or write);
 //   (2) lock the wms.outbound_orders row (for update) — first port call;
-//   (3) one task per order (delivery_task_id already set -> DeliveryTaskAlreadyExistsError), order
-//       status checked · packed · loaded, then the caller's expectedVersion;
-//   (4) the caller's entity (app.entity_id — never the body), then platform.next_doc_no(entity,'TSK');
+//   (3) the caller's entity (app.entity_id — never the body); an order in another entity ->
+//       OrderNotFoundError, before any other order-derived refusal;
+//   (4) one task per order (delivery_task_id already set -> DeliveryTaskAlreadyExistsError), order
+//       status checked · packed · loaded, the caller's expectedVersion, then platform.next_doc_no(entity,'TSK');
 //   (5) the tms.delivery_tasks INSERT (status = the machine's initial state, version 1, no vehicle,
 //       no driver — brief Decision 3), then the order back-link with its version check and bump;
 //   (6) the 'tms.task.created' outbox event (writeOutboxEvent, same transaction);
@@ -69,6 +70,17 @@ export async function createDeliveryTask(
     const occurredAt = deps.clock.now();
 
     const order = await deps.repo.getOrderForUpdate(tx, input.outboundOrderId);
+    const entityId = await deps.repo.resolveCallerEntityId(tx);
+    // Fail closed: entity_scope RLS already limits internal callers to their one entity, but
+    // client_portal_scope lets a non-internal caller see an order in another entity; the task, its
+    // audit rows and the outbox event must never straddle two entities. Checked immediately after
+    // the lock and before any write; every other refusal (existing task, status, stale version)
+    // comes after it, so nothing about another entity's order is revealed by which error returns.
+    if (order.entityId !== entityId) {
+      throw new OrderNotFoundError(
+        `outbound order ${order.id} is not in the caller's entity (allowed: an outbound order id visible in the caller's entity)`,
+      );
+    }
     if (order.deliveryTaskId !== null) {
       throw new DeliveryTaskAlreadyExistsError(
         `outbound order ${order.id} already has delivery task ${order.deliveryTaskId} (one task per order).`,
@@ -81,15 +93,6 @@ export async function createDeliveryTask(
       );
     }
 
-    const entityId = await deps.repo.resolveCallerEntityId(tx);
-    // Fail closed: entity_scope RLS already limits internal callers to their one entity, but
-    // client_portal_scope lets a non-internal caller see an order in another entity; the task, its
-    // audit rows and the outbox event must never straddle two entities. Checked before any write.
-    if (order.entityId !== entityId) {
-      throw new OrderNotFoundError(
-        `outbound order ${order.id} is not in the caller's entity (allowed: an outbound order id visible in the caller's entity)`,
-      );
-    }
     const docNo = await deps.repo.nextDocNo(tx, entityId, TASK_DOC_TYPE);
 
     const columns = {
