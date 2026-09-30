@@ -8,6 +8,7 @@
 //
 // billing/{dimensions,accounting-periods,post-journal} register ahead of their handlers: the
 // contract-first wave (ADR-0005 §3) freezes them before lane 2 builds WBS 4.1b part 2, 4.19, 4.20.
+// tms/create-delivery-task registers ahead of its handler the same way (WBS 3.4 part 1, lane B).
 //
 // Modules with no `ROUTES` export today (never invented here — brief default, closing report):
 //   - billing/chart-of-accounts, billing/gl-account-change-requests — no api layer yet.
@@ -37,6 +38,7 @@ import { ROUTES as PLATFORM_MAINTAIN_SITE_ROUTES } from './platform/maintain-sit
 import { ROUTES as SALES_MANAGE_ACCOUNT_CREDIT_ROUTES } from './sales/manage-account-credit.js';
 import { ROUTES as SALES_MANAGE_CONTRACT_ROUTES } from './sales/manage-contract.js';
 import { ROUTES as SALES_MANAGE_QUOTE_ROUTES } from './sales/manage-quote.js';
+import { ROUTES as TMS_CREATE_DELIVERY_TASK_ROUTES } from './tms/create-delivery-task.js';
 import { ROUTES as WMS_COUNT_INVENTORY_ROUTES } from './wms/count-inventory.js';
 import { ROUTES as WMS_MANAGE_SPACE_ROUTES } from './wms/manage-space.js';
 import { ROUTES as WMS_PROCESS_OUTBOUND_ROUTES } from './wms/process-outbound.js';
@@ -70,6 +72,7 @@ export const ALL_ROUTES: readonly RouteDefinitionInput[] = [
   ...SALES_MANAGE_ACCOUNT_CREDIT_ROUTES,
   ...SALES_MANAGE_CONTRACT_ROUTES,
   ...SALES_MANAGE_QUOTE_ROUTES,
+  ...TMS_CREATE_DELIVERY_TASK_ROUTES,
   ...WMS_COUNT_INVENTORY_ROUTES,
   ...WMS_MANAGE_SPACE_ROUTES,
   ...WMS_PROCESS_OUTBOUND_ROUTES,
