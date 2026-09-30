@@ -14,6 +14,12 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 - **Review record (one version — #209 round-2 finding 3):** pre-build 2 rounds (FAIL(11) → PASS(4)) + close 1 round (PASS(1)) = 3 rounds, 16 findings, all fixed → `Review: PASS(16 findings, 3 rounds)` in the commit trailer (4b17ae3), the PR body, this entry and the Master's squash trailer; the PR-level rounds (round 1 FAIL(2) → fix → round 2 FAIL(4), REVIEW CAP) are recorded above and are not counted in the slice trailer; open items → row `X part 16 part 2`.
 - **Verified:** CI unset: tests/ops x-part-16 + x-part-6 14/14, tests/hooks 202/202; CI=true 14/14; fresh `pgeos_x16` local `pnpm guards:run` exit 0 in 39 s, no Stryker, G1–G15/G18 green, G16 SKIPPED, G17 not runnable.
 - Model: M-core session (opus) · Delegated: pg-tester (sonnet), pg-builder-core (opus), pg-reviewer (opus) · Review: PASS(16 findings, 3 rounds) — slice; PR #209 round 2 FAIL(4) → PASS subset (REVIEW CAP) · tokens: pg-tester ≈ 78k · pg-builder-core ≈ 45k · pg-reviewer ≈ 110k
+## X — D-212 recorded (system actor identity); SCR-BILLING-SYSTEM-ACTOR-01 closed; 0048 issued to M-core (Master M15, 2026-09-30)
+
+- **Why:** GM directive 13:35Z (#207, «موافق administration»): the SCR's three items approved, M-core writes 0048, the Master records D-212 and closes the SCR in one commit.
+- **Files:** `docs/DECISION_LOG.md` D-212 (verbatim items + execution) · `docs/notes/SCR-BILLING-SYSTEM-ACTOR-01.md` deleted · migrations README (0048 issued to M-core) · MASTER_BACKLOG 4.3 part 1a TODO (priority), 1c TODO, 4.3 part 1 waits on 1a · docs/state + PROJECT_STATE.
+- **Review:** records-only PR, squash on ①–⑥ green. Model: Master M15 session · Delegated: none · tokens ≈ 10k.
+
 ## X — X part 17 — ADR-0007 addendum gates: agent-constraints copy check, auto-archive constant, strict merge step (M-core, 2026-09-30)
 
 - **Why:** row 372 — the "copied verbatim into every agent file — gate ①" claim had no enforcing script (the four agent files carried an older 9-bullet block); D-198 (ب) auto-archive had no named constant/gate; the Master's merge step ran a non-strict `guards:run` since X part 16 (#209 finding 2, item 15).
