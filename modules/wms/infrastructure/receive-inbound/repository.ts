@@ -17,7 +17,9 @@
 //   3. every OTHER row lock the command needs — today only nextDocNo (platform.next_doc_no locks a
 //      platform.counters row) when ReceiveLine completes the last line and writes the GRN. An
 //      all-zero order (SCR-WMS-INB-01 §6) simply skips step 3 — no GRN, so no doc-no allocation
-//      and no platform.counters lock.
+//      and no platform.counters lock. WBS 2.9 part 3 step 2: a short-shelf-life receipt's
+//      insertQuarantineDecision (its FK check key-share-locks the platform.entities row) is also
+//      here, before step 4.
 //   4. the reused stock-ledger mechanism's own advisory locks (shared rebuild -> location limits
 //      -> sorted balance -> audit chain) — see ./ledger.ts and ../../src/stock-ledger.
 //   5. outbox inserts, then updateOrder (the version bump, on the row already locked in step 1 —
@@ -39,9 +41,29 @@ const LINE_TABLE = `${ORDER_SCHEMA}.${LINE_TABLE_NAME}`; // dotted, like ORDER_T
 // own tables or a declared contract; after the rename they point at non-existent tables and fail
 // loudly in the copy's tests, which is intended.
 const RCV_ZONE_TYPE = 'receiving'; // REPLACE-ON-COPY: the operational zone this use case stages into.
+// WBS 2.9 part 3 step 2 (D-211): a short-shelf-life receipt stages into a quarantine zone instead.
+const QRT_ZONE_TYPE = 'quarantine';
+const OPERATIONAL_LOCATION_TYPE = 'operational';
+// The Decision Inbox item a quarantined receipt opens — kind, approval-chain step and threshold key
+// are data seeded by migration 0047; the role and the hour count are READ, never literals here.
+const QUARANTINE_DECISION_KIND = 'quarantine_decision';
+const QUARANTINE_APPROVAL_STEP = 1;
+const QUARANTINE_DUE_HOURS_KEY = 'wms.quarantine.decision_due_hours';
+const DECISION_STATUS_OPEN = 'open';
+const TITLE_BATCH_PLACEHOLDER = '{batch}';
+const TITLE_CLIENT_PLACEHOLDER = '{client}';
+// packages/i18n/<lang>/wms.json — flat keys (billing accounting-periods precedent).
+const QUARANTINE_DECISION_TITLE_KEY = 'wms.receiveInbound.quarantineDecision.title';
+const I18N_ARABIC_WMS_FILE = join('packages', 'i18n', 'ar', 'wms.json');
+const TITLE_MISSING_ALLOWED =
+  '(Allowed: packages/i18n/ar/wms.json with a non-empty wms.receiveInbound.quarantineDecision.title)';
 const AUDIT_ACTOR_TYPE_USER = 'user'; // every actor is ctx.userId — never 'system' here.
 // The audited table for each AuditTarget — the application layer names a target, never a table.
 const AUDIT_TABLE_BY_TARGET = { order: ORDER_TABLE_NAME, line: LINE_TABLE_NAME } as const;
+
+import { existsSync, readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { sql } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
@@ -63,8 +85,56 @@ import type {
   OrderScheduleAndTermsUpdateColumns,
   OrderScheduleAndTermsUpdateResult,
   OrderUpdateColumns,
+  QuarantineDecisionInsert,
+  SkuShelfLifeRule,
   SuggestLocationCandidateRow,
 } from '../../application/receive-inbound/ports.js';
+
+/** The Arabic quarantine-decision title template cannot be loaded: the file is not found above the
+ *  start directory, its JSON is invalid, or the key is missing or empty. Thrown at deps
+ *  construction (boot), never on a request. */
+export class QuarantineDecisionTitleMissingError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'QuarantineDecisionTitleMissingError';
+  }
+}
+
+/** Walks up from `startDir` (default: this module's directory — works from source and from dist/)
+ *  to the directory holding packages/i18n/ar/wms.json and returns the non-empty title template of
+ *  QUARANTINE_DECISION_TITLE_KEY (placeholders {batch} and {client}). Precedent:
+ *  modules/billing/infrastructure/accounting-periods/repository.ts loadReopenDecisionTitleAr. */
+export function loadQuarantineDecisionTitleAr(startDir: string = dirname(fileURLToPath(import.meta.url))): string {
+  let dir = startDir;
+  while (!existsSync(join(dir, I18N_ARABIC_WMS_FILE))) {
+    const parent = dirname(dir);
+    if (parent === dir) {
+      throw new QuarantineDecisionTitleMissingError(
+        `${I18N_ARABIC_WMS_FILE} not found in ${startDir} or any parent directory ${TITLE_MISSING_ALLOWED}`,
+      );
+    }
+    dir = parent;
+  }
+  const file = join(dir, I18N_ARABIC_WMS_FILE);
+  let messages: unknown;
+  try {
+    messages = JSON.parse(readFileSync(file, 'utf8'));
+  } catch (error) {
+    throw new QuarantineDecisionTitleMissingError(
+      `${file} is not valid JSON (${error instanceof Error ? error.message : String(error)}) ${TITLE_MISSING_ALLOWED}`,
+    );
+  }
+  const title =
+    typeof messages === 'object' && messages !== null && !Array.isArray(messages)
+      ? (messages as Record<string, unknown>)[QUARANTINE_DECISION_TITLE_KEY]
+      : undefined;
+  if (typeof title !== 'string' || title.length === 0) {
+    throw new QuarantineDecisionTitleMissingError(
+      `i18n key ${QUARANTINE_DECISION_TITLE_KEY} is missing or empty in ${file} ${TITLE_MISSING_ALLOWED}`,
+    );
+  }
+  return title;
+}
 
 async function getOrderForUpdate(tx: NodePgDatabase, orderId: string): Promise<OrderRow> {
   const result = await tx.execute<{
@@ -408,6 +478,97 @@ async function findRcvBalanceLocation(
   return row ? { id: row.id } : null;
 }
 
+async function pickQrtLocation(tx: NodePgDatabase, warehouseId: string): Promise<{ readonly id: string }> {
+  const result = await tx.execute<{ id: string }>(sql`
+    select l.id
+      from wms.locations l
+      join wms.zones z on z.id = l.zone_id
+     where l.warehouse_id = ${warehouseId}::uuid and z.zone_type = ${QRT_ZONE_TYPE}
+       and l.location_type = ${OPERATIONAL_LOCATION_TYPE} and l.is_blocked = false
+     order by l.code
+     limit 1
+  `);
+  const row = result.rows[0];
+  if (!row) {
+    throw new Error(`no unblocked ${QRT_ZONE_TYPE}-zone operational location for warehouse ${warehouseId}`);
+  }
+  return { id: row.id };
+}
+
+async function getSkuShelfLifeRule(tx: NodePgDatabase, skuId: string): Promise<SkuShelfLifeRule> {
+  const result = await tx.execute<{ track_expiry: boolean; min_remaining_life_receipt_days: number | null }>(sql`
+    select track_expiry, min_remaining_life_receipt_days from wms.skus where id = ${skuId}::uuid
+  `);
+  const row = result.rows[0];
+  if (!row) throw new Error(`no wms.skus row for id ${skuId} (Allowed: an existing sku id)`);
+  return { trackExpiry: row.track_expiry, minRemainingLifeReceiptDays: row.min_remaining_life_receipt_days };
+}
+
+async function getQuarantineChainRole(tx: NodePgDatabase): Promise<string> {
+  const result = await tx.execute<{ approver_role: string }>(sql`
+    select approver_role from platform.approval_chains
+     where request_type = ${QUARANTINE_DECISION_KIND} and step_no = ${QUARANTINE_APPROVAL_STEP} and is_active
+  `);
+  const row = result.rows[0];
+  if (!row) {
+    throw new Error(
+      `no active platform.approval_chains row for (${QUARANTINE_DECISION_KIND}, step ${QUARANTINE_APPROVAL_STEP}) — migration 0047`,
+    );
+  }
+  return row.approver_role;
+}
+
+async function getQuarantineDueHours(tx: NodePgDatabase): Promise<number> {
+  const result = await tx.execute<{ value: string }>(sql`
+    select value::text as value from platform.thresholds where key = ${QUARANTINE_DUE_HOURS_KEY}
+  `);
+  const row = result.rows[0];
+  if (!row) throw new Error(`no platform.thresholds row for key ${QUARANTINE_DUE_HOURS_KEY} — migration 0047`);
+  return Number(row.value);
+}
+
+async function insertQuarantineDecision(
+  titleTemplateAr: string,
+  tx: NodePgDatabase,
+  params: QuarantineDecisionInsert,
+): Promise<{ readonly id: string }> {
+  const client = await tx.execute<{ name_ar: string }>(sql`
+    select name_ar from sales.accounts where id = ${params.clientId}::uuid
+  `);
+  const clientRow = client.rows[0];
+  if (!clientRow) throw new Error(`no sales.accounts row for client ${params.clientId}`);
+  // Replacer functions: a batch number or client name containing `$&` is inserted literally.
+  const titleAr = titleTemplateAr
+    .replace(TITLE_BATCH_PLACEHOLDER, () => params.context.batchNo)
+    .replace(TITLE_CLIENT_PLACEHOLDER, () => clientRow.name_ar);
+  const result = await tx.execute<{ id: string }>(sql`
+    insert into platform.decisions
+      (entity_id, kind, title_ar, context, source_table, source_id, assigned_role, status, due_at)
+    values (${params.entityId}::uuid, ${QUARANTINE_DECISION_KIND}, ${titleAr}, ${JSON.stringify(params.context)}::jsonb,
+            ${ORDER_TABLE}, ${params.context.orderId}::uuid, ${params.assignedRole}, ${DECISION_STATUS_OPEN},
+            ${params.dueAt.toISOString()}::timestamptz)
+    returning id
+  `);
+  const row = result.rows[0];
+  if (!row) throw new Error(`insertQuarantineDecision: no row returned for order ${params.context.orderId}`);
+  return { id: row.id };
+}
+
+async function hasOpenQuarantineDecision(
+  tx: NodePgDatabase,
+  params: { readonly orderId: string; readonly lineId: string },
+): Promise<boolean> {
+  const result = await tx.execute<{ held: boolean }>(sql`
+    select exists (
+      select 1 from platform.decisions
+       where kind = ${QUARANTINE_DECISION_KIND} and source_table = ${ORDER_TABLE}
+         and source_id = ${params.orderId}::uuid and context ->> 'lineId' = ${params.lineId}
+         and status = ${DECISION_STATUS_OPEN}
+    ) as held
+  `);
+  return result.rows[0]?.held ?? false;
+}
+
 // wms.skus.abc_class is an unconstrained char(1) (no CHECK constraint) — a defensive read against
 // a value outside the domain set (e.g. a stray lowercase 'a' or an unexpected 'D') normalizes to
 // `null` rather than silently carrying a false type past this boundary (pg-reviewer round 1).
@@ -624,7 +785,16 @@ async function writeAuditRow(
   `);
 }
 
-export const inboundOrderRepository: InboundOrderRepository = {
+/** The repository, with the quarantine-decision title template already loaded
+ *  (loadQuarantineDecisionTitleAr(), called eagerly by ../../api/receive-inbound/composition.ts). */
+export function createInboundOrderRepository(quarantineDecisionTitleAr: string): InboundOrderRepository {
+  return {
+    ...inboundOrderRepositoryStatements,
+    insertQuarantineDecision: (tx, params) => insertQuarantineDecision(quarantineDecisionTitleAr, tx, params),
+  };
+}
+
+const inboundOrderRepositoryStatements: Omit<InboundOrderRepository, 'insertQuarantineDecision'> = {
   getOrderForUpdate,
   updateOrder,
   updateOrderScheduleAndTerms,
@@ -637,9 +807,14 @@ export const inboundOrderRepository: InboundOrderRepository = {
   hasBlockingOpenLines,
   hasPhysicallyReceivedLines,
   pickRcvLocation,
+  pickQrtLocation,
   findRcvBalanceLocation,
   suggestLocationCandidatesQuery,
   getSkuClientId,
+  getSkuShelfLifeRule,
+  getQuarantineChainRole,
+  getQuarantineDueHours,
+  hasOpenQuarantineDecision,
   hasRole,
   getDocumentTemplateId,
   nextDocNo,

@@ -25,6 +25,15 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 ## X — rows 3.4 part 1b, X part 26, X part 27; 4.3 part 1a grants scope; #244 hashes resolved (Master M15, 2026-09-30)
 
 - **Why:** records owed from #243/#244 and the #207 15:2xZ rulings; the two `b07fab8` placeholders #244 left on main would turn gate ① red on every PR.
+## 2.9 — QRT quarantine routing + quarantine_decision item (part 3 step 2, S1 scenario 1, D-211, migration 0047) (2026-09-30)
+
+- **Why:** doc 40 S1 scenario 1 steps 3–4 (lines 433-439): a receipt below the SKU's `min_remaining_life_receipt_days` (Asia/Kuwait calendar days, strict `<`) lands on a QRT-zone location and opens one `quarantine_decision`; values per GM D-211 (SALES_MGR chain row, 48 h threshold, D-211 title template, 422 hold).
+- **Change:** migration `0047_1_quarantine-decision-chain-threshold.sql` (data only, idempotent; register line) · wms receive-inbound: `isShortShelfLifeReceipt` (invariants.ts), `QuarantineDecisionOpenError` → 422 (errors.ts, handlers.ts), six repository/port methods, step-7 QRT branch + decision insert in the receipt tx (receive-line.ts), put-away hold (confirm-putaway.ts), title loaded eagerly from `wms.receiveInbound.quarantineDecision.title` (composition.ts, X part 23) · FEFO candidates exclude `zone_type = 'quarantine'` (process-outbound repository.ts) · 6 test files.
+- **Defaults recorded:** `{client}` = `sales.accounts.name_ar` of the order's client · decision inserted before `postReceipt` (FK key-share lock precedes the ADR-0002 audit advisory lock) · open-decision match = `source_id` + `context->>'lineId'` + `status 'open'` · put-away guard after the machine legality check · a qty-0 line opens no decision · the zone filter also covers FIFO/LIFO · S1 fixture GULF-0137 has `track_expiry` false (S1.spec.ts:223-229) → S1 scenario 1 stays RED until 2.18 sets `trackExpiry: true`; Decision 1 kept as briefed.
+- **Tests:** wms 1077/1077 (domain coverage 99%) · migration-0047 2/2 · guards G1–G16/G18 green (G17 not runnable) · lint + tsc clean.
+- **Review (pg-reviewer, D-206):** pre-build FAIL(2 blocking + 6 nits) → one fix round (tests) · close round 1 FAIL(1 evidence + 2 nits) → round 2 PASS(1 nit, brief Read ONLY list incomplete — builder read cited precedents); pgeos_app UPDATE on `platform.decisions` (hold could be lifted) → row 2.9 part 3 step 3.
+- Model: lane 1 session · Delegated: pg-tester (sonnet), pg-builder-core (opus), pg-reviewer (opus ×2) · Review: PASS(12 findings, 2 rounds) · tokens: tester ≈125k, builder ≈131k, reviewer ≈68k + ≈78k — ≈402k, over the 300k budget, under the 500k ceiling (D-210); ≈5 h wait on X part 23 (#240/#244).
+
 ## X — D-213 recorded; 0049 + 0050 issued to M-core; locks platform / packages/events / imile; SCR-RLS-NULL-ENTITY-01 closed (Master M16, 2026-10-01)
 
 - **Why:** GM «موافق» 2026-09-30 19:25Z (#207): no audit or outbox row without an entity. M-core's inventory (#207 19:36Z) showed `audit_append` and six production writers also carry NULL entities, so the work splits in three steps; M16's single governance commit of the day.
