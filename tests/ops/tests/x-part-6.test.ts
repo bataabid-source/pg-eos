@@ -202,9 +202,11 @@ it('an empty or all-zero base widens to every module', () => {
 });
 
 it('g16_decide honors G16_MODULES and PG_GUARDS_STRICT', () => {
+  // X part 16 / D-198: CI unset now means `local`; this case pins CI mode (CI=true) so the all/scoped rule is tested deterministically.
   const baseEnv: NodeJS.ProcessEnv = { ...process.env };
   delete baseEnv['G16_MODULES'];
   delete baseEnv['PG_GUARDS_STRICT'];
+  baseEnv['CI'] = 'true';
 
   // When g16_decide runs with G16_MODULES unset, then it prints "all"
   const unsetEnv: NodeJS.ProcessEnv = { ...baseEnv };
