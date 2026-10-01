@@ -999,6 +999,9 @@ importers:
       '@types/pg':
         specifier: ^8.13.0
         version: 8.23.1
+      fast-check:
+        specifier: ^4.10.2
+        version: 4.10.2
       typescript:
         specifier: '>=5.7.0 <6.1.0'
         version: 5.9.3
