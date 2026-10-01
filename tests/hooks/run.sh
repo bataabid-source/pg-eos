@@ -80,12 +80,15 @@ expect "M-core: its module row allows"              0 "$(gc "" "modules/identity
 expect "M-core: an unlocked package blocked"        2 "$(gc "" "packages/db/index.ts")"
 expect "M-core: CLAUDE.md is Master-only"           2 "$(gc "" "CLAUDE.md")"
 expect "M-core: .claude/* blocked without tooling"  2 "$(gc "" ".claude/hooks/x.sh")"
+expect "M-core: .githooks/* blocked without tooling" 2 "$(gc "" ".githooks/pre-commit")"
 printf '| tooling | M | X | d | . |\n' >> "$CLOUD/tasks/LANE_LOCKS.md"
 expect "M-core: tooling row opens .claude/*"        0 "$(gc "" ".claude/hooks/x.sh")"
 expect "M-core: tooling row opens scripts/*"        0 "$(gc "" "scripts/check-locks.sh")"
+expect "M-core: tooling row opens .githooks/*"      0 "$(gc "" ".githooks/pre-commit")"
 expect "M-core: database/schema still blocked"      2 "$(gc "" "database/schema/01-Data-Model.sql")"
 on lane/1-2.16
 expect "lane 1 with M rows present: packages still frozen" 2 "$(gc "" "packages/identity/src/otp.ts")"
+expect "lane 1 with the tooling row present: .githooks/* frozen" 2 "$(gc "" ".githooks/pre-commit")"
 unset GIT_CONFIG_GLOBAL GIT_CONFIG_NOSYSTEM
 expect "lane: whole-module lock allows module"  0 "$(guard "$LANE1" 1 "modules/wms/domain/put-away/x.ts")"
 expect "lane: other module blocked"             2 "$(guard "$LANE1" 1 "modules/hr/index.ts")"
