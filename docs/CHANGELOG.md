@@ -4,6 +4,14 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## 2.18 — S1 scenario 1 green on 2.9 part 3 step 2: QRT routing + quarantine_decision (integration lane 3) (2026-10-01)
+
+- **What:** `tests/scenarios/S1.spec.ts` — fixture SKU GULF-0137 gets `trackExpiry: true` (a SKU with a receipt shelf-life minimum is expiry-tracked; the #247 rule applies to `track_expiry` SKUs only); the QRT step drops its NOT BUILT text; the `quarantine_decision` step now asserts exactly one row, `status` open, `assigned_role` = the `('quarantine_decision', 1)` approval-chain role and `due_at` = occurred_at + `wms.quarantine.decision_due_hours`, both read from the DB, plus the kept doc-40 bound: the threshold is ≤ `DECISION_DUE_WITHIN_HOURS` (48, "within 48 h") and the chain row exists exactly once.
+- **Why:** backlog rows "S1 QRT routing" / "S1 quarantine_decision" were BUILT in ff39ce4 (#247) and waited only on this fixture.
+- **State:** S1 scenario 1 green; S1 still RED only on OF-01/02/06/07 billable events (4.3) and the PDL delivery task (3.4); S1 not added to green.json.
+- **Verified:** S1 twice on pgeos_lane3 (0047 applied), identical; migration-0047 2/2; tsc + eslint clean.
+- **Review:** see commit trailer · **Tokens:** pg-tester 41k (reported).
+
 ## 2.9 — QRT quarantine routing + quarantine_decision item (part 3 step 2, S1 scenario 1, D-211, migration 0047) (2026-09-30)
 
 - **Why:** doc 40 S1 scenario 1 steps 3–4 (lines 433-439): a receipt below the SKU's `min_remaining_life_receipt_days` (Asia/Kuwait calendar days, strict `<`) lands on a QRT-zone location and opens one `quarantine_decision`; values per GM D-211 (SALES_MGR chain row, 48 h threshold, D-211 title template, 422 hold).
