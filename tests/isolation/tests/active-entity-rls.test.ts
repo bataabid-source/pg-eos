@@ -499,3 +499,35 @@ describe('withIdempotentContext — an Idempotency-Key recorded under entity A, 
     expect(thrownCode).toBe('42501');
   });
 });
+
+// D-213: the 0048 binding (platform.system_actor_permitted) holds when this suite runs — a guard
+// against a stale shared DB (this suite never re-applies 0031 itself).
+const BINDING_TOKEN = 'system_actor_permitted';
+const ALLOWED_ENTITIES_SIGNATURE = 'platform.allowed_entities()';
+const AUDIT_APPEND_POLICY = { schema: 'platform', table: 'audit_log', policy: 'audit_append' };
+const IDEM_OWN_POLICY = { schema: 'platform', table: 'idempotency_keys', policy: 'idem_own' };
+
+describe('0048 binding holds when this suite runs', () => {
+  it("the 0048 binding holds when this suite runs (guard against a stale shared DB) — allowed_entities, audit_append and idem_own all contain system_actor_permitted", async () => {
+    const fn = await admin.query<{ def: string }>(
+      `select pg_get_functiondef($1::regprocedure) as def`,
+      [ALLOWED_ENTITIES_SIGNATURE],
+    );
+    expect(firstRow(fn, 'pg_get_functiondef allowed_entities').def).toContain(BINDING_TOKEN);
+
+    const policyOf = async (p: typeof AUDIT_APPEND_POLICY) =>
+      firstRow(
+        await admin.query<{ qual: string | null; with_check: string | null }>(
+          `select qual, with_check from pg_policies where schemaname = $1 and tablename = $2 and policyname = $3`,
+          [p.schema, p.table, p.policy],
+        ),
+        `pg_policies ${p.policy}`,
+      );
+
+    const audit = await policyOf(AUDIT_APPEND_POLICY);
+    expect(audit.with_check ?? '').toContain(BINDING_TOKEN);
+    const idem = await policyOf(IDEM_OWN_POLICY);
+    expect(idem.qual ?? '').toContain(BINDING_TOKEN);
+    expect(idem.with_check ?? '').toContain(BINDING_TOKEN);
+  });
+});
