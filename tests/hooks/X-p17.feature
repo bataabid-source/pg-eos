@@ -5,11 +5,11 @@ Feature: ADR-0007 addendum gates (WBS X part 17)
     Then it exits 0 when all four blocks are byte-identical, also after the D-199 exception line is added to CLAUDE.md and the four copies together
     And it exits 1 and names the file when a copy differs, lacks the block, or CLAUDE.md lacks the block
 
-  Scenario: check-locks.sh refuses a lock table with a fourth lane (max three lanes, unchanged)
-    Given lanes 1, 2, 3 and A each hold a lock
+  Scenario: check-locks.sh refuses a lock table with a fifth lane (max four lanes, D-205 C)
+    Given lanes 1, 2, 3, A and B each hold a lock
     When scripts/check-locks.sh validates the table
     Then it exits 1
-    And lanes 1, 2, 3 plus a Master row (lane M, not counted) exit 0
+    And lanes 1, 2, 3, A plus a Master row (lane M, not counted) exit 0
 
   Scenario: The watchdog archives an ACKed or merged session and a clean, pushed session idle over the named constant, and never a dirty idle one
     Given scripts/lib/session-archive.sh declares ARCHIVE_IDLE_MINUTES=120 (Master proposal, D-198 (ب))
