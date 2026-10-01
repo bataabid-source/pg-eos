@@ -22,11 +22,11 @@ Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewe
 - lane M · imile · X · since 2026-10-01
 
 ## Last 5 feat/fix commits (git log)
+- `240eb37` feat(X): tms.task.create.* keys in six locales; tms.brief.md TSK prefix PDL-TSK- per the seed (X part 26) (#248)
 - `689b953` feat(4.3): migration 0048 — the system actor identity, usable only under pgeos_worker (D-212, SCR-BILLING-SYSTEM-ACTOR-01, 4.3 part 1a) (#246)
-- `bdb11e8` fix(X): X part 17 lane-cap hook test follows D-205 C (five lanes refused, 'max 4 lanes'); pre-commit comment aligned (PR #221)
 - `ff39ce4` feat(2.9): short-shelf-life receipt routed to zone QRT with one open quarantine_decision (part 3 step 2, S1 scenario 1, migration 0047) (#247)
-- `cee9f23` feat(X): packages/i18n wms.json quarantine-decision title in six locales (X part 23) + packages/contracts tsconfig includes tms/**/*.ts (X part 21 p
-- `f8e5286` feat(3.4): INV-C4-1 vehicle guard + delivery_tasks.version (0046) and tms create-delivery-task, with the route-table change (#232 + #234) (#243)
+- `7dbc3fa` feat(X): migration 0049 — named SECURITY DEFINER writers for platform-scoped audit and outbox rows (D-213 step 1, X part 28)
+- `f6f2465` fix(4.3): 0048 self-check keeps presence checks only — the exact-set grant proof lives in the isolation test (PR #246, M16 ruling)
 
 ## Blockers
 - G16: changed domain/ per PR, nightly all modules; G15 per STREAMS §G15; G17 NOT RUNNABLE; deploy.sh waits on 0.6b (PG_GUARDS_STRICT=1, X part 16 pt 3).
