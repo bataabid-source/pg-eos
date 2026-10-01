@@ -4,6 +4,14 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## X — D-213 recorded; 0049 + 0050 issued to M-core; locks platform / packages/events / imile; SCR-RLS-NULL-ENTITY-01 closed (Master M16, 2026-10-01)
+
+- **Why:** GM «موافق» 2026-09-30 19:25Z (#207): no audit or outbox row without an entity. M-core's inventory (#207 19:36Z) showed `audit_append` and six production writers also carry NULL entities, so the work splits in three steps; M16's single governance commit of the day.
+- **Change:** `docs/DECISION_LOG.md` D-213 (GM text verbatim + operative execution) · `docs/notes/SCR-RLS-NULL-ENTITY-01.md` deleted (closed, NOTES rule; backlog row → DONE) · `database/migrations/README.md`: `0049` (additive definer functions `platform.write_platform_audit()` / `write_platform_event()`) and `0050` (tightening) issued to M-core, NOT YET WRITTEN, next free `0051` · `tasks/LANE_LOCKS.md`: `platform`, `packages/events`, `imile` → M (X) · MASTER_BACKLOG rows X part 28 / 29 / 30, 2.9 part 7 (lane 1, `register-sku.ts:159`), X part 16 part 3 (#209 bot point: G16 skipped without `CI` / `PG_GUARDS_STRICT`; `deploy.sh` must export `PG_GUARDS_STRICT=1`) · `docs/state/*` regenerated PROJECT_STATE (40 lines; header/blockers condensed to fit the three new lock rows).
+- **Defaults taken:** (i) migrations merge in number order — #247 (0047) before #246 (0048), deviating from the GM's listed order, per CLAUDE.md PARALLEL LANES "merged first, in number order" · (ii) squash merge kept (M15 practice, branches carry main-merge commits) pending GM ratification · (iii) the Master session's `gh pr merge` is refused by the local permission classifier ("Merge Without Review"), so merges are run by the GM · (iv) M15 watchdog `trig_01LBfhzdHgCZ8uDaxtosGDX4` disabled, M16 self-check armed (session cron, hourly :17) · (v) migration file slugs for 0049/0050 are left to M-core (not invented here) · (vi) lock `claimed_at` written 2026-10-01 (local date; `scribe.mjs` stamps UTC, 2026-09-30).
+- **Review:** records-only. Model: Master M16 session (opus) · Delegated: pg-scribe · tokens ≈ 45k (pg-scribe estimate).
+- **Recorded (merge of main into this branch):** #209 landed on main as `04fc1d2` (GM squash) with a truncated subject — the leading `feat(X): G16/Stryker out of` was lost, so the first line does not match `type(WBS): description`; main is never rewritten — the task ↔ code link for X part 16 is this note plus `(#209)` in the subject.
+
 ## X — X part 16 — G16/Stryker out of local guards (D-198 (أ)), lane-guard .githooks/* (2026-09-29)
 
 - **Why:** D-198 (أ) «Stryker خارج الفحص المحلي، يبقى في CI والليلي»: a local commit touching `database/` ran Stryker on every module (≈ 45 min per commit).
@@ -14,6 +22,7 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 - **Review record (one version — #209 round-2 finding 3):** pre-build 2 rounds (FAIL(11) → PASS(4)) + close 1 round (PASS(1)) = 3 rounds, 16 findings, all fixed → `Review: PASS(16 findings, 3 rounds)` in the commit trailer (4b17ae3), the PR body, this entry and the Master's squash trailer; the PR-level rounds (round 1 FAIL(2) → fix → round 2 FAIL(4), REVIEW CAP) are recorded above and are not counted in the slice trailer; open items → row `X part 16 part 2`.
 - **Verified:** CI unset: tests/ops x-part-16 + x-part-6 14/14, tests/hooks 202/202; CI=true 14/14; fresh `pgeos_x16` local `pnpm guards:run` exit 0 in 39 s, no Stryker, G1–G15/G18 green, G16 SKIPPED, G17 not runnable.
 - Model: M-core session (opus) · Delegated: pg-tester (sonnet), pg-builder-core (opus), pg-reviewer (opus) · Review: PASS(16 findings, 3 rounds) — slice; PR #209 round 2 FAIL(4) → PASS subset (REVIEW CAP) · tokens: pg-tester ≈ 78k · pg-builder-core ≈ 45k · pg-reviewer ≈ 110k
+
 ## X — M15 handover packet; SCR-RLS-NULL-ENTITY-01 filed; row 2.16 part 2f (Master M15, 2026-09-30)
 
 - **Why:** Master context ≈ 510k of the 600k ceiling (D-210) — handover at a clean point (no Master PR open); M-core's #246 finding (NULL-entity rows admitted by `entity_scope`) is a security question for the GM; Advisory 17:30Z PDA styling gap.
