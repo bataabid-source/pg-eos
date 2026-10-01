@@ -12,7 +12,6 @@ Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewe
 - lane M · tooling · X · since 2026-09-29
 - lane M · api · X · since 2026-09-29
 - lane B · tms · 3.4 · since 2026-09-30
-- lane 2 · billing · 4.3 · since 2026-09-30
 - lane 1 · wms · 2.9 · since 2026-09-30
 - lane M · packages/contracts · X · since 2026-09-30
 - lane M · packages/i18n · X · since 2026-09-30
@@ -22,11 +21,11 @@ Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewe
 - lane M · imile · X · since 2026-10-01
 
 ## Last 5 feat/fix commits (git log)
-- `f6f2465` fix(4.3): 0048 self-check keeps presence checks only — the exact-set grant proof lives in the isolation test (PR #246, M16 ruling)
-- `8210540` fix(4.3): worker-role audit probe binds an entity — a NULL-entity, NULL-user audit row is admitted by entity_scope (PR #246 CI ②③)
-- `83af8aa` fix(4.3): worker-role test re-pinned to the 0048 grants — outbox INSERT allowed, audit_log insert without the system-actor GUCs still 42501 (PR #246
+- `689b953` feat(4.3): migration 0048 — the system actor identity, usable only under pgeos_worker (D-212, SCR-BILLING-SYSTEM-ACTOR-01, 4.3 part 1a) (#246)
+- `ff39ce4` feat(2.9): short-shelf-life receipt routed to zone QRT with one open quarantine_decision (part 3 step 2, S1 scenario 1, migration 0047) (#247)
 - `cee9f23` feat(X): packages/i18n wms.json quarantine-decision title in six locales (X part 23) + packages/contracts tsconfig includes tms/**/*.ts (X part 21 p
-- `3e9c8d5` feat(4.3): migration 0048 — the system actor identity, usable only under pgeos_worker (D-212, SCR-BILLING-SYSTEM-ACTOR-01, 4.3 part 1a)
+- `f8e5286` feat(3.4): INV-C4-1 vehicle guard + delivery_tasks.version (0046) and tms create-delivery-task, with the route-table change (#232 + #234) (#243)
+- `13a5ac0` feat(X): ADR-0007 addendum gates — agent-constraints copy check, auto-archive constant, strict merge step (X part 17) (#226)
 
 ## Blockers
 - G16: changed domain/ per PR, nightly all modules; G15 per STREAMS §G15; G17 NOT RUNNABLE; deploy.sh waits on 0.6b (PG_GUARDS_STRICT=1, X part 16 pt 3).
@@ -36,5 +35,5 @@ Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewe
 - Branches close/0.6a-d166, lane/3-3.13 superseded (GM deletes, D-193 D5) · D-193: no HTTP host/worker (X part 5); AUDIT-CHAIN-01 open; RLS-01 d1–3 → GM.
 
 ## Next
-1. Weekly goal S1+S2+S18: Lane 1: 2.9 p3 s2 (QRT, 0047) → 2.9 p7 (D-213 register-sku) → p6 · Lane 2: 4.3 p1 (after 0048) · Lane B: 3.4 p1 · Int: 2.18.
+1. Weekly goal S1+S2+S18: Lane 1: 2.9 p3 s2 (QRT, 0047) → 2.9 p7 (D-213 register-sku) → p6 · Lane 2: 4.3 p1 PR → 4.4 · Lane B: 3.4 p1 · Int: 2.18.
 2. Queue (GM merges): #209 → #247 → #246 → #248 → #221 → #218 · D-213: 0049 definers → writers converted → 0050 tightening (M-core, number order).
