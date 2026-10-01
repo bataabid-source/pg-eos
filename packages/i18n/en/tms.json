@@ -1,0 +1,8 @@
+{
+  "tms.task.create.addressIncomplete": "Cannot create the delivery task: the address is incomplete (area, block, street and recipient phone are required)",
+  "tms.task.create.orderNotReady": "Cannot create the delivery task: the outbound order's status does not allow it",
+  "tms.task.create.alreadyExists": "This order already has a delivery task (one task per order)",
+  "tms.task.create.orderNotFound": "The outbound order was not found in your entity",
+  "tms.task.create.staleVersion": "The outbound order changed since it was read — reload and try again",
+  "tms.task.create.missingActor": "Creating a delivery task requires a signed-in user"
+}
