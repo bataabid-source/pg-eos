@@ -18,6 +18,12 @@
 //      lock in this command is taken before step 7.
 //   7. the reused ledger port's own advisory locks (shared rebuild -> location limits -> balance
 //      -> audit) — SKIPPED entirely for a fully-short receipt (qtyActual=0 posts NO ledger row).
+//      WBS 2.9 part 3 step 2 (D-211): a short-shelf-life receipt (domain isShortShelfLifeReceipt)
+//      is posted to pickQrtLocation instead of pickRcvLocation, and its one open
+//      'quarantine_decision' platform.decisions row is inserted in this same transaction BEFORE the
+//      ledger post (the insert's FK check takes a platform.entities key-share row lock, so it
+//      precedes the audit-chain advisory lock — ADR-0002). A replay under the same
+//      Idempotency-Key returns the stored result and never reaches this step.
 //   8. outbox events ('wms.inbound.received' on the last line, doc 40 §C3 line 262 — NOT at
 //      Close, and NOT for an all-zero order, SCR-WMS-INB-01 §6; 'wms.inbound.variance' on a
 //      variance) — inserts only, no row locks.
@@ -36,7 +42,16 @@ import { Quantity } from '@pg-eos/domain-kit';
 import { writeOutboxEvent, type CatalogedEventType } from '@pg-eos/events';
 
 import { INBOUND_ORDER_EVENTS, advanceInboundOrder, canTransition } from '../../domain/receive-inbound/machine.js';
-import { assertSkuBelongsToOrderClient, assertVarianceHasReason, assertVariancePhotoRequiresVariance, isAllZeroOrder, isFullyShortReceipt, isVarianceReceipt } from '../../domain/receive-inbound/invariants.js';
+import {
+  assertSkuBelongsToOrderClient,
+  assertVarianceHasReason,
+  assertVariancePhotoRequiresVariance,
+  isAllZeroOrder,
+  isFullyShortReceipt,
+  isShortShelfLifeReceipt,
+  isVarianceReceipt,
+  remainingShelfLifeDays,
+} from '../../domain/receive-inbound/invariants.js';
 import { LineAlreadyReceivedError, MissingActorError, StaleVersionError } from '../../domain/receive-inbound/errors.js';
 import type { ReceiveInboundDeps } from './ports.js';
 
@@ -56,6 +71,7 @@ const ORDER_LINES_AGGREGATE_TYPE = 'wms.order_lines'; // REPLACE-ON-COPY: the ag
 const GRN_DOC_TYPE = 'DOC'; // REPLACE-ON-COPY: the document series this use case numbers from.
 // 01-Data-Model.sql:143's own named example — the GRN template code.
 const GRN_TEMPLATE_CODE = 'GRN-01'; // REPLACE-ON-COPY: the use case's document template.
+const MS_PER_HOUR = 3_600_000; // platform.thresholds 'wms.quarantine.decision_due_hours' is in hours.
 
 export interface ReceiveLineInput {
   readonly orderId: string;
@@ -195,20 +211,53 @@ export async function receiveLine(
     // Step 7 — the reused ledger port, SKIPPED for a fully-short receipt.
     let movementIds: readonly string[] = [];
     if (!isFullyShort) {
-      const rcvLocation = await deps.repo.pickRcvLocation(tx, order.warehouseId);
+      const batchNo = input.batchNo ?? line.batchNo ?? '';
+      const expiryDate = input.expiryDate ?? null;
+      const shelfLife = await deps.repo.getSkuShelfLifeRule(tx, line.skuId);
+      const isShortShelfLife = isShortShelfLifeReceipt({
+        expiryDate,
+        today: occurredAt,
+        minRemainingLifeReceiptDays: shelfLife.minRemainingLifeReceiptDays,
+        trackExpiry: shelfLife.trackExpiry,
+      });
+      const toLocation = isShortShelfLife
+        ? await deps.repo.pickQrtLocation(tx, order.warehouseId)
+        : await deps.repo.pickRcvLocation(tx, order.warehouseId);
+      // Step 7a (D-211 Decision 3) — the quarantine decision item, same transaction, before the
+      // ledger's advisory locks. isShortShelfLife implies a non-null expiry and minimum.
+      if (isShortShelfLife && expiryDate !== null && shelfLife.minRemainingLifeReceiptDays !== null) {
+        const assignedRole = await deps.repo.getQuarantineChainRole(tx);
+        const dueHours = await deps.repo.getQuarantineDueHours(tx);
+        await deps.repo.insertQuarantineDecision(tx, {
+          entityId: order.entityId,
+          clientId: order.clientId,
+          assignedRole,
+          dueAt: new Date(occurredAt.getTime() + dueHours * MS_PER_HOUR),
+          context: {
+            orderId: input.orderId,
+            lineId: input.lineId,
+            skuId: line.skuId,
+            batchNo,
+            expiryDate,
+            minRemainingLifeReceiptDays: shelfLife.minRemainingLifeReceiptDays,
+            remainingDays: remainingShelfLifeDays(expiryDate, occurredAt),
+            qty: input.qtyActual,
+          },
+        });
+      }
       const posted = await deps.ledger.postReceipt(
         tx,
         {
           entityId: order.entityId,
           clientId: order.clientId,
           skuId: line.skuId,
-          toLocationId: rcvLocation.id,
+          toLocationId: toLocation.id,
           qty: input.qtyActual,
-          batchNo: input.batchNo ?? line.batchNo ?? '',
+          batchNo,
           uom: line.uom,
           correlationId: input.correlationId,
           refId: input.orderId,
-          expiryDate: input.expiryDate ?? null,
+          expiryDate,
         },
         actorId,
         deps,
