@@ -14,6 +14,9 @@ History of claims and releases: `docs/CHANGELOG.md` · migration register and ne
 | packages/contracts | M | X | 2026-09-30 | . |
 | packages/i18n | M | X | 2026-09-30 | . |
 | worker | M | X | 2026-09-30 | . |
+| platform | M | X | 2026-10-01 | . |
+| packages/events | M | X | 2026-10-01 | . |
+| imile | M | X | 2026-10-01 | . |
 
 ## Rules (CLAUDE.md · AGENTS AND SESSIONS)
 
