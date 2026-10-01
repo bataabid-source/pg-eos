@@ -165,15 +165,19 @@ verdict_nonsql G15 "doc 40 Part E scenarios S1–S20 — ${g15_sum:-runner}" "$g
 # G16 — stryker on every module's domain/ (modules/*/stryker.config.json, thresholds.break = 75,
 # ADR-0005 §6): the root `pnpm mutation` runs the modules one at a time (shared database); every
 # config must print its own "Final mutation score" line and every score must be >= 75.
-# Scope (X part 6, D-193 D6): scripts/lib/g16-scope.sh decides — G16_MODULES unset = every module
-# (nightly, deploy, local merge queue); set = the listed modules (CI gate ⑤ computes them from the
-# diff: domain/, tests/, vitest.config.ts or stryker.config.json changed); set but empty = none in
-# scope, G16 is not run here and the nightly run governs. PG_GUARDS_STRICT=1 (deploy) is never scoped.
+# Scope (X part 6, D-193 D6; X part 16, D-198 (أ)): scripts/lib/g16-scope.sh g16_decide decides —
+# PG_GUARDS_STRICT=1 (deploy) = every module, never scoped; CI mode (gate ⑤) = G16_MODULES unset →
+# every module, set → the listed modules (computed from the diff: domain/, tests/, vitest.config.ts
+# or stryker.config.json changed), set but empty → none in scope, not run, the nightly run governs;
+# otherwise (local) = the config check below still runs, Stryker does not — G16 is reported SKIPPED
+# (non-blocking) and CI gate ⑤ plus the nightly run govern.
 . "$ROOT/scripts/lib/g16-scope.sh"
 g16_cfgs=(modules/*/stryker.config.json)
-g16_mods=(); g16_scoped=0
+g16_mods=(); g16_scoped=0; g16_local=0
 g16_decision="$(g16_decide)"
-if [ "$g16_decision" != "all" ]; then
+if [ "$g16_decision" = "local" ]; then
+  g16_local=1
+elif [ "$g16_decision" != "all" ]; then
   g16_scoped=1; read -r -a g16_mods <<<"${g16_decision#scoped:}"
 fi
 g16_expected="${#g16_cfgs[@]}"; [ "$g16_scoped" = "1" ] && g16_expected="${#g16_mods[@]}"
@@ -188,7 +192,9 @@ elif [ "$g16_present" = "1" ]; then
       if (!c.thresholds || c.thresholds.break !== 75) bad.push(f+": thresholds.break is not 75");
       if (!Array.isArray(c.mutate) || !c.mutate.some(m=>/^domain\//.test(m))) bad.push(f+": mutate does not target domain/"); }
     console.log(bad.length ? "red:"+bad.join("; ") : "green");' "${g16_cfgs[@]}")"
-  if [ "$g16_res" = "green" ]; then
+  if [ "$g16_res" = "green" ] && [ "$g16_local" = "1" ]; then
+    g16_res=skipped_local
+  elif [ "$g16_res" = "green" ]; then
     pnpm -s mutation "${g16_mods[@]}" >"$OUT.G16" 2>&1 || true
     # The temp log is removed on exit; keep a copy so a red G16 can be diagnosed (reports/ is git-ignored).
     mkdir -p reports/mutation && cp "$OUT.G16" reports/mutation/guards-G16.log
@@ -208,6 +214,8 @@ elif [ "$g16_present" = "1" ]; then
 fi
 if [ "$g16_res" = "skipped" ]; then
   report_line G16 "-" "not run — G16_MODULES is empty (no module in scope for this change); the nightly run scores every module"
+elif [ "$g16_res" = "skipped_local" ]; then
+  report_line G16 "-" "SKIPPED locally (D-198 (أ): CI gate ⑤ scoped + nightly govern)"
 else
   g16_label="stryker mutation on domain/ >= 75 %"; [ "$g16_scoped" = "1" ] && g16_label="$g16_label — ${g16_mods[*]}"
   verdict_nonsql G16 "$g16_label" "$g16_present" "$g16_res"
