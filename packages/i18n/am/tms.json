@@ -1,0 +1,8 @@
+{
+  "tms.task.create.addressIncomplete": "የማድረስ ተግባር መፍጠር አይቻልም፦ አድራሻው ያልተሟላ ነው (አካባቢ፣ ብሎክ፣ መንገድ እና የተቀባዩ ስልክ ያስፈልጋሉ)",
+  "tms.task.create.orderNotReady": "የማድረስ ተግባር መፍጠር አይቻልም፦ የወጪ ትዕዛዙ ሁኔታ አይፈቅድም",
+  "tms.task.create.alreadyExists": "ለዚህ ትዕዛዝ የማድረስ ተግባር አስቀድሞ አለ (በአንድ ትዕዛዝ አንድ ተግባር)",
+  "tms.task.create.orderNotFound": "የወጪ ትዕዛዙ በድርጅትዎ ውስጥ አልተገኘም",
+  "tms.task.create.staleVersion": "የወጪ ትዕዛዙ ከተነበበ በኋላ ተቀይሯል — እንደገና ጫኑና ይሞክሩ",
+  "tms.task.create.missingActor": "የማድረስ ተግባር ለመፍጠር የገባ ተጠቃሚ ያስፈልጋል"
+}
