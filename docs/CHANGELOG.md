@@ -12,6 +12,13 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 - **Verified:** S1 twice on pgeos_lane3 (0047 applied), identical; migration-0047 2/2; tsc + eslint clean.
 - **Review:** see commit trailer · **Tokens:** pg-tester 41k (reported).
 
+## X — `scripts/check-locks.sh` lane cap 3 → 4 (D-205 C, M-core `tooling`, 2026-09-29)
+
+- **Why:** GM 20:31Z «موافق A.B.C», relayed verbatim on #207 at 20:46Z → D-205 C (D-205 row in DECISION_LOG is the Master's, before or with this merge): seven sessions (Master, M-core, three build lanes, integration); the lock table may hold four lane rows with distinct lanes. Master M13 21:30Z: "check-locks allows max three lanes — M-core raises it to 4 under `tooling` before lane 2 returns".
+- **Change:** `scripts/check-locks.sh` rule 4 — named constant `MAX_LANES=4` (was the literal 3, D-179), message names D-205 C, header comment updated. `tasks/LANE_LOCKS.md` rule 2 text ("max three lanes") and CLAUDE.md:28 ("two build lanes", "max five") are the Master's / GM's to align.
+- **Tests:** `tests/hooks/run.sh` — four distinct lanes accepted, five refused (new, pg-tester; RED first: the four-lane table exits 1 on main's script); three-lane acceptance is the existing "valid table OK" case (run.sh:166); the old "four lanes refused" case is replaced, being the opposite of D-205 C.
+- **Brief:** none filed — one-constant tooling change on a verbatim GM directive relayed on #207; recorded here instead (DEFAULT, RECORD).
+- Model: opus (M-core session) · Delegated: pg-tester (sonnet), pg-builder (sonnet), pg-reviewer (opus) · Review: PASS(3 findings, 1 round) — close FAIL(3 nits: directive timestamps, D-205 log row, tests wording) fixed in the same round · tokens: ≈ 40k
 ## X — X part 26 — `tms.task.create.*` keys in six locales; tms.brief.md TSK prefix `PDL-TSK-` (M-core, 2026-09-30)
 
 - **What:** new `packages/i18n/{ar,en,hi,ur,bn,am}/tms.json` with exactly six keys: `tms.task.create.{addressIncomplete,orderNotReady,alreadyExists}` (the `i18nKey`s modules/tms create-delivery-task errors carry) + `{orderNotFound,staleVersion,missingActor}` (M-core default names for lane B's 3.4 part 1b errors, camelCase of the error name). `.claude/briefs/tms.brief.md:37` TSK prefix `PCC-TSK-` → `PDL-TSK-`.

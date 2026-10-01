@@ -32,7 +32,7 @@ fail() { echo "pre-commit: REFUSED — $1" >&2; exit 1; }
 
 # D-179 (2026-09-25) — bookkeeping gates, run on the STAGED content, before the docs-only exit:
 #   ⓐ tasks/LANE_LOCKS.md → scripts/check-locks.sh (unique locks, no whole/use-case clash, every
-#      lane in ../pg-eos-lane-<id>, max three lanes)
+#      lane in ../pg-eos-lane-<id>, max four lanes, D-205 C)
 #   ⓑ docs/notes/slice-briefs/*.brief.md → scripts/brief-check.sh (Read ONLY ≤ 8 files / 1,000
 #      lines — SPLIT BEFORE, NOT AFTER)
 for f in "${staged[@]}"; do

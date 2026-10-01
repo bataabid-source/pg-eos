@@ -9,13 +9,15 @@
 #   3. A lane row (lane 1|2|3|A|B|C) names the worktree `../pg-eos-lane-<lane>` — never the
 #      shared `claude-kit` checkout — or, for a cloud session, `cloud:session_<id>` (ADR-0007 Decision 3(c)).
 #      Lane M (Master) is exempt.
-#   4. At most three lane rows with distinct lanes (max three lanes).
+#   4. At most four lane rows with distinct lanes (max four lanes, D-205 C).
 #   5. The `task` of every row is a row ID of docs/package/38-WBS.md (or the literal `X`) — D-185:
 #      a lock for a task that is not a doc-38 row is refused, so a staged row (tasks/MASTER_BACKLOG.md
 #      "Staged" section) is moved into doc 38 by the Master BEFORE any lane claims it.
 #      The doc is read from $CHECK_LOCKS_WBS, else <repo root>/docs/package/38-WBS.md.
 # Run by: .githooks/pre-commit (when the file is staged), scripts/check-setup.sh, tests/hooks.
 set -uo pipefail
+
+MAX_LANES=4  # D-205 C (2026-09-29): three build lanes + integration; was 3 (D-179)
 
 LOCKS="${1:-tasks/LANE_LOCKS.md}"
 [ -f "$LOCKS" ] || { echo "check-locks: $LOCKS not found" >&2; exit 2; }
@@ -59,9 +61,9 @@ WBS_DOC="${CHECK_LOCKS_WBS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/doc
     esac
   done <<< "$rows"
 
-  # rule 4 — max three lanes
+  # rule 4 — max four lanes (D-205 C)
   n="$(printf '%s\n' "$rows" | cut -f2 | grep -v '^M$' | sort -u | wc -l | tr -d ' ')"
-  [ "$n" -le 3 ] || err "$n lanes hold locks — max three lanes"
+  [ "$n" -le "$MAX_LANES" ] || err "$n lanes hold locks — max $MAX_LANES lanes (D-205 C)"
 
   # rule 5 — task is a doc-38 row (D-185)
   if [ -f "$WBS_DOC" ]; then
