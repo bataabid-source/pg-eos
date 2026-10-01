@@ -569,11 +569,11 @@ printf -- '---\nname: pg-tester\n---\n\nbody\n\n%s\n\ntail\n' "$AC_BLOCK" > "$TM
 expect "X-p17: D-199 line in CLAUDE.md, one copy without it → 1"          1 "$(ac ac6)"
 expect "X-p17: real repo: CLAUDE.md and the four agent copies identical"  0 "$(bash "$REPO/scripts/check-agent-constraints.sh" >/dev/null 2>&1; echo $?)"
 
-echo "X-p17 — check-locks max three lanes"
-printf '| module | lane | task | claimed_at | worktree |\n|---|---|---|---|---|\n| a | 1 | 2.11 | d | ../pg-eos-lane-1 |\n| b | 2 | 2.13 | d | ../pg-eos-lane-2 |\n| c | 3 | 3.14 | d | ../pg-eos-lane-3 |\n| e | A | 2.7 | d | ../pg-eos-lane-A |\n' > "$TMP/locks4.md"
+echo "X-p17 — check-locks max four lanes (D-205 C)"
+printf '| module | lane | task | claimed_at | worktree |\n|---|---|---|---|---|\n| a | 1 | 2.11 | d | ../pg-eos-lane-1 |\n| b | 2 | 2.13 | d | ../pg-eos-lane-2 |\n| c | 3 | 3.14 | d | ../pg-eos-lane-3 |\n| e | A | 2.7 | d | ../pg-eos-lane-A |\n| f | B | 2.10 | d | ../pg-eos-lane-B |\n' > "$TMP/locks4.md"
 bash "$REPO/scripts/check-locks.sh" "$TMP/locks4.md" >/dev/null 2>"$TMP/locks4.err"; lk4=$?
-expect "X-p17: lanes 1,2,3 and A refused with 'max three lanes' on stderr" 0 "$([ "$lk4" = 1 ] && grep -q 'max three lanes' "$TMP/locks4.err"; echo $?)"
-expect "X-p17: lanes 1,2,3 plus a Master row accepted (M not counted)"    0 "$(cl '| a | 1 | 2.11 | d | ../pg-eos-lane-1 |\n| b | 2 | 2.13 | d | ../pg-eos-lane-2 |\n| c | 3 | 3.14 | d | ../pg-eos-lane-3 |\n| packages/db | M | 0.6a | d | claude-kit |')"
+expect "X-p17: lanes 1,2,3,A and B refused with 'max 4 lanes' on stderr" 0 "$([ "$lk4" = 1 ] && grep -q 'max 4 lanes' "$TMP/locks4.err"; echo $?)"
+expect "X-p17: lanes 1,2,3,A plus a Master row accepted (M not counted)"    0 "$(cl '| a | 1 | 2.11 | d | ../pg-eos-lane-1 |\n| b | 2 | 2.13 | d | ../pg-eos-lane-2 |\n| c | 3 | 3.14 | d | ../pg-eos-lane-3 |\n| e | A | 2.7 | d | ../pg-eos-lane-A |\n| packages/db | M | 0.6a | d | claude-kit |')"
 
 echo "X-p17 — session-archive.sh"
 SA="$REPO/scripts/lib/session-archive.sh"
