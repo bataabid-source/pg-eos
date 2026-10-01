@@ -62,6 +62,9 @@
 -- 0048 supersedes 0039:58-60 (the worker never reads or writes the audit book) for INSERT only —
 -- SELECT, UPDATE, DELETE on platform.audit_log stay withheld.
 -- No `grant execute` — EXECUTE already held via PUBLIC; asserted in the self-check.
+-- The exact-set proof that pgeos_worker holds these grants and nothing more lives in
+-- tests/isolation/tests/system-actor-rls.test.ts, not here: apply.sh re-runs this file after every
+-- later migration, so an in-file exact set would refuse any future grant (Master M16, #207 20:06Z).
 --
 -- SCHEMA PARITY: database/schema/* is not edited (frozen for lanes — lane-guard); this migration
 -- is the source of the three functions, the two policies and the row.
@@ -172,89 +175,14 @@ begin
   if exists (select 1 from identity.sessions s where s.user_id = platform.system_actor_id()) then
     raise exception '0048: system actor holds an identity.sessions row';
   end if;
-  -- (a) pgeos_worker relation + column grants: exactly the 12 ruled entries, nothing more, nothing less.
-  if exists (
-    (select g.obj, g.priv from (
-       select n.nspname || '.' || c.relname as obj, a.privilege_type as priv
-       from pg_catalog.pg_class c
-       join pg_catalog.pg_namespace n on n.oid = c.relnamespace
-       cross join lateral pg_catalog.aclexplode(c.relacl) a
-       where c.relkind in ('r', 'p', 'S', 'v', 'm', 'f')
-         and n.nspname not in ('pg_catalog', 'information_schema')
-         and a.grantee = 'pgeos_worker'::regrole
-       union all
-       select n.nspname || '.' || c.relname || '.' || at.attname, a.privilege_type
-       from pg_catalog.pg_attribute at
-       join pg_catalog.pg_class c on c.oid = at.attrelid
-       join pg_catalog.pg_namespace n on n.oid = c.relnamespace
-       cross join lateral pg_catalog.aclexplode(at.attacl) a
-       where n.nspname not in ('pg_catalog', 'information_schema')
-         and a.grantee = 'pgeos_worker'::regrole
-     ) g
-     except
-     select e.obj, e.priv from (values
-       ('billing.billable_events', 'INSERT'), ('billing.billable_events', 'SELECT'),
-       ('catalog.services', 'SELECT'),
-       ('platform.audit_log', 'INSERT'),
-       ('platform.audit_log_id_seq', 'USAGE'),
-       ('platform.outbox.attempts', 'UPDATE'), ('platform.outbox.last_error', 'UPDATE'), ('platform.outbox.published_at', 'UPDATE'),
-       ('platform.outbox', 'INSERT'), ('platform.outbox', 'SELECT'),
-       ('platform.outbox_id_seq', 'USAGE'),
-       ('wms.outbound_orders', 'SELECT')
-     ) e(obj, priv))
-    union all
-    (select e.obj, e.priv from (values
-       ('billing.billable_events', 'INSERT'), ('billing.billable_events', 'SELECT'),
-       ('catalog.services', 'SELECT'),
-       ('platform.audit_log', 'INSERT'),
-       ('platform.audit_log_id_seq', 'USAGE'),
-       ('platform.outbox.attempts', 'UPDATE'), ('platform.outbox.last_error', 'UPDATE'), ('platform.outbox.published_at', 'UPDATE'),
-       ('platform.outbox', 'INSERT'), ('platform.outbox', 'SELECT'),
-       ('platform.outbox_id_seq', 'USAGE'),
-       ('wms.outbound_orders', 'SELECT')
-     ) e(obj, priv)
-     except
-     select g.obj, g.priv from (
-       select n.nspname || '.' || c.relname as obj, a.privilege_type as priv
-       from pg_catalog.pg_class c
-       join pg_catalog.pg_namespace n on n.oid = c.relnamespace
-       cross join lateral pg_catalog.aclexplode(c.relacl) a
-       where c.relkind in ('r', 'p', 'S', 'v', 'm', 'f')
-         and n.nspname not in ('pg_catalog', 'information_schema')
-         and a.grantee = 'pgeos_worker'::regrole
-       union all
-       select n.nspname || '.' || c.relname || '.' || at.attname, a.privilege_type
-       from pg_catalog.pg_attribute at
-       join pg_catalog.pg_class c on c.oid = at.attrelid
-       join pg_catalog.pg_namespace n on n.oid = c.relnamespace
-       cross join lateral pg_catalog.aclexplode(at.attacl) a
-       where n.nspname not in ('pg_catalog', 'information_schema')
-         and a.grantee = 'pgeos_worker'::regrole
-     ) g)
-  ) then
-    raise exception '0048: pgeos_worker relation/column grants differ from the ruled 12-entry set';
-  end if;
-  -- (b) pgeos_worker schema grants: exactly USAGE on billing, catalog, platform, wms.
-  if exists (
-    (select n.nspname, a.privilege_type from pg_catalog.pg_namespace n cross join lateral pg_catalog.aclexplode(n.nspacl) a
-     where a.grantee = 'pgeos_worker'::regrole
-     except
-     select s.nsp, 'USAGE' from (values ('billing'), ('catalog'), ('platform'), ('wms')) s(nsp))
-    union all
-    (select s.nsp, 'USAGE' from (values ('billing'), ('catalog'), ('platform'), ('wms')) s(nsp)
-     except
-     select n.nspname, a.privilege_type from pg_catalog.pg_namespace n cross join lateral pg_catalog.aclexplode(n.nspacl) a
-     where a.grantee = 'pgeos_worker'::regrole)
-  ) then
-    raise exception '0048: pgeos_worker schema grants differ from USAGE on billing, catalog, platform, wms';
-  end if;
-  -- (c) EXECUTE held (through PUBLIC) on the four platform functions — no grant execute written.
+  -- The exact-set grant checks moved to tests/isolation/tests/system-actor-rls.test.ts (M16, #207 20:06Z).
+  -- (a) EXECUTE held (through PUBLIC) on the four platform functions — no grant execute written.
   foreach fn in array array['platform.allowed_entities()', 'platform.current_user_id()', 'platform.system_actor_permitted()', 'platform.system_actor_id()'] loop
     if not pg_catalog.has_function_privilege('pgeos_worker', fn, 'EXECUTE') then
       raise exception '0048: pgeos_worker lacks EXECUTE on %', fn;
     end if;
   end loop;
-  -- (d) RLS still applies: no BYPASSRLS, no superuser.
+  -- (b) RLS still applies: no BYPASSRLS, no superuser.
   if exists (select 1 from pg_catalog.pg_roles r where r.rolname = 'pgeos_worker' and (r.rolbypassrls or r.rolsuper)) then
     raise exception '0048: pgeos_worker has BYPASSRLS or SUPERUSER';
   end if;
