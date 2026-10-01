@@ -24,15 +24,26 @@ g16_changed_modules() {
     | xargs
 }
 
-# g16_decide → prints `all` or `scoped:<space-separated modules>` (`scoped:` alone = none in scope).
-# G16_MODULES unset = all (nightly, deploy, local merge queue); set = scoped; PG_GUARDS_STRICT=1
-# (deploy) always prints `all` — deploy never runs a partial G16.
+# g16_decide → prints `all`, `scoped:<space-separated modules>` (`scoped:` alone = none in scope) or
+# `local`. Three-way rule, first match wins (X part 16, D-198 (أ) — Stryker out of the local check,
+# kept in CI and nightly):
+#   1. PG_GUARDS_STRICT=1 (deploy) → `all`, CI or not — deploy never runs a partial G16.
+#   2. CI mode (CI set, not empty, not "false", not "0" — CI gate ⑤) → G16_MODULES set = `scoped:`,
+#      unset = `all`.
+#   3. otherwise (local pre-commit / pnpm guards:run) → `local`, whatever G16_MODULES is: G16 is
+#      not run here; CI gate ⑤ (scoped) and the nightly run (every module) govern.
 g16_decide() {
-  if [ -n "${G16_MODULES+x}" ] && [ "${PG_GUARDS_STRICT:-0}" != "1" ]; then
-    local mods=()
-    read -r -a mods <<<"$G16_MODULES"
-    echo "scoped:${mods[*]}"
-  else
+  if [ "${PG_GUARDS_STRICT:-0}" = "1" ]; then
     echo all
+  elif [ -n "${CI:-}" ] && [ "$CI" != false ] && [ "$CI" != 0 ]; then
+    if [ -n "${G16_MODULES+x}" ]; then
+      local mods=()
+      read -r -a mods <<<"$G16_MODULES"
+      echo "scoped:${mods[*]}"
+    else
+      echo all
+    fi
+  else
+    echo local
   fi
 }
