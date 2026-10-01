@@ -12,10 +12,17 @@ import type { Clock, IdGenerator } from '@pg-eos/domain-kit';
 import type { Logger, ReceiveInboundDeps } from '../../application/receive-inbound/ports.js';
 import { inboundLedgerPort } from '../../infrastructure/receive-inbound/ledger.js';
 import { inboundPinoLogger } from '../../infrastructure/receive-inbound/logger.js';
-import { inboundOrderRepository } from '../../infrastructure/receive-inbound/repository.js';
+import {
+  createInboundOrderRepository,
+  loadQuarantineDecisionTitleAr,
+} from '../../infrastructure/receive-inbound/repository.js';
 
 /** `logger` defaults to the pino adapter (../../infrastructure/receive-inbound/logger.ts) — a
- *  caller (tests) may inject a fixed/spy Logger instead, same pattern as `clock`/`ids`. */
+ *  caller (tests) may inject a fixed/spy Logger instead, same pattern as `clock`/`ids`. The Arabic
+ *  quarantine-decision title template (WBS 2.9 part 3 step 2, D-211) is loaded HERE, eagerly: the
+ *  apps/api host builds these deps once at boot, so a missing packages/i18n/ar/wms.json key fails
+ *  startup (QuarantineDecisionTitleMissingError), never a request — billing's
+ *  createAccountingPeriodsDeps / loadReopenDecisionTitleAr precedent. */
 export function createReceiveInboundDeps(clockDeps: {
   readonly clock: Clock;
   readonly ids: IdGenerator;
@@ -24,7 +31,7 @@ export function createReceiveInboundDeps(clockDeps: {
   return {
     clock: clockDeps.clock,
     ids: clockDeps.ids,
-    repo: inboundOrderRepository,
+    repo: createInboundOrderRepository(loadQuarantineDecisionTitleAr()),
     ledger: inboundLedgerPort,
     logger: clockDeps.logger ?? inboundPinoLogger,
   };
