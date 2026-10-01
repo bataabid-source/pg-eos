@@ -75,3 +75,50 @@ export function isFullyShortReceipt(qtyActual: Quantity): boolean {
 export function isAllZeroOrder(lineQtyActuals: readonly string[]): boolean {
   return lineQtyActuals.every((qty) => Quantity.of(qty).isZero());
 }
+
+// ── WBS 2.9 part 3 step 2 (D-211, brief Decision 1): short-shelf-life receipt rule ─────────────
+
+/** The business calendar the remaining-life rule counts in (fleet register-vehicle precedent). */
+const BUSINESS_TIME_ZONE = 'Asia/Kuwait';
+/** `en-CA` formats a date as ISO `YYYY-MM-DD` directly. */
+const ISO_DATE_LOCALE = 'en-CA';
+const ISO_MIDNIGHT_UTC_SUFFIX = 'T00:00:00.000Z';
+const MS_PER_DAY = 86_400_000;
+
+/** Pure: the Asia/Kuwait calendar date of `instant`, as ISO `YYYY-MM-DD`. */
+function businessDateOf(instant: Date): string {
+  return new Intl.DateTimeFormat(ISO_DATE_LOCALE, {
+    timeZone: BUSINESS_TIME_ZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(instant);
+}
+
+/** Pure: whole calendar days from `today`'s Asia/Kuwait date to the ISO `expiryDate` (negative when
+ *  the batch is already expired). Both sides are date-only, so the difference is an exact multiple of
+ *  a day. `today` comes from the injected clock (deps.clock.now()), never from domain/. */
+export function remainingShelfLifeDays(expiryDate: string, today: Date): number {
+  const expiryMs = Date.parse(`${expiryDate}${ISO_MIDNIGHT_UTC_SUFFIX}`);
+  const todayMs = Date.parse(`${businessDateOf(today)}${ISO_MIDNIGHT_UTC_SUFFIX}`);
+  return Math.round((expiryMs - todayMs) / MS_PER_DAY);
+}
+
+export interface ShelfLifeReceiptInput {
+  /** ISO `YYYY-MM-DD` expiry of the received batch; null when the receipt carries none. */
+  readonly expiryDate: string | null;
+  /** The injected clock's instant (deps.clock.now()). */
+  readonly today: Date;
+  /** wms.skus.min_remaining_life_receipt_days; null when the SKU sets no minimum. */
+  readonly minRemainingLifeReceiptDays: number | null;
+  /** wms.skus.track_expiry. */
+  readonly trackExpiry: boolean;
+}
+
+/** D-211 / doc 40 S1 scenario 1: true iff the SKU tracks expiry, sets a minimum, the receipt carries
+ *  an expiry, and the remaining life in Asia/Kuwait calendar days is STRICTLY below the minimum.
+ *  Any missing input → not short (unchanged receipt behaviour). */
+export function isShortShelfLifeReceipt(input: ShelfLifeReceiptInput): boolean {
+  if (!input.trackExpiry || input.minRemainingLifeReceiptDays === null || input.expiryDate === null) return false;
+  return remainingShelfLifeDays(input.expiryDate, input.today) < input.minRemainingLifeReceiptDays;
+}
