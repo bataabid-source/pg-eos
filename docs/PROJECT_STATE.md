@@ -12,7 +12,6 @@ Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewe
 - lane M · tooling · X · since 2026-09-29
 - lane M · api · X · since 2026-09-29
 - lane B · tms · 3.4 · since 2026-09-30
-- lane 2 · billing · 4.3 · since 2026-09-30
 - lane 1 · wms · 2.9 · since 2026-09-30
 - lane M · packages/contracts · X · since 2026-09-30
 - lane M · packages/i18n · X · since 2026-09-30
@@ -22,11 +21,11 @@ Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewe
 - lane M · imile · X · since 2026-10-01
 
 ## Last 5 feat/fix commits (git log)
+- `240eb37` feat(X): tms.task.create.* keys in six locales; tms.brief.md TSK prefix PDL-TSK- per the seed (X part 26) (#248)
+- `d61883d` fix(4.3): escape the pipes in backlog row 4.3 part 1 so the table keeps its columns (#253 review finding 1)
+- `9a2b87c` feat(4.3): WMS subscriber records billable events OF-01/02/06/07 on wms.outbound.checked, system actor per D-212 (part 1)
 - `689b953` feat(4.3): migration 0048 — the system actor identity, usable only under pgeos_worker (D-212, SCR-BILLING-SYSTEM-ACTOR-01, 4.3 part 1a) (#246)
-- `bdb11e8` fix(X): X part 17 lane-cap hook test follows D-205 C (five lanes refused, 'max 4 lanes'); pre-commit comment aligned (PR #221)
 - `ff39ce4` feat(2.9): short-shelf-life receipt routed to zone QRT with one open quarantine_decision (part 3 step 2, S1 scenario 1, migration 0047) (#247)
-- `cee9f23` feat(X): packages/i18n wms.json quarantine-decision title in six locales (X part 23) + packages/contracts tsconfig includes tms/**/*.ts (X part 21 p
-- `f8e5286` feat(3.4): INV-C4-1 vehicle guard + delivery_tasks.version (0046) and tms create-delivery-task, with the route-table change (#232 + #234) (#243)
 
 ## Blockers
 - G16: changed domain/ per PR, nightly all modules; G15 per STREAMS §G15; G17 NOT RUNNABLE; deploy.sh waits on 0.6b (PG_GUARDS_STRICT=1, X part 16 pt 3).
@@ -36,5 +35,5 @@ Agents: pg-tester · pg-builder (sonnet) · pg-builder-core (opus) · pg-reviewe
 - Branches close/0.6a-d166, lane/3-3.13 superseded (GM deletes, D-193 D5) · D-193: no HTTP host/worker (X part 5); AUDIT-CHAIN-01 open; RLS-01 d1–3 → GM.
 
 ## Next
-1. Weekly goal S1+S2+S18: Lane 1: 2.9 p3 s2 (QRT, 0047) → 2.9 p7 (D-213 register-sku) → p6 · Lane 2: 4.3 p1 (after 0048) · Lane B: 3.4 p1 · Int: 2.18.
+1. Weekly goal S1+S2+S18: Lane 1: 2.9 p3 s2 (QRT, 0047) → 2.9 p7 (D-213 register-sku) → p6 · Lane 2: 4.3 p1 PR → 4.4 · Lane B: 3.4 p1 · Int: 2.18.
 2. Queue (GM merges): #209 → #247 → #246 → #248 → #221 → #218 · D-213: 0049 definers → writers converted → 0050 tightening (M-core, number order).

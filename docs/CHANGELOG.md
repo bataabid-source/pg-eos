@@ -4,6 +4,16 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## 4.3 — WMS subscriber: wms.outbound.checked → billable events OF-01/02/06/07 (part 1) (2026-10-01)
+
+- **Why:** S1 step "after checked, billable events OF-01×1, OF-02×1, OF-06×1, OF-07×1 exist with status pending" (doc 40 line 444); MASTER_BACKLOG 4.3 part 1.
+- **Change:** subscriber `billing.wms-outbound-checked` (`api/record-billable-event/{subscriber,composition}.ts`) → `application/record-billable-event/{record-outbound-checked,ports,index}.ts` → 4.2 port (`resolveBillableSource`, `findBilledServiceIds`, `findActiveServicesByCode` exported; audit `actor_type` derived against `platform.system_actor_id()`); domain `outbound-checked-services.ts` + errors; system actor `SYSTEM_ACTOR_USER_ID` (D-212, 0048, pgeos_worker only); tests: feature, unit ×2, integration (S1 query verbatim), property (exactly-once per (source, service), qty 1.000).
+- **Defaults recorded:** port exports the source/billed lookups (pre-build finding 3; contract_id from the source row); null entityId → `MissingEventEntityError` (outbox CHECK already refuses the row); payload parse hand-written — zod is not a billing dependency, no `pnpm add` → row X part 31 (M-core); subscriber suites stub `PG_APP_USER=pgeos_worker` per file (refusal under pgeos_app owned by tests/isolation); `composition.ts` added (golden counterpart).
+- **Blocker cycle:** pre-build review found the null-user system actor refused by RLS + audit_append → SCR-BILLING-SYSTEM-ACTOR-01 → D-212 → M-core 0048 (#246); lane waited ~15 h.
+- **Not this slice:** apps/worker registration (M-core, lock `worker | M | X`); S1.spec `relayOnce` step (integration lane, 2.18); TMS/CC/iMile subscribers (4.3 part 2..4).
+- **Review (pg-reviewer):** pre-build round 1 FAIL(4 blocking, 9 nit) → fix round (blocking 1 via D-212/0048); close round 1 FAIL(5 nit) → fix round → round 2 PASS. Guards G1–G14, G18 green (G16 CI-scoped).
+- Model: lane 2 session; workers per .claude/agents routing · Delegated: pg-tester ×5, pg-builder-core ×3, pg-reviewer ×3 · Review: PASS(5 findings, 2 rounds) · tokens: pg-tester ~210k, pg-builder-core ~154k, pg-reviewer ~230k — over the D-210 300k slice budget (blocker re-runs).
+
 ## X — `scripts/check-locks.sh` lane cap 3 → 4 (D-205 C, M-core `tooling`, 2026-09-29)
 
 - **Why:** GM 20:31Z «موافق A.B.C», relayed verbatim on #207 at 20:46Z → D-205 C (D-205 row in DECISION_LOG is the Master's, before or with this merge): seven sessions (Master, M-core, three build lanes, integration); the lock table may hold four lane rows with distinct lanes. Master M13 21:30Z: "check-locks allows max three lanes — M-core raises it to 4 under `tooling` before lane 2 returns".

@@ -40,7 +40,11 @@ const BILLABLE_EVENTS_TABLE_NAME = 'billable_events';
 const BILLABLE_EVENTS_TABLE = `${BILLING_SCHEMA}.${BILLABLE_EVENTS_TABLE_NAME}`;
 const BILLABLE_EVENTS_AGGREGATE_TYPE = BILLABLE_EVENTS_TABLE;
 const AUDIT_ACTOR_TYPE_USER = 'user';
-const AUDIT_ACTOR_TYPE_SYSTEM = 'system'; // decision 7 precedent (wms/src/stock-ledger/post-movement.ts): actorId === null -> 'system'.
+// WBS 4.3 part 1 (D-212 item 3 / 0048): audit actor_type is 'system' when actorId is the system
+// actor (platform.system_actor_id() — the DB function is the source of truth, compared in SQL in
+// writeAuditRow, never a TS literal here) or null (legacy decision-7 precedent; 0048's audit_append
+// now refuses user_id null); 'user' otherwise (the 4.2 human-caller path).
+const AUDIT_ACTOR_TYPE_SYSTEM = 'system';
 const AUDIT_OPERATION_INSERT = 'insert';
 const STATUS_PENDING = 'pending'; // the column's own DEFAULT — exported for test assertions.
 
@@ -64,6 +68,11 @@ import {
   type BillableSourceTable,
 } from '../../domain/record-billable-event/invariants.js';
 import { DuplicateBillableEventError, SourceEventNotFoundError } from '../../domain/record-billable-event/errors.js';
+// Port types live in application/ (golden precedent: modules/wms/infrastructure/receive-inbound/
+// ledger.ts) — re-exported so the 4.2 export surface is unchanged.
+import type { BillableSource, BillableServiceRow } from '../../application/record-billable-event/ports.js';
+
+export type { BillableSource, BillableServiceRow };
 
 /** Walks `error`'s own cause chain for a Postgres error with the given SQLSTATE — same discipline
  *  as ../../../wms/infrastructure/manage-space/repository.ts's own findRaisedException. Returns
@@ -91,13 +100,63 @@ async function getSourceRow(
   tx: NodePgDatabase,
   sourceTable: BillableSourceTable,
   sourceId: string,
-): Promise<{ readonly entityId: string; readonly clientId: string | null } | null> {
-  const result = await tx.execute<{ entity_id: string; client_id: string | null }>(
-    sql`select entity_id, client_id from ${sql.raw(sourceTable)} where id = ${sourceId}::uuid`,
+): Promise<BillableSource | null> {
+  const result = await tx.execute<{ entity_id: string; client_id: string | null; contract_id: string | null }>(
+    sql`select entity_id, client_id, contract_id from ${sql.raw(sourceTable)} where id = ${sourceId}::uuid`,
   );
   const row = result.rows[0];
   if (!row) return null;
-  return { entityId: row.entity_id, clientId: row.client_id };
+  return { entityId: row.entity_id, clientId: row.client_id, contractId: row.contract_id };
+}
+
+/** WBS 4.3 part 1 (Master review finding 3): the source row's own entity / client / contract, as
+ *  RLS lets the caller's tx see it — the ONLY read of a source (wms.* / tms.*) table billing makes.
+ *  `sourceTable` is validated against the closed list BEFORE it is interpolated. `null` = the row
+ *  does not exist or is invisible under the caller's entity scope. */
+export async function resolveBillableSource(
+  tx: NodePgDatabase,
+  sourceTable: string,
+  sourceId: string,
+): Promise<BillableSource | null> {
+  assertBillableSourceTable(sourceTable);
+  return getSourceRow(tx, sourceTable, sourceId);
+}
+
+/** WBS 4.3 part 1 (Master review finding 3): the service ids already billed for (sourceTable,
+ *  sourceId) — a redelivered event skips these BEFORE any insert, so the tx is never aborted by
+ *  the unique index (01-Data-Model.sql:1079) on a plain redelivery. */
+export async function findBilledServiceIds(
+  tx: NodePgDatabase,
+  sourceTable: string,
+  sourceId: string,
+): Promise<readonly string[]> {
+  assertBillableSourceTable(sourceTable);
+  const result = await tx.execute<{ service_id: string }>(sql`
+    select service_id::text as service_id
+      from ${sql.raw(BILLABLE_EVENTS_TABLE)}
+     where source_table = ${sourceTable} and source_id = ${sourceId}::uuid
+  `);
+  return result.rows.map((row) => row.service_id);
+}
+
+/** WBS 4.3 part 1 (brief Facts "Services"): the ACTIVE `catalog.services` rows for `codes`, read by
+ *  code at run time — service ids are never hard-coded. A code with no active row is simply absent
+ *  from the result; the caller decides (it throws, never guesses). */
+export async function findActiveServicesByCode(
+  tx: NodePgDatabase,
+  codes: readonly string[],
+): Promise<readonly BillableServiceRow[]> {
+  if (codes.length === 0) return [];
+  const codeList = sql.join(
+    codes.map((code) => sql`${code}`),
+    sql`, `,
+  );
+  const result = await tx.execute<{ id: string; code: string; uom: string }>(sql`
+    select id::text as id, code, uom
+      from catalog.services
+     where code in (${codeList}) and is_active
+  `);
+  return result.rows.map((row) => ({ id: row.id, code: row.code, uom: row.uom }));
 }
 
 /** D2's domain-level pre-check data — every existing row matching the candidate's own triple (at
@@ -130,7 +189,9 @@ async function writeAuditRow(
     readonly occurredAt: Date;
   },
 ): Promise<void> {
-  const actorType = params.actorId === null ? AUDIT_ACTOR_TYPE_SYSTEM : AUDIT_ACTOR_TYPE_USER;
+  // D-212 / 0048: the system actor's audit rows must carry actor_type 'system' (audit_append).
+  const actorType = sql`case when coalesce(${params.actorId}::uuid = platform.system_actor_id(), true)
+    then ${AUDIT_ACTOR_TYPE_SYSTEM} else ${AUDIT_ACTOR_TYPE_USER} end`;
   await tx.execute(sql`
     insert into platform.audit_log
       (occurred_at, user_id, actor_type, entity_id, schema_name, table_name, record_id, operation,
@@ -157,8 +218,9 @@ export interface InsertBillableEventParams {
   readonly isIntercompany?: boolean;
   readonly counterpartyEntityId?: string | null;
   readonly correlationId: string;
-  /** D1: no caller identity this slice — a system-actor call carries `null` (audit_log's
-   *  actor_type becomes 'system'); a future human-triggered caller may pass a userId. */
+  /** The audit `user_id` / outbox `actor_id`. A system-actor subscriber passes the system actor id
+   *  (D-212, 0048 platform.system_actor_id()) -> audit actor_type 'system'; a human caller passes
+   *  its userId -> 'user'. Must equal the tx's app.user_id (0048 audit_append refuses null). */
   readonly actorId?: string | null;
 }
 

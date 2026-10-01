@@ -64,3 +64,40 @@ export class DuplicateBillableEventError extends Error {
     this.name = 'DuplicateBillableEventError';
   }
 }
+
+/** WBS 4.3 part 1 (Master review finding 4): a relayed outbox event carries no `entity_id` — the
+ *  subscriber cannot open an entity-scoped context for it. Thrown, never defaulted; the relay
+ *  records it in `platform.outbox.last_error` and leaves the row for redelivery. */
+export class MissingEventEntityError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'MissingEventEntityError';
+  }
+}
+
+/** WBS 4.3 part 1 (brief Decision 3): the relayed event's payload does not match its schema
+ *  (e.g. no `orderId`). Thrown so the relay records `last_error` and retries — never guessed. */
+export class InvalidEventPayloadError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'InvalidEventPayloadError';
+  }
+}
+
+/** WBS 4.3 part 1 (brief "Stop-and-ask": seed 13B:2566-2572): a mapped service code has no ACTIVE
+ *  `catalog.services` row. A subscriber never inserts a service and never bills a guessed id. */
+export class BillableServiceNotFoundError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'BillableServiceNotFoundError';
+  }
+}
+
+/** WBS 4.3 part 1: the resolved source row has no `client_id` — a billable event requires one
+ *  (`billing.billable_events.client_id`); never filled from the event or a guess. */
+export class SourceClientMissingError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'SourceClientMissingError';
+  }
+}
