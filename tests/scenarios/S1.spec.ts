@@ -226,6 +226,9 @@ test.describe('S1 Full 3PL client (Segment A, PST + PDL)', () => {
       nameEn: 'GULF-0137',
       nameAr: 'صنف اختبار جالف قصير الصلاحية',
       minRemainingLifeReceiptDays: S1_MIN_SHELF_LIFE_DAYS,
+      // A SKU with a receipt shelf-life minimum is expiry-tracked by definition (doc 40 Part E S1/1);
+      // the QRT routing rule only applies to track_expiry SKUs.
+      trackExpiry: true,
     });
     skuTwoId = await insertSku(pool, {
       clientId,
@@ -382,29 +385,44 @@ test.describe('S1 Full 3PL client (Segment A, PST + PDL)', () => {
       );
       expect.soft(
         balanceResult.rows[0]?.zoneCode,
-        'NOT BUILT: receive-inbound has no shelf-life -> quarantine routing yet (backlog row "S1 QRT routing", owner 2.9 part 3) — ' +
-          'the batch landed on a non-QRT zone instead',
+        'the received short-shelf-life batch must be located in zone QRT',
       ).toBe(QUARANTINE_ZONE_CODE);
     });
 
     await test.step('And a decision item "quarantine_decision" is created for client contact within 48 h', async () => {
-      const decisionResult: QueryResult<{ id: string; created_at: string; due_at: string | null }> = await pool.query(
-        `select id, created_at, due_at from platform.decisions
+      const decisionResult: QueryResult<{
+        id: string;
+        status: string;
+        assigned_role: string | null;
+        due_at: string | null;
+      }> = await pool.query(
+        `select id, status, assigned_role, due_at from platform.decisions
           where kind = 'quarantine_decision' and source_table = 'wms.inbound_orders' and source_id = $1`,
         [orderId],
       );
+      expect.soft(decisionResult.rows, 'exactly one quarantine_decision row for the inbound order').toHaveLength(1);
       const decisionRow = decisionResult.rows[0];
+      expect.soft(decisionRow?.status, 'the quarantine_decision is open').toBe('open');
+
+      const chainResult: QueryResult<{ approver_role: string }> = await pool.query(
+        `select approver_role from platform.approval_chains where request_type = 'quarantine_decision' and step_no = 1 and is_active`,
+      );
+      expect.soft(chainResult.rows, "exactly one active ('quarantine_decision', 1) approval-chain row").toHaveLength(1);
+      expect.soft(decisionRow?.assigned_role, "assigned_role equals the ('quarantine_decision', step 1) approver_role").toBe(
+        chainResult.rows[0]?.approver_role,
+      );
+
+      const hoursResult: QueryResult<{ value: string }> = await pool.query(
+        `select value::text as value from platform.thresholds where key = 'wms.quarantine.decision_due_hours'`,
+      );
+      const dueHours = Number(hoursResult.rows[0]?.value);
+      expect.soft(Number.isFinite(dueHours), 'threshold wms.quarantine.decision_due_hours is present and numeric').toBe(true);
+      expect.soft(dueHours, 'decision due window is within the doc-40 48 h').toBeLessThanOrEqual(DECISION_DUE_WITHIN_HOURS);
+      const expectedDueMs = clock.now().getTime() + dueHours * MS_PER_HOUR;
       expect.soft(
-        decisionRow,
-        'NOT BUILT: no quarantine_decision item exists for platform.decisions (source_table=wms.inbound_orders, ' +
-          `source_id=${orderId}) — the short-shelf-life-receipt decision workflow is not built yet (backlog row "S1 quarantine_decision", owner 2.9 part 3)`,
-      ).toBeDefined();
-      if (decisionRow) {
-        const dueBoundMs = new Date(decisionRow.created_at).getTime() + DECISION_DUE_WITHIN_HOURS * MS_PER_HOUR;
-        expect.soft(new Date(decisionRow.due_at ?? Number.NaN).getTime(), 'decision due_at must be within 48h of its own created_at').toBeLessThanOrEqual(
-          dueBoundMs,
-        );
-      }
+        new Date(decisionRow?.due_at ?? Number.NaN).getTime(),
+        'decision due_at = occurred_at + wms.quarantine.decision_due_hours',
+      ).toBe(expectedDueMs);
     });
 
     await test.step('And no stock_movement to a storage location exists for that batch', async () => {

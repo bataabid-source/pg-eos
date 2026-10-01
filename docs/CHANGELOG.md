@@ -4,6 +4,14 @@ One entry per completed task, newest first (CLAUDE.md · GIT · DOCUMENTATION). 
 
 ---
 
+## 2.18 — S1 scenario 1 green on 2.9 part 3 step 2: QRT routing + quarantine_decision (integration lane 3) (2026-10-01)
+
+- **What:** `tests/scenarios/S1.spec.ts` — fixture SKU GULF-0137 gets `trackExpiry: true` (a SKU with a receipt shelf-life minimum is expiry-tracked; the #247 rule applies to `track_expiry` SKUs only); the QRT step drops its NOT BUILT text; the `quarantine_decision` step now asserts exactly one row, `status` open, `assigned_role` = the `('quarantine_decision', 1)` approval-chain role and `due_at` = occurred_at + `wms.quarantine.decision_due_hours`, both read from the DB, plus the kept doc-40 bound: the threshold is ≤ `DECISION_DUE_WITHIN_HOURS` (48, "within 48 h") and the chain row exists exactly once.
+- **Why:** backlog rows "S1 QRT routing" / "S1 quarantine_decision" were BUILT in ff39ce4 (#247) and waited only on this fixture.
+- **State:** S1 scenario 1 green; S1 still RED only on OF-01/02/06/07 billable events (4.3) and the PDL delivery task (3.4); S1 not added to green.json.
+- **Verified:** S1 twice on pgeos_lane3 (0047 applied), identical; migration-0047 2/2; tsc + eslint clean.
+- **Review:** see commit trailer · **Tokens:** pg-tester 41k (reported).
+
 ## X — `scripts/check-locks.sh` lane cap 3 → 4 (D-205 C, M-core `tooling`, 2026-09-29)
 
 - **Why:** GM 20:31Z «موافق A.B.C», relayed verbatim on #207 at 20:46Z → D-205 C (D-205 row in DECISION_LOG is the Master's, before or with this merge): seven sessions (Master, M-core, three build lanes, integration); the lock table may hold four lane rows with distinct lanes. Master M13 21:30Z: "check-locks allows max three lanes — M-core raises it to 4 under `tooling` before lane 2 returns".
