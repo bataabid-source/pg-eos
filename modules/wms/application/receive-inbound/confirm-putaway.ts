@@ -7,7 +7,8 @@
 // locked line (status <> 'complete' AND location_id IS NULL) -> LineAlreadyPutAwayError, BEFORE
 // any ledger post; (4) the line write; (5) the reused ledger port's own advisory locks (INV-C3-4
 // inherited, unmodified, from WBS 2.4); (6) the unconditional version bump; (7) audit row
-// (last).
+// (last). WBS 2.9 part 3 step 2: after (3), a line whose quarantine_decision is still open is
+// refused with QuarantineDecisionOpenError (422), before any write.
 //
 // Re-validates `toLocationId` itself (does not trust SuggestLocation's own output) — enforced by
 // the ledger port's postPutawayTransfer.
@@ -15,7 +16,13 @@
 import { withIdempotentContext, type IdempotencyInput, type WithContextCtx } from '@pg-eos/db';
 
 import { INBOUND_ORDER_EVENTS, advanceInboundOrder, canTransition } from '../../domain/receive-inbound/machine.js';
-import { LineAlreadyPutAwayError, MissingActorError, RcvBalanceMissingError, StaleVersionError } from '../../domain/receive-inbound/errors.js';
+import {
+  LineAlreadyPutAwayError,
+  MissingActorError,
+  QuarantineDecisionOpenError,
+  RcvBalanceMissingError,
+  StaleVersionError,
+} from '../../domain/receive-inbound/errors.js';
 import type { ReceiveInboundDeps } from './ports.js';
 
 const LINE_STATUS_COMPLETE = 'complete';
@@ -71,6 +78,15 @@ export async function confirmPutaway(
       ? INBOUND_ORDER_EVENTS.CONFIRM_PUTAWAY_FIRST
       : INBOUND_ORDER_EVENTS.CONFIRM_PUTAWAY;
     const finalStatus = advanceInboundOrder(order.status, [putawayEvent]);
+
+    // WBS 2.9 part 3 step 2 (D-211 §4, Decision 4a): a batch received short of its minimum shelf
+    // life is held in QRT while its quarantine decision is open — no movement to storage.
+    if (await deps.repo.hasOpenQuarantineDecision(tx, { orderId: input.orderId, lineId: input.lineId })) {
+      throw new QuarantineDecisionOpenError(
+        `order line ${input.lineId} is held in quarantine: its quarantine_decision is still open ` +
+          `(D-211). (Allowed: put-away after the decision is taken)`,
+      );
+    }
 
     const rcvLocation = await deps.repo.findRcvBalanceLocation(tx, {
       warehouseId: order.warehouseId,

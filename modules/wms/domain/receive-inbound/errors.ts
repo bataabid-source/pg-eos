@@ -140,3 +140,13 @@ export class MissingActorError extends Error {
     this.name = 'MissingActorError';
   }
 }
+
+/** D-211 §4 (WBS 2.9 part 3 step 2): the line's batch was received short of its minimum shelf life
+ *  and its `quarantine_decision` item in platform.decisions is still `open` — no movement of that
+ *  batch to a storage location until the item is decided. Raised BEFORE any write. Maps to HTTP 422. */
+export class QuarantineDecisionOpenError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'QuarantineDecisionOpenError';
+  }
+}
